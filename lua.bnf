@@ -1,0 +1,309 @@
+!whitespace : ' ' | '\t' | '\n' | '\r';
+
+/* Comments */
+
+!comment : '-' '-' {.} '\n';
+
+/* Identifiers */
+
+_alpha : 'a'-'z' | 'A'-'Z' | '_';
+
+ident : _alpha {_alpha | _digit };
+
+/* Numbers */
+
+_digit : '0'-'9';
+_digits : _digit {_digit};
+
+_hex : _digit | 'a'-'f' | 'A'-'F';
+_hexs : _hex {_hex};
+
+numdec : _digits ['.' _digits] [('e' | 'E') ['+' | '-'] _digits];
+numhex : '0' ('x' | 'X') _hexs ['.' _hexs] [('p' | 'P') ['+' | '-'] _hexs];
+
+/* Strings */
+
+_xchar : '\\' 'x' _hex [_hex];
+_dchar : '\\' _digit [_digit [_digit]];
+_echar : '\\' ('a' | 'b' | 'f' | 'n' | 'r' | 't' | 'v' | 'z' | '"' | '\'' | '\n');
+_unicode : '\\' 'u' '{' _hex {_hex} '}';
+_stringbody : . | _xchar | _dchar | _echar | _unicode;
+
+string : '"' {_stringbody} '"' | '\'' {_stringbody} '\'';
+
+/* Syntax rules */
+
+<<
+import "github.com/arnodel/golua/ast"
+import "github.com/arnodel/golua/token"
+import "github.com/arnodel/golua/ops"
+>>
+
+/* Statements */
+
+Chunk
+    : StatList "return" ExpList ";" << ast.NewBlockStat($0.([]ast.Stat), $2.([]ast.ExpNode)) >>
+    | StatList "return" ExpList     << ast.NewBlockStat($0.([]ast.Stat), $2.([]ast.ExpNode)) >>
+    | StatList "return" ";"         << ast.NewBlockStat($0.([]ast.Stat), []ast.ExpNode{}) >>
+    | StatList "return"             << ast.NewBlockStat($0.([]ast.Stat), []ast.ExpNode{}) >>
+    | StatList                      << ast.NewBlockStat($0.([]ast.Stat), nil) >>
+    ;
+
+StatList
+    : empty << []ast.Stat{}, nil >>
+    | StatList Stat << append($0.([]ast.Stat), $1.(ast.Stat)), nil >>
+    ;
+
+Stat
+    : ";"              << ast.NewEmptyStat() >>
+    | AssignStat
+    | FunctionCall ";"
+    | Label
+    | BreakStat
+    | GotoStat
+    | BlockStat
+    | WhileStat
+    | RepeatStat
+    | IfStat
+    | ForStat
+    | ForInStat
+    | FunctionStat
+    | LocalFunctionStat
+    | LocalStat
+    ;
+
+AssignStat : VarList "=" ExpList << ast.NewAssignStat($0.([]ast.Var), $2.([]ast.ExpNode)) >>;
+
+BreakStat : "break" << ast.NewBreakStat() >>;
+
+GotoStat : "goto" Name << ast.NewGotoStat($1.(ast.Name)) >>;
+
+BlockStat : "do" Chunk "end" << $1, nil >>;
+
+WhileStat : "while" Exp "do" Chunk "end" << ast.NewWhileStat($1.(ast.ExpNode), $3.(ast.Stat)) >>;
+
+RepeatStat : "repeat" Chunk "until" Exp << ast.NewRepeatStat($1.(ast.Stat), $3.(ast.ExpNode)) >>;
+
+ElseIf
+    : Exp "then" Chunk                 << ast.NewIfStat().AddElseIf($0.(ast.ExpNode), $2.(ast.BlockStat)) >>
+    | ElseIf "elseif" Exp "then" Chunk << $0.(ast.IfStat).AddElseIf($2.(ast.ExpNode), $4.(ast.BlockStat)) >>
+    ;
+
+Else
+    : "elseif" ElseIf "else" Chunk "end" << $1.(ast.IfStat).AddElse($3.(ast.BlockStat)) >>
+    | "elseif" ElseIf "end"              << $1, nil >>
+    | "else" Chunk "end"                 << ast.NewIfStat().AddElse($2.(ast.BlockStat)) >>
+    | "end"                              << ast.NewIfStat(), nil >>
+    ;
+
+IfStat : "if" Exp "then" Chunk Else << $4.(ast.IfStat).AddIf($1.(ast.ExpNode), $3.(ast.BlockStat)) >>;
+
+ForList
+    : Exp "," Exp         << []ast.ExpNode{$0.(ast.ExpNode), $2.(ast.ExpNode), ast.Int(1)}, nil >>
+    | Exp "," Exp "," Exp << []ast.ExpNode{$0.(ast.ExpNode), $2.(ast.ExpNode), $4.(ast.ExpNode)}, nil >>
+    ;
+
+ForStat : "for" Name "=" ForList "do" Chunk "end" << ast.NewForStat($1.(ast.Name), $3.([]ast.ExpNode), $5.(ast.BlockStat)) >>;
+
+ForInStat : "for" NameList "in" ExpList "do" Chunk "end" << ast.NewForInStat($1.([]ast.Name), $3.([]ast.ExpNode), $5.(ast.BlockStat))>>;
+
+FunctionStat : "function" FuncName FuncBody << ast.NewFunctionStat($1.(ast.FunctionName), $2.(ast.Function)) >>;
+
+LocalFunctionStat : "local" "function" Name FuncBody << ast.NewLocalFunctionStat($2.(ast.Name), $3.(ast.Function)) >>;
+
+LocalStat
+    : "local" NameList             << ast.NewLocalStat($1.([]ast.Name), nil) >>
+    | "local" NameList "=" ExpList << ast.NewLocalStat($1.([]ast.Name), $3.([]ast.ExpNode)) >>
+    ;
+
+Label : "::" Name "::" << ast.NewLabelStat($0.(ast.Name)) >>;
+
+/* Helper rules for statements */
+
+DottedName
+    : Name                << []ast.Name{$0.(ast.Name)}, nil >>
+    | DottedName "." Name << append($0.([]ast.Name), $2.(ast.Name)), nil >>
+    ;
+
+FuncName
+    : DottedName          << ast.NewFunctionName($0.([]ast.Name), ast.Name("")) >>
+    | DottedName ":" Name << ast.NewFunctionName($0.([]ast.Name), $2.(ast.Name)) >>
+    ;
+
+VarList
+    : Var             << []ast.Var{$0.(ast.Var)}, nil >>
+    | VarList "," Var << append($0.([]ast.Var), $2.(ast.Var)), nil >>
+    ;
+
+NameList
+    : Name              << []ast.Name{$0.(ast.Name)}, nil >>
+    | NameList "," Name << append($0.([]ast.Name), $2.(ast.Name)), nil >>
+    ;
+
+ExpList
+    : Exp             << []ast.ExpNode{$0.(ast.ExpNode)}, nil >>
+    | ExpList "," Exp << append($0.([]ast.ExpNode), $2.(ast.ExpNode)), nil >>
+    ;
+
+/* Expressions */
+
+Exp
+    : AndExp
+    | Exp "or" AndExp << ast.NewBinOp($0.(ast.ExpNode), ops.OpOr, $2.(ast.ExpNode)) >>
+    ;
+
+AndExp
+    : CompExp
+    | AndExp "and" CompExp << ast.NewBinOp($0.(ast.ExpNode), ops.OpAnd, $2.(ast.ExpNode)) >>
+    ;
+
+CompOp 
+    : "<"  << ops.OpLt, nil >>
+    | "<=" << ops.OpLeq, nil >>
+    | ">"  << ops.OpGt, nil >>
+    | ">=" << ops.OpGeq, nil >>
+    | "==" << ops.OpEq, nil >>
+    | "~=" << ops.OpNeq, nil >>
+    ;
+
+CompExp
+    : BitOrExp
+    | CompExp CompOp BitOrExp << ast.NewBinOp($0.(ast.ExpNode), $1.(ops.Op), $2.(ast.ExpNode)) >>
+    ;
+
+BitOrExp
+    : BitXorExp
+    | BitOrExp "|" BitXorExp << ast.NewBinOp($0.(ast.ExpNode), ops.OpBitOr, $2.(ast.ExpNode)) >>
+    ;
+
+BitXorExp
+    : BitAndExp
+    | BitXorExp "~" BitAndExp << ast.NewBinOp($0.(ast.ExpNode), ops.OpBitXor, $2.(ast.ExpNode)) >>
+    ;
+
+BitAndExp
+    : ConcatExp
+    | BitAndExp "&" ConcatExp << ast.NewBinOp($0.(ast.ExpNode), ops.OpBitAnd, $2.(ast.ExpNode)) >>
+    ;
+
+ConcatExp
+    : ShiftExp
+    | ConcatExp ".." ShiftExp << ast.NewBinOp($0.(ast.ExpNode), ops.OpConcat, $2.(ast.ExpNode)) >>
+    ;
+
+ShiftOp
+    : "<<" << ops.OpShiftL, nil >>
+    | ">>" << ops.OpShiftR, nil >>
+    ;
+
+ShiftExp
+    : Sum
+    | ShiftExp ShiftOp Sum << ast.NewBinOp($0.(ast.ExpNode), $1.(ops.Op), $2.(ast.ExpNode)) >>
+    ;
+
+SumOp
+    : "+" << ops.OpAdd, nil >>
+    | "-" << ops.OpSub, nil >>
+    ;
+
+Sum
+    : Term
+    | Sum SumOp Term << ast.NewBinOp($0.(ast.ExpNode), $1.(ops.Op), $2.(ast.ExpNode)) >>
+    ;
+
+TermOp
+    : "*"  << ops.OpMul, nil >>
+    | "/"  << ops.OpDiv, nil >>
+    | "%"  << ops.OpMod, nil >>
+    | "//" << ops.OpFloorDiv, nil >>
+    ;
+
+Term
+    : Factor
+    | Term TermOp Factor << ast.NewBinOp($0.(ast.ExpNode), $1.(ops.Op), $2.(ast.ExpNode)) >>
+    ;
+
+UnOp 
+     : "-"   << ops.OpNeg, nil >>
+     | "not" << ops.OpNot, nil >>
+     | "#"   << ops.OpLen, nil >>
+     | "~"   << ops.OpBitNot, nil>>
+     ;
+
+Factor
+    : UnOp Factor << ast.NewUnOp($0.(ops.Op), $1.(ast.ExpNode)) >>
+    | Power
+    ;
+
+Power
+    : Atom
+    | Atom "^" Factor << ast.NewBinOp($0.(ast.ExpNode), ops.OpPow, $2.(ast.ExpNode)) >>
+    ;
+
+Var
+    : Name
+    | PrefixExp "[" Exp "]" << ast.NewIndexExp($0.(ast.ExpNode), $2.(ast.ExpNode)) >>
+    | PrefixExp "." Name    << ast.NewIndexExp($0.(ast.ExpNode), $2.(ast.ExpNode)) >>
+    ;
+
+PrefixExp
+    : Var
+    | FunctionCall
+    | "(" Exp ")" << $1, nil >>
+    ;
+
+FunctionCall
+    : PrefixExp Args           << ast.NewFunctionCall($0.(ast.ExpNode), ast.Name(""), $1.([]ast.ExpNode)) >>
+    | PrefixExp ":" Name Args  << ast.NewFunctionCall($0.(ast.ExpNode), $2.(ast.Name), $3.([]ast.ExpNode)) >>
+    ;
+
+Atom
+    : "nil"    << ast.Nil, nil >>
+    | "true"   << ast.True, nil >>
+    | "false"  << ast.False, nil >>
+    | "..."    << ast.Etc, nil >>
+    | numdec   << ast.NewNumber($0.(*token.Token)) >>
+    | numhex   << ast.NewNumber($0.(*token.Token)) >>
+    | string   << ast.NewString($0.(*token.Token)), nil >>
+    | FunctionDef
+    | TableConstructor
+    | PrefixExp
+    ;
+
+Args
+    : "(" ")"          << []ast.ExpNode{}, nil >>
+    | "(" ExpList ")"  << $1.([]ast.ExpNode), nil >>
+    | TableConstructor << []ast.ExpNode{$0.(ast.ExpNode)}, nil >>
+    | string           << []ast.ExpNode{ast.NewString($0.(*token.Token))}, nil >>
+    ;
+
+FunctionDef : "function" FuncBody << $1, nil >>;
+
+ParList
+    : NameList           << ast.NewParList($0.([]ast.Name), false) >>
+    | NameList "," "..." << ast.NewParList($0.([]ast.Name), true) >>
+    | "..."              << ast.NewParList(nil, true) >>
+    | empty              << ast.NewParList(nil, false) >>
+    ;
+
+FuncBody : "(" ParList ")" Chunk "end" << ast.NewFunction($1.(ast.ParList), $3.(ast.BlockStat)) >>;
+
+TableConstructor 
+    : "{" FieldList "}"          << ast.NewTableConstructor($1.([]ast.TableField)) >>
+    | "{" FieldList FieldSep "}" << ast.NewTableConstructor($1.([]ast.TableField)) >>
+    ;
+
+FieldSep : "," | ";";
+
+FieldList
+    : Field                    << []ast.TableField{$0.(ast.TableField)}, nil >>
+    | FieldList FieldSep Field << append($0.([]ast.TableField), $2.(ast.TableField)), nil >>
+    ;
+
+Field
+    : "[" Exp "]" "=" Exp << ast.NewTableField($1.(ast.ExpNode), $4.(ast.ExpNode)) >>
+    | Name "=" Exp        << ast.NewTableField($0.(ast.ExpNode), $2.(ast.ExpNode)) >>
+    | Exp                 << ast.NewTableField(ast.NoTableKey{}, $0.(ast.ExpNode)) >>
+    ;
+
+Name : ident << ast.NewName($0.(*token.Token)) >>;
