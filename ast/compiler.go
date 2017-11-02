@@ -95,7 +95,7 @@ func (c *Compiler) Emit(instr ir.Instruction) {
 	c.code = append(c.code, instr)
 }
 
-func (c *Compiler) GetConstant(k interface{}) uint {
+func (c *Compiler) GetConstant(k ir.Constant) uint {
 	for i, kk := range c.constants {
 		if k == kk {
 			return uint(i)
@@ -105,7 +105,7 @@ func (c *Compiler) GetConstant(k interface{}) uint {
 	return uint(len(c.constants) - 1)
 }
 
-func EmitConstant(c *Compiler, k interface{}) ir.Register {
+func EmitConstant(c *Compiler, k ir.Constant) ir.Register {
 	reg := c.NewRegister()
 	c.Emit(ir.LoadConst{Dst: reg, Kidx: c.GetConstant(k)})
 	return reg
