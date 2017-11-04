@@ -31,20 +31,22 @@ func (b *BinOp) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (b *BinOp) CompileExp(c *Compiler) ir.Register {
-	lsrc := b.left.CompileExp(c)
-	dst := c.NewRegister()
-	var rsrc ir.Register
+func (b *BinOp) CompileExp(c *Compiler, dst ir.Register) ir.Register {
+	lsrc := CompileExp(c, b.left)
+	c.TakeRegister(lsrc)
 	for _, r := range b.right {
-		rsrc = r.operand.CompileExp(c)
+		rsrc := CompileExp(c, r.operand)
 		c.Emit(ir.Combine{
 			Op:   r.op,
 			Dst:  dst,
 			Lsrc: lsrc,
 			Rsrc: rsrc,
 		})
+		c.ReleaseRegister(lsrc)
 		lsrc = dst
+		c.TakeRegister(dst)
 	}
+	c.ReleaseRegister(dst)
 	return dst
 }
 
@@ -78,12 +80,11 @@ func (u *UnOp) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (u *UnOp) CompileExp(c *Compiler) ir.Register {
-	dst := c.NewRegister()
+func (u *UnOp) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 	c.Emit(ir.Transform{
 		Op:  u.op,
 		Dst: dst,
-		Src: u.operand.CompileExp(c),
+		Src: CompileExp(c, u.operand),
 	})
 	return dst
 }
@@ -100,13 +101,16 @@ type IndexExp struct {
 	index      ExpNode
 }
 
-func (e IndexExp) CompileExp(c *Compiler) ir.Register {
-	dst := c.NewRegister()
+func (e IndexExp) CompileExp(c *Compiler, dst ir.Register) ir.Register {
+	tReg := CompileExp(c, e.collection)
+	c.TakeRegister(tReg)
+	iReg := CompileExp(c, e.index)
 	c.Emit(ir.Lookup{
 		Dst:   dst,
-		Table: e.collection.CompileExp(c),
-		Index: e.index.CompileExp(c),
+		Table: tReg,
+		Index: iReg,
 	})
+	c.ReleaseRegister(tReg)
 	return dst
 }
 

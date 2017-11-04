@@ -78,7 +78,18 @@ func (s BlockStat) HWrite(w HWriter) {
 }
 
 func (s BlockStat) CompileStat(c *Compiler) {
-	// TODO
+	c.PushContext()
+	for _, stat := range s.statements {
+		stat.CompileStat(c)
+	}
+	if s.returnValues != nil {
+		cont, ok := c.GetRegister(Name("<caller>"))
+		if !ok {
+			panic("Cannot return: no caller")
+		}
+		CallWithArgs(c, s.returnValues, cont)
+	}
+	c.PopContext()
 }
 
 type CondStat struct {

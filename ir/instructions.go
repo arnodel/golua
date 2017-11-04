@@ -8,6 +8,7 @@ import (
 )
 
 type Instruction interface {
+	fmt.Stringer
 }
 
 type Register int
@@ -32,7 +33,7 @@ type Combine struct {
 	Rsrc Register
 }
 
-func (c *Combine) String() string {
+func (c Combine) String() string {
 	return fmt.Sprintf("%s := %s(%s, %s)", c.Dst, c.Op, c.Lsrc, c.Rsrc)
 }
 
@@ -42,7 +43,7 @@ type Transform struct {
 	Src Register
 }
 
-func (t *Transform) String() string {
+func (t Transform) String() string {
 	return fmt.Sprintf("%s := %s(%s)", t.Dst, t.Op, t.Src)
 }
 
@@ -51,50 +52,50 @@ type LoadConst struct {
 	Kidx uint
 }
 
-func (l *LoadConst) String() string {
+func (l LoadConst) String() string {
 	return fmt.Sprintf("%s := k%d", l.Dst, l.Kidx)
 }
 
 type Push struct {
-	cont Register
-	item Register
+	Cont Register
+	Item Register
 }
 
-func (p *Push) String() string {
-	return fmt.Sprintf("push %s to %s", p.item, p.cont)
+func (p Push) String() string {
+	return fmt.Sprintf("push %s to %s", p.Item, p.Cont)
+}
+
+type PushCC struct {
+	Cont Register
+}
+
+func (p PushCC) String() string {
+	return fmt.Sprintf("push cc to %s", p.Cont)
 }
 
 type Jump struct {
-	label Label
+	Label Label
 }
 
-func (j *Jump) String() string {
-	return fmt.Sprintf("jump %s", j.label)
+func (j Jump) String() string {
+	return fmt.Sprintf("jump %s", j.Label)
 }
 
 type JumpIf struct {
-	cond  Register
-	label Label
+	Cond  Register
+	Label Label
 }
 
-func (j *JumpIf) String() string {
-	return fmt.Sprintf("jump %s if %s", j.label, j.cond)
+func (j JumpIf) String() string {
+	return fmt.Sprintf("jump %s if %s", j.Label, j.Cond)
 }
 
 type Call struct {
-	cont Register
+	Cont Register
 }
 
-func (c *Call) String() string {
-	return fmt.Sprintf("call %s", c.cont)
-}
-
-type Return struct {
-	cont Register
-}
-
-func (r *Return) String() string {
-	return fmt.Sprintf("rtn to %s", r.cont)
+func (c Call) String() string {
+	return fmt.Sprintf("call %s", c.Cont)
 }
 
 type MkClosure struct {
@@ -111,34 +112,34 @@ func joinRegisters(regs []Register, sep string) string {
 	return strings.Join(us, sep)
 }
 
-func (m *MkClosure) String() string {
+func (m MkClosure) String() string {
 	return fmt.Sprintf("%s := mkclos(k%d; %s)", m.Dst, m.Code, joinRegisters(m.Upvalues, ", "))
 }
 
 type MkCont struct {
-	dst     Register
-	closure Register
+	Dst     Register
+	Closure Register
 }
 
-func (m *MkCont) String() string {
-	return fmt.Sprintf("%s := mkcont(%s)", m.dst, m.closure)
+func (m MkCont) String() string {
+	return fmt.Sprintf("%s := mkcont(%s)", m.Dst, m.Closure)
 }
 
 type MkCell struct {
-	dst Register
-	src Register
+	Dst Register
+	Src Register
 }
 
-func (m *MkCell) String() string {
-	return fmt.Sprintf("%s := mkcell(%s)", m.dst, m.src)
+func (m MkCell) String() string {
+	return fmt.Sprintf("%s := mkcell(%s)", m.Dst, m.Src)
 }
 
 type MkTable struct {
-	dst Register
+	Dst Register
 }
 
-func (m *MkTable) String() string {
-	return fmt.Sprintf("%s := mktable()", m.dst)
+func (m MkTable) String() string {
+	return fmt.Sprintf("%s := mktable()", m.Dst)
 }
 
 type Lookup struct {
@@ -147,15 +148,25 @@ type Lookup struct {
 	Index Register
 }
 
-func (s *Lookup) String() string {
+func (s Lookup) String() string {
 	return fmt.Sprintf("%s := %s[%s]", s.Dst, s.Table, s.Index)
+}
+
+type Receiver interface {
+	GetRegisters() []Register
+	HasEtc() bool
+	GetEtc() Register
 }
 
 type Receive struct {
 	Dst []Register
 }
 
-func (r *Receive) String() string {
+func (r Receive) GetRegisters() []Register { return r.Dst }
+func (r Receive) HasEtc() bool             { return false }
+func (r Receive) GetEtc() Register         { return Register(0) }
+
+func (r Receive) String() string {
 	return fmt.Sprintf("recv(%s)", joinRegisters(r.Dst, ", "))
 }
 
@@ -164,6 +175,10 @@ type ReceiveEtc struct {
 	Etc Register
 }
 
-func (r *ReceiveEtc) String() string {
+func (r ReceiveEtc) GetRegisters() []Register { return r.Dst }
+func (r ReceiveEtc) HasEtc() bool             { return true }
+func (r ReceiveEtc) GetEtc() Register         { return r.Etc }
+
+func (r ReceiveEtc) String() string {
 	return fmt.Sprintf("recv(%s, ...%s)", joinRegisters(r.Dst, ", "), r.Etc)
 }

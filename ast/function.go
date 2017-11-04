@@ -42,28 +42,32 @@ func (f Function) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (f Function) CompileExp(c *Compiler) ir.Register {
+func (f Function) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 	fc := NewCompiler(c)
-	var recvRegs []ir.Register
-	for _, p := range f.params {
-		reg := fc.DeclareLocal(p)
-		recvRegs = append(recvRegs, reg)
+	recvRegs := make([]ir.Register, 1+len(f.params))
+	callerReg := fc.GetFreeRegister()
+	fc.DeclareLocal(Name("<caller>"), callerReg)
+	recvRegs[0] = callerReg
+	for i, p := range f.params {
+		reg := fc.GetFreeRegister()
+		fc.DeclareLocal(p, reg)
+		recvRegs[i+1] = reg
 	}
 	if !f.hasDots {
 		fc.Emit(ir.Receive{Dst: recvRegs})
 	} else {
-		etc := fc.DeclareLocal(Name("..."))
-		fc.Emit(ir.ReceiveEtc{Dst: recvRegs, Etc: etc})
+		reg := fc.GetFreeRegister()
+		fc.DeclareLocal(Name("..."), reg)
+		fc.Emit(ir.ReceiveEtc{Dst: recvRegs, Etc: reg})
 	}
 	f.body.CompileStat(fc)
 	kidx := c.GetConstant(fc.code)
-	reg := c.NewRegister()
 	c.Emit(ir.MkClosure{
-		Dst:      reg,
+		Dst:      dst,
 		Code:     kidx,
 		Upvalues: fc.upvalues,
 	})
-	return reg
+	return dst
 }
 
 type FunctionStat struct {
@@ -75,6 +79,10 @@ func (s FunctionStat) HWrite(w HWriter) {
 	w.Writef("function ")
 	s.name.HWrite(w)
 	s.Function.HWrite(w)
+}
+
+func (s FunctionStat) CompileStat(c *Compiler) {
+	// TODO
 }
 
 type LocalFunctionStat struct {
@@ -89,7 +97,8 @@ func (s LocalFunctionStat) HWrite(w HWriter) {
 }
 
 func (s LocalFunctionStat) CompileStat(c *Compiler) {
-	// TODO
+	reg := CompileExp(c, s.Function)
+	c.DeclareLocal(s.name, reg)
 }
 
 type ParList struct {

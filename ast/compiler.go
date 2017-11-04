@@ -1,6 +1,10 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
+import (
+	"fmt"
+
+	"github.com/arnodel/golua/ir"
+)
 
 type LexicalContext []map[Name]ir.Register
 
@@ -34,15 +38,31 @@ func (c LexicalContext) PushNew() LexicalContext {
 	return append(c, make(map[Name]ir.Register))
 }
 
-func (c LexicalContext) Pop() LexicalContext {
+func (c LexicalContext) Pop() (LexicalContext, map[Name]ir.Register) {
 	if len(c) == 0 {
-		return c
+		return c, nil
 	}
-	return c[:len(c)-1]
+	return c[:len(c)-1], c[len(c)-1]
+}
+
+func (c LexicalContext) Top() map[Name]ir.Register {
+	if len(c) > 0 {
+		return c[len(c)-1]
+	}
+	return nil
+}
+
+func (c LexicalContext) Dump() {
+	for i, ns := range c {
+		fmt.Printf("NS %d:\n", i)
+		for name, reg := range ns {
+			fmt.Printf("  %s: %s\n", name, reg)
+		}
+	}
 }
 
 type Compiler struct {
-	regCount  int
+	registers []int
 	context   LexicalContext
 	parent    *Compiler
 	upvalues  []ir.Register
@@ -54,6 +74,19 @@ func NewCompiler(parent *Compiler) *Compiler {
 	return &Compiler{
 		context: LexicalContext{}.PushNew(),
 		parent:  parent,
+	}
+}
+
+func (c *Compiler) Dump() {
+	fmt.Println("--context")
+	c.context.Dump()
+	fmt.Println("--constants")
+	for i, k := range c.constants {
+		fmt.Printf("k%d: %s\n", i, k)
+	}
+	fmt.Println("--code")
+	for instr := range c.code {
+		fmt.Println(instr)
 	}
 }
 
@@ -71,10 +104,28 @@ func (c *Compiler) GetRegister(name Name) (reg ir.Register, ok bool) {
 	return
 }
 
-func (c *Compiler) NewRegister() ir.Register {
-	reg := ir.Register(c.regCount)
-	c.regCount++
-	return reg
+func (c *Compiler) GetFreeRegister() ir.Register {
+	for i, n := range c.registers {
+		if n == 0 {
+			c.registers[i]++
+			return ir.Register(i)
+		}
+	}
+	c.registers = append(c.registers, 0)
+	return ir.Register(len(c.registers) - 1)
+}
+
+func (c *Compiler) TakeRegister(reg ir.Register) {
+	if int(reg) >= 0 {
+		c.registers[reg]++
+	}
+}
+
+func (c *Compiler) ReleaseRegister(reg ir.Register) {
+	if c.registers[reg] == 0 {
+		panic("Register cannot be released")
+	}
+	c.registers[reg]--
 }
 
 func (c *Compiler) PushContext() {
@@ -82,16 +133,23 @@ func (c *Compiler) PushContext() {
 }
 
 func (c *Compiler) PopContext() {
-	c.context = c.context.Pop()
+	context, top := c.context.Pop()
+	if top == nil {
+		panic("Cannot pop empty context")
+	}
+	c.context = context
+	for _, reg := range top {
+		c.ReleaseRegister(reg)
+	}
 }
 
-func (c *Compiler) DeclareLocal(name Name) ir.Register {
-	reg := c.NewRegister()
+func (c *Compiler) DeclareLocal(name Name, reg ir.Register) {
+	c.TakeRegister(reg)
 	c.context.AddToTop(name, reg)
-	return reg
 }
 
 func (c *Compiler) Emit(instr ir.Instruction) {
+	fmt.Printf("Emit %s\n", instr)
 	c.code = append(c.code, instr)
 }
 
@@ -105,8 +163,6 @@ func (c *Compiler) GetConstant(k ir.Constant) uint {
 	return uint(len(c.constants) - 1)
 }
 
-func EmitConstant(c *Compiler, k ir.Constant) ir.Register {
-	reg := c.NewRegister()
+func EmitConstant(c *Compiler, k ir.Constant, reg ir.Register) {
 	c.Emit(ir.LoadConst{Dst: reg, Kidx: c.GetConstant(k)})
-	return reg
 }

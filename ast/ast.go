@@ -11,7 +11,16 @@ import (
 
 type ExpNode interface {
 	Node
-	CompileExp(c *Compiler) ir.Register
+	CompileExp(*Compiler, ir.Register) ir.Register
+}
+
+func CompileExp(c *Compiler, e ExpNode) ir.Register {
+	r1 := c.GetFreeRegister()
+	r2 := e.CompileExp(c, r1)
+	if r1 != r2 {
+		return r2
+	}
+	return r1
 }
 
 // Var is an l-value
@@ -21,8 +30,9 @@ type Var interface {
 
 type Float float64
 
-func (f Float) CompileExp(c *Compiler) ir.Register {
-	return EmitConstant(c, ir.Float(f))
+func (f Float) CompileExp(c *Compiler, dst ir.Register) ir.Register {
+	EmitConstant(c, ir.Float(f), dst)
+	return dst
 }
 
 func (f Float) HWrite(w HWriter) {
@@ -35,8 +45,9 @@ func (n Int) HWrite(w HWriter) {
 	w.Writef("%d", int64(n))
 }
 
-func (n Int) CompileExp(c *Compiler) ir.Register {
-	return EmitConstant(c, ir.Int(n))
+func (n Int) CompileExp(c *Compiler, dst ir.Register) ir.Register {
+	EmitConstant(c, ir.Int(n), dst)
+	return dst
 }
 
 type Bool bool
@@ -45,8 +56,9 @@ func (b Bool) HWrite(w HWriter) {
 	w.Writef("%t", bool(b))
 }
 
-func (b Bool) CompilerExp(c *Compiler) ir.Register {
-	return EmitConstant(c, ir.Bool(b))
+func (b Bool) CompilerExp(c *Compiler, dst ir.Register) ir.Register {
+	EmitConstant(c, ir.Bool(b), dst)
+	return dst
 }
 
 type String []byte
@@ -55,8 +67,9 @@ func (s String) HWrite(w HWriter) {
 	w.Writef("%q", string(s))
 }
 
-func (s String) CompileExp(c *Compiler) ir.Register {
-	return EmitConstant(c, ir.String(s))
+func (s String) CompileExp(c *Compiler, dst ir.Register) ir.Register {
+	EmitConstant(c, ir.String(s), dst)
+	return dst
 }
 
 type Name string
@@ -65,7 +78,7 @@ func (n Name) HWrite(w HWriter) {
 	w.Writef(string(n))
 }
 
-func (n Name) CompileExp(c *Compiler) ir.Register {
+func (n Name) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 	reg, ok := c.GetRegister(n)
 	if ok {
 		return reg
@@ -74,14 +87,13 @@ func (n Name) CompileExp(c *Compiler) ir.Register {
 	if !ok {
 		panic("Cannot find _ENV")
 	}
-	idx := EmitConstant(c, ir.String(n))
-	reg = c.NewRegister()
+	EmitConstant(c, ir.String(n), dst)
 	c.Emit(ir.Lookup{
-		Dst:   reg,
+		Dst:   dst,
 		Table: env,
-		Index: idx,
+		Index: dst,
 	})
-	return reg
+	return dst
 }
 
 type NilType struct{}
@@ -90,8 +102,9 @@ func (n NilType) HWrite(w HWriter) {
 	w.Writef("nil")
 }
 
-func (n NilType) CompileExp(c *Compiler) ir.Register {
-	return EmitConstant(c, ir.NilType{})
+func (n NilType) CompileExp(c *Compiler, dst ir.Register) ir.Register {
+	EmitConstant(c, ir.NilType{}, dst)
+	return dst
 }
 
 type EtcType struct{}
@@ -100,7 +113,7 @@ func (e EtcType) HWrite(w HWriter) {
 	w.Writef("...")
 }
 
-func (e EtcType) CompileExp(c *Compiler) ir.Register {
+func (e EtcType) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 	reg, ok := c.GetRegister("...")
 	if ok {
 		return reg

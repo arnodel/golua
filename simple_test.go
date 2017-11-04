@@ -1,6 +1,7 @@
 package golua
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -21,6 +22,9 @@ end`,
 	}
 	w := ast.NewIndentWriter(os.Stdout)
 	p := parser.NewParser()
+	rc := ast.NewCompiler(nil)
+	envReg := rc.GetFreeRegister()
+	rc.DeclareLocal("_ENV", envReg)
 	for _, src := range testData {
 		s := lexer.NewLexer([]byte(src))
 		tree, err := p.Parse(s)
@@ -29,6 +33,10 @@ end`,
 		} else {
 			tree.(ast.Node).HWrite(w)
 			w.Next()
+			c := ast.NewCompiler(rc)
+			tree.(ast.Stat).CompileStat(c)
+			fmt.Printf("%+v\n", c)
+			c.Dump()
 		}
 	}
 }

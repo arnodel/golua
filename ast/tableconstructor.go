@@ -10,7 +10,7 @@ func (k NoTableKey) HWrite(w HWriter) {
 	w.Writef("<no key>")
 }
 
-func (k NoTableKey) CompileExp(c *Compiler) ir.Register {
+func (k NoTableKey) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 	panic("NoTableKey should not be compiled")
 }
 
@@ -28,9 +28,9 @@ func (c TableConstructor) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (t TableConstructor) CompileExp(c *Compiler) ir.Register {
+func (t TableConstructor) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 	// TODO
-	return c.NewRegister()
+	return dst
 }
 
 type TableField struct {
