@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/arnodel/golua/ir"
+	"github.com/arnodel/golua/ops"
 )
 
 type LexicalContext []map[Name]ir.Register
@@ -165,4 +166,10 @@ func (c *Compiler) GetConstant(k ir.Constant) uint {
 
 func EmitConstant(c *Compiler, k ir.Constant, reg ir.Register) {
 	c.Emit(ir.LoadConst{Dst: reg, Kidx: c.GetConstant(k)})
+}
+
+func EmmitMove(c *Compiler, dst ir.Register, src ir.Register) {
+	if dst != src {
+		c.Emit(ir.Transform{Op: ops.OpId, Dst: dst, Src: src})
+	}
 }

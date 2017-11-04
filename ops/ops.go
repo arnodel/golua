@@ -38,6 +38,7 @@ const (
 	OpNot
 	OpLen
 	OpBitNot
+	OpId
 )
 
 const OpPow Op = 11 + iota<<8
