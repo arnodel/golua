@@ -245,7 +245,7 @@ type ForStat struct {
 	start   ExpNode
 	stop    ExpNode
 	step    ExpNode
-	body    Stat
+	body    BlockStat
 }
 
 func (s *ForStat) HWrite(w HWriter) {
@@ -272,7 +272,51 @@ func (s *ForStat) HWrite(w HWriter) {
 }
 
 func (s ForStat) CompileStat(c *Compiler) {
-	// TODO
+	startReg := c.GetFreeRegister()
+	r := s.start.CompileExp(c, startReg)
+	EmitMove(c, startReg, r)
+	c.TakeRegister(startReg)
+
+	stopReg := c.GetFreeRegister()
+	r = s.stop.CompileExp(c, stopReg)
+	EmitMove(c, stopReg, r)
+	c.TakeRegister(stopReg)
+
+	stepReg := c.GetFreeRegister()
+	r = s.step.CompileExp(c, stepReg)
+	EmitMove(c, stepReg, r)
+	c.TakeRegister(stepReg)
+
+	loopLbl := c.GetNewLabel()
+	c.EmitLabel(loopLbl)
+	endLbl := c.GetNewLabel()
+	c.Emit(ir.JumpIfForLoopDone{
+		Label: endLbl,
+		Var:   startReg,
+		Limit: stopReg,
+		Step:  stepReg,
+	})
+
+	c.PushContext()
+	iterReg := c.GetFreeRegister()
+	EmitMove(c, iterReg, startReg)
+	c.DeclareLocal(s.itervar, iterReg)
+	s.body.CompileBlock(c)
+	c.PopContext()
+
+	c.Emit(ir.Combine{
+		Op:   ops.OpAdd,
+		Dst:  startReg,
+		Lsrc: startReg,
+		Rsrc: stepReg,
+	})
+	c.Emit(ir.Jump{Label: loopLbl})
+
+	c.EmitLabel(endLbl)
+
+	c.ReleaseRegister(startReg)
+	c.ReleaseRegister(stopReg)
+	c.ReleaseRegister(stepReg)
 }
 
 type ForInStat struct {

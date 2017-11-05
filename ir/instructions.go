@@ -192,3 +192,14 @@ type ReceiveEtc struct {
 func (r ReceiveEtc) String() string {
 	return fmt.Sprintf("recv(%s, ...%s)", joinRegisters(r.Dst, ", "), r.Etc)
 }
+
+type JumpIfForLoopDone struct {
+	Label Label
+	Var   Register
+	Limit Register
+	Step  Register
+}
+
+func (j JumpIfForLoopDone) String() string {
+	return fmt.Sprintf("jump %s if for loop done(%s, %s, %s)", j.Label, j.Var, j.Limit, j.Step)
+}
