@@ -135,14 +135,14 @@ func (c *Compiler) GetFreeRegister() ir.Register {
 	c.registers = append(c.registers, 0)
 	reg = ir.Register(len(c.registers) - 1)
 FoundLbl:
-	fmt.Printf("Get Free Reg %s\n", reg)
+	// fmt.Printf("Get Free Reg %s\n", reg)
 	return reg
 }
 
 func (c *Compiler) TakeRegister(reg ir.Register) {
 	if int(reg) >= 0 {
 		c.registers[reg]++
-		fmt.Printf("Take Reg %s %d\n", reg, c.registers[reg])
+		// fmt.Printf("Take Reg %s %d\n", reg, c.registers[reg])
 	}
 }
 
@@ -154,7 +154,7 @@ func (c *Compiler) ReleaseRegister(reg ir.Register) {
 		panic("Register cannot be released")
 	}
 	c.registers[reg]--
-	fmt.Printf("Release Reg %s %d\n", reg, c.registers[reg])
+	// fmt.Printf("Release Reg %s %d\n", reg, c.registers[reg])
 }
 
 func (c *Compiler) PushContext() {
@@ -173,13 +173,13 @@ func (c *Compiler) PopContext() {
 }
 
 func (c *Compiler) DeclareLocal(name Name, reg ir.Register) {
-	fmt.Printf("Declare %s %s\n", name, reg)
+	// fmt.Printf("Declare %s %s\n", name, reg)
 	c.TakeRegister(reg)
 	c.context.AddToTop(name, reg)
 }
 
 func (c *Compiler) Emit(instr ir.Instruction) {
-	fmt.Printf("Emit %s\n", instr)
+	// fmt.Printf("Emit %s\n", instr)
 	c.code = append(c.code, instr)
 }
 

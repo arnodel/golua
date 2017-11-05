@@ -1,6 +1,9 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
+import (
+	"github.com/arnodel/golua/ir"
+	"github.com/arnodel/golua/ops"
+)
 
 type Stat interface {
 	Node
@@ -120,8 +123,7 @@ func (s BlockStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (s BlockStat) CompileStat(c *Compiler) {
-	c.PushContext()
+func (s BlockStat) CompileBlock(c *Compiler) {
 	for _, stat := range s.statements {
 		stat.CompileStat(c)
 	}
@@ -132,12 +134,17 @@ func (s BlockStat) CompileStat(c *Compiler) {
 		}
 		CallWithArgs(c, s.returnValues, cont)
 	}
+}
+
+func (s BlockStat) CompileStat(c *Compiler) {
+	c.PushContext()
+	s.CompileBlock(c)
 	c.PopContext()
 }
 
 type CondStat struct {
 	cond ExpNode
-	body Stat
+	body BlockStat
 }
 
 func (s CondStat) HWrite(w HWriter) {
@@ -181,10 +188,22 @@ func (s RepeatStat) HWrite(w HWriter) {
 	s.CondStat.HWrite(w)
 }
 
+func (s RepeatStat) CompileStat(c *Compiler) {
+	c.PushContext()
+	loopLbl := c.GetNewLabel()
+	c.EmitLabel(loopLbl)
+	s.body.CompileBlock(c)
+	condReg := CompileExp(c, s.cond)
+	negReg := c.GetFreeRegister()
+	c.Emit(ir.Transform{Op: ops.OpNot, Dst: negReg, Src: condReg})
+	c.Emit(ir.JumpIf{Cond: negReg, Label: loopLbl})
+	c.PopContext()
+}
+
 type IfStat struct {
 	ifstat      CondStat
 	elseifstats []CondStat
-	elsestat    Stat
+	elsestat    *BlockStat
 }
 
 func (s IfStat) HWrite(w HWriter) {
@@ -324,11 +343,11 @@ func NewBlockStat(stats []Stat, rtn []ExpNode) (BlockStat, error) {
 	return BlockStat{stats, rtn}, nil
 }
 
-func NewWhileStat(cond ExpNode, body Stat) (WhileStat, error) {
+func NewWhileStat(cond ExpNode, body BlockStat) (WhileStat, error) {
 	return WhileStat{CondStat{cond: cond, body: body}}, nil
 }
 
-func NewRepeatStat(body Stat, cond ExpNode) (RepeatStat, error) {
+func NewRepeatStat(body BlockStat, cond ExpNode) (RepeatStat, error) {
 	return RepeatStat{CondStat{body: body, cond: cond}}, nil
 }
 
@@ -336,22 +355,22 @@ func NewIfStat() IfStat {
 	return IfStat{}
 }
 
-func (s IfStat) AddIf(cond ExpNode, body Stat) (IfStat, error) {
+func (s IfStat) AddIf(cond ExpNode, body BlockStat) (IfStat, error) {
 	s.ifstat = CondStat{cond, body}
 	return s, nil
 }
 
-func (s IfStat) AddElse(body Stat) (IfStat, error) {
-	s.elsestat = body
+func (s IfStat) AddElse(body BlockStat) (IfStat, error) {
+	s.elsestat = &body
 	return s, nil
 }
 
-func (s IfStat) AddElseIf(cond ExpNode, body Stat) (IfStat, error) {
+func (s IfStat) AddElseIf(cond ExpNode, body BlockStat) (IfStat, error) {
 	s.elseifstats = append(s.elseifstats, CondStat{cond, body})
 	return s, nil
 }
 
-func NewForStat(itervar Name, params []ExpNode, body Stat) (*ForStat, error) {
+func NewForStat(itervar Name, params []ExpNode, body BlockStat) (*ForStat, error) {
 	return &ForStat{
 		itervar: itervar,
 		start:   params[0],
@@ -361,7 +380,7 @@ func NewForStat(itervar Name, params []ExpNode, body Stat) (*ForStat, error) {
 	}, nil
 }
 
-func NewForInStat(itervars []Name, params []ExpNode, body Stat) (ForInStat, error) {
+func NewForInStat(itervars []Name, params []ExpNode, body BlockStat) (ForInStat, error) {
 	return ForInStat{
 		itervars: itervars,
 		params:   params,

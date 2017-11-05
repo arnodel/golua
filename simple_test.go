@@ -15,6 +15,7 @@ func Test1(t *testing.T) {
 		`local x, y = 2, 3; local z = x + 2*y`,
 		`local x = 0; if x > 0 then x = x - 1  else x = x + 1 end`,
 		`local x; while x > 0 do x = x - 1 end x = 10`,
+		`local x = 0; repeat x = x + 1 until x == 10`,
 		`local function f(x, y)
   local z = x + y
   return z

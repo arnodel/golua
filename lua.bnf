@@ -80,9 +80,9 @@ GotoStat : "goto" Name << ast.NewGotoStat($1.(ast.Name)) >>;
 
 BlockStat : "do" Chunk "end" << $1, nil >>;
 
-WhileStat : "while" Exp "do" Chunk "end" << ast.NewWhileStat($1.(ast.ExpNode), $3.(ast.Stat)) >>;
+WhileStat : "while" Exp "do" Chunk "end" << ast.NewWhileStat($1.(ast.ExpNode), $3.(ast.BlockStat)) >>;
 
-RepeatStat : "repeat" Chunk "until" Exp << ast.NewRepeatStat($1.(ast.Stat), $3.(ast.ExpNode)) >>;
+RepeatStat : "repeat" Chunk "until" Exp << ast.NewRepeatStat($1.(ast.BlockStat), $3.(ast.ExpNode)) >>;
 
 ElseIf
     : Exp "then" Chunk                 << ast.NewIfStat().AddElseIf($0.(ast.ExpNode), $2.(ast.BlockStat)) >>

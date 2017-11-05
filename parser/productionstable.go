@@ -293,23 +293,23 @@ var productionsTable = ProdTab{
 		},
 	},
 	ProdTabEntry{
-		String: `WhileStat : "while" Exp "do" Chunk "end"	<< ast.NewWhileStat(X[1].(ast.ExpNode), X[3].(ast.Stat)) >>`,
+		String: `WhileStat : "while" Exp "do" Chunk "end"	<< ast.NewWhileStat(X[1].(ast.ExpNode), X[3].(ast.BlockStat)) >>`,
 		Id:         "WhileStat",
 		NTType:     8,
 		Index:      27,
 		NumSymbols: 5,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
-			return ast.NewWhileStat(X[1].(ast.ExpNode), X[3].(ast.Stat))
+			return ast.NewWhileStat(X[1].(ast.ExpNode), X[3].(ast.BlockStat))
 		},
 	},
 	ProdTabEntry{
-		String: `RepeatStat : "repeat" Chunk "until" Exp	<< ast.NewRepeatStat(X[1].(ast.Stat), X[3].(ast.ExpNode)) >>`,
+		String: `RepeatStat : "repeat" Chunk "until" Exp	<< ast.NewRepeatStat(X[1].(ast.BlockStat), X[3].(ast.ExpNode)) >>`,
 		Id:         "RepeatStat",
 		NTType:     9,
 		Index:      28,
 		NumSymbols: 4,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
-			return ast.NewRepeatStat(X[1].(ast.Stat), X[3].(ast.ExpNode))
+			return ast.NewRepeatStat(X[1].(ast.BlockStat), X[3].(ast.ExpNode))
 		},
 	},
 	ProdTabEntry{
