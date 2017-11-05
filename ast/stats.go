@@ -165,7 +165,11 @@ func (s WhileStat) HWrite(w HWriter) {
 }
 
 func (s WhileStat) CompileStat(c *Compiler) {
-
+	loopLbl := c.GetNewLabel()
+	c.EmitLabel(loopLbl)
+	stopLbl := s.CondStat.CompileCond(c)
+	c.Emit(ir.Jump{Label: loopLbl})
+	c.EmitLabel(stopLbl)
 }
 
 type RepeatStat struct {
