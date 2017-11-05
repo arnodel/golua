@@ -4,58 +4,40 @@ package ops
 
 import "fmt"
 
-const (
-	_Op_name_0 = "OpOrOpAndOpLtOpBitOrOpBitXorOpBitAndOpShiftLOpConcatOpAddOpMulOpNegOpPow"
-	_Op_name_1 = "OpLeq"
-	_Op_name_2 = "OpShiftR"
-	_Op_name_3 = "OpSubOpDivOpNot"
-	_Op_name_4 = "OpGt"
-	_Op_name_5 = "OpFloorDivOpLen"
-	_Op_name_6 = "OpGeq"
-	_Op_name_7 = "OpModOpBitNot"
-	_Op_name_8 = "OpEq"
-	_Op_name_9 = "OpNeq"
-)
+const _Op_name = "OpOrOpAndOpLtOpBitOrOpBitXorOpBitAndOpShiftLOpConcatOpAddOpMulOpNegOpPowOpLeqOpShiftROpSubOpDivOpNotOpGtOpFloorDivOpLenOpGeqOpModOpBitNotOpEqOpIdOpNeq"
 
-var (
-	_Op_index_0 = [...]uint8{0, 4, 9, 13, 20, 28, 36, 44, 52, 57, 62, 67, 72}
-	_Op_index_1 = [...]uint8{0, 5}
-	_Op_index_2 = [...]uint8{0, 8}
-	_Op_index_3 = [...]uint8{0, 5, 10, 15}
-	_Op_index_4 = [...]uint8{0, 4}
-	_Op_index_5 = [...]uint8{0, 10, 15}
-	_Op_index_6 = [...]uint8{0, 5}
-	_Op_index_7 = [...]uint8{0, 5, 13}
-	_Op_index_8 = [...]uint8{0, 4}
-	_Op_index_9 = [...]uint8{0, 5}
-)
+var _Op_map = map[Op]string{
+	0:    _Op_name[0:4],
+	1:    _Op_name[4:9],
+	2:    _Op_name[9:13],
+	3:    _Op_name[13:20],
+	4:    _Op_name[20:28],
+	5:    _Op_name[28:36],
+	6:    _Op_name[36:44],
+	7:    _Op_name[44:52],
+	8:    _Op_name[52:57],
+	9:    _Op_name[57:62],
+	10:   _Op_name[62:67],
+	11:   _Op_name[67:72],
+	258:  _Op_name[72:77],
+	262:  _Op_name[77:85],
+	264:  _Op_name[85:90],
+	265:  _Op_name[90:95],
+	266:  _Op_name[95:100],
+	514:  _Op_name[100:104],
+	521:  _Op_name[104:114],
+	522:  _Op_name[114:119],
+	770:  _Op_name[119:124],
+	777:  _Op_name[124:129],
+	778:  _Op_name[129:137],
+	1026: _Op_name[137:141],
+	1034: _Op_name[141:145],
+	1282: _Op_name[145:150],
+}
 
 func (i Op) String() string {
-	switch {
-	case 0 <= i && i <= 11:
-		return _Op_name_0[_Op_index_0[i]:_Op_index_0[i+1]]
-	case i == 258:
-		return _Op_name_1
-	case i == 262:
-		return _Op_name_2
-	case 264 <= i && i <= 266:
-		i -= 264
-		return _Op_name_3[_Op_index_3[i]:_Op_index_3[i+1]]
-	case i == 514:
-		return _Op_name_4
-	case 521 <= i && i <= 522:
-		i -= 521
-		return _Op_name_5[_Op_index_5[i]:_Op_index_5[i+1]]
-	case i == 770:
-		return _Op_name_6
-	case 777 <= i && i <= 778:
-		i -= 777
-		return _Op_name_7[_Op_index_7[i]:_Op_index_7[i+1]]
-	case i == 1026:
-		return _Op_name_8
-	case i == 1282:
-		return _Op_name_9
-	default:
-		return fmt.Sprintf("Op(%d)", i)
+	if str, ok := _Op_map[i]; ok {
+		return str
 	}
+	return fmt.Sprintf("Op(%d)", i)
 }

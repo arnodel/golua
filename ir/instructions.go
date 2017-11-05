@@ -152,19 +152,29 @@ func (s Lookup) String() string {
 	return fmt.Sprintf("%s := %s[%s]", s.Dst, s.Table, s.Index)
 }
 
-type Receiver interface {
-	GetRegisters() []Register
-	HasEtc() bool
-	GetEtc() Register
+type SetIndex struct {
+	Table Register
+	Index Register
+	Src   Register
 }
+
+func (s SetIndex) String() string {
+	return fmt.Sprintf("%s[%s] := %s", s.Table, s.Index, s.Src)
+}
+
+// type Receiver interface {
+// 	GetRegisters() []Register
+// 	HasEtc() bool
+// 	GetEtc() Register
+// }
 
 type Receive struct {
 	Dst []Register
 }
 
-func (r Receive) GetRegisters() []Register { return r.Dst }
-func (r Receive) HasEtc() bool             { return false }
-func (r Receive) GetEtc() Register         { return Register(0) }
+// func (r Receive) GetRegisters() []Register { return r.Dst }
+// func (r Receive) HasEtc() bool             { return false }
+// func (r Receive) GetEtc() Register         { return Register(0) }
 
 func (r Receive) String() string {
 	return fmt.Sprintf("recv(%s)", joinRegisters(r.Dst, ", "))
@@ -175,9 +185,9 @@ type ReceiveEtc struct {
 	Etc Register
 }
 
-func (r ReceiveEtc) GetRegisters() []Register { return r.Dst }
-func (r ReceiveEtc) HasEtc() bool             { return true }
-func (r ReceiveEtc) GetEtc() Register         { return r.Etc }
+// func (r ReceiveEtc) GetRegisters() []Register { return r.Dst }
+// func (r ReceiveEtc) HasEtc() bool             { return true }
+// func (r ReceiveEtc) GetEtc() Register         { return r.Etc }
 
 func (r ReceiveEtc) String() string {
 	return fmt.Sprintf("recv(%s, ...%s)", joinRegisters(r.Dst, ", "), r.Etc)

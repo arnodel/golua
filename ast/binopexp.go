@@ -114,6 +114,20 @@ func (e IndexExp) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 	return dst
 }
 
+func (e IndexExp) CompileAssign(c *Compiler, src ir.Register) {
+	c.TakeRegister(src)
+	tReg := CompileExp(c, e.collection)
+	c.TakeRegister(tReg)
+	iReg := CompileExp(c, e.index)
+	c.ReleaseRegister(src)
+	c.ReleaseRegister(tReg)
+	c.Emit(ir.SetIndex{
+		Table: tReg,
+		Index: iReg,
+		Src:   src,
+	})
+}
+
 func (e IndexExp) HWrite(w HWriter) {
 	w.Writef("idx")
 	w.Indent()

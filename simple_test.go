@@ -12,6 +12,7 @@ import (
 
 func Test1(t *testing.T) {
 	testData := []string{
+		`local x, y = 2, 3; local z = x + 2*y`,
 		`if x > 0 then x = x - 1 end`,
 		`local function f(x, y)
   local z = x + y

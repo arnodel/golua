@@ -26,6 +26,7 @@ func CompileExp(c *Compiler, e ExpNode) ir.Register {
 // Var is an l-value
 type Var interface {
 	ExpNode
+	CompileAssign(*Compiler, ir.Register)
 }
 
 type Float float64
@@ -83,17 +84,16 @@ func (n Name) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 	if ok {
 		return reg
 	}
-	env, ok := c.GetRegister("_ENV")
-	if !ok {
-		panic("Cannot find _ENV")
+	return IndexExp{Name("_ENV"), String(n)}.CompileExp(c, dst)
+}
+
+func (n Name) CompileAssign(c *Compiler, src ir.Register) {
+	reg, ok := c.GetRegister(n)
+	if ok {
+		EmmitMove(c, reg, src)
+		return
 	}
-	EmitConstant(c, ir.String(n), dst)
-	c.Emit(ir.Lookup{
-		Dst:   dst,
-		Table: env,
-		Index: dst,
-	})
-	return dst
+	IndexExp{Name("_ENV"), String(n)}.CompileAssign(c, src)
 }
 
 type NilType struct{}

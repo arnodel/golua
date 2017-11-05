@@ -86,7 +86,7 @@ func (c *Compiler) Dump() {
 		fmt.Printf("k%d: %s\n", i, k)
 	}
 	fmt.Println("--code")
-	for instr := range c.code {
+	for _, instr := range c.code {
 		fmt.Println(instr)
 	}
 }
@@ -106,27 +106,36 @@ func (c *Compiler) GetRegister(name Name) (reg ir.Register, ok bool) {
 }
 
 func (c *Compiler) GetFreeRegister() ir.Register {
+	var reg ir.Register
 	for i, n := range c.registers {
 		if n == 0 {
-			c.registers[i]++
-			return ir.Register(i)
+			reg = ir.Register(i)
+			goto FoundLbl
 		}
 	}
 	c.registers = append(c.registers, 0)
-	return ir.Register(len(c.registers) - 1)
+	reg = ir.Register(len(c.registers) - 1)
+FoundLbl:
+	fmt.Printf("Get Free Reg %s\n", reg)
+	return reg
 }
 
 func (c *Compiler) TakeRegister(reg ir.Register) {
 	if int(reg) >= 0 {
 		c.registers[reg]++
+		fmt.Printf("Take Reg %s %d\n", reg, c.registers[reg])
 	}
 }
 
 func (c *Compiler) ReleaseRegister(reg ir.Register) {
+	if int(reg) < 0 {
+		return
+	}
 	if c.registers[reg] == 0 {
 		panic("Register cannot be released")
 	}
 	c.registers[reg]--
+	fmt.Printf("Release Reg %s %d\n", reg, c.registers[reg])
 }
 
 func (c *Compiler) PushContext() {
@@ -145,6 +154,7 @@ func (c *Compiler) PopContext() {
 }
 
 func (c *Compiler) DeclareLocal(name Name, reg ir.Register) {
+	fmt.Printf("Declare %s %s\n", name, reg)
 	c.TakeRegister(reg)
 	c.context.AddToTop(name, reg)
 }

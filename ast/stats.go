@@ -1,5 +1,7 @@
 package ast
 
+import "github.com/arnodel/golua/ir"
+
 type Stat interface {
 	Node
 	CompileStat(c *Compiler)
@@ -36,8 +38,49 @@ func (s AssignStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
+func CompileExpList(c *Compiler, exps []ExpNode, dstRegs []ir.Register) {
+	commonCount := len(exps)
+	if commonCount > len(dstRegs) {
+		commonCount = len(dstRegs)
+	}
+	var fCall FunctionCall
+	doFCall := false
+	if len(exps) < len(dstRegs) && len(exps) > 0 {
+		fCall, doFCall = exps[len(exps)-1].(FunctionCall)
+		if doFCall {
+			commonCount--
+		}
+	}
+	for i, exp := range exps[:commonCount] {
+		dst := c.GetFreeRegister()
+		reg := exp.CompileExp(c, dst)
+		EmmitMove(c, dst, reg)
+		c.TakeRegister(dst)
+		dstRegs[i] = dst
+	}
+	for i := commonCount; i < len(dstRegs); i++ {
+		dst := c.GetFreeRegister()
+		c.TakeRegister(dst)
+		dstRegs[i] = dst
+	}
+	if doFCall {
+		fCall.CompileCall(c)
+		c.Emit(ir.Receive{Dst: dstRegs[commonCount:]})
+	} else if len(dstRegs) > len(exps) {
+		nilK := ir.NilType{}
+		for _, dst := range dstRegs[len(exps):] {
+			EmitConstant(c, nilK, dst)
+		}
+	}
+}
+
 func (s AssignStat) CompileStat(c *Compiler) {
-	// TODO
+	resultRegs := make([]ir.Register, len(s.dst))
+	CompileExpList(c, s.src, resultRegs)
+	for i, reg := range resultRegs {
+		c.ReleaseRegister(reg)
+		s.dst[i].CompileAssign(c, reg)
+	}
 }
 
 type GotoStat struct {
