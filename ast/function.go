@@ -21,7 +21,7 @@ func (n FunctionName) HWrite(w HWriter) {
 
 type Function struct {
 	ParList
-	body Stat
+	body BlockStat
 }
 
 func (f Function) HWrite(w HWriter) {
@@ -60,7 +60,7 @@ func (f Function) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 		fc.DeclareLocal(Name("..."), reg)
 		fc.Emit(ir.ReceiveEtc{Dst: recvRegs, Etc: reg})
 	}
-	f.body.CompileStat(fc)
+	f.body.CompileBlock(fc)
 	kidx := c.GetConstant(fc.code)
 	c.Emit(ir.MkClosure{
 		Dst:      dst,
@@ -120,7 +120,11 @@ func NewFunctionName(names []Name, method Name) (FunctionName, error) {
 	}, nil
 }
 
-func NewFunction(parList ParList, body Stat) (Function, error) {
+func NewFunction(parList ParList, body BlockStat) (Function, error) {
+	// Make sure we return at the end of the function
+	if body.returnValues == nil {
+		body.returnValues = []ExpNode{}
+	}
 	return Function{ParList: parList, body: body}, nil
 }
 
