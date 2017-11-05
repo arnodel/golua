@@ -92,7 +92,7 @@ ElseIf
 Else
     : "elseif" ElseIf "else" Chunk "end" << $1.(ast.IfStat).AddElse($3.(ast.BlockStat)) >>
     | "elseif" ElseIf "end"              << $1, nil >>
-    | "else" Chunk "end"                 << ast.NewIfStat().AddElse($2.(ast.BlockStat)) >>
+    | "else" Chunk "end"                 << ast.NewIfStat().AddElse($1.(ast.BlockStat)) >>
     | "end"                              << ast.NewIfStat(), nil >>
     ;
 

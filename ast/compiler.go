@@ -69,12 +69,16 @@ type Compiler struct {
 	upvalues  []ir.Register
 	code      []ir.Instruction
 	constants []ir.Constant
+	labels    map[ir.Label]int
+	labelPos  map[int][]ir.Label
 }
 
 func NewCompiler(parent *Compiler) *Compiler {
 	return &Compiler{
-		context: LexicalContext{}.PushNew(),
-		parent:  parent,
+		context:  LexicalContext{}.PushNew(),
+		parent:   parent,
+		labels:   make(map[ir.Label]int),
+		labelPos: make(map[int][]ir.Label),
 	}
 }
 
@@ -86,9 +90,24 @@ func (c *Compiler) Dump() {
 		fmt.Printf("k%d: %s\n", i, k)
 	}
 	fmt.Println("--code")
-	for _, instr := range c.code {
+	for i, instr := range c.code {
+		for _, lbl := range c.labelPos[i] {
+			fmt.Printf("%s:\n", lbl)
+		}
 		fmt.Println(instr)
 	}
+}
+
+func (c *Compiler) GetNewLabel() ir.Label {
+	lbl := ir.Label(len(c.labels))
+	c.labels[lbl] = -1
+	return lbl
+}
+
+func (c *Compiler) EmitLabel(lbl ir.Label) {
+	pos := len(c.code)
+	c.labels[lbl] = pos
+	c.labelPos[pos] = append(c.labelPos[pos], lbl)
 }
 
 func (c *Compiler) GetRegister(name Name) (reg ir.Register, ok bool) {

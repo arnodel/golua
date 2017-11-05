@@ -147,8 +147,12 @@ func (s CondStat) HWrite(w HWriter) {
 	s.body.HWrite(w)
 }
 
-func (s CondStat) CompileStat(c *Compiler) {
-	// TODO
+func (s CondStat) CompileCond(c *Compiler) ir.Label {
+	condReg := CompileExp(c, s.cond)
+	lbl := c.GetNewLabel()
+	c.Emit(ir.JumpIf{Cond: condReg, Label: lbl})
+	s.body.CompileStat(c)
+	return lbl
 }
 
 type WhileStat struct {
@@ -161,7 +165,7 @@ func (s WhileStat) HWrite(w HWriter) {
 }
 
 func (s WhileStat) CompileStat(c *Compiler) {
-	// TODO
+
 }
 
 type RepeatStat struct {
@@ -197,7 +201,20 @@ func (s IfStat) HWrite(w HWriter) {
 }
 
 func (s IfStat) CompileStat(c *Compiler) {
-	// TODO
+	endLbl := c.GetNewLabel()
+	lbl := s.ifstat.CompileCond(c)
+	for _, s := range s.elseifstats {
+		c.Emit(ir.Jump{Label: endLbl})
+		c.EmitLabel(lbl)
+		lbl = s.CompileCond(c)
+	}
+	if s.elsestat != nil {
+		c.Emit(ir.Jump{Label: endLbl})
+		c.EmitLabel(lbl)
+		s.elsestat.CompileStat(c)
+	}
+	c.EmitLabel(endLbl)
+
 }
 
 type ForStat struct {

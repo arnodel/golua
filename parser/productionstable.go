@@ -353,13 +353,13 @@ var productionsTable = ProdTab{
 		},
 	},
 	ProdTabEntry{
-		String: `Else : "else" Chunk "end"	<< ast.NewIfStat().AddElse(X[2].(ast.BlockStat)) >>`,
+		String: `Else : "else" Chunk "end"	<< ast.NewIfStat().AddElse(X[1].(ast.BlockStat)) >>`,
 		Id:         "Else",
 		NTType:     11,
 		Index:      33,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
-			return ast.NewIfStat().AddElse(X[2].(ast.BlockStat))
+			return ast.NewIfStat().AddElse(X[1].(ast.BlockStat))
 		},
 	},
 	ProdTabEntry{
