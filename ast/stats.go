@@ -54,7 +54,7 @@ func CompileExpList(c *Compiler, exps []ExpNode, dstRegs []ir.Register) {
 	for i, exp := range exps[:commonCount] {
 		dst := c.GetFreeRegister()
 		reg := exp.CompileExp(c, dst)
-		EmmitMove(c, dst, reg)
+		EmitMove(c, dst, reg)
 		c.TakeRegister(dst)
 		dstRegs[i] = dst
 	}

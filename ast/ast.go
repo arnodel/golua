@@ -90,7 +90,7 @@ func (n Name) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 func (n Name) CompileAssign(c *Compiler, src ir.Register) {
 	reg, ok := c.GetRegister(n)
 	if ok {
-		EmmitMove(c, reg, src)
+		EmitMove(c, reg, src)
 		return
 	}
 	IndexExp{Name("_ENV"), String(n)}.CompileAssign(c, src)

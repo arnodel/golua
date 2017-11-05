@@ -178,7 +178,7 @@ func EmitConstant(c *Compiler, k ir.Constant, reg ir.Register) {
 	c.Emit(ir.LoadConst{Dst: reg, Kidx: c.GetConstant(k)})
 }
 
-func EmmitMove(c *Compiler, dst ir.Register, src ir.Register) {
+func EmitMove(c *Compiler, dst ir.Register, src ir.Register) {
 	if dst != src {
 		c.Emit(ir.Transform{Op: ops.OpId, Dst: dst, Src: src})
 	}
