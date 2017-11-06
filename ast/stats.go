@@ -322,7 +322,7 @@ func (s ForStat) CompileStat(c *Compiler) {
 type ForInStat struct {
 	itervars []Name
 	params   []ExpNode
-	body     Stat
+	body     BlockStat
 }
 
 func (s *ForInStat) HWrite(w HWriter) {
@@ -345,13 +345,44 @@ func (s *ForInStat) HWrite(w HWriter) {
 }
 
 func (s ForInStat) CompileStat(c *Compiler) {
-	// initRegs := make([]ir.Register, 3)
-	// CompileExpList(c, s.params, initRegs)
-	// fReg := initRegs[0]
-	// sReg := initRegs[1]
-	// varReg := initRegs[2]
-	// loopLbl := c.GetNewLabel()
+	initRegs := make([]ir.Register, 3)
+	CompileExpList(c, s.params, initRegs)
+	fReg := initRegs[0]
+	sReg := initRegs[1]
+	varReg := initRegs[2]
 
+	c.PushContext()
+	c.DeclareLocal("<f>", fReg)
+	c.DeclareLocal("<s>", sReg)
+	c.DeclareLocal("<var>", varReg)
+
+	loopLbl := c.GetNewLabel()
+	c.EmitLabel(loopLbl)
+
+	LocalStat{
+		names: s.itervars,
+		values: []ExpNode{FunctionCall{
+			target: Name("<f>"),
+			args:   []ExpNode{Name("<s>"), Name("<var>")},
+		}},
+	}.CompileStat(c)
+	var1, _ := c.GetRegister(s.itervars[0])
+
+	testReg := c.GetFreeRegister()
+	EmitConstant(c, ir.NilType{}, testReg)
+	c.Emit(ir.Combine{
+		Dst:  testReg,
+		Op:   ops.OpEq,
+		Lsrc: var1,
+		Rsrc: testReg,
+	})
+	endLbl := c.GetNewLabel()
+	c.Emit(ir.JumpIf{Cond: testReg, Label: endLbl})
+	c.Emit(ir.Transform{Dst: varReg, Op: ops.OpId, Src: var1})
+	s.body.CompileBlock(c)
+
+	c.EmitLabel(endLbl)
+	c.PopContext()
 }
 
 type LabelStat Name
@@ -430,8 +461,8 @@ func NewForStat(itervar Name, params []ExpNode, body BlockStat) (*ForStat, error
 	}, nil
 }
 
-func NewForInStat(itervars []Name, params []ExpNode, body BlockStat) (ForInStat, error) {
-	return ForInStat{
+func NewForInStat(itervars []Name, params []ExpNode, body BlockStat) (*ForInStat, error) {
+	return &ForInStat{
 		itervars: itervars,
 		params:   params,
 		body:     body,

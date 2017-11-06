@@ -21,6 +21,7 @@ func Test1(t *testing.T) {
   return z
 end`,
 		`for i = 1, 10 do f(i, i + i^2 - 3); end`,
+		`local f, s; for i, j in f, s do print(i, j); end`,
 		`a = {1, "ab'\"c", 4, x = 2, ['def"\n'] = 1.3}`,
 	}
 	w := ast.NewIndentWriter(os.Stdout)

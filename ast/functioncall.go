@@ -58,6 +58,7 @@ func CallWithArgs(c *Compiler, args []ExpNode, fReg ir.Register) {
 
 func (f FunctionCall) CompileCall(c *Compiler) {
 	fReg := CompileExp(c, f.target)
+	var contReg ir.Register
 	if f.method != "" {
 		self := fReg
 		c.TakeRegister(self)
@@ -69,14 +70,16 @@ func (f FunctionCall) CompileCall(c *Compiler) {
 			Table: self,
 			Index: mReg,
 		})
-		c.Emit(ir.MkCont{Dst: fReg, Closure: fReg})
+		contReg = c.GetFreeRegister()
+		c.Emit(ir.MkCont{Dst: contReg, Closure: fReg})
 		c.Emit(ir.Push{Cont: fReg, Item: self})
 		c.ReleaseRegister(self)
 	} else {
-		c.Emit(ir.MkCont{Dst: fReg, Closure: fReg})
+		contReg = c.GetFreeRegister()
+		c.Emit(ir.MkCont{Dst: contReg, Closure: fReg})
 	}
-	c.Emit(ir.PushCC{Cont: fReg})
-	CallWithArgs(c, f.args, fReg)
+	c.Emit(ir.PushCC{Cont: contReg})
+	CallWithArgs(c, f.args, contReg)
 }
 
 func (f FunctionCall) CompileStat(c *Compiler) {
