@@ -473,43 +473,43 @@ var productionsTable = ProdTab{
 		},
 	},
 	ProdTabEntry{
-		String: `DottedName : Name	<< []ast.Name{X[0].(ast.Name)}, nil >>`,
+		String: `DottedName : Name	<< X[0].(ast.Name), nil >>`,
 		Id:         "DottedName",
 		NTType:     20,
 		Index:      45,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
-			return []ast.Name{X[0].(ast.Name)}, nil
+			return X[0].(ast.Name), nil
 		},
 	},
 	ProdTabEntry{
-		String: `DottedName : DottedName "." Name	<< append(X[0].([]ast.Name), X[2].(ast.Name)), nil >>`,
+		String: `DottedName : DottedName "." Name	<< ast.NewIndexExp(X[0].(ast.ExpNode), ast.String(X[2].(ast.Name))) >>`,
 		Id:         "DottedName",
 		NTType:     20,
 		Index:      46,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
-			return append(X[0].([]ast.Name), X[2].(ast.Name)), nil
+			return ast.NewIndexExp(X[0].(ast.ExpNode), ast.String(X[2].(ast.Name)))
 		},
 	},
 	ProdTabEntry{
-		String: `FuncName : DottedName	<< ast.NewFunctionName(X[0].([]ast.Name), ast.Name("")) >>`,
+		String: `FuncName : DottedName	<< ast.NewFunctionName(X[0].(ast.Var), ast.Name("")) >>`,
 		Id:         "FuncName",
 		NTType:     21,
 		Index:      47,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
-			return ast.NewFunctionName(X[0].([]ast.Name), ast.Name(""))
+			return ast.NewFunctionName(X[0].(ast.Var), ast.Name(""))
 		},
 	},
 	ProdTabEntry{
-		String: `FuncName : DottedName ":" Name	<< ast.NewFunctionName(X[0].([]ast.Name), X[2].(ast.Name)) >>`,
+		String: `FuncName : DottedName ":" Name	<< ast.NewFunctionName(X[0].(ast.Var), X[2].(ast.Name)) >>`,
 		Id:         "FuncName",
 		NTType:     21,
 		Index:      48,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
-			return ast.NewFunctionName(X[0].([]ast.Name), X[2].(ast.Name))
+			return ast.NewFunctionName(X[0].(ast.Var), X[2].(ast.Name))
 		},
 	},
 	ProdTabEntry{

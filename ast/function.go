@@ -3,17 +3,12 @@ package ast
 import "github.com/arnodel/golua/ir"
 
 type FunctionName struct {
-	nameList []Name
-	method   Name
+	name   Var
+	method Name
 }
 
 func (n FunctionName) HWrite(w HWriter) {
-	for i, name := range n.nameList {
-		if i > 0 {
-			w.Writef(".")
-		}
-		w.Writef(string(name))
-	}
+	n.name.HWrite(w)
 	if n.method != "" {
 		w.Writef(":%s", n.method)
 	}
@@ -70,21 +65,6 @@ func (f Function) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 	return dst
 }
 
-type FunctionStat struct {
-	Function
-	name FunctionName
-}
-
-func (s FunctionStat) HWrite(w HWriter) {
-	w.Writef("function ")
-	s.name.HWrite(w)
-	s.Function.HWrite(w)
-}
-
-func (s FunctionStat) CompileStat(c *Compiler) {
-	// TODO
-}
-
 type LocalFunctionStat struct {
 	Function
 	name Name
@@ -113,10 +93,10 @@ func NewParList(params []Name, hasDots bool) (ParList, error) {
 	}, nil
 }
 
-func NewFunctionName(names []Name, method Name) (FunctionName, error) {
+func NewFunctionName(name Var, method Name) (FunctionName, error) {
 	return FunctionName{
-		nameList: names,
-		method:   method,
+		name:   name,
+		method: method,
 	}, nil
 }
 
@@ -128,8 +108,16 @@ func NewFunction(parList ParList, body BlockStat) (Function, error) {
 	return Function{ParList: parList, body: body}, nil
 }
 
-func NewFunctionStat(name FunctionName, fx Function) (FunctionStat, error) {
-	return FunctionStat{Function: fx, name: name}, nil
+func NewFunctionStat(name FunctionName, fx Function) (AssignStat, error) {
+	fName := name.name
+	if name.method != "" {
+		fx, _ = NewFunction(
+			ParList{append([]Name{"self"}, fx.params...), fx.hasDots},
+			fx.body,
+		)
+		fName, _ = NewIndexExp(name.name, String(name.method))
+	}
+	return NewAssignStat([]Var{fName}, []ExpNode{fx})
 }
 
 func NewLocalFunctionStat(name Name, fx Function) (LocalFunctionStat, error) {

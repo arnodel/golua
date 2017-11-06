@@ -121,13 +121,13 @@ Label : "::" Name "::" << ast.NewLabelStat($0.(ast.Name)) >>;
 /* Helper rules for statements */
 
 DottedName
-    : Name                << []ast.Name{$0.(ast.Name)}, nil >>
-    | DottedName "." Name << append($0.([]ast.Name), $2.(ast.Name)), nil >>
+    : Name                << $0.(ast.Name), nil >>
+    | DottedName "." Name << ast.NewIndexExp($0.(ast.ExpNode), ast.String($2.(ast.Name))) >>
     ;
 
 FuncName
-    : DottedName          << ast.NewFunctionName($0.([]ast.Name), ast.Name("")) >>
-    | DottedName ":" Name << ast.NewFunctionName($0.([]ast.Name), $2.(ast.Name)) >>
+    : DottedName          << ast.NewFunctionName($0.(ast.Var), ast.Name("")) >>
+    | DottedName ":" Name << ast.NewFunctionName($0.(ast.Var), $2.(ast.Name)) >>
     ;
 
 VarList
