@@ -345,7 +345,13 @@ func (s *ForInStat) HWrite(w HWriter) {
 }
 
 func (s ForInStat) CompileStat(c *Compiler) {
-	// TODO
+	// initRegs := make([]ir.Register, 3)
+	// CompileExpList(c, s.params, initRegs)
+	// fReg := initRegs[0]
+	// sReg := initRegs[1]
+	// varReg := initRegs[2]
+	// loopLbl := c.GetNewLabel()
+
 }
 
 type LabelStat Name
@@ -365,7 +371,7 @@ func (s EmptyStat) HWrite(w HWriter) {
 }
 
 func (s EmptyStat) CompileStat(c *Compiler) {
-	// TODO
+	// Nothing to compile!
 }
 
 func NewAssignStat(dst []Var, src []ExpNode) (AssignStat, error) {
