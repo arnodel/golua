@@ -77,8 +77,11 @@ func (s LocalFunctionStat) HWrite(w HWriter) {
 }
 
 func (s LocalFunctionStat) CompileStat(c *Compiler) {
-	reg := CompileExp(c, s.Function)
-	c.DeclareLocal(s.name, reg)
+	fReg := c.GetFreeRegister()
+	c.DeclareLocal(s.name, fReg)
+	reg := s.Function.CompileExp(c, fReg)
+	EmitMove(c, fReg, reg)
+
 }
 
 type ParList struct {
