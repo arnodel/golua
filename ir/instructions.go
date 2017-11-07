@@ -84,10 +84,11 @@ func (j Jump) String() string {
 type JumpIf struct {
 	Cond  Register
 	Label Label
+	Not   bool
 }
 
 func (j JumpIf) String() string {
-	return fmt.Sprintf("jump %s if %s", j.Label, j.Cond)
+	return fmt.Sprintf("jump %s if %s is not %t", j.Label, j.Cond, j.Not)
 }
 
 type Call struct {

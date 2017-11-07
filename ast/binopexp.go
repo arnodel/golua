@@ -31,7 +31,29 @@ func (b *BinOp) HWrite(w HWriter) {
 	w.Dedent()
 }
 
+func CompileLogicalOp(c *Compiler, b *BinOp, dst ir.Register, not bool) ir.Register {
+	doneLbl := c.GetNewLabel()
+	reg := b.left.CompileExp(c, dst)
+	EmitMove(c, dst, reg)
+	c.Emit(ir.JumpIf{Cond: dst, Label: doneLbl, Not: not})
+	for i, r := range b.right {
+		reg := r.operand.CompileExp(c, dst)
+		EmitMove(c, dst, reg)
+		if i < len(b.right) {
+			c.Emit(ir.JumpIf{Cond: dst, Label: doneLbl, Not: not})
+		}
+	}
+	c.EmitLabel(doneLbl)
+	return dst
+}
+
 func (b *BinOp) CompileExp(c *Compiler, dst ir.Register) ir.Register {
+	if b.opType == ops.OpAnd {
+		return CompileLogicalOp(c, b, dst, true)
+	}
+	if b.opType == ops.OpOr {
+		return CompileLogicalOp(c, b, dst, false)
+	}
 	lsrc := CompileExp(c, b.left)
 	c.TakeRegister(lsrc)
 	for _, r := range b.right {

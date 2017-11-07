@@ -12,7 +12,6 @@ AST -> IR Compilation
 ---------------------
 
 Almost there.  To do:
-* and, or
 * break
 * label / goto
 * upvalue mutations
