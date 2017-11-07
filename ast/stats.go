@@ -381,6 +381,8 @@ func (s ForInStat) CompileStat(c *Compiler) {
 	c.Emit(ir.Transform{Dst: varReg, Op: ops.OpId, Src: var1})
 	s.body.CompileBlock(c)
 
+	c.Emit(ir.Jump{Label: loopLbl})
+
 	c.EmitLabel(endLbl)
 	c.PopContext()
 }
