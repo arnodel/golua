@@ -24,7 +24,9 @@ To do
 Runtime
 -------
 
-To do
+Started (Thread and Continuation).  To do next:
+* LuaContinuation - implementation of Continuation running from
+  compiled Lua bytecode.
 
 Standard Library
 ----------------
