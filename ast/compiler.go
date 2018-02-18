@@ -63,22 +63,30 @@ func (c LexicalContext) Dump() {
 }
 
 type Compiler struct {
-	registers []int
-	context   LexicalContext
-	parent    *Compiler
-	upvalues  []ir.Register
-	code      []ir.Instruction
-	constants []ir.Constant
-	labels    map[ir.Label]int
-	labelPos  map[int][]ir.Label
+	registers    []int
+	context      LexicalContext
+	parent       *Compiler
+	upvalues     []ir.Register
+	code         []ir.Instruction
+	constantPool *ir.ConstantPool
+	labels       map[ir.Label]int
+	labelPos     map[int][]ir.Label
 }
 
 func NewCompiler(parent *Compiler) *Compiler {
+	// The constant pool is inherited from the parent.
+	var cpool *ir.ConstantPool
+	if parent != nil {
+		cpool = parent.constantPool
+	} else {
+		cpool = new(ir.ConstantPool)
+	}
 	return &Compiler{
-		context:  LexicalContext{}.PushNew(),
-		parent:   parent,
-		labels:   make(map[ir.Label]int),
-		labelPos: make(map[int][]ir.Label),
+		context:      LexicalContext{}.PushNew(),
+		parent:       parent,
+		labels:       make(map[ir.Label]int),
+		labelPos:     make(map[int][]ir.Label),
+		constantPool: cpool,
 	}
 }
 
@@ -86,7 +94,7 @@ func (c *Compiler) Dump() {
 	fmt.Println("--context")
 	c.context.Dump()
 	fmt.Println("--constants")
-	for i, k := range c.constants {
+	for i, k := range c.constantPool.Constants() {
 		fmt.Printf("k%d: %s\n", i, k)
 	}
 	fmt.Println("--code")
@@ -184,13 +192,17 @@ func (c *Compiler) Emit(instr ir.Instruction) {
 }
 
 func (c *Compiler) GetConstant(k ir.Constant) uint {
-	for i, kk := range c.constants {
-		if k == kk {
-			return uint(i)
-		}
+	return c.constantPool.GetConstant(k)
+}
+
+func (c *Compiler) GetCode() *ir.Code {
+	return &ir.Code{
+		Instructions: c.code,
+		Constants:    c.constantPool.Constants(),
+		RegCount:     len(c.registers),
+		UpvalueCount: len(c.upvalues),
+		Labels:       c.labels,
 	}
-	c.constants = append(c.constants, k)
-	return uint(len(c.constants) - 1)
 }
 
 func EmitConstant(c *Compiler, k ir.Constant, reg ir.Register) {

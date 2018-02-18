@@ -56,7 +56,7 @@ func (f Function) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 		fc.Emit(ir.ReceiveEtc{Dst: recvRegs, Etc: reg})
 	}
 	f.body.CompileBlock(fc)
-	kidx := c.GetConstant(fc.code)
+	kidx := c.GetConstant(fc.GetCode())
 	c.Emit(ir.MkClosure{
 		Dst:      dst,
 		Code:     kidx,
