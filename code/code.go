@@ -185,6 +185,7 @@ const (
 	OpId
 	OpTruth // Turn operand to boolean
 	OpCell  // ?
+	OpNot   // Added afterwards - why did I not have it in the first place?
 )
 
 func (op UnOp) ToC() uint32 {

@@ -10,6 +10,7 @@ import (
 
 type Instruction interface {
 	fmt.Stringer
+	Compile(*code.Compiler)
 }
 
 type Register int
@@ -34,18 +35,39 @@ type Combine struct {
 	Rsrc Register
 }
 
-var codeBinOp = map[ops.Op]code.BinOp{}
-var codeUnOp = map[ops.Op]code.UnOp{}
+var codeBinOp = map[ops.Op]code.BinOp{
+	ops.OpLt:       code.OpLt,
+	ops.OpLeq:      code.OpLeq,
+	ops.OpEq:       code.OpEq,
+	ops.OpBitOr:    code.OpBitOr,
+	ops.OpBitXor:   code.OpBitXor,
+	ops.OpBitAnd:   code.OpBitAnd,
+	ops.OpShiftL:   code.OpShiftL,
+	ops.OpShiftR:   code.OpShiftR,
+	ops.OpConcat:   code.OpConcat,
+	ops.OpAdd:      code.OpAdd,
+	ops.OpSub:      code.OpSub,
+	ops.OpMul:      code.OpMul,
+	ops.OpDiv:      code.OpDiv,
+	ops.OpFloorDiv: code.OpFloorDiv,
+	ops.OpMod:      code.OpMod,
+	ops.OpPow:      code.OpPow,
+}
 
-func codeReg(r Register) code.Reg {
-	if r >= 0 {
-		return code.MkRegister(uint8(r))
-	}
-	return code.MkUpvalue(uint8(1 - r))
+var codeUnOp = map[ops.Op]code.UnOp{
+	ops.OpNeg:    code.OpNeg,
+	ops.OpNot:    code.OpNot,
+	ops.OpLen:    code.OpLen,
+	ops.OpBitNot: code.OpBitNot,
+	ops.OpId:     code.OpId,
 }
 
 func (c Combine) Compile(cc *code.Compiler) {
-	opcode := code.MkType1(codeBinOp[c.Op], codeReg(c.Dst), codeReg(c.Lsrc), codeReg(c.Rsrc))
+	codeOp, ok := codeBinOp[c.Op]
+	if !ok {
+		panic(fmt.Sprintf("Cannot compile %v: invalid op", c))
+	}
+	opcode := code.MkType1(codeOp, codeReg(c.Dst), codeReg(c.Lsrc), codeReg(c.Rsrc))
 	cc.Emit(opcode)
 }
 
@@ -60,7 +82,11 @@ type Transform struct {
 }
 
 func (t Transform) Compile(cc *code.Compiler) {
-	opcode := code.MkType4a(code.Off, codeUnOp[t.Op], codeReg(t.Dst), codeReg(t.Src))
+	codeOp, ok := codeUnOp[t.Op]
+	if !ok {
+		panic(fmt.Sprintf("Cannot compile %v: invalid op", t))
+	}
+	opcode := code.MkType4a(code.Off, codeOp, codeReg(t.Dst), codeReg(t.Src))
 	cc.Emit(opcode)
 }
 
@@ -121,9 +147,8 @@ func (j Jump) String() string {
 }
 
 func (j Jump) Compile(cc *code.Compiler) {
-	addr := cc.GetLabelAddr(code.Label(j.Label))
-	opcode := code.MkType5(code.Off, code.OpJump, code.Reg(0), code.Lit16(addr))
-	cc.Emit(opcode)
+	opcode := code.MkType5(code.Off, code.OpJump, code.Reg(0), code.Lit16(0))
+	cc.EmitJump(opcode, code.Label(j.Label))
 }
 
 type JumpIf struct {
@@ -133,13 +158,12 @@ type JumpIf struct {
 }
 
 func (j JumpIf) Compile(cc *code.Compiler) {
-	addr := cc.GetLabelAddr(code.Label(j.Label))
 	flag := code.Off
 	if !j.Not {
 		flag = code.On
 	}
-	opcode := code.MkType5(flag, code.OpJumpIf, codeReg(j.Cond), code.Lit16(addr))
-	cc.Emit(opcode)
+	opcode := code.MkType5(flag, code.OpJumpIf, codeReg(j.Cond), code.Lit16(0))
+	cc.EmitJump(opcode, code.Label(j.Label))
 }
 
 func (j JumpIf) String() string {
@@ -347,11 +371,17 @@ type JumpIfForLoopDone struct {
 }
 
 func (j JumpIfForLoopDone) Compile(cc *code.Compiler) {
-	addr := cc.GetLabelAddr(code.Label(j.Label))
-	opcode := code.MkType5(code.Off, code.OpJumpIfForLoopDone, code.Reg(0), code.Lit16(addr))
-	cc.Emit(opcode)
+	opcode := code.MkType5(code.Off, code.OpJumpIfForLoopDone, code.Reg(0), code.Lit16(0))
+	cc.EmitJump(opcode, code.Label(j.Label))
 }
 
 func (j JumpIfForLoopDone) String() string {
 	return fmt.Sprintf("jump %s if for loop done(%s, %s, %s)", j.Label, j.Var, j.Limit, j.Step)
+}
+
+func codeReg(r Register) code.Reg {
+	if r >= 0 {
+		return code.MkRegister(uint8(r))
+	}
+	return code.MkUpvalue(uint8(1 - r))
 }

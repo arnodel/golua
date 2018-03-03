@@ -11,10 +11,10 @@ import (
 
 type ExpNode interface {
 	Node
-	CompileExp(*Compiler, ir.Register) ir.Register
+	CompileExp(*ir.Compiler, ir.Register) ir.Register
 }
 
-func CompileExp(c *Compiler, e ExpNode) ir.Register {
+func CompileExp(c *ir.Compiler, e ExpNode) ir.Register {
 	r1 := c.GetFreeRegister()
 	r2 := e.CompileExp(c, r1)
 	if r1 != r2 {
@@ -26,13 +26,13 @@ func CompileExp(c *Compiler, e ExpNode) ir.Register {
 // Var is an l-value
 type Var interface {
 	ExpNode
-	CompileAssign(*Compiler, ir.Register)
+	CompileAssign(*ir.Compiler, ir.Register)
 }
 
 type Float float64
 
-func (f Float) CompileExp(c *Compiler, dst ir.Register) ir.Register {
-	EmitConstant(c, ir.Float(f), dst)
+func (f Float) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
+	ir.EmitConstant(c, ir.Float(f), dst)
 	return dst
 }
 
@@ -46,8 +46,8 @@ func (n Int) HWrite(w HWriter) {
 	w.Writef("%d", int64(n))
 }
 
-func (n Int) CompileExp(c *Compiler, dst ir.Register) ir.Register {
-	EmitConstant(c, ir.Int(n), dst)
+func (n Int) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
+	ir.EmitConstant(c, ir.Int(n), dst)
 	return dst
 }
 
@@ -57,8 +57,8 @@ func (b Bool) HWrite(w HWriter) {
 	w.Writef("%t", bool(b))
 }
 
-func (b Bool) CompilerExp(c *Compiler, dst ir.Register) ir.Register {
-	EmitConstant(c, ir.Bool(b), dst)
+func (b Bool) CompilerExp(c *ir.Compiler, dst ir.Register) ir.Register {
+	ir.EmitConstant(c, ir.Bool(b), dst)
 	return dst
 }
 
@@ -68,8 +68,8 @@ func (s String) HWrite(w HWriter) {
 	w.Writef("%q", string(s))
 }
 
-func (s String) CompileExp(c *Compiler, dst ir.Register) ir.Register {
-	EmitConstant(c, ir.String(s), dst)
+func (s String) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
+	ir.EmitConstant(c, ir.String(s), dst)
 	return dst
 }
 
@@ -79,18 +79,18 @@ func (n Name) HWrite(w HWriter) {
 	w.Writef(string(n))
 }
 
-func (n Name) CompileExp(c *Compiler, dst ir.Register) ir.Register {
-	reg, ok := c.GetRegister(n)
+func (n Name) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
+	reg, ok := c.GetRegister(ir.Name(n))
 	if ok {
 		return reg
 	}
 	return IndexExp{Name("_ENV"), String(n)}.CompileExp(c, dst)
 }
 
-func (n Name) CompileAssign(c *Compiler, src ir.Register) {
-	reg, ok := c.GetRegister(n)
+func (n Name) CompileAssign(c *ir.Compiler, src ir.Register) {
+	reg, ok := c.GetRegister(ir.Name(n))
 	if ok {
-		EmitMove(c, reg, src)
+		ir.EmitMove(c, reg, src)
 		return
 	}
 	IndexExp{Name("_ENV"), String(n)}.CompileAssign(c, src)
@@ -102,8 +102,8 @@ func (n NilType) HWrite(w HWriter) {
 	w.Writef("nil")
 }
 
-func (n NilType) CompileExp(c *Compiler, dst ir.Register) ir.Register {
-	EmitConstant(c, ir.NilType{}, dst)
+func (n NilType) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
+	ir.EmitConstant(c, ir.NilType{}, dst)
 	return dst
 }
 
@@ -113,8 +113,8 @@ func (e EtcType) HWrite(w HWriter) {
 	w.Writef("...")
 }
 
-func (e EtcType) CompileExp(c *Compiler, dst ir.Register) ir.Register {
-	reg, ok := c.GetRegister("...")
+func (e EtcType) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
+	reg, ok := c.GetRegister(ir.Name("..."))
 	if ok {
 		return reg
 	}

@@ -1,5 +1,7 @@
 package ir
 
+import "github.com/arnodel/golua/code"
+
 type Constant interface{}
 
 type ConstantPool struct {
@@ -25,7 +27,7 @@ type Code struct {
 	Constants    []Constant
 	RegCount     int
 	UpvalueCount int
-	Labels       map[Label]int
+	LabelPos     map[int][]Label
 }
 
 type Float float64
@@ -37,3 +39,13 @@ type Bool bool
 type String string
 
 type NilType struct{}
+
+func (c *Code) Compile(cc *code.Compiler) error {
+	for i, instr := range c.Instructions {
+		for _, lbl := range c.LabelPos[i] {
+			cc.EmitLabel(code.Label(lbl))
+		}
+		instr.Compile(cc)
+	}
+	return nil
+}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/arnodel/golua/ast"
+	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/lexer"
 	"github.com/arnodel/golua/parser"
 )
@@ -26,9 +27,9 @@ end`,
 	}
 	w := ast.NewIndentWriter(os.Stdout)
 	p := parser.NewParser()
-	rc := ast.NewCompiler(nil)
+	rc := ir.NewCompiler()
 	envReg := rc.GetFreeRegister()
-	rc.DeclareLocal("_ENV", envReg)
+	rc.DeclareLocal(ir.Name("_ENV"), envReg)
 	for _, src := range testData {
 		s := lexer.NewLexer([]byte(src))
 		tree, err := p.Parse(s)
@@ -39,7 +40,7 @@ end`,
 			fmt.Printf("%s\n", src)
 			tree.(ast.Node).HWrite(w)
 			w.Next()
-			c := ast.NewCompiler(rc)
+			c := rc.NewChild()
 			tree.(ast.Stat).CompileStat(c)
 			fmt.Printf("%+v\n", c)
 			c.Dump()

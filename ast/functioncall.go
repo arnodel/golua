@@ -28,13 +28,13 @@ func (f FunctionCall) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (f FunctionCall) CompileExp(c *Compiler, dst ir.Register) ir.Register {
+func (f FunctionCall) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	f.CompileCall(c)
 	c.Emit(ir.Receive{Dst: []ir.Register{dst}})
 	return dst
 }
 
-func CallWithArgs(c *Compiler, args []ExpNode, fReg ir.Register) {
+func CallWithArgs(c *ir.Compiler, args []ExpNode, fReg ir.Register) {
 	c.TakeRegister(fReg)
 	for i, arg := range args {
 		var argReg ir.Register
@@ -56,7 +56,7 @@ func CallWithArgs(c *Compiler, args []ExpNode, fReg ir.Register) {
 	c.ReleaseRegister(fReg)
 }
 
-func (f FunctionCall) CompileCall(c *Compiler) {
+func (f FunctionCall) CompileCall(c *ir.Compiler) {
 	fReg := CompileExp(c, f.target)
 	var contReg ir.Register
 	if f.method != "" {
@@ -64,7 +64,7 @@ func (f FunctionCall) CompileCall(c *Compiler) {
 		c.TakeRegister(self)
 		fReg = c.GetFreeRegister()
 		mReg := c.GetFreeRegister()
-		EmitConstant(c, ir.String(f.method), mReg)
+		ir.EmitConstant(c, ir.String(f.method), mReg)
 		c.Emit(ir.Lookup{
 			Dst:   fReg,
 			Table: self,
@@ -82,7 +82,7 @@ func (f FunctionCall) CompileCall(c *Compiler) {
 	CallWithArgs(c, f.args, contReg)
 }
 
-func (f FunctionCall) CompileStat(c *Compiler) {
+func (f FunctionCall) CompileStat(c *ir.Compiler) {
 	f.CompileCall(c)
 	c.Emit(ir.Receive{})
 }

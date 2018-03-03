@@ -7,7 +7,7 @@ import (
 
 type Stat interface {
 	Node
-	CompileStat(c *Compiler)
+	CompileStat(c *ir.Compiler)
 }
 
 type BreakStat struct{}
@@ -16,7 +16,7 @@ func (s BreakStat) HWrite(w HWriter) {
 	w.Writef("break")
 }
 
-func (s BreakStat) CompileStat(c *Compiler) {
+func (s BreakStat) CompileStat(c *ir.Compiler) {
 	// TODO
 }
 
@@ -41,7 +41,7 @@ func (s AssignStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func CompileExpList(c *Compiler, exps []ExpNode, dstRegs []ir.Register) {
+func CompileExpList(c *ir.Compiler, exps []ExpNode, dstRegs []ir.Register) {
 	commonCount := len(exps)
 	if commonCount > len(dstRegs) {
 		commonCount = len(dstRegs)
@@ -57,7 +57,7 @@ func CompileExpList(c *Compiler, exps []ExpNode, dstRegs []ir.Register) {
 	for i, exp := range exps[:commonCount] {
 		dst := c.GetFreeRegister()
 		reg := exp.CompileExp(c, dst)
-		EmitMove(c, dst, reg)
+		ir.EmitMove(c, dst, reg)
 		c.TakeRegister(dst)
 		dstRegs[i] = dst
 	}
@@ -72,12 +72,12 @@ func CompileExpList(c *Compiler, exps []ExpNode, dstRegs []ir.Register) {
 	} else if len(dstRegs) > len(exps) {
 		nilK := ir.NilType{}
 		for _, dst := range dstRegs[len(exps):] {
-			EmitConstant(c, nilK, dst)
+			ir.EmitConstant(c, nilK, dst)
 		}
 	}
 }
 
-func (s AssignStat) CompileStat(c *Compiler) {
+func (s AssignStat) CompileStat(c *ir.Compiler) {
 	resultRegs := make([]ir.Register, len(s.dst))
 	CompileExpList(c, s.src, resultRegs)
 	for i, reg := range resultRegs {
@@ -94,7 +94,7 @@ func (s GotoStat) HWrite(w HWriter) {
 	w.Writef("goto %s", s.label)
 }
 
-func (s GotoStat) CompileStat(c *Compiler) {
+func (s GotoStat) CompileStat(c *ir.Compiler) {
 	// TODO
 }
 
@@ -123,12 +123,12 @@ func (s BlockStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (s BlockStat) CompileBlock(c *Compiler) {
+func (s BlockStat) CompileBlock(c *ir.Compiler) {
 	for _, stat := range s.statements {
 		stat.CompileStat(c)
 	}
 	if s.returnValues != nil {
-		cont, ok := c.GetRegister(Name("<caller>"))
+		cont, ok := c.GetRegister(ir.Name(Name("<caller>")))
 		if !ok {
 			panic("Cannot return: no caller")
 		}
@@ -136,7 +136,7 @@ func (s BlockStat) CompileBlock(c *Compiler) {
 	}
 }
 
-func (s BlockStat) CompileStat(c *Compiler) {
+func (s BlockStat) CompileStat(c *ir.Compiler) {
 	c.PushContext()
 	s.CompileBlock(c)
 	c.PopContext()
@@ -154,7 +154,7 @@ func (s CondStat) HWrite(w HWriter) {
 	s.body.HWrite(w)
 }
 
-func (s CondStat) CompileCond(c *Compiler) ir.Label {
+func (s CondStat) CompileCond(c *ir.Compiler) ir.Label {
 	condReg := CompileExp(c, s.cond)
 	lbl := c.GetNewLabel()
 	c.Emit(ir.JumpIf{Cond: condReg, Label: lbl})
@@ -171,7 +171,7 @@ func (s WhileStat) HWrite(w HWriter) {
 	s.CondStat.HWrite(w)
 }
 
-func (s WhileStat) CompileStat(c *Compiler) {
+func (s WhileStat) CompileStat(c *ir.Compiler) {
 	loopLbl := c.GetNewLabel()
 	c.EmitLabel(loopLbl)
 	stopLbl := s.CondStat.CompileCond(c)
@@ -188,7 +188,7 @@ func (s RepeatStat) HWrite(w HWriter) {
 	s.CondStat.HWrite(w)
 }
 
-func (s RepeatStat) CompileStat(c *Compiler) {
+func (s RepeatStat) CompileStat(c *ir.Compiler) {
 	c.PushContext()
 	loopLbl := c.GetNewLabel()
 	c.EmitLabel(loopLbl)
@@ -223,7 +223,7 @@ func (s IfStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (s IfStat) CompileStat(c *Compiler) {
+func (s IfStat) CompileStat(c *ir.Compiler) {
 	endLbl := c.GetNewLabel()
 	lbl := s.ifstat.CompileCond(c)
 	for _, s := range s.elseifstats {
@@ -271,20 +271,20 @@ func (s *ForStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (s ForStat) CompileStat(c *Compiler) {
+func (s ForStat) CompileStat(c *ir.Compiler) {
 	startReg := c.GetFreeRegister()
 	r := s.start.CompileExp(c, startReg)
-	EmitMove(c, startReg, r)
+	ir.EmitMove(c, startReg, r)
 	c.TakeRegister(startReg)
 
 	stopReg := c.GetFreeRegister()
 	r = s.stop.CompileExp(c, stopReg)
-	EmitMove(c, stopReg, r)
+	ir.EmitMove(c, stopReg, r)
 	c.TakeRegister(stopReg)
 
 	stepReg := c.GetFreeRegister()
 	r = s.step.CompileExp(c, stepReg)
-	EmitMove(c, stepReg, r)
+	ir.EmitMove(c, stepReg, r)
 	c.TakeRegister(stepReg)
 
 	loopLbl := c.GetNewLabel()
@@ -299,8 +299,8 @@ func (s ForStat) CompileStat(c *Compiler) {
 
 	c.PushContext()
 	iterReg := c.GetFreeRegister()
-	EmitMove(c, iterReg, startReg)
-	c.DeclareLocal(s.itervar, iterReg)
+	ir.EmitMove(c, iterReg, startReg)
+	c.DeclareLocal(ir.Name(s.itervar), iterReg)
 	s.body.CompileBlock(c)
 	c.PopContext()
 
@@ -344,7 +344,7 @@ func (s *ForInStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (s ForInStat) CompileStat(c *Compiler) {
+func (s ForInStat) CompileStat(c *ir.Compiler) {
 	initRegs := make([]ir.Register, 3)
 	CompileExpList(c, s.params, initRegs)
 	fReg := initRegs[0]
@@ -352,9 +352,9 @@ func (s ForInStat) CompileStat(c *Compiler) {
 	varReg := initRegs[2]
 
 	c.PushContext()
-	c.DeclareLocal("<f>", fReg)
-	c.DeclareLocal("<s>", sReg)
-	c.DeclareLocal("<var>", varReg)
+	c.DeclareLocal(ir.Name("<f>"), fReg)
+	c.DeclareLocal(ir.Name("<s>"), sReg)
+	c.DeclareLocal(ir.Name("<var>"), varReg)
 
 	loopLbl := c.GetNewLabel()
 	c.EmitLabel(loopLbl)
@@ -366,10 +366,10 @@ func (s ForInStat) CompileStat(c *Compiler) {
 			args:   []ExpNode{Name("<s>"), Name("<var>")},
 		}},
 	}.CompileStat(c)
-	var1, _ := c.GetRegister(s.itervars[0])
+	var1, _ := c.GetRegister(ir.Name(s.itervars[0]))
 
 	testReg := c.GetFreeRegister()
-	EmitConstant(c, ir.NilType{}, testReg)
+	ir.EmitConstant(c, ir.NilType{}, testReg)
 	c.Emit(ir.Combine{
 		Dst:  testReg,
 		Op:   ops.OpEq,
@@ -393,7 +393,7 @@ func (s LabelStat) HWrite(w HWriter) {
 	w.Writef("label %s", string(s))
 }
 
-func (s LabelStat) CompileStat(c *Compiler) {
+func (s LabelStat) CompileStat(c *ir.Compiler) {
 	// TODO
 }
 
@@ -403,7 +403,7 @@ func (s EmptyStat) HWrite(w HWriter) {
 	w.Writef("empty stat")
 }
 
-func (s EmptyStat) CompileStat(c *Compiler) {
+func (s EmptyStat) CompileStat(c *ir.Compiler) {
 	// Nothing to compile!
 }
 

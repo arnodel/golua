@@ -1,15 +1,16 @@
-package ast
+package ir
 
 import (
 	"fmt"
 
-	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/ops"
 )
 
-type LexicalContext []map[Name]ir.Register
+type Name string
 
-func (c LexicalContext) GetRegister(name Name) (reg ir.Register, ok bool) {
+type LexicalContext []map[Name]Register
+
+func (c LexicalContext) GetRegister(name Name) (reg Register, ok bool) {
 	for i := len(c) - 1; i >= 0; i-- {
 		reg, ok = c[i][name]
 		if ok {
@@ -19,7 +20,7 @@ func (c LexicalContext) GetRegister(name Name) (reg ir.Register, ok bool) {
 	return
 }
 
-func (c LexicalContext) AddToRoot(name Name, reg ir.Register) (ok bool) {
+func (c LexicalContext) AddToRoot(name Name, reg Register) (ok bool) {
 	ok = len(c) > 0
 	if ok {
 		c[0][name] = reg
@@ -27,7 +28,7 @@ func (c LexicalContext) AddToRoot(name Name, reg ir.Register) (ok bool) {
 	return
 }
 
-func (c LexicalContext) AddToTop(name Name, reg ir.Register) (ok bool) {
+func (c LexicalContext) AddToTop(name Name, reg Register) (ok bool) {
 	ok = len(c) > 0
 	if ok {
 		c[len(c)-1][name] = reg
@@ -36,17 +37,17 @@ func (c LexicalContext) AddToTop(name Name, reg ir.Register) (ok bool) {
 }
 
 func (c LexicalContext) PushNew() LexicalContext {
-	return append(c, make(map[Name]ir.Register))
+	return append(c, make(map[Name]Register))
 }
 
-func (c LexicalContext) Pop() (LexicalContext, map[Name]ir.Register) {
+func (c LexicalContext) Pop() (LexicalContext, map[Name]Register) {
 	if len(c) == 0 {
 		return c, nil
 	}
 	return c[:len(c)-1], c[len(c)-1]
 }
 
-func (c LexicalContext) Top() map[Name]ir.Register {
+func (c LexicalContext) Top() map[Name]Register {
 	if len(c) > 0 {
 		return c[len(c)-1]
 	}
@@ -66,28 +67,34 @@ type Compiler struct {
 	registers    []int
 	context      LexicalContext
 	parent       *Compiler
-	upvalues     []ir.Register
-	code         []ir.Instruction
-	constantPool *ir.ConstantPool
-	labels       map[ir.Label]int
-	labelPos     map[int][]ir.Label
+	upvalues     []Register
+	code         []Instruction
+	constantPool *ConstantPool
+	labels       map[Label]int
+	labelPos     map[int][]Label
 }
 
-func NewCompiler(parent *Compiler) *Compiler {
-	// The constant pool is inherited from the parent.
-	var cpool *ir.ConstantPool
-	if parent != nil {
-		cpool = parent.constantPool
-	} else {
-		cpool = new(ir.ConstantPool)
-	}
+func NewCompiler() *Compiler {
 	return &Compiler{
 		context:      LexicalContext{}.PushNew(),
-		parent:       parent,
-		labels:       make(map[ir.Label]int),
-		labelPos:     make(map[int][]ir.Label),
-		constantPool: cpool,
+		labels:       make(map[Label]int),
+		labelPos:     make(map[int][]Label),
+		constantPool: new(ConstantPool),
 	}
+}
+
+func (c *Compiler) NewChild() *Compiler {
+	return &Compiler{
+		context:      LexicalContext{}.PushNew(),
+		labels:       make(map[Label]int),
+		labelPos:     make(map[int][]Label),
+		constantPool: c.constantPool,
+		parent:       c,
+	}
+}
+
+func (c *Compiler) Upvalues() []Register {
+	return c.upvalues
 }
 
 func (c *Compiler) Dump() {
@@ -106,19 +113,19 @@ func (c *Compiler) Dump() {
 	}
 }
 
-func (c *Compiler) GetNewLabel() ir.Label {
-	lbl := ir.Label(len(c.labels))
+func (c *Compiler) GetNewLabel() Label {
+	lbl := Label(len(c.labels))
 	c.labels[lbl] = -1
 	return lbl
 }
 
-func (c *Compiler) EmitLabel(lbl ir.Label) {
+func (c *Compiler) EmitLabel(lbl Label) {
 	pos := len(c.code)
 	c.labels[lbl] = pos
 	c.labelPos[pos] = append(c.labelPos[pos], lbl)
 }
 
-func (c *Compiler) GetRegister(name Name) (reg ir.Register, ok bool) {
+func (c *Compiler) GetRegister(name Name) (reg Register, ok bool) {
 	reg, ok = c.context.GetRegister(name)
 	if ok || c.parent == nil {
 		return
@@ -126,35 +133,35 @@ func (c *Compiler) GetRegister(name Name) (reg ir.Register, ok bool) {
 	reg, ok = c.parent.GetRegister(name)
 	if ok {
 		c.upvalues = append(c.upvalues, reg)
-		reg = ir.Register(-len(c.upvalues))
+		reg = Register(-len(c.upvalues))
 		c.context.AddToRoot(name, reg)
 	}
 	return
 }
 
-func (c *Compiler) GetFreeRegister() ir.Register {
-	var reg ir.Register
+func (c *Compiler) GetFreeRegister() Register {
+	var reg Register
 	for i, n := range c.registers {
 		if n == 0 {
-			reg = ir.Register(i)
+			reg = Register(i)
 			goto FoundLbl
 		}
 	}
 	c.registers = append(c.registers, 0)
-	reg = ir.Register(len(c.registers) - 1)
+	reg = Register(len(c.registers) - 1)
 FoundLbl:
 	// fmt.Printf("Get Free Reg %s\n", reg)
 	return reg
 }
 
-func (c *Compiler) TakeRegister(reg ir.Register) {
+func (c *Compiler) TakeRegister(reg Register) {
 	if int(reg) >= 0 {
 		c.registers[reg]++
 		// fmt.Printf("Take Reg %s %d\n", reg, c.registers[reg])
 	}
 }
 
-func (c *Compiler) ReleaseRegister(reg ir.Register) {
+func (c *Compiler) ReleaseRegister(reg Register) {
 	if int(reg) < 0 {
 		return
 	}
@@ -180,37 +187,37 @@ func (c *Compiler) PopContext() {
 	}
 }
 
-func (c *Compiler) DeclareLocal(name Name, reg ir.Register) {
+func (c *Compiler) DeclareLocal(name Name, reg Register) {
 	// fmt.Printf("Declare %s %s\n", name, reg)
 	c.TakeRegister(reg)
 	c.context.AddToTop(name, reg)
 }
 
-func (c *Compiler) Emit(instr ir.Instruction) {
+func (c *Compiler) Emit(instr Instruction) {
 	// fmt.Printf("Emit %s\n", instr)
 	c.code = append(c.code, instr)
 }
 
-func (c *Compiler) GetConstant(k ir.Constant) uint {
+func (c *Compiler) GetConstant(k Constant) uint {
 	return c.constantPool.GetConstant(k)
 }
 
-func (c *Compiler) GetCode() *ir.Code {
-	return &ir.Code{
+func (c *Compiler) GetCode() *Code {
+	return &Code{
 		Instructions: c.code,
 		Constants:    c.constantPool.Constants(),
 		RegCount:     len(c.registers),
 		UpvalueCount: len(c.upvalues),
-		Labels:       c.labels,
+		LabelPos:     c.labelPos,
 	}
 }
 
-func EmitConstant(c *Compiler, k ir.Constant, reg ir.Register) {
-	c.Emit(ir.LoadConst{Dst: reg, Kidx: c.GetConstant(k)})
+func EmitConstant(c *Compiler, k Constant, reg Register) {
+	c.Emit(LoadConst{Dst: reg, Kidx: c.GetConstant(k)})
 }
 
-func EmitMove(c *Compiler, dst ir.Register, src ir.Register) {
+func EmitMove(c *Compiler, dst Register, src Register) {
 	if dst != src {
-		c.Emit(ir.Transform{Op: ops.OpId, Dst: dst, Src: src})
+		c.Emit(Transform{Op: ops.OpId, Dst: dst, Src: src})
 	}
 }

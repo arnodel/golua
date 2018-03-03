@@ -37,22 +37,22 @@ func (f Function) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (f Function) CompileExp(c *Compiler, dst ir.Register) ir.Register {
-	fc := NewCompiler(c)
+func (f Function) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
+	fc := c.NewChild()
 	recvRegs := make([]ir.Register, 1+len(f.params))
 	callerReg := fc.GetFreeRegister()
-	fc.DeclareLocal(Name("<caller>"), callerReg)
+	fc.DeclareLocal(ir.Name(Name("<caller>")), callerReg)
 	recvRegs[0] = callerReg
 	for i, p := range f.params {
 		reg := fc.GetFreeRegister()
-		fc.DeclareLocal(p, reg)
+		fc.DeclareLocal(ir.Name(p), reg)
 		recvRegs[i+1] = reg
 	}
 	if !f.hasDots {
 		fc.Emit(ir.Receive{Dst: recvRegs})
 	} else {
 		reg := fc.GetFreeRegister()
-		fc.DeclareLocal(Name("..."), reg)
+		fc.DeclareLocal(ir.Name(Name("...")), reg)
 		fc.Emit(ir.ReceiveEtc{Dst: recvRegs, Etc: reg})
 	}
 	f.body.CompileBlock(fc)
@@ -60,7 +60,7 @@ func (f Function) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 	c.Emit(ir.MkClosure{
 		Dst:      dst,
 		Code:     kidx,
-		Upvalues: fc.upvalues,
+		Upvalues: fc.Upvalues(),
 	})
 	return dst
 }
@@ -76,11 +76,11 @@ func (s LocalFunctionStat) HWrite(w HWriter) {
 	s.Function.HWrite(w)
 }
 
-func (s LocalFunctionStat) CompileStat(c *Compiler) {
+func (s LocalFunctionStat) CompileStat(c *ir.Compiler) {
 	fReg := c.GetFreeRegister()
-	c.DeclareLocal(s.name, fReg)
+	c.DeclareLocal(ir.Name(s.name), fReg)
 	reg := s.Function.CompileExp(c, fReg)
-	EmitMove(c, fReg, reg)
+	ir.EmitMove(c, fReg, reg)
 
 }
 

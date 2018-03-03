@@ -31,14 +31,14 @@ func (b *BinOp) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func CompileLogicalOp(c *Compiler, b *BinOp, dst ir.Register, not bool) ir.Register {
+func CompileLogicalOp(c *ir.Compiler, b *BinOp, dst ir.Register, not bool) ir.Register {
 	doneLbl := c.GetNewLabel()
 	reg := b.left.CompileExp(c, dst)
-	EmitMove(c, dst, reg)
+	ir.EmitMove(c, dst, reg)
 	c.Emit(ir.JumpIf{Cond: dst, Label: doneLbl, Not: not})
 	for i, r := range b.right {
 		reg := r.operand.CompileExp(c, dst)
-		EmitMove(c, dst, reg)
+		ir.EmitMove(c, dst, reg)
 		if i < len(b.right) {
 			c.Emit(ir.JumpIf{Cond: dst, Label: doneLbl, Not: not})
 		}
@@ -47,7 +47,7 @@ func CompileLogicalOp(c *Compiler, b *BinOp, dst ir.Register, not bool) ir.Regis
 	return dst
 }
 
-func (b *BinOp) CompileExp(c *Compiler, dst ir.Register) ir.Register {
+func (b *BinOp) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	if b.opType == ops.OpAnd {
 		return CompileLogicalOp(c, b, dst, true)
 	}
@@ -58,12 +58,44 @@ func (b *BinOp) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 	c.TakeRegister(lsrc)
 	for _, r := range b.right {
 		rsrc := CompileExp(c, r.operand)
-		c.Emit(ir.Combine{
-			Op:   r.op,
-			Dst:  dst,
-			Lsrc: lsrc,
-			Rsrc: rsrc,
-		})
+		switch r.op {
+		case ops.OpNeq:
+			// x ~= y ==> ~(x = y)
+			c.Emit(ir.Combine{
+				Op:   ops.OpEq,
+				Dst:  dst,
+				Lsrc: lsrc,
+				Rsrc: rsrc,
+			})
+			c.Emit(ir.Transform{
+				Op:  ops.OpNot,
+				Dst: dst,
+				Src: dst,
+			})
+		case ops.OpGt:
+			// x > y ==> y < x
+			c.Emit(ir.Combine{
+				Op:   ops.OpLt,
+				Dst:  dst,
+				Lsrc: rsrc,
+				Rsrc: lsrc,
+			})
+		case ops.OpGeq:
+			// x >= y ==> y <= x
+			c.Emit(ir.Combine{
+				Op:   ops.OpLeq,
+				Dst:  dst,
+				Lsrc: rsrc,
+				Rsrc: rsrc,
+			})
+		default:
+			c.Emit(ir.Combine{
+				Op:   r.op,
+				Dst:  dst,
+				Lsrc: lsrc,
+				Rsrc: rsrc,
+			})
+		}
 		c.ReleaseRegister(lsrc)
 		lsrc = dst
 		c.TakeRegister(dst)
@@ -102,7 +134,7 @@ func (u *UnOp) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (u *UnOp) CompileExp(c *Compiler, dst ir.Register) ir.Register {
+func (u *UnOp) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	c.Emit(ir.Transform{
 		Op:  u.op,
 		Dst: dst,
@@ -123,7 +155,7 @@ type IndexExp struct {
 	index      ExpNode
 }
 
-func (e IndexExp) CompileExp(c *Compiler, dst ir.Register) ir.Register {
+func (e IndexExp) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	tReg := CompileExp(c, e.collection)
 	c.TakeRegister(tReg)
 	iReg := CompileExp(c, e.index)
@@ -136,7 +168,7 @@ func (e IndexExp) CompileExp(c *Compiler, dst ir.Register) ir.Register {
 	return dst
 }
 
-func (e IndexExp) CompileAssign(c *Compiler, src ir.Register) {
+func (e IndexExp) CompileAssign(c *ir.Compiler, src ir.Register) {
 	c.TakeRegister(src)
 	tReg := CompileExp(c, e.collection)
 	c.TakeRegister(tReg)

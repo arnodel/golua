@@ -22,12 +22,12 @@ func (s LocalStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (s LocalStat) CompileStat(c *Compiler) {
+func (s LocalStat) CompileStat(c *ir.Compiler) {
 	localRegs := make([]ir.Register, len(s.names))
 	CompileExpList(c, s.values, localRegs)
 	for i, reg := range localRegs {
 		c.ReleaseRegister(reg)
-		c.DeclareLocal(s.names[i], reg)
+		c.DeclareLocal(ir.Name(s.names[i]), reg)
 	}
 }
 
