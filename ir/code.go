@@ -2,7 +2,9 @@ package ir
 
 import "github.com/arnodel/golua/code"
 
-type Constant interface{}
+type Constant interface {
+	Compile(*ConstantCompiler) code.Constant
+}
 
 type ConstantPool struct {
 	constants []Constant
@@ -22,6 +24,36 @@ func (c *ConstantPool) Constants() []Constant {
 	return c.constants
 }
 
+type Float float64
+
+func (f Float) Compile(kc *ConstantCompiler) code.Constant {
+	return code.Float(f)
+}
+
+type Int int64
+
+func (n Int) Compile(kc *ConstantCompiler) code.Constant {
+	return code.Int(n)
+}
+
+type Bool bool
+
+func (b Bool) Compile(kc *ConstantCompiler) code.Constant {
+	return code.Bool(b)
+}
+
+type String string
+
+func (s String) Compile(kc *ConstantCompiler) code.Constant {
+	return code.String(s)
+}
+
+type NilType struct{}
+
+func (n NilType) Compile(kc *ConstantCompiler) code.Constant {
+	return code.NilType{}
+}
+
 type Code struct {
 	Instructions []Instruction
 	Constants    []Constant
@@ -30,22 +62,57 @@ type Code struct {
 	LabelPos     map[int][]Label
 }
 
-type Float float64
-
-type Int int64
-
-type Bool bool
-
-type String string
-
-type NilType struct{}
-
-func (c *Code) Compile(cc *code.Compiler) error {
+func (c *Code) Compile(kc *ConstantCompiler) code.Constant {
+	start := kc.Offset()
 	for i, instr := range c.Instructions {
 		for _, lbl := range c.LabelPos[i] {
-			cc.EmitLabel(code.Label(lbl))
+			kc.EmitLabel(code.Label(lbl))
 		}
-		instr.Compile(cc)
+		instr.Compile(kc)
 	}
-	return nil
+	end := kc.Offset()
+	return code.Code{
+		StartOffset:  start,
+		EndOffset:    end,
+		UpvalueCount: c.UpvalueCount,
+		RegCount:     c.RegCount,
+	}
+}
+
+type ConstantCompiler struct {
+	*code.Compiler
+	constants   []Constant
+	constantMap map[uint]int
+	compiled    []code.Constant
+	queue       []uint
+	offset      int
+}
+
+func (kc *ConstantCompiler) GetConstant(ki uint) Constant {
+	return kc.constants[ki]
+}
+
+func (kc *ConstantCompiler) QueueConstant(ki uint) int {
+	if cki, ok := kc.constantMap[ki]; ok {
+		return cki
+	}
+	kc.constantMap[ki] = kc.offset
+	kc.offset++
+	kc.queue = append(kc.queue, ki)
+	return kc.offset - 1
+}
+
+func (kc *ConstantCompiler) CompileQueue() *code.Unit {
+	for kc.queue != nil {
+		queue := kc.queue
+		kc.queue = nil
+		for _, ki := range queue {
+			ck := kc.constants[ki].Compile(kc)
+			if kc.constantMap[ki] != len(kc.compiled) {
+				panic("Inconsistent constant indexes :(")
+			}
+			kc.compiled = append(kc.compiled, ck)
+		}
+	}
+	return code.NewUnit(kc.Code(), kc.compiled)
 }

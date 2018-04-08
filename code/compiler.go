@@ -1,14 +1,68 @@
 package code
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 type Label uint
-type Addr uint16
+type Addr int
+
+type Constant interface {
+	ShortString() string
+}
+
+type Code struct {
+	StartOffset, EndOffset uint
+	UpvalueCount           int
+	RegCount               int
+}
+
+func (c Code) ShortString() string {
+	return "some code"
+}
+
+type Float float64
+
+func (f Float) ShortString() string {
+	return strconv.FormatFloat(float64(f), 'g', -1, 64)
+}
+
+type Int int64
+
+func (i Int) ShortString() string {
+	return strconv.FormatInt(int64(i), 10)
+}
+
+type Bool bool
+
+func (b Bool) ShortString() string {
+	return strconv.FormatBool(bool(b))
+}
+
+type String string
+
+func (s String) ShortString() string {
+	return strconv.Quote(string(s))
+}
+
+type NilType struct{}
+
+func (n NilType) ShortString() string {
+	return "nil"
+}
 
 type Compiler struct {
-	code   []Opcode
-	labels map[Label]Addr
-	addrs  map[Addr]Label
+	code     []Opcode
+	jumpTo   map[Label]int
+	jumpFrom map[Label][]int
+}
+
+func NewCompiler() *Compiler {
+	return &Compiler{
+		jumpTo:   make(map[Label]int),
+		jumpFrom: make(map[Label][]int),
+	}
 }
 
 func (c *Compiler) Emit(opcode Opcode) {
@@ -16,21 +70,40 @@ func (c *Compiler) Emit(opcode Opcode) {
 }
 
 func (c *Compiler) EmitJump(opcode Opcode, lbl Label) {
-	c.addrs[Addr(len(c.code))] = lbl
+	fmt.Printf("EJ: %d\n", lbl)
+	jumpToAddr, ok := c.jumpTo[lbl]
+	addr := len(c.code)
+	if ok {
+		opcode |= Opcode(Lit16(jumpToAddr - addr).ToN())
+	} else {
+		c.jumpFrom[lbl] = append(c.jumpFrom[lbl], addr)
+	}
 	c.Emit(opcode)
 }
 
 func (c *Compiler) EmitLabel(lbl Label) {
-	c.labels[lbl] = Addr(len(c.code))
+	fmt.Printf("EL: %d\n", lbl)
+	if _, ok := c.jumpTo[lbl]; ok {
+		panic("Label already emitted")
+	}
+	addr := len(c.code)
+	c.jumpTo[lbl] = addr
+	for _, jumpFromAddr := range c.jumpFrom[lbl] {
+		c.code[jumpFromAddr] |= Opcode(Lit16(addr - jumpFromAddr).ToN())
+	}
+	delete(c.jumpFrom, lbl)
 }
 
-func (c *Compiler) ComputeJumps() error {
-	for jumpFromAddr, jumpToLbl := range c.addrs {
-		if jumpToAddr, ok := c.labels[jumpToLbl]; ok {
-			c.code[jumpFromAddr] |= Opcode(Lit16(jumpToAddr).ToN())
-		} else {
-			return fmt.Errorf("Missing label: %d", jumpToLbl)
-		}
+func (c *Compiler) Offset() uint {
+	if len(c.jumpFrom) > 0 {
+		fmt.Printf("to: %v\n", c.jumpTo)
+		fmt.Printf("from: %v\n", c.jumpFrom)
+		panic("Illegal offset")
 	}
-	return nil
+	c.jumpTo = make(map[Label]int)
+	return uint(len(c.code))
+}
+
+func (c *Compiler) Code() []Opcode {
+	return c.code
 }

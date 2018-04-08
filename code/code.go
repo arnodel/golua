@@ -1,5 +1,7 @@
 package code
 
+import "fmt"
+
 // Type1:  1XXXXabc AAAAAAAA BBBBBBBB CCCCCCCC
 //
 // Binary ops
@@ -72,15 +74,19 @@ func MkType0(rA, rB, rC Reg) Opcode {
 }
 
 func (c Opcode) GetA() Reg {
-	return Reg((c >> 18 & 1) | (c >> 16 & 0xff))
+	return Reg((c >> 18 & 0x100) | (c >> 16 & 0xff))
 }
 
 func (c Opcode) GetB() Reg {
-	return Reg((c >> 17 & 1) | (c >> 8 & 0xff))
+	return Reg((c >> 17 & 0x100) | (c >> 8 & 0xff))
 }
 
 func (c Opcode) GetC() Reg {
-	return Reg((c >> 16 & 1) | (c & 0xff))
+	return Reg((c >> 16 & 0x100) | (c & 0xff))
+}
+
+func (c Opcode) GetZ() UnOp {
+	return UnOp(c & 0xff)
 }
 
 func (c Opcode) GetN() uint16 {
@@ -103,12 +109,16 @@ func (c Opcode) GetType() uint8 {
 	return uint8(c >> 28)
 }
 
+func (c Opcode) GetR() uint8 {
+	return uint8(c >> 28)
+}
+
 func (c Opcode) HasType1() bool {
 	return c&(1<<31) != 0
 }
 
 func (c Opcode) HasType2or4() bool {
-	return c&(1<<28) != 0
+	return c&(5<<28) == 5<<28
 }
 
 func (c Opcode) HasSubtypeFlagSet() bool {
@@ -117,6 +127,10 @@ func (c Opcode) HasSubtypeFlagSet() bool {
 
 func (c Opcode) HasType4a() bool {
 	return c&(1<<24) != 0
+}
+
+func (c Opcode) HasType6() bool {
+	return c&(3<<30) == 0
 }
 
 type BinOp uint8
@@ -227,4 +241,151 @@ const (
 
 func (op JumpOp) ToY() uint32 {
 	return uint32(op) << 24
+}
+
+func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
+	if c.HasType1() {
+		// Type1
+		rA := c.GetA()
+		rB := c.GetB()
+		rC := c.GetC()
+		tpl := "???"
+		switch c.GetX() {
+		case OpAdd:
+			tpl = "%s + %s"
+		case OpSub:
+			tpl = "%s - %s"
+		case OpMul:
+			tpl = "%s * %s"
+		case OpDiv:
+			tpl = "%s / %s"
+		case OpFloorDiv:
+			tpl = "%s floor/ %s"
+		case OpMod:
+			tpl = "%s mod %s"
+		case OpPow:
+			tpl = "%s ^ %s"
+		case OpBitAnd:
+			tpl = "%s & %s"
+		case OpBitOr:
+			tpl = "%s | %s"
+		case OpBitXor:
+			tpl = "%s ~ %s"
+		case OpShiftL:
+			tpl = "%s << %s"
+		case OpShiftR:
+			tpl = "%s >> %s"
+		case OpEq:
+			tpl = "%s == %s"
+		case OpLt:
+			tpl = "%s < %s"
+		case OpLeq:
+			tpl = "%s <= %s"
+		case OpConcat:
+			tpl = "%s .. %s"
+		}
+		return fmt.Sprintf("%s <- "+tpl, rA, rB, rC)
+	} else if c.HasType2or4() {
+		rA := c.GetA()
+		f := c.GetF()
+		if c.HasSubtypeFlagSet() {
+			rB := c.GetB()
+			rC := c.GetC()
+			// Type2
+			if f {
+				return fmt.Sprintf("%s <- %s[%s]", rA, rB, rC)
+			}
+			return fmt.Sprintf("%s[%s] <- %s", rB, rC, rA)
+		} else if c.HasType4a() {
+			rB := c.GetB()
+			// Type4a
+			tpl := "???"
+			switch c.GetZ() {
+			case OpNeg:
+				tpl = "-%s"
+			case OpBitNot:
+				tpl = "~%s"
+			case OpLen:
+				tpl = "#%s"
+			case OpClosure:
+				tpl = "clos(%s)"
+			case OpId:
+				tpl = "%s"
+			case OpTruth:
+				tpl = "bool(%s)"
+			case OpCell:
+				tpl = "cell(%s)"
+			case OpNot:
+				tpl = "not %s"
+			}
+			if f {
+				// It's a push
+				return fmt.Sprintf("push %s, "+tpl, rA, rB)
+			}
+			return fmt.Sprintf("%s <- "+tpl, rA, rB)
+		} else {
+			k := "??"
+			switch UnOpK(c.GetZ()) {
+			case OpCC:
+				k = "CC"
+			case OpTable:
+				k = "{}"
+			}
+			if f {
+				return fmt.Sprintf("push %s, "+k, rA)
+			}
+			return fmt.Sprintf("%s <- "+k, rA)
+		}
+	} else if c.HasType6() {
+		rA := c.GetA()
+		arg := ""
+		switch c.GetR() {
+		case 1:
+			arg = rA.String()
+		case 2:
+			arg = fmt.Sprintf("%s, %s", rA, c.GetB())
+		case 3:
+			arg = fmt.Sprintf("%s, %s, %s", rA, c.GetB(), c.GetC())
+		default:
+			return "???"
+		}
+		return "recv " + arg
+	} else {
+		rA := c.GetA()
+		n := c.GetN()
+		f := c.GetF()
+		y := c.GetY()
+		if c.HasSubtypeFlagSet() {
+			// Type3
+			tpl := "???"
+			switch UnOpK16(y) {
+			case OpK:
+				tpl = fmt.Sprintf("K%d (%s)", n, d.ShortKString(n))
+			case OpClosureK:
+				tpl = fmt.Sprintf("clos(K%d) (%s)", n, d.ShortKString(n))
+			}
+			if f {
+				return fmt.Sprintf("push %s, "+tpl, rA)
+			}
+			return fmt.Sprintf("%s <- "+tpl, rA)
+		}
+		// Type5
+		switch JumpOp(y) {
+		case OpJump:
+			dest := i + int(int16(n))
+			return fmt.Sprintf("jump %+d (%s)", int16(n), d.GetLabel(dest))
+		case OpJumpIf:
+			dest := i + int(int16(n))
+			not := ""
+			if !f {
+				not = " not"
+			}
+			return fmt.Sprintf("if%s %s jump %+d (%s)", not, rA, int16(n), d.GetLabel(dest))
+		case OpCall:
+			return fmt.Sprintf("call %s", rA)
+		// case JumpIfForLoopDone:
+		default:
+			return "???"
+		}
+	}
 }

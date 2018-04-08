@@ -1,5 +1,7 @@
 package code
 
+import "fmt"
+
 // RegType represents the type of a register
 type RegType uint8
 
@@ -38,4 +40,14 @@ func (r Reg) ToB() uint32 {
 
 func (r Reg) ToC() uint32 {
 	return uint32(r.Idx()) | uint32(r.Tp())<<24
+}
+
+func (r Reg) String() string {
+	switch r.Tp() {
+	case Register:
+		return fmt.Sprintf("r%d", r.Idx())
+	case Upvalue:
+		return fmt.Sprintf("u%d", r.Idx())
+	}
+	return "??"
 }

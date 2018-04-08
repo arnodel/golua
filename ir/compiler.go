@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 
+	"github.com/arnodel/golua/code"
 	"github.com/arnodel/golua/ops"
 )
 
@@ -220,4 +221,15 @@ func EmitMove(c *Compiler, dst Register, src Register) {
 	if dst != src {
 		c.Emit(Transform{Op: ops.OpId, Dst: dst, Src: src})
 	}
+}
+
+func (c *Compiler) NewConstantCompiler() *ConstantCompiler {
+	ki := c.GetConstant(c.GetCode())
+	kc := &ConstantCompiler{
+		Compiler:    code.NewCompiler(),
+		constants:   c.constantPool.Constants(),
+		constantMap: make(map[uint]int),
+	}
+	kc.QueueConstant(ki)
+	return kc
 }
