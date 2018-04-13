@@ -39,23 +39,22 @@ func (f Function) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (f Function) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	fc := c.NewChild()
+func (f Function) CompileBody(c *ir.Compiler) {
 	recvRegs := make([]ir.Register, 1+len(f.params))
-	callerReg := fc.GetFreeRegister()
-	fc.DeclareLocal(ir.Name(Name("<caller>")), callerReg)
+	callerReg := c.GetFreeRegister()
+	c.DeclareLocal(ir.Name(Name("<caller>")), callerReg)
 	recvRegs[0] = callerReg
 	for i, p := range f.params {
-		reg := fc.GetFreeRegister()
-		fc.DeclareLocal(ir.Name(p), reg)
+		reg := c.GetFreeRegister()
+		c.DeclareLocal(ir.Name(p), reg)
 		recvRegs[i+1] = reg
 	}
 	if !f.hasDots {
-		fc.Emit(ir.Receive{Dst: recvRegs})
+		c.Emit(ir.Receive{Dst: recvRegs})
 	} else {
-		reg := fc.GetFreeRegister()
-		fc.DeclareLocal(ir.Name(Name("...")), reg)
-		fc.Emit(ir.ReceiveEtc{Dst: recvRegs, Etc: reg})
+		reg := c.GetFreeRegister()
+		c.DeclareLocal(ir.Name(Name("...")), reg)
+		c.Emit(ir.ReceiveEtc{Dst: recvRegs, Etc: reg})
 	}
 
 	// Need to make sure there is a return instruction emitted at the
@@ -64,8 +63,12 @@ func (f Function) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	if body.returnValues == nil {
 		body.returnValues = []ExpNode{}
 	}
-	body.CompileBlock(fc)
+	body.CompileBlock(c)
+}
 
+func (f Function) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
+	fc := c.NewChild()
+	f.CompileBody(fc)
 	kidx := c.GetConstant(fc.GetCode())
 	c.Emit(ir.MkClosure{
 		Dst:      dst,

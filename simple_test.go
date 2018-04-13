@@ -7,7 +7,6 @@ import (
 
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/code"
-	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/lexer"
 	"github.com/arnodel/golua/parser"
 )
@@ -24,7 +23,7 @@ func Test1(t *testing.T) {
 end`,
 		`for i = 1, 10 do f(i, i + i^2 - 3); end`,
 		`local f, s; for i, j in f, s do print(i, j); end`,
-		`a = {1, "ab'\"c", 4, x = 2, ['def"\n'] = 1.3, z={tt=1}}`,
+		`a = {1, "ab'\"c", 4, x = 2, ['def"\n'] = 1.3, z={tt=1, [u]=2}}`,
 		`a = a + 1; return a`,
 		`local x = 1; return function(i) x = x + i; return x; end`,
 	}
@@ -32,7 +31,6 @@ end`,
 	p := parser.NewParser()
 	for i, src := range testData {
 		t.Run(fmt.Sprintf("t%d", i), func(t *testing.T) {
-			rc := ir.NewCompiler()
 			s := lexer.NewLexer([]byte(src))
 			tree, err := p.Parse(s)
 			if err != nil {
@@ -42,10 +40,10 @@ end`,
 				fmt.Printf("%s\n", src)
 				tree.(ast.Node).HWrite(w)
 				w.Next()
-				tree.(ast.BlockStat).CompileChunk(rc)
-				fmt.Printf("%+v\n", rc)
-				rc.Dump()
-				kc := rc.NewConstantCompiler()
+				c := tree.(ast.BlockStat).CompileChunk()
+				fmt.Printf("%+v\n", c)
+				c.Dump()
+				kc := c.NewConstantCompiler()
 				unit := kc.CompileQueue()
 				fmt.Println("\n=========")
 				dis := code.NewUnitDisassembler(unit)

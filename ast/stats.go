@@ -136,15 +136,18 @@ func (s BlockStat) CompileBlock(c *ir.Compiler) {
 	}
 }
 
-func (s BlockStat) CompileChunk(c *ir.Compiler) {
+func (s BlockStat) CompileChunk() *ir.Compiler {
+	c := ir.NewCompiler()
 	f := Function{
 		ParList: ParList{hasDots: true},
 		body:    s,
 	}
-	envReg := c.GetFreeRegister()
-	c.DeclareLocal("_ENV", envReg)
-	_ = CompileExp(c, f)
-	c.ReleaseRegister(envReg)
+	pf := Function{
+		ParList: ParList{params: []Name{"_ENV"}},
+		body:    BlockStat{returnValues: []ExpNode{f}},
+	}
+	pf.CompileBody(c)
+	return c
 }
 
 func (s BlockStat) CompileStat(c *ir.Compiler) {
