@@ -1,6 +1,8 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
+import (
+	"github.com/arnodel/golua/ir"
+)
 
 type FunctionName struct {
 	name   Var
@@ -55,7 +57,15 @@ func (f Function) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 		fc.DeclareLocal(ir.Name(Name("...")), reg)
 		fc.Emit(ir.ReceiveEtc{Dst: recvRegs, Etc: reg})
 	}
-	f.body.CompileBlock(fc)
+
+	// Need to make sure there is a return instruction emitted at the
+	// end.
+	body := f.body
+	if body.returnValues == nil {
+		body.returnValues = []ExpNode{}
+	}
+	body.CompileBlock(fc)
+
 	kidx := c.GetConstant(fc.GetCode())
 	c.Emit(ir.MkClosure{
 		Dst:      dst,

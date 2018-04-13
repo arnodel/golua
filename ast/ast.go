@@ -96,6 +96,10 @@ func (n Name) CompileAssign(c *ir.Compiler, src ir.Register) {
 	IndexExp{Name("_ENV"), String(n)}.CompileAssign(c, src)
 }
 
+func (n Name) AstString() String {
+	return String(n)
+}
+
 type NilType struct{}
 
 func (n NilType) HWrite(w HWriter) {

@@ -38,7 +38,6 @@ func CallWithArgs(c *ir.Compiler, args []ExpNode, fReg ir.Register) {
 	c.TakeRegister(fReg)
 	for i, arg := range args {
 		var argReg ir.Register
-		argReg = c.GetFreeRegister()
 		if i == len(args)-1 {
 			argFc, ok := arg.(FunctionCall)
 			if ok {

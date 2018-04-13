@@ -302,7 +302,7 @@ FieldList
 
 Field
     : "[" Exp "]" "=" Exp << ast.NewTableField($1.(ast.ExpNode), $4.(ast.ExpNode)) >>
-    | Name "=" Exp        << ast.NewTableField($0.(ast.ExpNode), $2.(ast.ExpNode)) >>
+    | Name "=" Exp        << ast.NewTableField($0.(ast.Name).AstString(), $2.(ast.ExpNode)) >>
     | Exp                 << ast.NewTableField(ast.NoTableKey{}, $0.(ast.ExpNode)) >>
     ;
 

@@ -195,23 +195,12 @@ func (m MkClosure) Compile(kc *ConstantCompiler) {
 	if m.Code > 0xffff {
 		panic("Only 2^16 constants supported")
 	}
-	kc.QueueConstant(m.Code)
-	opcode := code.MkType3(code.Off, code.OpClosureK, codeReg(m.Dst), code.Lit16(m.Code))
+	ckidx := kc.QueueConstant(m.Code)
+	opcode := code.MkType3(code.Off, code.OpClosureK, codeReg(m.Dst), code.Lit16(ckidx))
 	kc.Emit(opcode)
 	// Now add the upvalues
-	upvals := m.Upvalues
-	for len(upvals) >= 3 {
-		opcode := code.MkType0(codeReg(upvals[0]), codeReg(upvals[1]), codeReg(upvals[2]))
-		kc.Emit(opcode)
-		upvals = upvals[3:]
-	}
-	switch len(upvals) {
-	case 1:
-		opcode := code.MkType0(codeReg(upvals[0]), code.Reg(0), code.Reg(0))
-		kc.Emit(opcode)
-	case 2:
-		opcode := code.MkType0(codeReg(upvals[0]), codeReg(upvals[1]), code.Reg(0))
-		kc.Emit(opcode)
+	for _, upval := range m.Upvalues {
+		kc.Emit(code.MkType4a(code.Off, code.OpUpvalue, codeReg(m.Dst), codeReg(upval)))
 	}
 }
 
@@ -312,19 +301,8 @@ type Receive struct {
 // func (r Receive) GetEtc() Register         { return Register(0) }
 
 func (r Receive) Compile(kc *ConstantCompiler) {
-	dst := r.Dst
-	for len(dst) >= 3 {
-		opcode := code.MkType6(code.Off, 3, codeReg(dst[0]), codeReg(dst[1]), codeReg(dst[2]))
-		kc.Emit(opcode)
-		dst = dst[3:]
-	}
-	switch len(dst) {
-	case 1:
-		opcode := code.MkType6(code.Off, 1, codeReg(dst[0]), code.Reg(0), code.Reg(0))
-		kc.Emit(opcode)
-	case 2:
-		opcode := code.MkType6(code.Off, 2, codeReg(dst[0]), codeReg(dst[1]), code.Reg(0))
-		kc.Emit(opcode)
+	for _, reg := range r.Dst {
+		kc.Emit(code.MkType0(code.Off, codeReg(reg)))
 	}
 }
 
@@ -346,23 +324,10 @@ func (r ReceiveEtc) String() string {
 }
 
 func (r ReceiveEtc) Compile(kc *ConstantCompiler) {
-	dst := r.Dst
-	for len(dst) >= 3 {
-		opcode := code.MkType6(code.Off, 3, codeReg(dst[0]), codeReg(dst[1]), codeReg(dst[2]))
-		kc.Emit(opcode)
-		dst = dst[3:]
+	for _, reg := range r.Dst {
+		kc.Emit(code.MkType0(code.Off, codeReg(reg)))
 	}
-	switch len(dst) {
-	case 0:
-		opcode := code.MkType6(code.On, 0, codeReg(r.Etc), code.Reg(0), code.Reg(0))
-		kc.Emit(opcode)
-	case 1:
-		opcode := code.MkType6(code.Off, 1, codeReg(dst[0]), codeReg(r.Etc), code.Reg(0))
-		kc.Emit(opcode)
-	case 2:
-		opcode := code.MkType6(code.Off, 2, codeReg(dst[0]), codeReg(dst[1]), codeReg(r.Etc))
-		kc.Emit(opcode)
-	}
+	kc.Emit(code.MkType0(code.On, codeReg(r.Etc)))
 }
 
 type JumpIfForLoopDone struct {
@@ -385,5 +350,5 @@ func codeReg(r Register) code.Reg {
 	if r >= 0 {
 		return code.MkRegister(uint8(r))
 	}
-	return code.MkUpvalue(uint8(1 - r))
+	return code.MkUpvalue(uint8(-1 - r))
 }

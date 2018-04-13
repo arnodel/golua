@@ -1343,13 +1343,13 @@ var productionsTable = ProdTab{
 		},
 	},
 	ProdTabEntry{
-		String: `Field : Name "=" Exp	<< ast.NewTableField(X[0].(ast.ExpNode), X[2].(ast.ExpNode)) >>`,
+		String: `Field : Name "=" Exp	<< ast.NewTableField(X[0].(ast.Name).AstString(), X[2].(ast.ExpNode)) >>`,
 		Id:         "Field",
 		NTType:     53,
 		Index:      132,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
-			return ast.NewTableField(X[0].(ast.ExpNode), X[2].(ast.ExpNode))
+			return ast.NewTableField(X[0].(ast.Name).AstString(), X[2].(ast.ExpNode))
 		},
 	},
 	ProdTabEntry{

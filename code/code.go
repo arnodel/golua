@@ -16,7 +16,7 @@ import "fmt"
 
 // Type4a: 0101Fab1 AAAAAAAA BBBBBBBB CCCCCCCC
 //
-// Unary ops
+// Unary ops + upvalues
 
 // Type4b: 0101Fa00 AAAAAAAA BBBBBBBB CCCCCCCC
 //
@@ -26,9 +26,9 @@ import "fmt"
 //
 // Jump / call
 
-// Type6:  00RRFabc AAAAAAAA BBBBBBBB CCCCCCCC
+// Type0:  0000Fabc AAAAAAAA BBBBBBBB CCCCCCCC
 //
-// Receiving args / Closure creation
+// Receiving args
 
 // Opcode is the type of opcodes
 type Opcode uint32
@@ -69,8 +69,8 @@ func MkType6(f Flag, n uint8, rA, rB, rC Reg) Opcode {
 	return Opcode(f.ToF() | uint32(n)<<28 | rA.ToA() | rB.ToB() | rC.ToC())
 }
 
-func MkType0(rA, rB, rC Reg) Opcode {
-	return Opcode(rA.ToA() | rB.ToB() | rC.ToC())
+func MkType0(f Flag, rA Reg) Opcode {
+	return Opcode(f.ToF() | rA.ToA())
 }
 
 func (c Opcode) GetA() Reg {
@@ -131,6 +131,10 @@ func (c Opcode) HasType4a() bool {
 
 func (c Opcode) HasType6() bool {
 	return c&(3<<30) == 0
+}
+
+func (c Opcode) HasType0() bool {
+	return c&(0xf<<28) == 0
 }
 
 type BinOp uint8
@@ -200,6 +204,7 @@ const (
 	OpTruth // Turn operand to boolean
 	OpCell  // ?
 	OpNot   // Added afterwards - why did I not have it in the first place?
+	OpUpvalue
 )
 
 func (op UnOp) ToC() uint32 {
@@ -292,7 +297,7 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 			rB := c.GetB()
 			rC := c.GetC()
 			// Type2
-			if f {
+			if !f {
 				return fmt.Sprintf("%s <- %s[%s]", rA, rB, rC)
 			}
 			return fmt.Sprintf("%s[%s] <- %s", rB, rC, rA)
@@ -309,6 +314,8 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 				tpl = "#%s"
 			case OpClosure:
 				tpl = "clos(%s)"
+			case OpCont:
+				tpl = "cont(%s)"
 			case OpId:
 				tpl = "%s"
 			case OpTruth:
@@ -317,6 +324,9 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 				tpl = "cell(%s)"
 			case OpNot:
 				tpl = "not %s"
+			case OpUpvalue:
+				// Special case
+				return fmt.Sprintf("upval %s, %s", rA, rB)
 			}
 			if f {
 				// It's a push
@@ -336,20 +346,12 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 			}
 			return fmt.Sprintf("%s <- "+k, rA)
 		}
-	} else if c.HasType6() {
+	} else if c.HasType0() {
 		rA := c.GetA()
-		arg := ""
-		switch c.GetR() {
-		case 1:
-			arg = rA.String()
-		case 2:
-			arg = fmt.Sprintf("%s, %s", rA, c.GetB())
-		case 3:
-			arg = fmt.Sprintf("%s, %s, %s", rA, c.GetB(), c.GetC())
-		default:
-			return "???"
+		if c.GetF() {
+			return "recv ..." + rA.String()
 		}
-		return "recv " + arg
+		return "recv " + rA.String()
 	} else {
 		rA := c.GetA()
 		n := c.GetN()

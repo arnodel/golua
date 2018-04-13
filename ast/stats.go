@@ -136,6 +136,17 @@ func (s BlockStat) CompileBlock(c *ir.Compiler) {
 	}
 }
 
+func (s BlockStat) CompileChunk(c *ir.Compiler) {
+	f := Function{
+		ParList: ParList{hasDots: true},
+		body:    s,
+	}
+	envReg := c.GetFreeRegister()
+	c.DeclareLocal("_ENV", envReg)
+	_ = CompileExp(c, f)
+	c.ReleaseRegister(envReg)
+}
+
 func (s BlockStat) CompileStat(c *ir.Compiler) {
 	c.PushContext()
 	s.CompileBlock(c)
@@ -287,15 +298,53 @@ func (s ForStat) CompileStat(c *ir.Compiler) {
 	ir.EmitMove(c, stepReg, r)
 	c.TakeRegister(stepReg)
 
+	zReg := c.GetFreeRegister()
+	c.TakeRegister(zReg)
+	c.Emit(ir.LoadConst{
+		Dst:  zReg,
+		Kidx: c.GetConstant(ir.Int(0)),
+	})
+	c.Emit(ir.Combine{
+		Op:   ops.OpLt,
+		Dst:  zReg,
+		Lsrc: stepReg,
+		Rsrc: zReg,
+	})
+
 	loopLbl := c.GetNewLabel()
 	c.EmitLabel(loopLbl)
 	endLbl := c.GetNewLabel()
-	c.Emit(ir.JumpIfForLoopDone{
-		Label: endLbl,
-		Var:   startReg,
-		Limit: stopReg,
-		Step:  stepReg,
+
+	condReg := c.GetFreeRegister()
+	negStepLbl := c.GetNewLabel()
+	bodyLbl := c.GetNewLabel()
+	c.Emit(ir.JumpIf{
+		Cond:  zReg,
+		Label: negStepLbl,
 	})
+	c.Emit(ir.Combine{
+		Op:   ops.OpLt,
+		Dst:  condReg,
+		Lsrc: stopReg,
+		Rsrc: startReg,
+	})
+	c.Emit(ir.JumpIf{
+		Cond:  condReg,
+		Label: endLbl,
+	})
+	c.Emit(ir.Jump{Label: bodyLbl})
+	c.EmitLabel(negStepLbl)
+	c.Emit(ir.Combine{
+		Op:   ops.OpLt,
+		Dst:  condReg,
+		Lsrc: startReg,
+		Rsrc: stopReg,
+	})
+	c.Emit(ir.JumpIf{
+		Cond:  condReg,
+		Label: endLbl,
+	})
+	c.EmitLabel(bodyLbl)
 
 	c.PushContext()
 	iterReg := c.GetFreeRegister()
@@ -317,6 +366,7 @@ func (s ForStat) CompileStat(c *ir.Compiler) {
 	c.ReleaseRegister(startReg)
 	c.ReleaseRegister(stopReg)
 	c.ReleaseRegister(stepReg)
+	c.ReleaseRegister(zReg)
 }
 
 type ForInStat struct {

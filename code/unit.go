@@ -53,6 +53,6 @@ func (d *UnitDisassembler) Disassemble(w io.Writer) {
 		disCode[i] = opcode.Disassemble(d, i)
 	}
 	for i, dis := range disCode {
-		fmt.Fprintf(w, "%s\t%d\t%x\t%s\n", d.labels[i], i, d.unit.code[i], dis)
+		fmt.Fprintf(w, "%s\t%d\t%08x\t%s\n", d.labels[i], i, d.unit.code[i], dis)
 	}
 }
