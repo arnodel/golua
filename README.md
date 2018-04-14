@@ -18,7 +18,7 @@ Almost there.  To do:
 IR -> Code Compilation
 ----------------------
 
-To do
+Done, AFAICS.
 
 Runtime
 -------
