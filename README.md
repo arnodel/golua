@@ -6,7 +6,12 @@ Implementation of Lua in Go. Roadmap below.
 Lexer / Parser
 --------------
 
-Done
+This almost works apart from:
+* long strings (e.g. `[===[ ... ]===]`)
+* long comments (e.g. `-- [=[ ... ]=]`)
+
+They would require writing a custom lexer rather than generating one
+with gocc though.
 
 AST -> IR Compilation
 ---------------------
