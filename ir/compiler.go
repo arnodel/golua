@@ -73,6 +73,7 @@ type Compiler struct {
 	constantPool *ConstantPool
 	labels       map[Label]int
 	labelPos     map[int][]Label
+	breakLabels  []Label
 }
 
 func NewCompiler() *Compiler {
@@ -124,6 +125,29 @@ func (c *Compiler) EmitLabel(lbl Label) {
 	pos := len(c.code)
 	c.labels[lbl] = pos
 	c.labelPos[pos] = append(c.labelPos[pos], lbl)
+}
+
+func (c *Compiler) PushBreakLabel() Label {
+	lbl := c.GetNewLabel()
+	c.breakLabels = append(c.breakLabels, lbl)
+	return lbl
+}
+
+func (c *Compiler) EmitBreakLabel() {
+	last := len(c.breakLabels) - 1
+	if last < 0 {
+		panic("No break label to emit")
+	}
+	c.EmitLabel(c.breakLabels[last])
+	c.breakLabels = c.breakLabels[:last]
+}
+
+func (c *Compiler) GetBreakLabel() Label {
+	last := len(c.breakLabels) - 1
+	if last < 0 {
+		panic("No break label to get")
+	}
+	return c.breakLabels[last]
 }
 
 func (c *Compiler) GetRegister(name Name) (reg Register, ok bool) {

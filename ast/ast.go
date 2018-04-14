@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"bytes"
 	"regexp"
 	"strconv"
 	"strings"
@@ -57,7 +58,7 @@ func (b Bool) HWrite(w HWriter) {
 	w.Writef("%t", bool(b))
 }
 
-func (b Bool) CompilerExp(c *ir.Compiler, dst ir.Register) ir.Register {
+func (b Bool) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	ir.EmitConstant(c, ir.Bool(b), dst)
 	return dst
 }
@@ -196,4 +197,14 @@ func replaceEscapeSeq(e []byte) []byte {
 func NewString(id *token.Token) String {
 	s := id.Lit
 	return String(escapeSeqs.ReplaceAllFunc(s[1:len(s)-1], replaceEscapeSeq))
+}
+
+func NewLongString(id *token.Token) String {
+	s := id.Lit
+	idx := bytes.IndexByte(s[1:], '[') + 2
+	contents := s[idx : len(s)-idx]
+	if contents[0] == '\n' {
+		contents = contents[1:]
+	}
+	return String(contents)
 }

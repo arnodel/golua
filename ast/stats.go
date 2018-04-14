@@ -17,7 +17,7 @@ func (s BreakStat) HWrite(w HWriter) {
 }
 
 func (s BreakStat) CompileStat(c *ir.Compiler) {
-	// TODO
+	c.Emit(ir.Jump{Label: c.GetBreakLabel()})
 }
 
 type AssignStat struct {
@@ -168,12 +168,10 @@ func (s CondStat) HWrite(w HWriter) {
 	s.body.HWrite(w)
 }
 
-func (s CondStat) CompileCond(c *ir.Compiler) ir.Label {
+func (s CondStat) CompileCond(c *ir.Compiler, lbl ir.Label) {
 	condReg := CompileExp(c, s.cond)
-	lbl := c.GetNewLabel()
-	c.Emit(ir.JumpIf{Cond: condReg, Label: lbl})
+	c.Emit(ir.JumpIf{Cond: condReg, Label: lbl, Not: true})
 	s.body.CompileStat(c)
-	return lbl
 }
 
 type WhileStat struct {
@@ -188,9 +186,10 @@ func (s WhileStat) HWrite(w HWriter) {
 func (s WhileStat) CompileStat(c *ir.Compiler) {
 	loopLbl := c.GetNewLabel()
 	c.EmitLabel(loopLbl)
-	stopLbl := s.CondStat.CompileCond(c)
+	stopLbl := c.PushBreakLabel()
+	s.CondStat.CompileCond(c, stopLbl)
 	c.Emit(ir.Jump{Label: loopLbl})
-	c.EmitLabel(stopLbl)
+	c.EmitBreakLabel()
 }
 
 type RepeatStat struct {
@@ -205,12 +204,14 @@ func (s RepeatStat) HWrite(w HWriter) {
 func (s RepeatStat) CompileStat(c *ir.Compiler) {
 	c.PushContext()
 	loopLbl := c.GetNewLabel()
+	c.PushBreakLabel()
 	c.EmitLabel(loopLbl)
 	s.body.CompileBlock(c)
 	condReg := CompileExp(c, s.cond)
 	negReg := c.GetFreeRegister()
 	c.Emit(ir.Transform{Op: ops.OpNot, Dst: negReg, Src: condReg})
 	c.Emit(ir.JumpIf{Cond: negReg, Label: loopLbl})
+	c.EmitBreakLabel()
 	c.PopContext()
 }
 
@@ -239,16 +240,20 @@ func (s IfStat) HWrite(w HWriter) {
 
 func (s IfStat) CompileStat(c *ir.Compiler) {
 	endLbl := c.GetNewLabel()
-	lbl := s.ifstat.CompileCond(c)
+	lbl := c.GetNewLabel()
+	s.ifstat.CompileCond(c, lbl)
 	for _, s := range s.elseifstats {
 		c.Emit(ir.Jump{Label: endLbl})
 		c.EmitLabel(lbl)
-		lbl = s.CompileCond(c)
+		lbl = c.GetNewLabel()
+		s.CompileCond(c, lbl)
 	}
 	if s.elsestat != nil {
 		c.Emit(ir.Jump{Label: endLbl})
 		c.EmitLabel(lbl)
 		s.elsestat.CompileStat(c)
+	} else {
+		c.EmitLabel(lbl)
 	}
 	c.EmitLabel(endLbl)
 
@@ -316,7 +321,7 @@ func (s ForStat) CompileStat(c *ir.Compiler) {
 
 	loopLbl := c.GetNewLabel()
 	c.EmitLabel(loopLbl)
-	endLbl := c.GetNewLabel()
+	endLbl := c.PushBreakLabel()
 
 	condReg := c.GetFreeRegister()
 	negStepLbl := c.GetNewLabel()
@@ -364,7 +369,7 @@ func (s ForStat) CompileStat(c *ir.Compiler) {
 	})
 	c.Emit(ir.Jump{Label: loopLbl})
 
-	c.EmitLabel(endLbl)
+	c.EmitBreakLabel()
 
 	c.ReleaseRegister(startReg)
 	c.ReleaseRegister(stopReg)
@@ -429,14 +434,14 @@ func (s ForInStat) CompileStat(c *ir.Compiler) {
 		Lsrc: var1,
 		Rsrc: testReg,
 	})
-	endLbl := c.GetNewLabel()
+	endLbl := c.PushBreakLabel()
 	c.Emit(ir.JumpIf{Cond: testReg, Label: endLbl})
 	c.Emit(ir.Transform{Dst: varReg, Op: ops.OpId, Src: var1})
 	s.body.CompileBlock(c)
 
 	c.Emit(ir.Jump{Label: loopLbl})
 
-	c.EmitLabel(endLbl)
+	c.EmitBreakLabel()
 	c.PopContext()
 }
 

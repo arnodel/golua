@@ -31,6 +31,8 @@ _stringbody : . | _xchar | _dchar | _echar | _unicode;
 
 string : '"' {_stringbody} '"' | '\'' {_stringbody} '\'';
 
+longstring : '[' '[' {.} ']' ']';
+
 /* Syntax rules */
 
 <<
@@ -54,10 +56,16 @@ StatList
     | StatList Stat << append($0.([]ast.Stat), $1.(ast.Stat)), nil >>
     ;
 
+PrefixExp
+    : Var
+    | FunctionCall
+    | "(" Exp ")" << $1, nil >>
+    ;
+
 Stat
     : ";"              << ast.NewEmptyStat() >>
     | AssignStat
-    | FunctionCall ";"
+    | FunctionCall /*";"*/ /* TODO: can remove? */
     | Label
     | BreakStat
     | GotoStat
@@ -116,7 +124,7 @@ LocalStat
     | "local" NameList "=" ExpList << ast.NewLocalStat($1.([]ast.Name), $3.([]ast.ExpNode)) >>
     ;
 
-Label : "::" Name "::" << ast.NewLabelStat($0.(ast.Name)) >>;
+Label : "::" Name "::" << ast.NewLabelStat($1.(ast.Name)) >>;
 
 /* Helper rules for statements */
 
@@ -246,12 +254,6 @@ Var
     | PrefixExp "." Name    << ast.NewIndexExp($0.(ast.ExpNode), $2.(ast.ExpNode)) >>
     ;
 
-PrefixExp
-    : Var
-    | FunctionCall
-    | "(" Exp ")" << $1, nil >>
-    ;
-
 FunctionCall
     : PrefixExp Args           << ast.NewFunctionCall($0.(ast.ExpNode), ast.Name(""), $1.([]ast.ExpNode)) >>
     | PrefixExp ":" Name Args  << ast.NewFunctionCall($0.(ast.ExpNode), $2.(ast.Name), $3.([]ast.ExpNode)) >>
@@ -265,6 +267,7 @@ Atom
     | numdec   << ast.NewNumber($0.(*token.Token)) >>
     | numhex   << ast.NewNumber($0.(*token.Token)) >>
     | string   << ast.NewString($0.(*token.Token)), nil >>
+    | longstring << ast.NewLongString($0.(*token.Token)), nil >>
     | FunctionDef
     | TableConstructor
     | PrefixExp
@@ -275,6 +278,7 @@ Args
     | "(" ExpList ")"  << $1.([]ast.ExpNode), nil >>
     | TableConstructor << []ast.ExpNode{$0.(ast.ExpNode)}, nil >>
     | string           << []ast.ExpNode{ast.NewString($0.(*token.Token))}, nil >>
+    | longstring       << []ast.ExpNode{ast.NewLongString($0.(*token.Token))}, nil >>
     ;
 
 FunctionDef : "function" FuncBody << $1, nil >>;
@@ -291,6 +295,7 @@ FuncBody : "(" ParList ")" Chunk "end" << ast.NewFunction($1.(ast.ParList), $3.(
 TableConstructor 
     : "{" FieldList "}"          << ast.NewTableConstructor($1.([]ast.TableField)) >>
     | "{" FieldList FieldSep "}" << ast.NewTableConstructor($1.([]ast.TableField)) >>
+    | "{" "}"                    << ast.NewTableConstructor(nil) >>
     ;
 
 FieldSep : "," | ";";

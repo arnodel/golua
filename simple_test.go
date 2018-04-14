@@ -21,11 +21,15 @@ func Test1(t *testing.T) {
   local z = x + y
   return z
 end`,
-		`for i = 1, 10 do f(i, i + i^2 - 3); end`,
-		`local f, s; for i, j in f, s do print(i, j); end`,
+		`for i = 1, 10 do f(i, i + i^2 - 3) end`,
+		`local f, s; for i, j in f, s do print(i, j) end`,
 		`a = {1, "ab'\"c", 4, x = 2, ['def"\n'] = 1.3, z={tt=1, [u]=2}}`,
 		`a = a + 1; return a`,
 		`local x = 1; return function(i) x = x + i; return x; end`,
+		`local i = 0; while 1 do if i > 5 then break end end`,
+		`local a = {}`,
+		`print([[foo bar]])`,
+		`f(x)(y)`,
 	}
 	w := ast.NewIndentWriter(os.Stdout)
 	p := parser.NewParser()
