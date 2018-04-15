@@ -8,6 +8,14 @@ type FunctionCall struct {
 	args   []ExpNode
 }
 
+func NewFunctionCall(target ExpNode, method Name, args []ExpNode) (*FunctionCall, error) {
+	return &FunctionCall{
+		target: target,
+		method: method,
+		args:   args,
+	}, nil
+}
+
 func (f FunctionCall) HWrite(w HWriter) {
 	w.Writef("call")
 	w.Indent()
@@ -34,6 +42,7 @@ func (f FunctionCall) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	return dst
 }
 
+// TODO: move this to somewhere better
 func CallWithArgs(c *ir.Compiler, args []ExpNode, fReg ir.Register) {
 	c.TakeRegister(fReg)
 	for i, arg := range args {
@@ -84,12 +93,4 @@ func (f FunctionCall) CompileCall(c *ir.Compiler) {
 func (f FunctionCall) CompileStat(c *ir.Compiler) {
 	f.CompileCall(c)
 	c.Emit(ir.Receive{})
-}
-
-func NewFunctionCall(target ExpNode, method Name, args []ExpNode) (*FunctionCall, error) {
-	return &FunctionCall{
-		target: target,
-		method: method,
-		args:   args,
-	}, nil
 }

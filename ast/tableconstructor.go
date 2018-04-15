@@ -2,16 +2,14 @@ package ast
 
 import "github.com/arnodel/golua/ir"
 
+//
+// TabelConstructor
+//
+
 type TableConstructor []TableField
 
-type NoTableKey struct{}
-
-func (k NoTableKey) HWrite(w HWriter) {
-	w.Writef("<no key>")
-}
-
-func (k NoTableKey) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	panic("NoTableKey should not be compiled")
+func NewTableConstructor(fields []TableField) (TableConstructor, error) {
+	return fields, nil
 }
 
 func (c TableConstructor) HWrite(w HWriter) {
@@ -52,13 +50,13 @@ func (t TableConstructor) CompileExp(c *ir.Compiler, dst ir.Register) ir.Registe
 	return dst
 }
 
+//
+// TableField
+//
+
 type TableField struct {
 	key   ExpNode
 	value ExpNode
-}
-
-func NewTableConstructor(fields []TableField) (TableConstructor, error) {
-	return fields, nil
 }
 
 func NewTableField(key ExpNode, value ExpNode) (TableField, error) {
@@ -66,4 +64,18 @@ func NewTableField(key ExpNode, value ExpNode) (TableField, error) {
 		key:   key,
 		value: value,
 	}, nil
+}
+
+//
+// NoTableKey
+//
+
+type NoTableKey struct{}
+
+func (k NoTableKey) HWrite(w HWriter) {
+	w.Writef("<no key>")
+}
+
+func (k NoTableKey) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
+	panic("NoTableKey should not be compiled")
 }

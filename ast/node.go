@@ -1,14 +1,13 @@
 package ast
 
-import (
-	"fmt"
-	"io"
-)
+import "github.com/arnodel/golua/ir"
 
+// Node is a node in the AST
 type Node interface {
 	HWrite(w HWriter)
 }
 
+// HWriter is an interface for printing nodes
 type HWriter interface {
 	Writef(string, ...interface{})
 	Indent()
@@ -16,35 +15,20 @@ type HWriter interface {
 	Next()
 }
 
-type IndentWriter struct {
-	writer io.Writer
-	depth  int
+// Stat is a statement
+type Stat interface {
+	Node
+	CompileStat(c *ir.Compiler)
 }
 
-func NewIndentWriter(w io.Writer) *IndentWriter {
-	return &IndentWriter{writer: w}
+// ExpNode is an expression
+type ExpNode interface {
+	Node
+	CompileExp(*ir.Compiler, ir.Register) ir.Register
 }
 
-func (w *IndentWriter) Writef(f string, args ...interface{}) {
-	w.writer.Write([]byte(fmt.Sprintf(f, args...)))
-}
-
-func (w *IndentWriter) Indent() {
-	w.depth++
-}
-
-func (w *IndentWriter) Dedent() {
-	w.depth--
-}
-
-const spaces80 = "                                                                                "
-
-func (w *IndentWriter) Next() {
-	w.writer.Write([]byte("\n"))
-	i := w.depth * 4
-	for i > 80 {
-		w.writer.Write([]byte(spaces80))
-		i -= 80
-	}
-	w.writer.Write([]byte(spaces80)[:i])
+// Var is an l-value
+type Var interface {
+	ExpNode
+	CompileAssign(*ir.Compiler, ir.Register)
 }

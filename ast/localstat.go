@@ -7,6 +7,10 @@ type LocalStat struct {
 	values []ExpNode
 }
 
+func NewLocalStat(names []Name, values []ExpNode) (LocalStat, error) {
+	return LocalStat{names: names, values: values}, nil
+}
+
 func (s LocalStat) HWrite(w HWriter) {
 	w.Writef("local")
 	w.Indent()
@@ -29,8 +33,4 @@ func (s LocalStat) CompileStat(c *ir.Compiler) {
 		c.ReleaseRegister(reg)
 		c.DeclareLocal(ir.Name(s.names[i]), reg)
 	}
-}
-
-func NewLocalStat(names []Name, values []ExpNode) (LocalStat, error) {
-	return LocalStat{names: names, values: values}, nil
 }
