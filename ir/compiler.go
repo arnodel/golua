@@ -9,11 +9,26 @@ import (
 
 type Name string
 
-type LexicalContext []map[Name]Register
+type lexicalMap struct {
+	reg   map[Name]Register
+	label map[Name]Label
+}
+
+type LexicalContext []lexicalMap
 
 func (c LexicalContext) GetRegister(name Name) (reg Register, ok bool) {
 	for i := len(c) - 1; i >= 0; i-- {
-		reg, ok = c[i][name]
+		reg, ok = c[i].reg[name]
+		if ok {
+			break
+		}
+	}
+	return
+}
+
+func (c LexicalContext) GetLabel(name Name) (label Label, ok bool) {
+	for i := len(c) - 1; i >= 0; i-- {
+		label, ok = c[i].label[name]
 		if ok {
 			break
 		}
@@ -24,7 +39,7 @@ func (c LexicalContext) GetRegister(name Name) (reg Register, ok bool) {
 func (c LexicalContext) AddToRoot(name Name, reg Register) (ok bool) {
 	ok = len(c) > 0
 	if ok {
-		c[0][name] = reg
+		c[0].reg[name] = reg
 	}
 	return
 }
@@ -32,35 +47,47 @@ func (c LexicalContext) AddToRoot(name Name, reg Register) (ok bool) {
 func (c LexicalContext) AddToTop(name Name, reg Register) (ok bool) {
 	ok = len(c) > 0
 	if ok {
-		c[len(c)-1][name] = reg
+		c[len(c)-1].reg[name] = reg
+	}
+	return
+}
+
+func (c LexicalContext) AddLabel(name Name, label Label) (ok bool) {
+	ok = len(c) > 0
+	if ok {
+		c[len(c)-1].label[name] = label
 	}
 	return
 }
 
 func (c LexicalContext) PushNew() LexicalContext {
-	return append(c, make(map[Name]Register))
+	return append(c, lexicalMap{
+		reg:   make(map[Name]Register),
+		label: make(map[Name]Label),
+	})
 }
 
-func (c LexicalContext) Pop() (LexicalContext, map[Name]Register) {
+func (c LexicalContext) Pop() (LexicalContext, lexicalMap) {
 	if len(c) == 0 {
-		return c, nil
+		return c, lexicalMap{}
 	}
 	return c[:len(c)-1], c[len(c)-1]
 }
 
-func (c LexicalContext) Top() map[Name]Register {
+func (c LexicalContext) Top() lexicalMap {
 	if len(c) > 0 {
 		return c[len(c)-1]
 	}
-	return nil
+	return lexicalMap{}
 }
 
 func (c LexicalContext) Dump() {
 	for i, ns := range c {
 		fmt.Printf("NS %d:\n", i)
-		for name, reg := range ns {
+		for name, reg := range ns.reg {
 			fmt.Printf("  %s: %s\n", name, reg)
 		}
+		// TODO: dump labels
 	}
 }
 
@@ -113,6 +140,24 @@ func (c *Compiler) Dump() {
 		}
 		fmt.Println(instr)
 	}
+}
+
+func (c *Compiler) DeclareGotoLabel(name Name) Label {
+	lbl := c.GetNewLabel()
+	c.context.AddLabel(name, lbl)
+	return lbl
+}
+
+func (c *Compiler) GetGotoLabel(name Name) (Label, bool) {
+	return c.context.GetLabel(name)
+}
+
+func (c *Compiler) EmitGotoLabel(name Name) {
+	label, ok := c.GetGotoLabel(name)
+	if !ok {
+		panic("Cannot emit undeclared label")
+	}
+	c.EmitLabel(label)
 }
 
 func (c *Compiler) GetNewLabel() Label {
@@ -203,11 +248,11 @@ func (c *Compiler) PushContext() {
 
 func (c *Compiler) PopContext() {
 	context, top := c.context.Pop()
-	if top == nil {
+	if top.reg == nil {
 		panic("Cannot pop empty context")
 	}
 	c.context = context
-	for _, reg := range top {
+	for _, reg := range top.reg {
 		c.ReleaseRegister(reg)
 	}
 }

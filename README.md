@@ -17,7 +17,6 @@ AST -> IR Compilation
 ---------------------
 
 Almost there.  To do:
-* label / goto
 * upvalue mutations - is that a runtime thing though?
 
 IR -> Code Compilation

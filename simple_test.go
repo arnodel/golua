@@ -30,6 +30,7 @@ end`,
 		`local a = {}`,
 		`print([[foo bar]])`,
 		`f(x)(y)`,
+		`::foo:: local x = 1; goto foo`,
 	}
 	w := ast.NewIndentWriter(os.Stdout)
 	p := parser.NewParser()
