@@ -31,30 +31,6 @@ func (s BlockStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func getLabels(c *ir.Compiler, statements []Stat) {
-	for _, stat := range statements {
-		switch s := stat.(type) {
-		case LabelStat:
-			c.DeclareGotoLabel(ir.Name(s))
-		case LocalStat, LocalFunctionStat:
-			return
-		}
-	}
-}
-
-func getBackLabels(c *ir.Compiler, statements []Stat) int {
-	count := 0
-	for i := len(statements) - 1; i >= 0; i-- {
-		if lbl, ok := statements[i].(LabelStat); ok {
-			count++
-			c.DeclareGotoLabel(ir.Name(lbl))
-		} else {
-			break
-		}
-	}
-	return count
-}
-
 func (s BlockStat) CompileBlock(c *ir.Compiler) {
 	totalDepth := 0
 	getLabels(c, s.statements)
@@ -98,4 +74,28 @@ func (s BlockStat) CompileStat(c *ir.Compiler) {
 	c.PushContext()
 	s.CompileBlock(c)
 	c.PopContext()
+}
+
+func getLabels(c *ir.Compiler, statements []Stat) {
+	for _, stat := range statements {
+		switch s := stat.(type) {
+		case LabelStat:
+			c.DeclareGotoLabel(ir.Name(s))
+		case LocalStat, LocalFunctionStat:
+			return
+		}
+	}
+}
+
+func getBackLabels(c *ir.Compiler, statements []Stat) int {
+	count := 0
+	for i := len(statements) - 1; i >= 0; i-- {
+		if lbl, ok := statements[i].(LabelStat); ok {
+			count++
+			c.DeclareGotoLabel(ir.Name(lbl))
+		} else {
+			break
+		}
+	}
+	return count
 }

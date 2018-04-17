@@ -8,8 +8,7 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
-func NewNumber(id *token.Token) (ExpNode, error) {
-	nstring := string(id.Lit)
+func NumberFromString(nstring string) (ExpNode, error) {
 	if strings.ContainsAny(nstring, ".eE") {
 		f, err := strconv.ParseFloat(nstring, 64)
 		if err != nil {
@@ -22,6 +21,10 @@ func NewNumber(id *token.Token) (ExpNode, error) {
 		return nil, err
 	}
 	return Int(n), nil
+}
+
+func NewNumber(id *token.Token) (ExpNode, error) {
+	return NumberFromString(string(id.Lit))
 }
 
 type Int int64

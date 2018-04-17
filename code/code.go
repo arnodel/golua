@@ -34,11 +34,12 @@ import "fmt"
 type Opcode uint32
 
 const (
-	Type1Pfx uint32 = 1 << 31
+	Type1Pfx uint32 = 8 << 28
 	Type2Pfx uint32 = 7 << 28
 	Type3Pfx uint32 = 6 << 28
 	Type4Pfx uint32 = 5 << 28
 	Type5Pfx uint32 = 4 << 28
+	Type0Pfx uint32 = 0
 )
 
 func MkType1(op BinOp, rA, rB, rC Reg) Opcode {
@@ -107,6 +108,10 @@ func (c Opcode) GetF() bool {
 
 func (c Opcode) GetType() uint8 {
 	return uint8(c >> 28)
+}
+
+func (c Opcode) TypePfx() uint32 {
+	return uint32(c) & 0xf0000000
 }
 
 func (c Opcode) GetR() uint8 {
@@ -290,18 +295,21 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 			tpl = "%s .. %s"
 		}
 		return fmt.Sprintf("%s <- "+tpl, rA, rB, rC)
-	} else if c.HasType2or4() {
+	}
+	switch c.TypePfx() {
+	case Type2Pfx:
 		rA := c.GetA()
 		f := c.GetF()
-		if c.HasSubtypeFlagSet() {
-			rB := c.GetB()
-			rC := c.GetC()
-			// Type2
-			if !f {
-				return fmt.Sprintf("%s <- %s[%s]", rA, rB, rC)
-			}
-			return fmt.Sprintf("%s[%s] <- %s", rB, rC, rA)
-		} else if c.HasType4a() {
+		rB := c.GetB()
+		rC := c.GetC()
+		if !f {
+			return fmt.Sprintf("%s <- %s[%s]", rA, rB, rC)
+		}
+		return fmt.Sprintf("%s[%s] <- %s", rB, rC, rA)
+	case Type4Pfx:
+		rA := c.GetA()
+		f := c.GetF()
+		if c.HasType4a() {
 			rB := c.GetB()
 			// Type4a
 			tpl := "???"
@@ -333,45 +341,46 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 				return fmt.Sprintf("push %s, "+tpl, rA, rB)
 			}
 			return fmt.Sprintf("%s <- "+tpl, rA, rB)
-		} else {
-			k := "??"
-			switch UnOpK(c.GetZ()) {
-			case OpCC:
-				k = "CC"
-			case OpTable:
-				k = "{}"
-			}
-			if f {
-				return fmt.Sprintf("push %s, "+k, rA)
-			}
-			return fmt.Sprintf("%s <- "+k, rA)
 		}
-	} else if c.HasType0() {
+		k := "??"
+		switch UnOpK(c.GetZ()) {
+		case OpCC:
+			k = "CC"
+		case OpTable:
+			k = "{}"
+		}
+		if f {
+			return fmt.Sprintf("push %s, "+k, rA)
+		}
+		return fmt.Sprintf("%s <- "+k, rA)
+	case Type0Pfx:
 		rA := c.GetA()
 		if c.GetF() {
 			return "recv ..." + rA.String()
 		}
 		return "recv " + rA.String()
-	} else {
+	case Type3Pfx:
 		rA := c.GetA()
 		n := c.GetN()
 		f := c.GetF()
 		y := c.GetY()
-		if c.HasSubtypeFlagSet() {
-			// Type3
-			tpl := "???"
-			switch UnOpK16(y) {
-			case OpK:
-				tpl = fmt.Sprintf("K%d (%s)", n, d.ShortKString(n))
-			case OpClosureK:
-				tpl = fmt.Sprintf("clos(K%d) (%s)", n, d.ShortKString(n))
-			}
-			if f {
-				return fmt.Sprintf("push %s, "+tpl, rA)
-			}
-			return fmt.Sprintf("%s <- "+tpl, rA)
+		// Type3
+		tpl := "???"
+		switch UnOpK16(y) {
+		case OpK:
+			tpl = fmt.Sprintf("K%d (%s)", n, d.ShortKString(n))
+		case OpClosureK:
+			tpl = fmt.Sprintf("clos(K%d) (%s)", n, d.ShortKString(n))
 		}
-		// Type5
+		if f {
+			return fmt.Sprintf("push %s, "+tpl, rA)
+		}
+		return fmt.Sprintf("%s <- "+tpl, rA)
+	case Type5Pfx:
+		rA := c.GetA()
+		n := c.GetN()
+		f := c.GetF()
+		y := c.GetY()
 		switch JumpOp(y) {
 		case OpJump:
 			dest := i + int(int16(n))
@@ -385,9 +394,10 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 			return fmt.Sprintf("if%s %s jump %+d (%s)", not, rA, int16(n), d.GetLabel(dest))
 		case OpCall:
 			return fmt.Sprintf("call %s", rA)
-		// case JumpIfForLoopDone:
 		default:
 			return "???"
 		}
+	default:
+		return "???"
 	}
 }
