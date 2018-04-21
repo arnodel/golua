@@ -7,26 +7,25 @@ import (
 )
 
 type LuaContinuation struct {
-	code      []code.Opcode
-	upvalues  []Value
+	*Closure
 	registers []Value
-	consts    []Value
 	pc        int
 }
 
-// func NewLuaContinuation(clos *Closure) *LuaContinuation {
-// 	if clos.upvalueIndex < len(clos.upvalues) {
-// 		panic("Closure not ready")
-// 	}
-// 	return &LuaContinuation{
-// 		Closure:   clos,
-// 		registers: make([]Value, clos.RegCount),
-// 	}
-// }
+func NewLuaContinuation(clos *Closure) *LuaContinuation {
+	if clos.upvalueIndex < len(clos.upvalues) {
+		panic("Closure not ready")
+	}
+	return &LuaContinuation{
+		Closure:   clos,
+		registers: make([]Value, clos.RegCount),
+	}
+}
 
 func (c *LuaContinuation) Push(val Value) {
-	opcode := c.code[int(c.pc)]
+	opcode := c.code[c.pc]
 	if opcode.HasType0() {
+		c.pc++
 		dst := opcode.GetA()
 		if opcode.GetF() {
 			// It's an etc
@@ -58,12 +57,9 @@ func (c *LuaContinuation) getReg(reg code.Reg) Value {
 	}
 }
 
-func (c *LuaContinuation) getConst(n uint16) Value {
-	return c.consts[n]
-}
-
 func (c *LuaContinuation) RunInThread(t *Thread) (Continuation, error) {
-	pc := int(c.pc)
+	pc := c.pc
+	consts := c.consts
 RunLoop:
 	for pc < len(c.code) {
 		opcode := c.code[pc]
@@ -77,35 +73,37 @@ RunLoop:
 			case code.OpAdd:
 				res, err = add(t, x, y)
 			case code.OpSub:
-
+				res, err = sub(t, x, y)
 			case code.OpMul:
-
+				res, err = mul(t, x, y)
 			case code.OpDiv:
-
+				res, err = div(t, x, y)
 			case code.OpFloorDiv:
-
+				res, err = idiv(t, x, y)
 			case code.OpMod:
-
+				res, err = mod(t, x, y)
 			case code.OpPow:
-
+				res, err = pow(t, x, y)
 			case code.OpBitAnd:
-
+				panic("unimplemented")
 			case code.OpBitOr:
-
+				panic("unimplemented")
 			case code.OpBitXor:
-
+				panic("unimplemented")
 			case code.OpShiftL:
-
+				panic("unimplemented")
 			case code.OpShiftR:
-
+				panic("unimplemented")
 			case code.OpEq:
-
+				panic("unimplemented")
 			case code.OpLt:
-
+				panic("unimplemented")
 			case code.OpLeq:
-
+				panic("unimplemented")
 			case code.OpConcat:
-
+				panic("unimplemented")
+			default:
+				panic("unsupported")
 			}
 			if err != nil {
 				return nil, err
@@ -144,9 +142,9 @@ RunLoop:
 			var val Value
 			switch code.UnOpK16(opcode.GetY()) {
 			case code.OpK:
-				val = c.getConst(n)
+				val = consts[n]
 			case code.OpClosureK:
-				val = NewClosure(c.getConst(n).(*code.Code))
+				val = NewClosure(consts[n].(*Code))
 			default:
 				panic("Unsupported opcode")
 			}
@@ -168,23 +166,29 @@ RunLoop:
 				val := c.getReg(opcode.GetB())
 				switch opcode.GetZ() {
 				case code.OpNeg:
-					res, err = neg(t, val)
+					res, err = unm(t, val)
 				case code.OpBitNot:
+					panic("unimplemented")
 				case code.OpLen:
+					panic("unimplemented")
 				case code.OpClosure:
+					panic("unimplemented")
 				case code.OpCont:
-
+					panic("unimplemented")
 				case code.OpId:
+					panic("unimplemented")
 				case code.OpTruth:
-
+					panic("unimplemented")
 				case code.OpCell:
+					panic("unimplemented")
 				case code.OpNot:
+					panic("unimplemented")
 				case code.OpUpvalue:
 					c.getReg(dst).(*Closure).AddUpvalue(val)
 					pc++
 					continue RunLoop
 				default:
-					panic("Unimplemented")
+					panic("unsupported")
 				}
 			} else {
 				// Type 4b
@@ -194,7 +198,7 @@ RunLoop:
 				case code.OpTable:
 					res = NewTable()
 				default:
-					panic("Unimplemented")
+					panic("unsupported")
 				}
 			}
 			if err != nil {

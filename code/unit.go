@@ -6,14 +6,14 @@ import (
 )
 
 type Unit struct {
-	code      []Opcode
-	constants []Constant
+	Code      []Opcode
+	Constants []Constant
 }
 
 func NewUnit(code []Opcode, constants []Constant) *Unit {
 	return &Unit{
-		code:      code,
-		constants: constants,
+		Code:      code,
+		Constants: constants,
 	}
 }
 
@@ -43,16 +43,16 @@ func (d *UnitDisassembler) GetLabel(offset int) string {
 }
 
 func (d *UnitDisassembler) ShortKString(ki uint16) string {
-	k := d.unit.constants[ki]
+	k := d.unit.Constants[ki]
 	return k.ShortString()
 }
 
 func (d *UnitDisassembler) Disassemble(w io.Writer) {
-	disCode := make([]string, len(d.unit.code))
-	for i, opcode := range d.unit.code {
+	disCode := make([]string, len(d.unit.Code))
+	for i, opcode := range d.unit.Code {
 		disCode[i] = opcode.Disassemble(d, i)
 	}
 	for i, dis := range disCode {
-		fmt.Fprintf(w, "%s\t%d\t%08x\t%s\n", d.labels[i], i, d.unit.code[i], dis)
+		fmt.Fprintf(w, "%s\t%d\t%08x\t%s\n", d.labels[i], i, d.unit.Code[i], dis)
 	}
 }

@@ -1,5 +1,7 @@
 package runtime
 
+import "errors"
+
 func getindex(t *Thread, coll Value, idx Value) (Value, error) {
 	if tbl, ok := coll.(*Table); ok {
 		if val := rawget(tbl, idx); val != nil {
@@ -53,4 +55,47 @@ func truth(v Value) bool {
 	default:
 		return true
 	}
+}
+
+func metacall(t *Thread, obj Value, method string, args []Value, results []Value) (error, bool) {
+	meta := getmetatable(obj)
+	if meta != nil {
+		if f := rawget(meta, String(method)); f != nil {
+			return call(t, f, args, results), true
+		}
+	}
+	return nil, false
+}
+
+func getmetatable(v Value) *Table {
+	mv, ok := v.(Metatabler)
+	if !ok {
+		return nil
+	}
+	meta := mv.Metatable()
+	metam := rawget(meta, "__metatable")
+	if metam != nil {
+		// Here we assume that a metatable must be a table...
+		return metam.(*Table)
+	}
+	return meta
+}
+
+func rawget(t *Table, k Value) Value {
+	if t == nil {
+		return nil
+	}
+	return t.content[k]
+}
+
+func call(t *Thread, f Value, args []Value, results []Value) error {
+	callable, ok := f.(Callable)
+	if ok {
+		return t.RunContinuation(Call(callable, args, NewTermination(results, nil)))
+	}
+	err, ok := metacall(t, f, "__call", append([]Value{f}, args...), results)
+	if ok {
+		return err
+	}
+	return errors.New("call expects a callable")
 }

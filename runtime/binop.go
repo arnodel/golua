@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"math"
 
 	"github.com/arnodel/golua/ast"
 )
@@ -35,7 +36,7 @@ func ToNumber(x Value) (Value, NumberType) {
 	return nil, NaN
 }
 
-func neg(t *Thread, x Value) (Value, error) {
+func unm(t *Thread, x Value) (Value, error) {
 	x, kx := ToNumber(x)
 	switch kx {
 	case IsInt:
@@ -44,6 +45,10 @@ func neg(t *Thread, x Value) (Value, error) {
 		return -x.(Float), nil
 	}
 	res, err, ok := metaun(t, "__unm", x)
+	if ok {
+		return res, err
+	}
+	return nil, errors.New("cannot neg")
 }
 
 func add(t *Thread, x Value, y Value) (Value, error) {
@@ -72,6 +77,196 @@ func add(t *Thread, x Value, y Value) (Value, error) {
 	return nil, errors.New("add expects addable values")
 }
 
+func sub(t *Thread, x Value, y Value) (Value, error) {
+	x, kx := ToNumber(x)
+	y, ky := ToNumber(y)
+	switch kx {
+	case IsInt:
+		switch ky {
+		case IsInt:
+			return x.(Int) - y.(Int), nil
+		case IsFloat:
+			return Float(x.(Int)) - y.(Float), nil
+		}
+	case IsFloat:
+		switch ky {
+		case IsInt:
+			return x.(Float) - Float(y.(Int)), nil
+		case IsFloat:
+			return x.(Float) - y.(Float), nil
+		}
+	}
+	res, err, ok := metabin(t, "__sub", x, y)
+	if ok {
+		return res, err
+	}
+	return nil, errors.New("sub expects subtractable values")
+}
+
+func mul(t *Thread, x Value, y Value) (Value, error) {
+	x, kx := ToNumber(x)
+	y, ky := ToNumber(y)
+	switch kx {
+	case IsInt:
+		switch ky {
+		case IsInt:
+			return x.(Int) * y.(Int), nil
+		case IsFloat:
+			return Float(x.(Int)) * y.(Float), nil
+		}
+	case IsFloat:
+		switch ky {
+		case IsInt:
+			return x.(Float) * Float(y.(Int)), nil
+		case IsFloat:
+			return x.(Float) * y.(Float), nil
+		}
+	}
+	res, err, ok := metabin(t, "__sub", x, y)
+	if ok {
+		return res, err
+	}
+	return nil, errors.New("mul expects multipliable values")
+}
+
+func div(t *Thread, x Value, y Value) (Value, error) {
+	x, kx := ToNumber(x)
+	y, ky := ToNumber(y)
+	switch kx {
+	case IsInt:
+		switch ky {
+		case IsInt:
+			return Float(x.(Int)) / Float(y.(Int)), nil
+		case IsFloat:
+			return Float(x.(Int)) / y.(Float), nil
+		}
+	case IsFloat:
+		switch ky {
+		case IsInt:
+			return x.(Float) / Float(y.(Int)), nil
+		case IsFloat:
+			return x.(Float) / y.(Float), nil
+		}
+	}
+	res, err, ok := metabin(t, "__div", x, y)
+	if ok {
+		return res, err
+	}
+	return nil, errors.New("div expects dividable values")
+}
+
+func floordivInt(x, y Int) Int {
+	r := x % y
+	q := x / y
+	if (r < 0) != (y < 0) {
+		q--
+	}
+	return q
+}
+
+func floordivFloat(x, y Float) Float {
+	return Float(math.Floor(float64(x / y)))
+}
+
+func idiv(t *Thread, x Value, y Value) (Value, error) {
+	x, kx := ToNumber(x)
+	y, ky := ToNumber(y)
+	switch kx {
+	case IsInt:
+		switch ky {
+		case IsInt:
+			return floordivInt(x.(Int), y.(Int)), nil
+		case IsFloat:
+			return floordivFloat(Float(x.(Int)), y.(Float)), nil
+		}
+	case IsFloat:
+		switch ky {
+		case IsInt:
+			return floordivFloat(x.(Float), Float(y.(Int))), nil
+		case IsFloat:
+			return floordivFloat(x.(Float), y.(Float)), nil
+		}
+	}
+	res, err, ok := metabin(t, "__div", x, y)
+	if ok {
+		return res, err
+	}
+	return nil, errors.New("idiv expects idividable values")
+}
+
+func modInt(x, y Int) Int {
+	r := x % y
+	if (r < 0) != (y < 0) {
+		r += y
+	}
+	return r
+}
+
+func modFloat(x, y Float) Float {
+	r := Float(math.Mod(float64(x), float64(y)))
+
+	if (r < 0) != (y < 0) {
+		r += y
+	}
+	return r
+}
+
+func mod(t *Thread, x Value, y Value) (Value, error) {
+	x, kx := ToNumber(x)
+	y, ky := ToNumber(y)
+	switch kx {
+	case IsInt:
+		switch ky {
+		case IsInt:
+			return modInt(x.(Int), y.(Int)), nil
+		case IsFloat:
+			return modFloat(Float(x.(Int)), y.(Float)), nil
+		}
+	case IsFloat:
+		switch ky {
+		case IsInt:
+			return modFloat(x.(Float), Float(y.(Int))), nil
+		case IsFloat:
+			return modFloat(x.(Float), y.(Float)), nil
+		}
+	}
+	res, err, ok := metabin(t, "__mod", x, y)
+	if ok {
+		return res, err
+	}
+	return nil, errors.New("mod expects modable values")
+}
+
+func powFloat(x, y Float) Float {
+	return Float(math.Pow(float64(x), float64(y)))
+}
+
+func pow(t *Thread, x Value, y Value) (Value, error) {
+	x, kx := ToNumber(x)
+	y, ky := ToNumber(y)
+	switch kx {
+	case IsInt:
+		switch ky {
+		case IsInt:
+			return powFloat(Float(x.(Int)), Float(y.(Int))), nil
+		case IsFloat:
+			return powFloat(Float(x.(Int)), y.(Float)), nil
+		}
+	case IsFloat:
+		switch ky {
+		case IsInt:
+			return powFloat(x.(Float), Float(y.(Int))), nil
+		case IsFloat:
+			return powFloat(x.(Float), y.(Float)), nil
+		}
+	}
+	res, err, ok := metabin(t, "__pow", x, y)
+	if ok {
+		return res, err
+	}
+	return nil, errors.New("pow expects powidable values")
+}
+
 func metabin(t *Thread, f string, x Value, y Value) (Value, error, bool) {
 	res := make([]Value, 1)
 	xy := []Value{x, y}
@@ -92,47 +287,4 @@ func metaun(t *Thread, f string, x Value) (Value, error, bool) {
 		return res[0], err, true
 	}
 	return nil, nil, false
-}
-
-func metacall(t *Thread, obj Value, method string, args []Value, results []Value) (error, bool) {
-	meta := getmetatable(obj)
-	if meta != nil {
-		if f := rawget(meta, String(method)); f != nil {
-			return call(t, f, args, results), true
-		}
-	}
-	return nil, false
-}
-
-func getmetatable(v Value) *Table {
-	mv, ok := v.(Metatabler)
-	if !ok {
-		return nil
-	}
-	meta := mv.Metatable()
-	metam := rawget(meta, "__metatable")
-	if metam != nil {
-		// Here we assume that a metatable must be a table...
-		return metam.(*Table)
-	}
-	return meta
-}
-
-func rawget(t *Table, k Value) Value {
-	if t == nil {
-		return nil
-	}
-	return t.content[k]
-}
-
-func call(t *Thread, f Value, args []Value, results []Value) error {
-	callable, ok := f.(Callable)
-	if ok {
-		return callable.Call(t, args, results)
-	}
-	err, ok := metacall(t, f, "__call", append([]Value{f}, args...), results)
-	if ok {
-		return err
-	}
-	return errors.New("call expects a callable")
 }

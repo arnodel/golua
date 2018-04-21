@@ -53,6 +53,11 @@ end`,
 				fmt.Println("\n=========")
 				dis := code.NewUnitDisassembler(unit)
 				dis.Disassemble(os.Stdout)
+				// env := runtime.NewTable()
+				// t := runtime.NewThread(env)
+				// clos := runtime.LoadLuaUnit(t, unit)
+
+				// err := clos.Call(t, nil, nil)
 			}
 		})
 	}

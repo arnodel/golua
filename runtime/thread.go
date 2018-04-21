@@ -35,10 +35,11 @@ type valuesError struct {
 // is not nil.
 //
 type Thread struct {
-	mux      sync.Mutex
-	status   ThreadStatus
-	resumeCh chan valuesError
-	caller   *Thread
+	mux       sync.Mutex
+	status    ThreadStatus
+	resumeCh  chan valuesError
+	caller    *Thread
+	globalEnv *Table
 }
 
 func (t *Thread) getResumeValues() ([]Value, error) {
@@ -52,11 +53,31 @@ func (t *Thread) sendResumeValues(args []Value, err error) {
 
 // NewThread creates a new thread out of a ThreadStarter.  Its initial
 // status is suspended.  Call Resume to run it.
-func NewThread(c ThreadStarter) *Thread {
-	t := &Thread{
-		resumeCh: make(chan valuesError),
-		status:   ThreadSuspended,
+func NewThread(env *Table) *Thread {
+	return &Thread{
+		resumeCh:  make(chan valuesError),
+		status:    ThreadSuspended,
+		globalEnv: env,
 	}
+}
+
+func (t *Thread) RunContinuation(c Continuation) (err error) {
+	for c != nil {
+		c, err = c.RunInThread(t)
+	}
+	return
+}
+
+func (t *Thread) Call(c Callable, args []Value, next Continuation) error {
+	cont := c.Continuation()
+	cont.Push(next)
+	for _, arg := range args {
+		cont.Push(arg)
+	}
+	return t.RunContinuation(cont)
+}
+
+func (t *Thread) Start(c ThreadStarter) {
 	go func() {
 		args, err := t.getResumeValues()
 		if err == nil {
@@ -64,12 +85,15 @@ func NewThread(c ThreadStarter) *Thread {
 		}
 		t.end(args, err)
 	}()
-	return t
 }
 
 // Status returns the status of a thread (suspended, running or dead).
 func (t *Thread) Status() ThreadStatus {
 	return t.status
+}
+
+func (t *Thread) GlobalEnv() *Table {
+	return t.globalEnv
 }
 
 // Resume execution of a suspended thread.  Its status switches to

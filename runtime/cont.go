@@ -1,7 +1,5 @@
 package runtime
 
-import "errors"
-
 // Continuation is an interface for things that can be run.
 type Continuation interface {
 	Push(Value)
@@ -10,19 +8,42 @@ type Continuation interface {
 
 // Termination is a 'dead-end' continuation: it cannot be run
 type Termination struct {
-	args []Value
+	args      []Value
+	pushIndex int
+	etc       *[]Value
+}
+
+func NewTermination(args []Value, etc *[]Value) *Termination {
+	return &Termination{args: args, etc: etc}
+}
+
+func NewTerminationWith(nArgs int, hasEtc bool) *Termination {
+	var args []Value
+	var etc *[]Value
+	if nArgs > 0 {
+		args = make([]Value, nArgs)
+	}
+	if hasEtc {
+		etc = new([]Value)
+	}
+	return NewTermination(args, etc)
 }
 
 // Push implements Continuation.Push.  It just accumulates values into
 // a slice.
 func (c *Termination) Push(v Value) {
-	c.args = append(c.args, v)
+	if c.pushIndex < len(c.args) {
+		c.args[c.pushIndex] = v
+		c.pushIndex++
+	} else if c.etc != nil {
+		*c.etc = append(*c.etc, v)
+	}
 }
 
 // RunInThread implements Continuation.RunInThread.  It is not
 // possible to run a Termination, so this always returns an error.
 func (c *Termination) RunInThread(t *Thread) (Continuation, error) {
-	return nil, errors.New("Terminations cannot be run")
+	return nil, nil
 }
 
 // ContinuationThreadStarter wraps a value that implements
@@ -54,7 +75,7 @@ func (ts *ContinuationThreadStarter) StartThread(t *Thread, args []Value) ([]Val
 // other ways of turning Go functions with other signatures into
 // continuations.
 type GoContinuation struct {
-	f    func(*Thread, []Value) ([]Value, error)
+	f    func(*Thread, []Value, Continuation) error
 	next Continuation
 	args []Value
 }
@@ -74,12 +95,9 @@ func (c *GoContinuation) Push(v Value) {
 
 // RunInThread implements Continuation.RunInThread
 func (c *GoContinuation) RunInThread(t *Thread) (Continuation, error) {
-	rets, err := c.f(t, c.args)
+	err := c.f(t, c.args, c.next)
 	if err != nil {
 		return nil, err
-	}
-	for _, ret := range rets {
-		c.next.Push(ret)
 	}
 	return c.next, nil
 }
