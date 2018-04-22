@@ -70,6 +70,9 @@ RunLoop:
 			var res Value
 			var err error
 			switch opcode.GetX() {
+
+			// Arithmetic
+
 			case code.OpAdd:
 				res, err = add(t, x, y)
 			case code.OpSub:
@@ -84,6 +87,9 @@ RunLoop:
 				res, err = mod(t, x, y)
 			case code.OpPow:
 				res, err = pow(t, x, y)
+
+			// Bitwise
+
 			case code.OpBitAnd:
 				res, err = band(t, x, y)
 			case code.OpBitOr:
@@ -94,6 +100,9 @@ RunLoop:
 				res, err = shl(t, x, y)
 			case code.OpShiftR:
 				res, err = shr(t, x, y)
+
+			// Comparison
+
 			case code.OpEq:
 				var r bool
 				r, err = eq(t, x, y)
@@ -106,8 +115,11 @@ RunLoop:
 				var r bool
 				r, err = le(t, x, y)
 				res = Bool(r)
+
+			// Concatenation
+
 			case code.OpConcat:
-				panic("unimplemented")
+				res, err = concat(t, x, y)
 			default:
 				panic("unsupported")
 			}

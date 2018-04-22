@@ -1,6 +1,9 @@
 package runtime
 
-import "errors"
+import (
+	"errors"
+	"strconv"
+)
 
 func getindex(t *Thread, coll Value, idx Value) (Value, error) {
 	if tbl, ok := coll.(*Table); ok {
@@ -120,4 +123,29 @@ func metaun(t *Thread, f string, x Value) (Value, error, bool) {
 		return res[0], err, true
 	}
 	return nil, nil, false
+}
+
+func toString(x Value) (String, bool) {
+	switch xx := x.(type) {
+	case String:
+		return xx, true
+	case Int:
+		return String(strconv.Itoa(int(xx))), true
+	case Float:
+		return String(strconv.FormatFloat(float64(xx), 'g', -1, 64)), true
+	}
+	return String(""), false
+}
+
+func concat(t *Thread, x, y Value) (Value, error) {
+	if sx, ok := toString(x); ok {
+		if sy, ok := toString(y); ok {
+			return sx + sy, nil
+		}
+	}
+	res, err, ok := metabin(t, "__concat", x, y)
+	if ok {
+		return res, err
+	}
+	return nil, errors.New("concat expects concatable values")
 }
