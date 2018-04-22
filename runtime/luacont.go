@@ -85,21 +85,27 @@ RunLoop:
 			case code.OpPow:
 				res, err = pow(t, x, y)
 			case code.OpBitAnd:
-				panic("unimplemented")
+				res, err = band(t, x, y)
 			case code.OpBitOr:
-				panic("unimplemented")
+				res, err = bor(t, x, y)
 			case code.OpBitXor:
-				panic("unimplemented")
+				res, err = bxor(t, x, y)
 			case code.OpShiftL:
-				panic("unimplemented")
+				res, err = shl(t, x, y)
 			case code.OpShiftR:
-				panic("unimplemented")
+				res, err = shr(t, x, y)
 			case code.OpEq:
-				panic("unimplemented")
+				var r bool
+				r, err = eq(t, x, y)
+				res = Bool(r)
 			case code.OpLt:
-				panic("unimplemented")
+				var r bool
+				r, err = lt(t, x, y)
+				res = Bool(r)
 			case code.OpLeq:
-				panic("unimplemented")
+				var r bool
+				r, err = le(t, x, y)
+				res = Bool(r)
 			case code.OpConcat:
 				panic("unimplemented")
 			default:

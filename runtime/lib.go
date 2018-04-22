@@ -99,3 +99,25 @@ func call(t *Thread, f Value, args []Value, results []Value) error {
 	}
 	return errors.New("call expects a callable")
 }
+
+func metabin(t *Thread, f string, x Value, y Value) (Value, error, bool) {
+	res := make([]Value, 1)
+	xy := []Value{x, y}
+	err, ok := metacall(t, x, f, xy, res)
+	if !ok {
+		err, ok = metacall(t, y, f, xy, res)
+	}
+	if ok {
+		return res[0], err, true
+	}
+	return nil, nil, false
+}
+
+func metaun(t *Thread, f string, x Value) (Value, error, bool) {
+	res := make([]Value, 1)
+	err, ok := metacall(t, x, f, []Value{x}, res)
+	if ok {
+		return res[0], err, true
+	}
+	return nil, nil, false
+}

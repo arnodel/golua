@@ -10,9 +10,10 @@ import (
 type NumberType uint16
 
 const (
-	IsFloat NumberType = iota
+	IsFloat NumberType = 1 << iota
 	IsInt
 	NaN
+	NaI // Not an Integer
 	DivByZero
 )
 
@@ -265,26 +266,4 @@ func pow(t *Thread, x Value, y Value) (Value, error) {
 		return res, err
 	}
 	return nil, errors.New("pow expects powidable values")
-}
-
-func metabin(t *Thread, f string, x Value, y Value) (Value, error, bool) {
-	res := make([]Value, 1)
-	xy := []Value{x, y}
-	err, ok := metacall(t, x, f, xy, res)
-	if !ok {
-		err, ok = metacall(t, y, f, xy, res)
-	}
-	if ok {
-		return res[0], err, true
-	}
-	return nil, nil, false
-}
-
-func metaun(t *Thread, f string, x Value) (Value, error, bool) {
-	res := make([]Value, 1)
-	err, ok := metacall(t, x, f, []Value{x}, res)
-	if ok {
-		return res[0], err, true
-	}
-	return nil, nil, false
 }
