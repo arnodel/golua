@@ -3,6 +3,8 @@ GoLua
 
 Implementation of Lua in Go. Roadmap below.
 
+Hello world is now running!!!
+
 Lexer / Parser
 --------------
 

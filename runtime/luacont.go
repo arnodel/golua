@@ -137,6 +137,8 @@ RunLoop:
 				// It's an etc, do something else instead?
 			}
 			c.setReg(dst, nil)
+			pc++
+			continue RunLoop
 		case code.Type2Pfx:
 			reg := opcode.GetA()
 			coll := c.getReg(opcode.GetB())
@@ -248,6 +250,7 @@ RunLoop:
 				continue RunLoop
 			case code.OpCall:
 				pc++
+				c.pc = pc
 				return c.getReg(opcode.GetA()).(Continuation), nil
 			}
 		}

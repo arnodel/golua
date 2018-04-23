@@ -46,7 +46,7 @@ func (f GoFunction) Continuation() Continuation {
 	return &GoContinuation{f: f}
 }
 
-func Call(c Callable, args []Value, next Continuation) Continuation {
+func ContWithArgs(c Callable, args []Value, next Continuation) Continuation {
 	cont := c.Continuation()
 	cont.Push(next)
 	for _, arg := range args {

@@ -40,7 +40,7 @@ func LoadLuaUnit(t *Thread, unit *code.Unit) *Closure {
 	}
 	clos := NewClosure(constants[0].(*Code))
 	term := NewTerminationWith(1, false)
-	err := t.RunContinuation(Call(clos, []Value{t.GlobalEnv()}, term))
+	err := t.RunContinuation(ContWithArgs(clos, []Value{t.GlobalEnv()}, term))
 	if err != nil {
 		panic("That should never happen")
 	}

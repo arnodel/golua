@@ -20,7 +20,7 @@ func getindex(t *Thread, coll Value, idx Value) (Value, error) {
 		return getindex(t, metaIdx, idx)
 	default:
 		res := make([]Value, 1)
-		if err := call(t, metaIdx, []Value{idx}, res); err != nil {
+		if err := Call(t, metaIdx, []Value{idx}, res); err != nil {
 			return nil, err
 		}
 		return res[0], nil
@@ -42,7 +42,7 @@ func setindex(t *Thread, coll Value, idx Value, val Value) error {
 	case *Table:
 		return setindex(t, metaNewIndex, idx, val)
 	default:
-		return call(t, metaNewIndex, []Value{coll, idx, val}, nil)
+		return Call(t, metaNewIndex, []Value{coll, idx, val}, nil)
 	}
 }
 
@@ -64,7 +64,7 @@ func metacall(t *Thread, obj Value, method string, args []Value, results []Value
 	meta := getmetatable(obj)
 	if meta != nil {
 		if f := rawget(meta, String(method)); f != nil {
-			return call(t, f, args, results), true
+			return Call(t, f, args, results), true
 		}
 	}
 	return nil, false
@@ -91,10 +91,10 @@ func rawget(t *Table, k Value) Value {
 	return t.Get(k)
 }
 
-func call(t *Thread, f Value, args []Value, results []Value) error {
+func Call(t *Thread, f Value, args []Value, results []Value) error {
 	callable, ok := f.(Callable)
 	if ok {
-		return t.RunContinuation(Call(callable, args, NewTermination(results, nil)))
+		return t.RunContinuation(ContWithArgs(callable, args, NewTermination(results, nil)))
 	}
 	err, ok := metacall(t, f, "__call", append([]Value{f}, args...), results)
 	if ok {
