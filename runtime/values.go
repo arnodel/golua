@@ -14,19 +14,6 @@ type ToStringable interface {
 	ToString() string
 }
 
-type Table struct {
-	content map[Value]Value
-	meta    *Table
-}
-
-func NewTable() *Table {
-	return &Table{content: make(map[Value]Value)}
-}
-
-func (t *Table) Metatable() *Table {
-	return t.meta
-}
-
 type Metatabler interface {
 	Metatable() *Table
 }

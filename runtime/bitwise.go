@@ -2,13 +2,18 @@ package runtime
 
 import "errors"
 
+func floatToInt(x Float) (Int, bool) {
+	n := Int(x)
+	return n, Float(n) == x
+}
+
 func ToInt(v Value) (Int, NumberType) {
 	switch x := v.(type) {
 	case Int:
 		return x, IsInt
 	case Float:
-		n := Int(x)
-		if Float(n) != x {
+		n, ok := floatToInt(x)
+		if !ok {
 			return 0, NaI
 		}
 		return n, IsInt
@@ -113,4 +118,16 @@ func shr(t *Thread, x, y Value) (Value, error) {
 		return res, err
 	}
 	return nil, errors.New("shr expects shrdable values")
+}
+
+func bnot(t *Thread, x Value) (Value, error) {
+	ix, kx := ToInt(x)
+	if kx == IsInt {
+		return ^ix, nil
+	}
+	res, err, ok := metaun(t, "__bnot", x)
+	if ok {
+		return res, err
+	}
+	return nil, errors.New("bnot expects a bnotable value")
 }

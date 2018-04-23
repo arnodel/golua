@@ -186,21 +186,27 @@ RunLoop:
 				case code.OpNeg:
 					res, err = unm(t, val)
 				case code.OpBitNot:
-					panic("unimplemented")
+					res, err = bnot(t, val)
 				case code.OpLen:
-					panic("unimplemented")
+					res, err = length(t, val)
 				case code.OpClosure:
+					// TODO: Decide if needed
 					panic("unimplemented")
 				case code.OpCont:
-					panic("unimplemented")
+					if c, ok := val.(Callable); ok {
+						res = c.Continuation()
+					} else {
+						err = errors.New("Not a callable")
+					}
 				case code.OpId:
-					panic("unimplemented")
+					res = val
 				case code.OpTruth:
-					panic("unimplemented")
+					res = Bool(truth(val))
 				case code.OpCell:
+					// TODO: decided whether we need that
 					panic("unimplemented")
 				case code.OpNot:
-					panic("unimplemented")
+					res = Bool(!truth(val))
 				case code.OpUpvalue:
 					c.getReg(dst).(*Closure).AddUpvalue(val)
 					pc++

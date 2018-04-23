@@ -29,8 +29,8 @@ func getindex(t *Thread, coll Value, idx Value) (Value, error) {
 
 func setindex(t *Thread, coll Value, idx Value, val Value) error {
 	if tbl, ok := coll.(*Table); ok {
-		if _, ok := tbl.content[idx]; ok {
-			tbl.content[idx] = val
+		if tbl.Get(idx) != nil {
+			tbl.Set(idx, val)
 			return nil
 		}
 	}
@@ -88,7 +88,7 @@ func rawget(t *Table, k Value) Value {
 	if t == nil {
 		return nil
 	}
-	return t.content[k]
+	return t.Get(k)
 }
 
 func call(t *Thread, f Value, args []Value, results []Value) error {
@@ -148,4 +148,19 @@ func concat(t *Thread, x, y Value) (Value, error) {
 		return res, err
 	}
 	return nil, errors.New("concat expects concatable values")
+}
+
+func length(t *Thread, v Value) (Value, error) {
+	if s, ok := v.(String); ok {
+		return Int(len(s)), nil
+	}
+	res := make([]Value, 1)
+	err, ok := metacall(t, v, "__len", []Value{v}, res)
+	if ok {
+		return res[0], err
+	}
+	if tbl, ok := v.(*Table); ok {
+		return tbl.Len(), nil
+	}
+	return nil, errors.New("Cannot compute len")
 }

@@ -11,7 +11,8 @@ This almost works apart from:
 * long comments (e.g. `-- [=[ ... ]=]`)
 
 They would require writing a custom lexer rather than generating one
-with gocc though.
+with gocc though (good resource:
+https://talks.golang.org/2011/lex.slide#1)
 
 AST -> IR Compilation
 ---------------------
@@ -27,9 +28,9 @@ Done, AFAICS.
 Runtime
 -------
 
-Started (Thread and Continuation).  To do next:
-* LuaContinuation - implementation of Continuation running from
-  compiled Lua bytecode.
+Mostly done.  To do
+* testing
+* implementing cells / mutable upvalues
 
 Standard Library
 ----------------
