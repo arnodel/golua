@@ -133,6 +133,11 @@ func ToString(x Value) (String, bool) {
 		return String(strconv.Itoa(int(xx))), true
 	case Float:
 		return String(strconv.FormatFloat(float64(xx), 'g', -1, 64)), true
+	case Bool:
+		if xx {
+			return String("true"), true
+		}
+		return String("false"), true
 	}
 	return String(""), false
 }
@@ -178,6 +183,8 @@ func Type(v Value) String {
 		return String("table")
 	case NilType:
 		return String("nil")
+	case Bool:
+		return String("bool")
 	case *Closure:
 		return String("function")
 	}

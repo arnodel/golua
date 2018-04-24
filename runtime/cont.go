@@ -6,6 +6,12 @@ type Continuation interface {
 	RunInThread(*Thread) (Continuation, error)
 }
 
+func Push(c Continuation, vals ...Value) {
+	for _, v := range vals {
+		c.Push(v)
+	}
+}
+
 // Termination is a 'dead-end' continuation: it cannot be run
 type Termination struct {
 	args      []Value
@@ -42,6 +48,13 @@ func (c *Termination) Push(v Value) {
 
 func (c *Termination) Get(n int) Value {
 	return c.args[n]
+}
+
+func (c *Termination) Etc() []Value {
+	if c.etc == nil {
+		return nil
+	}
+	return *c.etc
 }
 
 // RunInThread implements Continuation.RunInThread.  It is not

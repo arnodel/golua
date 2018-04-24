@@ -47,8 +47,28 @@ func typeString(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 	return nil
 }
 
+func errorF(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+	return nil
+}
+
+func pcall(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+	if len(args) == 0 {
+		return errors.New("pcall needs 1 argument")
+	}
+	res := rt.NewTerminationWith(0, true)
+	if err := rt.Call(t, args[0], args[1:], res); err != nil {
+		next.Push(rt.Bool(false))
+		next.Push(rt.String(err.Error()))
+	} else {
+		next.Push(rt.Bool(true))
+		rt.Push(next, res.Etc()...)
+	}
+	return nil
+}
+
 func Load(env *rt.Table) {
 	rt.SetEnvFunc(env, "print", print)
 	rt.SetEnvFunc(env, "tostring", tostring)
 	rt.SetEnvFunc(env, "type", typeString)
+	rt.SetEnvFunc(env, "pcall", pcall)
 }

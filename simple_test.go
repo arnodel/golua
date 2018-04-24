@@ -51,6 +51,7 @@ local function square(x)
   return x*x
 end
 print(twice(square)(2))`,
+		`print(pcall(type))`,
 		// 		`local x, y = 2, 3; local z = x + 2*y`,
 		// 		`local x = 0; if x > 0 then x = x - 1  else x = x + 1 end`,
 		// 		`local x; while x > 0 do x = x - 1 end x = 10`,
