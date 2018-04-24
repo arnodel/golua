@@ -25,13 +25,22 @@ end
 print(max(2, 3))`,
 		`
 local function sum(n)
-    local s = 1
+    local s = 0
     for i = 1,n do
         s = s + i
+        print(i, s)
     end
     return s
 end
 print(sum(10))`,
+		`
+local function fac(n)
+  if n == 0 then
+    return 1
+  end
+  return n * fac(n-1)
+end
+print(fac(10))`,
 		// 		`local x, y = 2, 3; local z = x + 2*y`,
 		// 		`local x = 0; if x > 0 then x = x - 1  else x = x + 1 end`,
 		// 		`local x; while x > 0 do x = x - 1 end x = 10`,

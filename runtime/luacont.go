@@ -9,7 +9,7 @@ import (
 type LuaContinuation struct {
 	*Closure
 	registers []Value
-	pc        int
+	pc        int16
 }
 
 func NewLuaContinuation(clos *Closure) *LuaContinuation {
@@ -60,8 +60,10 @@ func (c *LuaContinuation) getReg(reg code.Reg) Value {
 func (c *LuaContinuation) RunInThread(t *Thread) (Continuation, error) {
 	pc := c.pc
 	consts := c.consts
+	// fmt.Println("START", c)
 RunLoop:
-	for pc < len(c.code) {
+	for {
+		// fmt.Println(pc)
 		opcode := c.code[pc]
 		if opcode.HasType1() {
 			dst := opcode.GetA()
@@ -240,12 +242,14 @@ RunLoop:
 		case code.Type5Pfx:
 			switch code.JumpOp(opcode.GetY()) {
 			case code.OpJump:
-				pc += int(opcode.GetN())
+				pc += int16(opcode.GetN())
 				continue RunLoop
 			case code.OpJumpIf:
 				test := truth(c.getReg(opcode.GetA()))
 				if test == opcode.GetF() {
-					pc += int(opcode.GetN())
+					pc += int16(opcode.GetN())
+				} else {
+					pc++
 				}
 				continue RunLoop
 			case code.OpCall:
@@ -255,5 +259,5 @@ RunLoop:
 			}
 		}
 	}
-	return nil, errors.New("Invalid PC")
+	// return nil, errors.New("Invalid PC")
 }
