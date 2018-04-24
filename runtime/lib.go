@@ -19,11 +19,11 @@ func getindex(t *Thread, coll Value, idx Value) (Value, error) {
 	case *Table:
 		return getindex(t, metaIdx, idx)
 	default:
-		res := make([]Value, 1)
+		res := NewTerminationWith(1, false)
 		if err := Call(t, metaIdx, []Value{idx}, res); err != nil {
 			return nil, err
 		}
-		return res[0], nil
+		return res.Get(0), nil
 	}
 }
 
@@ -60,11 +60,11 @@ func truth(v Value) bool {
 	}
 }
 
-func metacall(t *Thread, obj Value, method string, args []Value, results []Value) (error, bool) {
+func Metacall(t *Thread, obj Value, method string, args []Value, next Continuation) (error, bool) {
 	meta := getmetatable(obj)
 	if meta != nil {
 		if f := rawget(meta, String(method)); f != nil {
-			return Call(t, f, args, results), true
+			return Call(t, f, args, next), true
 		}
 	}
 	return nil, false
@@ -91,12 +91,12 @@ func rawget(t *Table, k Value) Value {
 	return t.Get(k)
 }
 
-func Call(t *Thread, f Value, args []Value, results []Value) error {
+func Call(t *Thread, f Value, args []Value, next Continuation) error {
 	callable, ok := f.(Callable)
 	if ok {
-		return t.RunContinuation(ContWithArgs(callable, args, NewTermination(results, nil)))
+		return t.RunContinuation(ContWithArgs(callable, args, next))
 	}
-	err, ok := metacall(t, f, "__call", append([]Value{f}, args...), results)
+	err, ok := Metacall(t, f, "__call", append([]Value{f}, args...), next)
 	if ok {
 		return err
 	}
@@ -104,23 +104,23 @@ func Call(t *Thread, f Value, args []Value, results []Value) error {
 }
 
 func metabin(t *Thread, f string, x Value, y Value) (Value, error, bool) {
-	res := make([]Value, 1)
 	xy := []Value{x, y}
-	err, ok := metacall(t, x, f, xy, res)
+	res := NewTerminationWith(1, false)
+	err, ok := Metacall(t, x, f, xy, res)
 	if !ok {
-		err, ok = metacall(t, y, f, xy, res)
+		err, ok = Metacall(t, y, f, xy, res)
 	}
 	if ok {
-		return res[0], err, true
+		return res.Get(0), err, true
 	}
 	return nil, nil, false
 }
 
 func metaun(t *Thread, f string, x Value) (Value, error, bool) {
-	res := make([]Value, 1)
-	err, ok := metacall(t, x, f, []Value{x}, res)
+	res := NewTerminationWith(1, false)
+	err, ok := Metacall(t, x, f, []Value{x}, res)
 	if ok {
-		return res[0], err, true
+		return res.Get(0), err, true
 	}
 	return nil, nil, false
 }
@@ -154,10 +154,10 @@ func length(t *Thread, v Value) (Value, error) {
 	if s, ok := v.(String); ok {
 		return Int(len(s)), nil
 	}
-	res := make([]Value, 1)
-	err, ok := metacall(t, v, "__len", []Value{v}, res)
+	res := NewTerminationWith(1, false)
+	err, ok := Metacall(t, v, "__len", []Value{v}, res)
 	if ok {
-		return res[0], err
+		return res.Get(0), err
 	}
 	if tbl, ok := v.(*Table); ok {
 		return tbl.Len(), nil

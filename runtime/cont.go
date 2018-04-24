@@ -40,6 +40,10 @@ func (c *Termination) Push(v Value) {
 	}
 }
 
+func (c *Termination) Get(n int) Value {
+	return c.args[n]
+}
+
 // RunInThread implements Continuation.RunInThread.  It is not
 // possible to run a Termination, so this always returns an error.
 func (c *Termination) RunInThread(t *Thread) (Continuation, error) {

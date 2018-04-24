@@ -95,7 +95,7 @@ print(twice(square)(2))`,
 				t := runtime.NewThread(env)
 				clos := runtime.LoadLuaUnit(t, unit)
 
-				err := runtime.Call(t, clos, nil, nil)
+				err := runtime.Call(t, clos, nil, runtime.NewTerminationWith(0, false))
 				fmt.Println(err)
 			}
 		})
