@@ -39,7 +39,16 @@ func print(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 	return nil
 }
 
+func typeString(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+	if len(args) == 0 {
+		return errors.New("type needs 1 argument")
+	}
+	next.Push(rt.Type(args[0]))
+	return nil
+}
+
 func Load(env *rt.Table) {
-	env.Set(rt.String("print"), rt.GoFunction(print))
-	env.Set(rt.String("tostring"), rt.GoFunction(tostring))
+	rt.SetEnvFunc(env, "print", print)
+	rt.SetEnvFunc(env, "tostring", tostring)
+	rt.SetEnvFunc(env, "type", typeString)
 }

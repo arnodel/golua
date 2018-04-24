@@ -183,3 +183,7 @@ func Type(v Value) String {
 	}
 	return String("unknown")
 }
+
+func SetEnvFunc(t *Table, name string, f func(*Thread, []Value, Continuation) error) {
+	t.Set(String(name), GoFunction(f))
+}
