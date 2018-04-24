@@ -125,7 +125,7 @@ func metaun(t *Thread, f string, x Value) (Value, error, bool) {
 	return nil, nil, false
 }
 
-func toString(x Value) (String, bool) {
+func ToString(x Value) (String, bool) {
 	switch xx := x.(type) {
 	case String:
 		return xx, true
@@ -138,8 +138,8 @@ func toString(x Value) (String, bool) {
 }
 
 func concat(t *Thread, x, y Value) (Value, error) {
-	if sx, ok := toString(x); ok {
-		if sy, ok := toString(y); ok {
+	if sx, ok := ToString(x); ok {
+		if sy, ok := ToString(y); ok {
 			return sx + sy, nil
 		}
 	}
@@ -163,4 +163,23 @@ func length(t *Thread, v Value) (Value, error) {
 		return tbl.Len(), nil
 	}
 	return nil, errors.New("Cannot compute len")
+}
+
+func Type(v Value) String {
+	if v == nil {
+		return String("nil")
+	}
+	switch v.(type) {
+	case String:
+		return String("string")
+	case Int, Float:
+		return String("number")
+	case *Table:
+		return String("table")
+	case NilType:
+		return String("nil")
+	case *Closure:
+		return String("function")
+	}
+	return String("unknown")
 }

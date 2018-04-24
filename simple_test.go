@@ -8,13 +8,14 @@ import (
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/code"
 	"github.com/arnodel/golua/lexer"
+	"github.com/arnodel/golua/lib/base"
 	"github.com/arnodel/golua/parser"
 	"github.com/arnodel/golua/runtime"
 )
 
 func Test1(t *testing.T) {
 	testData := []string{
-		`print("hello," .. " world!", 1 + 2 * 3)`,
+		`print("hello," .. " world!", 1 + 2 * 3, {})`,
 		`
 local function max(x, y)
   if x > y then
@@ -91,7 +92,7 @@ print(twice(square)(2))`,
 				dis := code.NewUnitDisassembler(unit)
 				dis.Disassemble(os.Stdout)
 				env := runtime.NewTable()
-				env.Set(runtime.String("print"), runtime.GoFunction(print))
+				base.Load(env)
 				t := runtime.NewThread(env)
 				clos := runtime.LoadLuaUnit(t, unit)
 
@@ -100,15 +101,4 @@ print(twice(square)(2))`,
 			}
 		})
 	}
-}
-
-func print(t *runtime.Thread, args []runtime.Value, next runtime.Continuation) error {
-	for i, v := range args {
-		if i > 0 {
-			fmt.Print(" ")
-		}
-		fmt.Print(v)
-	}
-	fmt.Print("\n")
-	return nil
 }
