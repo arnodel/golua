@@ -173,6 +173,7 @@ func (c *Compiler) EmitLabel(lbl Label) {
 
 func (c *Compiler) GetRegister(name Name) (reg Register, ok bool) {
 	reg, ok = c.context.GetRegister(name)
+	// fmt.Println("GET", name, reg, ok)
 	if ok || c.parent == nil {
 		return
 	}
@@ -219,10 +220,12 @@ func (c *Compiler) ReleaseRegister(reg Register) {
 }
 
 func (c *Compiler) PushContext() {
+	// fmt.Println("PUSH")
 	c.context = c.context.PushNew()
 }
 
 func (c *Compiler) PopContext() {
+	// fmt.Println("POP")
 	context, top := c.context.Pop()
 	if top.reg == nil {
 		panic("Cannot pop empty context")
@@ -235,6 +238,7 @@ func (c *Compiler) PopContext() {
 
 func (c *Compiler) DeclareLocal(name Name, reg Register) {
 	// fmt.Printf("Declare %s %s\n", name, reg)
+
 	c.TakeRegister(reg)
 	c.context.AddToTop(name, reg)
 }

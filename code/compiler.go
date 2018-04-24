@@ -70,7 +70,6 @@ func (c *Compiler) Emit(opcode Opcode) {
 }
 
 func (c *Compiler) EmitJump(opcode Opcode, lbl Label) {
-	fmt.Printf("EJ: %d\n", lbl)
 	jumpToAddr, ok := c.jumpTo[lbl]
 	addr := len(c.code)
 	if ok {
@@ -82,7 +81,6 @@ func (c *Compiler) EmitJump(opcode Opcode, lbl Label) {
 }
 
 func (c *Compiler) EmitLabel(lbl Label) {
-	fmt.Printf("EL: %d\n", lbl)
 	if _, ok := c.jumpTo[lbl]; ok {
 		panic("Label already emitted")
 	}

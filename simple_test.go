@@ -22,13 +22,12 @@ local function max(x, y)
   end
   return y
 end
-print(max(2, 3))`,
+print(max(2, 3) == max(3, 2))`,
 		`
 local function sum(n)
     local s = 0
     for i = 1,n do
         s = s + i
-        print(i, s)
     end
     return s
 end

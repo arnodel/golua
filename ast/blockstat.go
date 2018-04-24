@@ -44,15 +44,15 @@ func (s BlockStat) CompileBlock(c *ir.Compiler) {
 		}
 		stat.CompileStat(c)
 	}
-	for ; totalDepth > 0; totalDepth-- {
-		c.PopContext()
-	}
 	if s.returnValues != nil {
 		cont, ok := c.GetRegister(ir.Name(Name("<caller>")))
 		if !ok {
 			panic("Cannot return: no caller")
 		}
 		CallWithArgs(c, s.returnValues, cont)
+	}
+	for ; totalDepth > 0; totalDepth-- {
+		c.PopContext()
 	}
 }
 
