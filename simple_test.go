@@ -40,6 +40,16 @@ local function fac(n)
   return n * fac(n-1)
 end
 print(fac(10))`,
+		`
+local function twice(f)
+  return function(x)
+    return f(f(x))
+  end
+end
+local function square(x)
+  return x*x
+end
+print(twice(square)(2))`,
 		// 		`local x, y = 2, 3; local z = x + 2*y`,
 		// 		`local x = 0; if x > 0 then x = x - 1  else x = x + 1 end`,
 		// 		`local x; while x > 0 do x = x - 1 end x = 10`,
@@ -93,6 +103,12 @@ print(fac(10))`,
 }
 
 func print(t *runtime.Thread, args []runtime.Value, next runtime.Continuation) error {
-	fmt.Println(args)
+	for i, v := range args {
+		if i > 0 {
+			fmt.Print(" ")
+		}
+		fmt.Print(v)
+	}
+	fmt.Print("\n")
 	return nil
 }
