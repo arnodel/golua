@@ -48,16 +48,23 @@ func CallWithArgs(c *ir.Compiler, args []ExpNode, fReg ir.Register) {
 	for i, arg := range args {
 		var argReg ir.Register
 		if i == len(args)-1 {
-			argFc, ok := arg.(FunctionCall)
-			if ok {
-				argFc.CompileCall(c)
+			switch x := arg.(type) {
+			case *FunctionCall:
+				x.CompileCall(c)
 				argReg = c.GetFreeRegister()
 				c.Emit(ir.ReceiveEtc{Etc: argReg})
-				goto PushLbl
+				c.Emit(ir.Push{Cont: fReg, Item: argReg, Etc: true})
+				continue
+			case EtcType:
+				argReg, ok := c.GetRegister("...")
+				if !ok {
+					panic("etc not defined")
+				}
+				c.Emit(ir.Push{Cont: fReg, Item: argReg, Etc: true})
+				continue
 			}
 		}
 		argReg = CompileExp(c, arg)
-	PushLbl:
 		c.Emit(ir.Push{Cont: fReg, Item: argReg})
 	}
 	c.Emit(ir.Call{Cont: fReg})

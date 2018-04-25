@@ -10,6 +10,7 @@ type LuaContinuation struct {
 	*Closure
 	registers []Value
 	pc        int16
+	acc       []Value
 }
 
 func NewLuaContinuation(clos *Closure) *LuaContinuation {
@@ -25,15 +26,15 @@ func NewLuaContinuation(clos *Closure) *LuaContinuation {
 func (c *LuaContinuation) Push(val Value) {
 	opcode := c.code[c.pc]
 	if opcode.HasType0() {
-		c.pc++
 		dst := opcode.GetA()
 		if opcode.GetF() {
 			// It's an etc
-			// TODO
+			c.acc = append(c.acc, val)
+		} else {
+			c.pc++
+			c.setReg(dst, val)
 		}
-		c.setReg(dst, val)
 	}
-
 }
 
 func (c *LuaContinuation) setReg(reg code.Reg, val Value) {
@@ -136,9 +137,11 @@ RunLoop:
 		case code.Type0Pfx:
 			dst := opcode.GetA()
 			if opcode.GetF() {
-				// It's an etc, do something else instead?
+				// It's an etc
+				c.setReg(dst, c.acc)
+			} else {
+				c.setReg(dst, nil)
 			}
-			c.setReg(dst, nil)
 			pc++
 			continue RunLoop
 		case code.Type2Pfx:
@@ -204,6 +207,14 @@ RunLoop:
 					}
 				case code.OpId:
 					res = val
+				case code.OpEtcId:
+					// We assume it's a push?
+					cont := c.getReg(dst).(Continuation)
+					for _, v := range val.([]Value) {
+						cont.Push(v)
+					}
+					pc++
+					continue RunLoop
 				case code.OpTruth:
 					res = Bool(truth(val))
 				case code.OpCell:
@@ -255,6 +266,7 @@ RunLoop:
 			case code.OpCall:
 				pc++
 				c.pc = pc
+				c.acc = nil
 				return c.getReg(opcode.GetA()).(Continuation), nil
 			}
 		}

@@ -210,6 +210,7 @@ const (
 	OpCell  // ?
 	OpNot   // Added afterwards - why did I not have it in the first place?
 	OpUpvalue
+	OpEtcId
 )
 
 func (op UnOp) ToC() uint32 {
@@ -326,6 +327,8 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 				tpl = "cont(%s)"
 			case OpId:
 				tpl = "%s"
+			case OpEtcId:
+				tpl = "...%s"
 			case OpTruth:
 				tpl = "bool(%s)"
 			case OpCell:

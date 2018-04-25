@@ -115,10 +115,15 @@ func (l LoadConst) String() string {
 type Push struct {
 	Cont Register
 	Item Register
+	Etc  bool
 }
 
 func (p Push) Compile(kc *ConstantCompiler) {
-	opcode := code.MkType4a(code.On, code.OpId, codeReg(p.Cont), codeReg(p.Item))
+	op := code.OpId
+	if p.Etc {
+		op = code.OpEtcId
+	}
+	opcode := code.MkType4a(code.On, op, codeReg(p.Cont), codeReg(p.Item))
 	kc.Emit(opcode)
 }
 

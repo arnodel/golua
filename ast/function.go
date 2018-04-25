@@ -38,7 +38,7 @@ func (f Function) HWrite(w HWriter) {
 func (f Function) CompileBody(c *ir.Compiler) {
 	recvRegs := make([]ir.Register, 1+len(f.params))
 	callerReg := c.GetFreeRegister()
-	c.DeclareLocal(ir.Name(Name("<caller>")), callerReg)
+	c.DeclareLocal("<caller>", callerReg)
 	recvRegs[0] = callerReg
 	for i, p := range f.params {
 		reg := c.GetFreeRegister()
@@ -49,7 +49,7 @@ func (f Function) CompileBody(c *ir.Compiler) {
 		c.Emit(ir.Receive{Dst: recvRegs})
 	} else {
 		reg := c.GetFreeRegister()
-		c.DeclareLocal(ir.Name(Name("...")), reg)
+		c.DeclareLocal("...", reg)
 		c.Emit(ir.ReceiveEtc{Dst: recvRegs, Etc: reg})
 	}
 

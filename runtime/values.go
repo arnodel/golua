@@ -54,3 +54,5 @@ func ContWithArgs(c Callable, args []Value, next Continuation) Continuation {
 	}
 	return cont
 }
+
+type ValArray []Value
