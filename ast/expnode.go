@@ -1,6 +1,8 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
+import (
+	"github.com/arnodel/golua/ir"
+)
 
 func CompileExp(c *ir.Compiler, e ExpNode) ir.Register {
 	r1 := c.GetFreeRegister()
@@ -16,10 +18,10 @@ func CompileExpList(c *ir.Compiler, exps []ExpNode, dstRegs []ir.Register) {
 	if commonCount > len(dstRegs) {
 		commonCount = len(dstRegs)
 	}
-	var fCall FunctionCall
+	var fCall *FunctionCall
 	doFCall := false
-	if len(exps) < len(dstRegs) && len(exps) > 0 {
-		fCall, doFCall = exps[len(exps)-1].(FunctionCall)
+	if len(dstRegs) > len(exps) && len(exps) > 0 {
+		fCall, doFCall = exps[len(exps)-1].(*FunctionCall)
 		if doFCall {
 			commonCount--
 		}
