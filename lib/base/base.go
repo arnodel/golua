@@ -104,7 +104,7 @@ func rawset(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 	if len(args) < 3 {
 		return errors.New("rawset requires 3 arguments")
 	}
-	tlb, ok := args[0].(*rt.Table)
+	tbl, ok := args[0].(*rt.Table)
 	if !ok {
 		return errors.New("rawset: first argument must be a table")
 	}
