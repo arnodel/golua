@@ -15,7 +15,7 @@ import (
 
 func Test1(t *testing.T) {
 	testData := []string{
-		`print("hello," .. " world!", 1 + 2 * 3, {})`,
+		`print("hello," .. " world!", 1 + 2 * 3, {}, 2 == 2.0)`,
 		`
 local function max(x, y)
   if x > y then

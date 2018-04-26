@@ -79,11 +79,21 @@ func pcall(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 	return nil
 }
 
+func rawequal(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+	if len(args) < 2 {
+		return errors.New("rawequal requires 2 arguments")
+	}
+	res, _ := rt.RawEqual(args[0], args[1])
+	next.Push(rt.Bool(res))
+	return nil
+}
+
 func Load(env *rt.Table) {
 	rt.SetEnvFunc(env, "print", print)
 	rt.SetEnvFunc(env, "tostring", tostring)
 	rt.SetEnvFunc(env, "type", typeString)
 	rt.SetEnvFunc(env, "pcall", pcall)
 	rt.SetEnvFunc(env, "error", errorF)
+	rt.SetEnvFunc(env, "rawequal", rawequal)
 	env.Set("_G", env)
 }

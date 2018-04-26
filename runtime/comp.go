@@ -2,9 +2,26 @@ package runtime
 
 import "errors"
 
-func eq(t *Thread, x, y Value) (bool, error) {
+func RawEqual(x, y Value) (bool, bool) {
 	if x == y {
-		return true, nil
+		return true, true
+	}
+	switch xx := x.(type) {
+	case Int:
+		if yy, ok := y.(Float); ok {
+			return Float(xx) == yy, true
+		}
+	case Float:
+		if yy, ok := y.(Int); ok {
+			return xx == Float(yy), true
+		}
+	}
+	return false, false
+}
+
+func eq(t *Thread, x, y Value) (bool, error) {
+	if res, ok := RawEqual(x, y); ok {
+		return res, nil
 	}
 	switch x.(type) {
 	case *Table:
