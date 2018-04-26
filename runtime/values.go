@@ -55,4 +55,22 @@ func ContWithArgs(c Callable, args []Value, next Continuation) Continuation {
 	return cont
 }
 
-type ValArray []Value
+type ValueError struct {
+	value Value
+}
+
+func (err ValueError) Error() string {
+	s, _ := AsString(err.value)
+	return string(s)
+}
+
+func ValueFromError(err error) Value {
+	if v, ok := err.(ValueError); ok {
+		return v.value
+	}
+	return String(err.Error())
+}
+
+func ErrorFromValue(v Value) error {
+	return ValueError{value: v}
+}

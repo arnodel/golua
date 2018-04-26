@@ -125,7 +125,7 @@ func metaun(t *Thread, f string, x Value) (Value, error, bool) {
 	return nil, nil, false
 }
 
-func ToString(x Value) (String, bool) {
+func AsString(x Value) (String, bool) {
 	switch xx := x.(type) {
 	case String:
 		return xx, true
@@ -143,8 +143,8 @@ func ToString(x Value) (String, bool) {
 }
 
 func concat(t *Thread, x, y Value) (Value, error) {
-	if sx, ok := ToString(x); ok {
-		if sy, ok := ToString(y); ok {
+	if sx, ok := AsString(x); ok {
+		if sy, ok := AsString(y); ok {
 			return sx + sy, nil
 		}
 	}

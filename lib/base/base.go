@@ -7,6 +7,16 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
+// func assert(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+// 	if len(args) == 0 {
+// 		return errors.New("assert needs at least one argument")
+// 	}
+// 	v := args[0]
+// 	if len(args) >= 2 {
+
+// 	}
+// }
+
 func tostring(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 	if len(args) == 0 {
 		return errors.New("tostring needs 1 argument at least")
@@ -16,7 +26,7 @@ func tostring(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 	if ok {
 		return err
 	}
-	s, ok := rt.ToString(v)
+	s, ok := rt.AsString(v)
 	if !ok {
 		s = rt.String(fmt.Sprintf("%s: <addr>", rt.Type(v)))
 	}
@@ -48,7 +58,10 @@ func typeString(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 }
 
 func errorF(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
-	return nil
+	if len(args) == 0 {
+		return errors.New("error needs 1 argument")
+	}
+	return rt.ErrorFromValue(args[0])
 }
 
 func pcall(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
@@ -58,7 +71,7 @@ func pcall(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 	res := rt.NewTerminationWith(0, true)
 	if err := rt.Call(t, args[0], args[1:], res); err != nil {
 		next.Push(rt.Bool(false))
-		next.Push(rt.String(err.Error()))
+		next.Push(rt.ValueFromError(err))
 	} else {
 		next.Push(rt.Bool(true))
 		rt.Push(next, res.Etc()...)
@@ -71,4 +84,6 @@ func Load(env *rt.Table) {
 	rt.SetEnvFunc(env, "tostring", tostring)
 	rt.SetEnvFunc(env, "type", typeString)
 	rt.SetEnvFunc(env, "pcall", pcall)
+	rt.SetEnvFunc(env, "error", errorF)
+	env.Set("_G", env)
 }

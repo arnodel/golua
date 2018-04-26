@@ -58,9 +58,17 @@ print(ok, res)`,
 print(pcall(type))`,
 		`
 local function p(...)
-  print(...)
+  print(">>>", ...)
 end
 p(1, 2, 3)`,
+		`
+local function g(x)
+  error(x .. "ld!")
+end
+local function f(x)
+    g(x .. ", wor")
+end
+print(pcall(f, "hello"))`,
 		// 		`local x, y = 2, 3; local z = x + 2*y`,
 		// 		`local x = 0; if x > 0 then x = x - 1  else x = x + 1 end`,
 		// 		`local x; while x > 0 do x = x - 1 end x = 10`,
