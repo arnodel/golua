@@ -5,13 +5,24 @@ import (
 	"strconv"
 )
 
+func IsNil(v Value) bool {
+	return v == nil || v == NilType{}
+}
+
+func RawGet(t *Table, k Value) Value {
+	if t == nil {
+		return nil
+	}
+	return t.Get(k)
+}
+
 func getindex(t *Thread, coll Value, idx Value) (Value, error) {
 	if tbl, ok := coll.(*Table); ok {
-		if val := rawget(tbl, idx); val != nil {
+		if val := RawGet(tbl, idx); val != nil {
 			return val, nil
 		}
 	}
-	metaIdx := rawget(getmetatable(coll), "__index")
+	metaIdx := RawGet(getmetatable(coll), "__index")
 	if metaIdx == nil {
 		return nil, nil
 	}
@@ -34,7 +45,7 @@ func setindex(t *Thread, coll Value, idx Value, val Value) error {
 			return nil
 		}
 	}
-	metaNewIndex := rawget(getmetatable(coll), "__newindex")
+	metaNewIndex := RawGet(getmetatable(coll), "__newindex")
 	if metaNewIndex == nil {
 		return nil
 	}
@@ -63,7 +74,7 @@ func truth(v Value) bool {
 func Metacall(t *Thread, obj Value, method string, args []Value, next Continuation) (error, bool) {
 	meta := getmetatable(obj)
 	if meta != nil {
-		if f := rawget(meta, String(method)); f != nil {
+		if f := RawGet(meta, String(method)); f != nil {
 			return Call(t, f, args, next), true
 		}
 	}
@@ -76,19 +87,12 @@ func getmetatable(v Value) *Table {
 		return nil
 	}
 	meta := mv.Metatable()
-	metam := rawget(meta, "__metatable")
+	metam := RawGet(meta, "__metatable")
 	if metam != nil {
 		// Here we assume that a metatable must be a table...
 		return metam.(*Table)
 	}
 	return meta
-}
-
-func rawget(t *Table, k Value) Value {
-	if t == nil {
-		return nil
-	}
-	return t.Get(k)
 }
 
 func Call(t *Thread, f Value, args []Value, next Continuation) error {

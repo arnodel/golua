@@ -88,6 +88,49 @@ func rawequal(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 	return nil
 }
 
+func rawget(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+	if len(args) < 2 {
+		return errors.New("rawget requires 2 arguments")
+	}
+	tbl, ok := args[0].(*rt.Table)
+	if !ok {
+		return errors.New("rawget: first argument must be a table")
+	}
+	next.Push(rt.RawGet(tbl, args[1]))
+	return nil
+}
+
+func rawset(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+	if len(args) < 3 {
+		return errors.New("rawset requires 3 arguments")
+	}
+	tlb, ok := args[0].(*rt.Table)
+	if !ok {
+		return errors.New("rawset: first argument must be a table")
+	}
+	if rt.IsNil(args[1]) {
+		return errors.New("rawset: second argument must not be nil")
+	}
+	tbl.Set(args[1], args[2])
+	next.Push(args[0])
+	return nil
+}
+
+func rawlen(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+	if len(args) == 0 {
+		return errors.New("rawlen needs 1 argument")
+	}
+	switch x := args[0].(type) {
+	case rt.String:
+		next.Push(rt.Int(len(x)))
+		return nil
+	case *rt.Table:
+		next.Push(x.Len())
+		return nil
+	}
+	return errors.New("rawlen requires a string or table")
+}
+
 func Load(env *rt.Table) {
 	rt.SetEnvFunc(env, "print", print)
 	rt.SetEnvFunc(env, "tostring", tostring)
@@ -95,5 +138,8 @@ func Load(env *rt.Table) {
 	rt.SetEnvFunc(env, "pcall", pcall)
 	rt.SetEnvFunc(env, "error", errorF)
 	rt.SetEnvFunc(env, "rawequal", rawequal)
+	rt.SetEnvFunc(env, "rawget", rawget)
+	rt.SetEnvFunc(env, "rawset", rawset)
+	rt.SetEnvFunc(env, "rawlen", rawlen)
 	env.Set("_G", env)
 }
