@@ -34,7 +34,28 @@ Mostly done.  To do
 * testing
 * implementing cells / mutable upvalues
 
+Test Suite
+----------
+
+Now done. In the directory `luatest/lua`, each `.lua` file is a
+test. Expected output is specified in the file as comments of a
+special form, starting with `-->`:
+
+```lua
+print(1 + 2)
+--> =3
+-- "=" means match literally the output line
+
+print("abaabab")
+--> ~^(ab)*$
+-- "~" means match with a regexp (syntax is go regexp)
+```
+
+
 Standard Library
 ----------------
 
-To do
+The basic library is partly done.
+
+The coroutine library has `create`, `resume` and `yield` implemented
+and tested so far.
