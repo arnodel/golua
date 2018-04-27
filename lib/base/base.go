@@ -7,6 +7,34 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
+func Load(r *rt.Runtime) {
+	env := r.GlobalEnv()
+	// TODO: assert
+	// TODO: collectgarbage (although what is there to do?
+	// TODO: dofile
+	rt.SetEnvFunc(env, "error", errorF)
+	rt.SetEnv(env, "_G", env)
+	rt.SetEnvFunc(env, "getmetatable", getmetatable)
+	// TODO: ipairs
+	// TODO: load
+	// TODO: loadfile
+	// TODO: next
+	// TODO: pairs
+	rt.SetEnvFunc(env, "pcall", pcall)
+	rt.SetEnvFunc(env, "print", print)
+	rt.SetEnvFunc(env, "rawequal", rawequal)
+	rt.SetEnvFunc(env, "rawget", rawget)
+	rt.SetEnvFunc(env, "rawlen", rawlen)
+	rt.SetEnvFunc(env, "rawset", rawset)
+	// TODO: select
+	rt.SetEnvFunc(env, "setmetatable", setmetatable)
+	// TODO: tonumber
+	rt.SetEnvFunc(env, "tostring", tostring)
+	rt.SetEnvFunc(env, "type", typeString)
+	rt.SetEnv(env, "_VERSION", rt.String("Golua 5.3"))
+	// TODO: xpcall
+}
+
 // func assert(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 // 	if len(args) == 0 {
 // 		return errors.New("assert needs at least one argument")
@@ -37,15 +65,15 @@ func tostring(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 func print(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 	for i, v := range args {
 		if i > 0 {
-			fmt.Print("\t")
+			t.Stdout.Write([]byte{'\t'})
 		}
 		res := rt.NewTerminationWith(1, false)
 		if err := tostring(t, []rt.Value{v}, res); err != nil {
 			return err
 		}
-		fmt.Print(res.Get(0))
+		t.Stdout.Write([]byte(res.Get(0).(rt.String)))
 	}
-	fmt.Print("\n")
+	t.Stdout.Write([]byte{'\n'})
 	return nil
 }
 
@@ -58,6 +86,7 @@ func typeString(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 }
 
 func errorF(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+	// TODO: process level argument
 	if len(args) == 0 {
 		return errors.New("error needs 1 argument")
 	}
@@ -131,15 +160,32 @@ func rawlen(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 	return errors.New("rawlen requires a string or table")
 }
 
-func Load(env *rt.Table) {
-	rt.SetEnvFunc(env, "print", print)
-	rt.SetEnvFunc(env, "tostring", tostring)
-	rt.SetEnvFunc(env, "type", typeString)
-	rt.SetEnvFunc(env, "pcall", pcall)
-	rt.SetEnvFunc(env, "error", errorF)
-	rt.SetEnvFunc(env, "rawequal", rawequal)
-	rt.SetEnvFunc(env, "rawget", rawget)
-	rt.SetEnvFunc(env, "rawset", rawset)
-	rt.SetEnvFunc(env, "rawlen", rawlen)
-	env.Set("_G", env)
+func getmetatable(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+	if len(args) == 0 {
+		return errors.New("getmetatable expects 1 argument")
+	}
+	next.Push(t.Metatable(args[0]))
+	return nil
+}
+
+func setmetatable(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+	if len(args) < 2 {
+		return errors.New("setmetatable requires 2 arguments")
+	}
+	tbl, ok := args[0].(*rt.Table)
+	if !ok {
+		return errors.New("setmetatable: first argument must be a table")
+	}
+	if rt.RawGet(tbl.Metatable(), "__metatable") != nil {
+		return errors.New("setmetatable: cannot set metatable")
+	}
+	if rt.IsNil(args[1]) {
+		tbl.SetMetatable(nil)
+	} else if meta, ok := args[1].(*rt.Table); ok {
+		tbl.SetMetatable(meta)
+	} else {
+		return errors.New("setmetatable: second argument must be a table")
+	}
+	next.Push(args[0])
+	return nil
 }

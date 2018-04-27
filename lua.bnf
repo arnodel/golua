@@ -251,7 +251,7 @@ Power
 Var
     : Name
     | PrefixExp "[" Exp "]" << ast.NewIndexExp($0.(ast.ExpNode), $2.(ast.ExpNode)) >>
-    | PrefixExp "." Name    << ast.NewIndexExp($0.(ast.ExpNode), $2.(ast.ExpNode)) >>
+    | PrefixExp "." Name    << ast.NewIndexExp($0.(ast.ExpNode), $2.(ast.Name).AstString()) >>
     ;
 
 FunctionCall

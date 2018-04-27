@@ -21,13 +21,19 @@ func (t *Table) Metatable() *Table {
 	return t.meta
 }
 
+func (t *Table) SetMetatable(m *Table) {
+	t.meta = m
+}
+
 func (t *Table) Get(k Value) Value {
 	if x, ok := k.(Float); ok {
 		if n, ok := floatToInt(x); ok {
 			k = n
 		}
 	}
-	return t.content[k]
+	v := t.content[k]
+	// fmt.Printf("GET %#v .... %#v ::::: %#v\n", t, k, v)
+	return v
 }
 
 func (t *Table) setInt(n Int, v Value) {

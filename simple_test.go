@@ -9,6 +9,7 @@ import (
 	"github.com/arnodel/golua/code"
 	"github.com/arnodel/golua/lexer"
 	"github.com/arnodel/golua/lib/base"
+	"github.com/arnodel/golua/lib/coroutine"
 	"github.com/arnodel/golua/parser"
 	"github.com/arnodel/golua/runtime"
 )
@@ -69,6 +70,9 @@ local function f(x)
     g(x .. ", wor")
 end
 print(pcall(f, "hello"))`,
+		`
+local function f(x) return x end
+coroutine.create(f)`,
 		// 		`local x, y = 2, 3; local z = x + 2*y`,
 		// 		`local x = 0; if x > 0 then x = x - 1  else x = x + 1 end`,
 		// 		`local x; while x > 0 do x = x - 1 end x = 10`,
@@ -109,9 +113,10 @@ print(pcall(f, "hello"))`,
 				fmt.Println("\n=========")
 				dis := code.NewUnitDisassembler(unit)
 				dis.Disassemble(os.Stdout)
-				env := runtime.NewTable()
-				base.Load(env)
-				t := runtime.NewThread(env)
+				r := runtime.New(os.Stdout)
+				base.Load(r)
+				coroutine.Load(r)
+				t := runtime.NewThread(r)
 				clos := runtime.LoadLuaUnit(t, unit)
 
 				err := runtime.Call(t, clos, nil, runtime.NewTerminationWith(0, false))

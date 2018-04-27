@@ -1043,13 +1043,13 @@ var productionsTable = ProdTab{
 		},
 	},
 	ProdTabEntry{
-		String: `Var : PrefixExp "." Name	<< ast.NewIndexExp(X[0].(ast.ExpNode), X[2].(ast.ExpNode)) >>`,
+		String: `Var : PrefixExp "." Name	<< ast.NewIndexExp(X[0].(ast.ExpNode), X[2].(ast.Name).AstString()) >>`,
 		Id:         "Var",
 		NTType:     43,
 		Index:      102,
 		NumSymbols: 3,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
-			return ast.NewIndexExp(X[0].(ast.ExpNode), X[2].(ast.ExpNode))
+			return ast.NewIndexExp(X[0].(ast.ExpNode), X[2].(ast.Name).AstString())
 		},
 	},
 	ProdTabEntry{

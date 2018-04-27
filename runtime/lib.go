@@ -22,7 +22,7 @@ func getindex(t *Thread, coll Value, idx Value) (Value, error) {
 			return val, nil
 		}
 	}
-	metaIdx := RawGet(getmetatable(coll), "__index")
+	metaIdx := t.MetaGetS(coll, "__index")
 	if metaIdx == nil {
 		return nil, nil
 	}
@@ -45,7 +45,7 @@ func setindex(t *Thread, coll Value, idx Value, val Value) error {
 			return nil
 		}
 	}
-	metaNewIndex := RawGet(getmetatable(coll), "__newindex")
+	metaNewIndex := t.MetaGetS(coll, "__newindex")
 	if metaNewIndex == nil {
 		return nil
 	}
@@ -72,27 +72,10 @@ func truth(v Value) bool {
 }
 
 func Metacall(t *Thread, obj Value, method string, args []Value, next Continuation) (error, bool) {
-	meta := getmetatable(obj)
-	if meta != nil {
-		if f := RawGet(meta, String(method)); f != nil {
-			return Call(t, f, args, next), true
-		}
+	if f := t.MetaGetS(obj, method); f != nil {
+		return Call(t, f, args, next), true
 	}
 	return nil, false
-}
-
-func getmetatable(v Value) *Table {
-	mv, ok := v.(Metatabler)
-	if !ok {
-		return nil
-	}
-	meta := mv.Metatable()
-	metam := RawGet(meta, "__metatable")
-	if metam != nil {
-		// Here we assume that a metatable must be a table...
-		return metam.(*Table)
-	}
-	return meta
 }
 
 func Call(t *Thread, f Value, args []Value, next Continuation) error {
@@ -197,4 +180,8 @@ func Type(v Value) String {
 
 func SetEnvFunc(t *Table, name string, f func(*Thread, []Value, Continuation) error) {
 	t.Set(String(name), GoFunction(f))
+}
+
+func SetEnv(t *Table, name string, v Value) {
+	t.Set(String(name), v)
 }

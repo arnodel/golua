@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/arnodel/golua/code"
 )
@@ -203,7 +203,7 @@ RunLoop:
 					if c, ok := val.(Callable); ok {
 						res = c.Continuation()
 					} else {
-						err = errors.New("Not a callable")
+						err = fmt.Errorf("Not a callable: %+v", val)
 					}
 				case code.OpId:
 					res = val
