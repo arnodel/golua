@@ -1,12 +1,37 @@
-GoLua
-=====
+# GoLua
 
-Implementation of Lua in Go. Roadmap below.
+Implementation of Lua in Go.
 
-Hello world is now running!!!
+## Aim
 
-Lexer / Parser
---------------
+To implememt the Lua programming language in Go, easily embeddable in
+Go applications.  It should be able to run any pure Lua code
+
+## Design constraints
+
+* clean room implementation: do not look at existing implementations
+* self contained: no dependencies
+* small: avoid re-implementing features which are already present in
+  the Go language or in the standard library (e.g. garbage collection)
+* register based VM
+* no call stack (continuation passing)
+
+## Known unsolved issues
+
+* `collectgarbage()`. Probably a noop?
+* iteration over tables (`pairs()`, `next()`).  This is a hard one if
+  I want to keep using `map[Value]Value` as the interface for tables
+  because the only way to iterate over the keys of a Go `map` is with
+  a `for ... range` construct AFAIK. The `pairs()` function could be
+  implemented with a goroutine but I don't see any solution for
+  `next()`.
+* mutable upvalues.  Easy if willing to sacrifice performance.
+* long string / comments.  Requires writing a custom lexer (see
+  below).
+
+## Roadmap
+
+### Lexer / Parser
 
 This almost works apart from:
 * long strings (e.g. `[===[ ... ]===]`)
@@ -16,28 +41,23 @@ They would require writing a custom lexer rather than generating one
 with gocc though (good resource:
 https://talks.golang.org/2011/lex.slide#1)
 
-AST -> IR Compilation
----------------------
+### AST -> IR Compilation
 
 Almost there.  To do:
 * upvalue mutations - is that a runtime thing though?
 
-IR -> Code Compilation
-----------------------
+### IR -> Code Compilation
 
-Done, AFAICS.
+Done
 
-Runtime
--------
+### Runtime
 
 Mostly done.  To do
-* testing
 * implementing cells / mutable upvalues
 
-Test Suite
-----------
+### Test Suite
 
-Now done. In the directory `luatest/lua`, each `.lua` file is a
+Framework done. In the directory `luatest/lua`, each `.lua` file is a
 test. Expected output is specified in the file as comments of a
 special form, starting with `-->`:
 
@@ -51,11 +71,23 @@ print("abaabab")
 -- "~" means match with a regexp (syntax is go regexp)
 ```
 
+TODO: write a lot more tests
 
-Standard Library
-----------------
+### Standard Library
 
 The basic library is partly done.
 
 The coroutine library has `create`, `resume` and `yield` implemented
 and tested so far.
+
+TODO:
+* package library
+* string library
+* utf8 library
+* table library
+* math library
+* io library
+* os library
+* debug library (I don't know how much of this can reasonably be
+  implemented as I didn't want to be constrained by it when designing
+  golua)
