@@ -121,6 +121,9 @@ func metaun(t *Thread, f string, x Value) (Value, error, bool) {
 }
 
 func AsString(x Value) (String, bool) {
+	if x == nil {
+		return String("nil"), true
+	}
 	switch xx := x.(type) {
 	case String:
 		return xx, true
@@ -133,6 +136,8 @@ func AsString(x Value) (String, bool) {
 			return String("true"), true
 		}
 		return String("false"), true
+	case NilType:
+		return String("nil"), true
 	}
 	return String(""), false
 }

@@ -1,6 +1,7 @@
 package base
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -30,7 +31,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvFunc(env, "rawset", rawset)
 	// TODO: select
 	rt.SetEnvFunc(env, "setmetatable", setmetatable)
-	// TODO: tonumber
+	rt.SetEnvFunc(env, "tonumber", tonumber)
 	rt.SetEnvFunc(env, "tostring", tostring)
 	rt.SetEnvFunc(env, "type", typeString)
 	rt.SetEnv(env, "_VERSION", rt.String("Golua 5.3"))
@@ -303,4 +304,59 @@ func dofile(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 		return nil, err
 	}
 	return rt.ContWithArgs(clos, nil, next), nil
+}
+
+func tonumber(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
+	if len(args) == 0 {
+		return nil, errors.New("tonumber requires 1 argument")
+	}
+	n := args[0]
+	if len(args) == 1 {
+		n, _ = rt.ToNumber(n)
+		next.Push(n)
+		return next, nil
+	}
+	base, ok := args[1].(rt.Int)
+	if !ok {
+		return nil, errors.New("tonumber: base must be an integer")
+	}
+	if base < 2 || base > 36 {
+		return nil, errors.New("tonumber: base out of range")
+	}
+	s, ok := n.(rt.String)
+	if !ok {
+		return nil, errors.New("tonunmber: argument 1 must be a string")
+	}
+	digits := bytes.Trim([]byte(s), " ")
+	if len(digits) == 0 {
+		return next, nil
+	}
+	var number rt.Int
+	var sign rt.Int = 1
+	if digits[0] == '-' {
+		sign = -1
+		digits = digits[1:]
+		if len(digits) == 0 {
+			return next, nil
+		}
+	}
+	for _, digit := range digits {
+		var d rt.Int
+		switch {
+		case '0' <= digit && digit <= '9':
+			d = rt.Int(digit - '0')
+		case 'a' <= digit && digit <= 'z':
+			d = rt.Int(digit - 'a' + 10)
+		case 'A' <= digit && digit <= 'Z':
+			d = rt.Int(digit - 'A' + 10)
+		default:
+			return next, nil
+		}
+		if d >= base {
+			return next, nil
+		}
+		number = number*base + d
+	}
+	next.Push(sign * number)
+	return next, nil
 }
