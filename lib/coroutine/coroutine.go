@@ -15,7 +15,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvFunc(pkg, "yield", yield)
 }
 
-func create(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func create(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	if len(args) == 0 {
 		return nil, errors.New("coroutine.create requires 1 argument")
 	}
@@ -29,7 +29,7 @@ func create(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuatio
 	return next, nil
 }
 
-func resume(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func resume(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	if len(args) == 0 {
 		return nil, errors.New("coroutine.resume requires 1 argument")
 	}
@@ -48,7 +48,7 @@ func resume(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuatio
 	return next, nil
 }
 
-func yield(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func yield(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	res, err := t.Yield(args)
 	if err != nil {
 		return nil, err

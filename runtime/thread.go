@@ -61,14 +61,14 @@ func NewThread(rt *Runtime) *Thread {
 	}
 }
 
-func (t *Thread) RunContinuation(c Continuation) (err error) {
+func (t *Thread) RunContinuation(c Cont) (err error) {
 	for c != nil {
 		c, err = c.RunInThread(t)
 	}
 	return
 }
 
-func (t *Thread) Call(c Callable, args []Value, next Continuation) error {
+func (t *Thread) Call(c Callable, args []Value, next Cont) error {
 	cont := ContWithArgs(c, args, next)
 	return t.RunContinuation(cont)
 }

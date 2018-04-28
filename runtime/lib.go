@@ -79,14 +79,14 @@ func truth(v Value) bool {
 	}
 }
 
-func Metacall(t *Thread, obj Value, method string, args []Value, next Continuation) (error, bool) {
+func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (error, bool) {
 	if f := t.MetaGetS(obj, method); f != nil {
 		return Call(t, f, args, next), true
 	}
 	return nil, false
 }
 
-func Call(t *Thread, f Value, args []Value, next Continuation) error {
+func Call(t *Thread, f Value, args []Value, next Cont) error {
 	callable, ok := f.(Callable)
 	if ok {
 		return t.RunContinuation(ContWithArgs(callable, args, next))
@@ -186,7 +186,7 @@ func Type(v Value) String {
 	return String("unknown")
 }
 
-func SetEnvFunc(t *Table, name string, f func(*Thread, []Value, Continuation) (Continuation, error)) {
+func SetEnvFunc(t *Table, name string, f func(*Thread, []Value, Cont) (Cont, error)) {
 	t.Set(String(name), GoFunction(f))
 }
 

@@ -7,7 +7,7 @@ type NilType struct{}
 type String string
 
 type Callable interface {
-	Continuation() Continuation
+	Continuation() Cont
 }
 
 type ToStringable interface {
@@ -36,17 +36,17 @@ func (c *Closure) AddUpvalue(v Value) {
 	c.upvalueIndex++
 }
 
-func (c *Closure) Continuation() Continuation {
-	return NewLuaContinuation(c)
+func (c *Closure) Continuation() Cont {
+	return NewLuaCont(c)
 }
 
-type GoFunction func(t *Thread, args []Value, next Continuation) (Continuation, error)
+type GoFunction func(t *Thread, args []Value, next Cont) (Cont, error)
 
-func (f GoFunction) Continuation() Continuation {
-	return &GoContinuation{f: f}
+func (f GoFunction) Continuation() Cont {
+	return &GoCont{f: f}
 }
 
-func ContWithArgs(c Callable, args []Value, next Continuation) Continuation {
+func ContWithArgs(c Callable, args []Value, next Cont) Cont {
 	cont := c.Continuation()
 	cont.Push(next)
 	for _, arg := range args {

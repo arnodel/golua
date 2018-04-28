@@ -1,12 +1,12 @@
 package runtime
 
-// Continuation is an interface for things that can be run.
-type Continuation interface {
+// Cont is an interface for things that can be run.
+type Cont interface {
 	Push(Value)
-	RunInThread(*Thread) (Continuation, error)
+	RunInThread(*Thread) (Cont, error)
 }
 
-func Push(c Continuation, vals ...Value) {
+func Push(c Cont, vals ...Value) {
 	for _, v := range vals {
 		c.Push(v)
 	}
@@ -59,25 +59,22 @@ func (c *Termination) Etc() []Value {
 
 // RunInThread implements Continuation.RunInThread.  It is not
 // possible to run a Termination, so this always returns an error.
-func (c *Termination) RunInThread(t *Thread) (Continuation, error) {
+func (c *Termination) RunInThread(t *Thread) (Cont, error) {
 	return nil, nil
 }
 
-// GoContinuation implements Continuation for functions written in
-// Go. It's not optimal but simple and general. Probably later add
-// other ways of turning Go functions with other signatures into
-// continuations.
-type GoContinuation struct {
-	f    func(*Thread, []Value, Continuation) (Continuation, error)
-	next Continuation
+// GoCont implements Cont for functions written in Go.
+type GoCont struct {
+	f    func(*Thread, []Value, Cont) (Cont, error)
+	next Cont
 	args []Value
 }
 
-// Push implements Continuation.Push.
-func (c *GoContinuation) Push(v Value) {
+// Push implements Cont.Push.
+func (c *GoCont) Push(v Value) {
 	if c.next == nil {
 		var ok bool
-		c.next, ok = v.(Continuation)
+		c.next, ok = v.(Cont)
 		if !ok {
 			panic("First push must be a continuation")
 		}
@@ -86,7 +83,7 @@ func (c *GoContinuation) Push(v Value) {
 	}
 }
 
-// RunInThread implements Continuation.RunInThread
-func (c *GoContinuation) RunInThread(t *Thread) (Continuation, error) {
+// RunInThread implements Cont.RunInThread
+func (c *GoCont) RunInThread(t *Thread) (Cont, error) {
 	return c.f(t, c.args, c.next)
 }

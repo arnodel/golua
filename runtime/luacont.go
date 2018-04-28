@@ -6,24 +6,24 @@ import (
 	"github.com/arnodel/golua/code"
 )
 
-type LuaContinuation struct {
+type LuaCont struct {
 	*Closure
 	registers []Value
 	pc        int16
 	acc       []Value
 }
 
-func NewLuaContinuation(clos *Closure) *LuaContinuation {
+func NewLuaCont(clos *Closure) *LuaCont {
 	if clos.upvalueIndex < len(clos.upvalues) {
 		panic("Closure not ready")
 	}
-	return &LuaContinuation{
+	return &LuaCont{
 		Closure:   clos,
 		registers: make([]Value, clos.RegCount),
 	}
 }
 
-func (c *LuaContinuation) Push(val Value) {
+func (c *LuaCont) Push(val Value) {
 	opcode := c.code[c.pc]
 	if opcode.HasType0() {
 		dst := opcode.GetA()
@@ -37,7 +37,7 @@ func (c *LuaContinuation) Push(val Value) {
 	}
 }
 
-func (c *LuaContinuation) setReg(reg code.Reg, val Value) {
+func (c *LuaCont) setReg(reg code.Reg, val Value) {
 	if val == nil {
 		val = NilType{}
 	}
@@ -49,7 +49,7 @@ func (c *LuaContinuation) setReg(reg code.Reg, val Value) {
 	}
 }
 
-func (c *LuaContinuation) getReg(reg code.Reg) Value {
+func (c *LuaCont) getReg(reg code.Reg) Value {
 	switch reg.Tp() {
 	case code.Register:
 		return c.registers[reg.Idx()]
@@ -58,7 +58,7 @@ func (c *LuaContinuation) getReg(reg code.Reg) Value {
 	}
 }
 
-func (c *LuaContinuation) RunInThread(t *Thread) (Continuation, error) {
+func (c *LuaCont) RunInThread(t *Thread) (Cont, error) {
 	pc := c.pc
 	consts := c.consts
 	// fmt.Println("START", c)
@@ -176,7 +176,7 @@ RunLoop:
 			dst := opcode.GetA()
 			if opcode.GetF() {
 				// dst must contain a continuation
-				cont := c.getReg(dst).(Continuation)
+				cont := c.getReg(dst).(Cont)
 				cont.Push(val)
 			} else {
 				c.setReg(dst, val)
@@ -209,7 +209,7 @@ RunLoop:
 					res = val
 				case code.OpEtcId:
 					// We assume it's a push?
-					cont := c.getReg(dst).(Continuation)
+					cont := c.getReg(dst).(Cont)
 					for _, v := range val.([]Value) {
 						cont.Push(v)
 					}
@@ -244,7 +244,7 @@ RunLoop:
 				return nil, err
 			}
 			if opcode.GetF() {
-				c.getReg(dst).(Continuation).Push(res)
+				c.getReg(dst).(Cont).Push(res)
 			} else {
 				c.setReg(dst, res)
 			}
@@ -267,7 +267,7 @@ RunLoop:
 				pc++
 				c.pc = pc
 				c.acc = nil
-				return c.getReg(opcode.GetA()).(Continuation), nil
+				return c.getReg(opcode.GetA()).(Cont), nil
 			}
 		}
 	}

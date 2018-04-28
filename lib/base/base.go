@@ -47,7 +47,7 @@ func Load(r *rt.Runtime) {
 // 	}
 // }
 
-func tostring(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func tostring(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	if len(args) == 0 {
 		return nil, errors.New("tostring needs 1 argument at least")
 	}
@@ -64,7 +64,7 @@ func tostring(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuat
 	return next, nil
 }
 
-func print(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func print(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	for i, v := range args {
 		if i > 0 {
 			t.Stdout.Write([]byte{'\t'})
@@ -79,7 +79,7 @@ func print(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation
 	return next, nil
 }
 
-func typeString(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func typeString(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	if len(args) == 0 {
 		return nil, errors.New("type needs 1 argument")
 	}
@@ -87,7 +87,7 @@ func typeString(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continu
 	return next, nil
 }
 
-func errorF(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func errorF(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	// TODO: process level argument
 	if len(args) == 0 {
 		return nil, errors.New("error needs 1 argument")
@@ -95,7 +95,7 @@ func errorF(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuatio
 	return nil, rt.ErrorFromValue(args[0])
 }
 
-func pcall(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func pcall(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	if len(args) == 0 {
 		return nil, errors.New("pcall needs 1 argument")
 	}
@@ -110,7 +110,7 @@ func pcall(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation
 	return next, nil
 }
 
-func rawequal(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func rawequal(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	if len(args) < 2 {
 		return nil, errors.New("rawequal requires 2 arguments")
 	}
@@ -119,7 +119,7 @@ func rawequal(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuat
 	return next, nil
 }
 
-func rawget(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func rawget(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	if len(args) < 2 {
 		return nil, errors.New("rawget requires 2 arguments")
 	}
@@ -131,7 +131,7 @@ func rawget(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuatio
 	return next, nil
 }
 
-func rawset(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func rawset(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	if len(args) < 3 {
 		return nil, errors.New("rawset requires 3 arguments")
 	}
@@ -147,7 +147,7 @@ func rawset(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuatio
 	return next, nil
 }
 
-func rawlen(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func rawlen(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	if len(args) == 0 {
 		return nil, errors.New("rawlen needs 1 argument")
 	}
@@ -162,7 +162,7 @@ func rawlen(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuatio
 	return nil, errors.New("rawlen requires a string or table")
 }
 
-func getmetatable(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func getmetatable(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	if len(args) == 0 {
 		return nil, errors.New("getmetatable expects 1 argument")
 	}
@@ -170,7 +170,7 @@ func getmetatable(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Conti
 	return next, nil
 }
 
-func setmetatable(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func setmetatable(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	if len(args) < 2 {
 		return nil, errors.New("setmetatable requires 2 arguments")
 	}
@@ -192,7 +192,7 @@ func setmetatable(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Conti
 	return next, nil
 }
 
-func load(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func load(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	if len(args) == 0 {
 		return nil, errors.New("load requires 1 argument")
 	}
@@ -239,7 +239,7 @@ func load(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation,
 	return next, nil
 }
 
-func loadfile(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func loadfile(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	chunk, chunkName, err := loadChunk(args)
 	if err != nil {
 		return nil, fmt.Errorf("loadfile: %s", err)
@@ -291,7 +291,7 @@ func loadChunk(args []rt.Value) (chunk []byte, chunkName string, err error) {
 	return
 }
 
-func dofile(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
+func dofile(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
 	chunk, chunkName, err := loadChunk(args)
 	if err != nil {
 		return nil, fmt.Errorf("dofile: %s", err)
