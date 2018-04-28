@@ -40,7 +40,7 @@ func (c *Closure) Continuation() Continuation {
 	return NewLuaContinuation(c)
 }
 
-type GoFunction func(t *Thread, args []Value, next Continuation) error
+type GoFunction func(t *Thread, args []Value, next Continuation) (Continuation, error)
 
 func (f GoFunction) Continuation() Continuation {
 	return &GoContinuation{f: f}

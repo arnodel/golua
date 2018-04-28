@@ -69,11 +69,7 @@ func (t *Thread) RunContinuation(c Continuation) (err error) {
 }
 
 func (t *Thread) Call(c Callable, args []Value, next Continuation) error {
-	cont := c.Continuation()
-	cont.Push(next)
-	for _, arg := range args {
-		cont.Push(arg)
-	}
+	cont := ContWithArgs(c, args, next)
 	return t.RunContinuation(cont)
 }
 

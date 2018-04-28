@@ -14,3 +14,13 @@ end
 
 load("print(...)")(1, 2)
 --> =1	2
+
+-- This loads and executes the given file
+loadfile("lua/loadfile.lua.notest")()
+--> =loadfile
+
+print(pcall(loadfile, "lua/nonexistent_file"))
+--> ~false	loadfile: error reading file: .*
+
+dofile("lua/loadfile.lua.notest")
+--> =loadfile

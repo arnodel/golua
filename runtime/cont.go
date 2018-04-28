@@ -68,7 +68,7 @@ func (c *Termination) RunInThread(t *Thread) (Continuation, error) {
 // other ways of turning Go functions with other signatures into
 // continuations.
 type GoContinuation struct {
-	f    func(*Thread, []Value, Continuation) error
+	f    func(*Thread, []Value, Continuation) (Continuation, error)
 	next Continuation
 	args []Value
 }
@@ -88,9 +88,5 @@ func (c *GoContinuation) Push(v Value) {
 
 // RunInThread implements Continuation.RunInThread
 func (c *GoContinuation) RunInThread(t *Thread) (Continuation, error) {
-	err := c.f(t, c.args, c.next)
-	if err != nil {
-		return nil, err
-	}
-	return c.next, nil
+	return c.f(t, c.args, c.next)
 }

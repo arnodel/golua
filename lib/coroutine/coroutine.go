@@ -15,27 +15,27 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvFunc(pkg, "yield", yield)
 }
 
-func create(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+func create(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
 	if len(args) == 0 {
-		return errors.New("coroutine.create requires 1 argument")
+		return nil, errors.New("coroutine.create requires 1 argument")
 	}
 	f, ok := args[0].(rt.Callable)
 	if !ok {
-		return errors.New("First argument of coroutine.create must be a function")
+		return nil, errors.New("First argument of coroutine.create must be a function")
 	}
 	co := rt.NewThread(t.Runtime)
 	co.Start(f)
 	next.Push(co)
-	return nil
+	return next, nil
 }
 
-func resume(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+func resume(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
 	if len(args) == 0 {
-		return errors.New("coroutine.resume requires 1 argument")
+		return nil, errors.New("coroutine.resume requires 1 argument")
 	}
 	co, ok := args[0].(*rt.Thread)
 	if !ok {
-		return errors.New("First argument of coroutine.resume must be a thread")
+		return nil, errors.New("First argument of coroutine.resume must be a thread")
 	}
 	res, err := co.Resume(t, args[1:])
 	if err == nil {
@@ -45,14 +45,14 @@ func resume(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 		next.Push(rt.Bool(false))
 		next.Push(rt.ValueFromError(err))
 	}
-	return nil
+	return next, nil
 }
 
-func yield(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+func yield(t *rt.Thread, args []rt.Value, next rt.Continuation) (rt.Continuation, error) {
 	res, err := t.Yield(args)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	rt.Push(next, res...)
-	return nil
+	return next, nil
 }
