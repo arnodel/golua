@@ -2,10 +2,6 @@ package runtime
 
 import "github.com/arnodel/golua/code"
 
-type Unit struct {
-	constants []Value
-}
-
 type Code struct {
 	code         []code.Opcode
 	consts       []Value
@@ -13,7 +9,7 @@ type Code struct {
 	RegCount     int
 }
 
-func LoadLuaUnit(t *Thread, unit *code.Unit) *Closure {
+func LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 	constants := make([]Value, len(unit.Constants))
 	for i, ck := range unit.Constants {
 		switch k := ck.(type) {
@@ -39,10 +35,6 @@ func LoadLuaUnit(t *Thread, unit *code.Unit) *Closure {
 		}
 	}
 	clos := NewClosure(constants[0].(*Code))
-	term := NewTerminationWith(1, false)
-	err := t.RunContinuation(ContWithArgs(clos, []Value{t.GlobalEnv()}, term))
-	if err != nil {
-		panic("That should never happen")
-	}
-	return term.args[0].(*Closure)
+	clos.AddUpvalue(env)
+	return clos
 }

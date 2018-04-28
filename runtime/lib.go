@@ -3,6 +3,10 @@ package runtime
 import (
 	"errors"
 	"strconv"
+
+	"github.com/arnodel/golua/ast"
+	"github.com/arnodel/golua/lexer"
+	"github.com/arnodel/golua/parser"
 )
 
 func IsNil(v Value) bool {
@@ -39,7 +43,8 @@ func getindex(t *Thread, coll Value, idx Value) (Value, error) {
 }
 
 func setindex(t *Thread, coll Value, idx Value, val Value) error {
-	if tbl, ok := coll.(*Table); ok {
+	tbl, ok := coll.(*Table)
+	if ok {
 		if tbl.Get(idx) != nil {
 			tbl.Set(idx, val)
 			return nil
@@ -47,6 +52,9 @@ func setindex(t *Thread, coll Value, idx Value, val Value) error {
 	}
 	metaNewIndex := t.MetaGetS(coll, "__newindex")
 	if metaNewIndex == nil {
+		if ok {
+			tbl.Set(idx, val)
+		}
 		return nil
 	}
 	switch metaNewIndex.(type) {
@@ -184,4 +192,17 @@ func SetEnvFunc(t *Table, name string, f func(*Thread, []Value, Continuation) er
 
 func SetEnv(t *Table, name string, v Value) {
 	t.Set(String(name), v)
+}
+
+func CompileLuaChunk(source []byte, env *Table) (*Closure, error) {
+	p := parser.NewParser()
+	s := lexer.NewLexer(source)
+	tree, err := p.Parse(s)
+	if err != nil {
+		return nil, err
+	}
+	c := tree.(ast.BlockStat).CompileChunk()
+	kc := c.NewConstantCompiler()
+	unit := kc.CompileQueue()
+	return LoadLuaUnit(unit, env), nil
 }

@@ -31,9 +31,7 @@ func (t *Table) Get(k Value) Value {
 			k = n
 		}
 	}
-	v := t.content[k]
-	// fmt.Printf("GET %#v .... %#v ::::: %#v\n", t, k, v)
-	return v
+	return t.content[k]
 }
 
 func (t *Table) setInt(n Int, v Value) {
@@ -44,7 +42,7 @@ func (t *Table) setInt(n Int, v Value) {
 		t.border--
 		t.borderState = borderCheckDown
 	}
-	t.content[n] = v
+	t.set(n, v)
 }
 
 func (t *Table) Set(k Value, v Value) {
@@ -58,7 +56,7 @@ func (t *Table) Set(k Value, v Value) {
 			return
 		}
 	}
-	t.content[k] = v
+	t.set(k, v)
 }
 
 func (t *Table) Len() Int {
@@ -75,4 +73,12 @@ func (t *Table) Len() Int {
 		t.borderState = borderOK
 	}
 	return t.border
+}
+
+func (t *Table) set(k Value, v Value) {
+	if IsNil(v) {
+		delete(t.content, k)
+	} else {
+		t.content[k] = v
+	}
 }

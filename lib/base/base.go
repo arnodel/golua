@@ -16,6 +16,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnv(env, "_G", env)
 	rt.SetEnvFunc(env, "getmetatable", getmetatable)
 	// TODO: ipairs
+	rt.SetEnvFunc(env, "load", load)
 	// TODO: load
 	// TODO: loadfile
 	// TODO: next
@@ -187,5 +188,52 @@ func setmetatable(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
 		return errors.New("setmetatable: second argument must be a table")
 	}
 	next.Push(args[0])
+	return nil
+}
+
+func load(t *rt.Thread, args []rt.Value, next rt.Continuation) error {
+	if len(args) == 0 {
+		return errors.New("load requires 1 argument")
+	}
+	chunkArg := args[0]
+	var chunk []byte
+	chunkName := ""
+	chunkMode := "bt"
+	chunkEnv := t.GlobalEnv()
+	switch x := chunkArg.(type) {
+	case rt.String:
+		chunk = []byte(x)
+		chunkName = "chunk"
+	default:
+		return errors.New("load: chunk must be a string")
+	}
+	if len(args) >= 2 {
+		name, ok := args[1].(rt.String)
+		if !ok {
+			return errors.New("load: chunkname must be as string")
+		}
+		chunkName = string(name)
+	}
+	if len(args) >= 3 {
+		mode, ok := args[2].(rt.String)
+		if !ok {
+			return errors.New("load: mode must be a string")
+		}
+		chunkMode = string(mode)
+	}
+	if len(args) >= 4 {
+		env, ok := args[3].(*rt.Table)
+		if !ok {
+			return errors.New("load: env must be a table")
+		}
+		chunkEnv = env
+	}
+	// TODO: use those
+	_, _ = chunkName, chunkMode
+	clos, err := rt.CompileLuaChunk(chunk, chunkEnv)
+	if err != nil {
+		return err
+	}
+	next.Push(clos)
 	return nil
 }

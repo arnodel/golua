@@ -117,7 +117,7 @@ coroutine.create(f)`,
 				base.Load(r)
 				coroutine.Load(r)
 				t := runtime.NewThread(r)
-				clos := runtime.LoadLuaUnit(t, unit)
+				clos := runtime.LoadLuaUnit(unit, r.GlobalEnv())
 
 				err := runtime.Call(t, clos, nil, runtime.NewTerminationWith(0, false))
 				fmt.Println(err)
