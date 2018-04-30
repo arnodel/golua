@@ -23,7 +23,7 @@ func NewTerminationWith(nArgs int, hasEtc bool) *Termination {
 	return NewTermination(args, etc)
 }
 
-// Push implements Continuation.Push.  It just accumulates values into
+// Push implements Cont.Push.  It just accumulates values into
 // a slice.
 func (c *Termination) Push(v Value) {
 	if c.pushIndex < len(c.args) {
@@ -32,6 +32,17 @@ func (c *Termination) Push(v Value) {
 	} else if c.etc != nil {
 		*c.etc = append(*c.etc, v)
 	}
+}
+
+// RunInThread implements Cont.RunInThread. A termination exits
+// immediately so it always returns nil.
+func (c *Termination) RunInThread(t *Thread) (Cont, error) {
+	return nil, nil
+}
+
+// Next implmements Cont.Next.
+func (c *Termination) Next() Cont {
+	return nil
 }
 
 func (c *Termination) Get(n int) Value {
@@ -43,10 +54,4 @@ func (c *Termination) Etc() []Value {
 		return nil
 	}
 	return *c.etc
-}
-
-// RunInThread implements Continuation.RunInThread.  It is not
-// possible to run a Termination, so this always returns an error.
-func (c *Termination) RunInThread(t *Thread) (Cont, error) {
-	return nil, nil
 }

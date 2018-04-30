@@ -20,7 +20,7 @@ loadfile("lua/loadfile.lua.notest")()
 --> =loadfile
 
 print(pcall(loadfile, "lua/nonexistent_file"))
---> ~false	loadfile: error reading file: .*
+--> ~^false	.*
 
 dofile("lua/loadfile.lua.notest")
 --> =loadfile

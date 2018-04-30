@@ -62,7 +62,7 @@ func NewThread(rt *Runtime) *Thread {
 }
 
 func (t *Thread) RunContinuation(c Cont) (err error) {
-	for c != nil {
+	for c != nil && err == nil {
 		c, err = c.RunInThread(t)
 	}
 	return

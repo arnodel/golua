@@ -2,31 +2,6 @@ package runtime
 
 import "errors"
 
-func floatToInt(x Float) (Int, bool) {
-	n := Int(x)
-	return n, Float(n) == x
-}
-
-func ToInt(v Value) (Int, NumberType) {
-	switch x := v.(type) {
-	case Int:
-		return x, IsInt
-	case Float:
-		n, ok := floatToInt(x)
-		if !ok {
-			return 0, NaI
-		}
-		return n, IsInt
-	case String:
-		v, k := ToNumber(x)
-		if k&(IsInt|IsFloat) != 0 {
-			return ToInt(v)
-		}
-		return 0, k
-	}
-	return 0, NaN
-}
-
 var errNaI = errors.New("Float is not an integer")
 
 func band(t *Thread, x, y Value) (Value, error) {

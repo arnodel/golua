@@ -58,6 +58,14 @@ func (c *LuaCont) getReg(reg code.Reg) Value {
 	}
 }
 
+func (c *LuaCont) Next() Cont {
+	next, ok := c.registers[0].(Cont)
+	if !ok {
+		return nil
+	}
+	return next
+}
+
 func (c *LuaCont) RunInThread(t *Thread) (Cont, error) {
 	pc := c.pc
 	consts := c.consts
@@ -127,7 +135,7 @@ RunLoop:
 				panic("unsupported")
 			}
 			if err != nil {
-				return nil, err
+				return c, err
 			}
 			c.setReg(dst, res)
 			pc++
@@ -151,13 +159,13 @@ RunLoop:
 			if !opcode.GetF() {
 				val, err := getindex(t, coll, idx)
 				if err != nil {
-					return nil, err
+					return c, err
 				}
 				c.setReg(reg, val)
 			} else {
 				err := setindex(t, coll, idx, c.getReg(reg))
 				if err != nil {
-					return nil, err
+					return c, err
 				}
 			}
 			pc++
@@ -241,7 +249,7 @@ RunLoop:
 				}
 			}
 			if err != nil {
-				return nil, err
+				return c, err
 			}
 			if opcode.GetF() {
 				c.getReg(dst).(Cont).Push(res)

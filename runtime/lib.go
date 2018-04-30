@@ -89,7 +89,7 @@ func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (err
 func Call(t *Thread, f Value, args []Value, next Cont) error {
 	callable, ok := f.(Callable)
 	if ok {
-		return t.RunContinuation(ContWithArgs(callable, args, next))
+		return t.Call(callable, args, next)
 	}
 	err, ok := Metacall(t, f, "__call", append([]Value{f}, args...), next)
 	if ok {
@@ -192,11 +192,25 @@ func Type(v Value) String {
 }
 
 func SetEnvFunc(t *Table, name string, f func(*Thread, []Value, Cont) (Cont, error)) {
-	t.Set(String(name), GoFunction(f))
+	t.Set(String(name), &GoFunction{
+		nArgs:  0,
+		hasEtc: true,
+		f: func(t *Thread, c *GoCont) (Cont, error) {
+			return f(t, *c.etc, c.next)
+		},
+	})
 }
 
 func SetEnv(t *Table, name string, v Value) {
 	t.Set(String(name), v)
+}
+
+func SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, error), nArgs int, hasEtc bool) {
+	t.Set(String(name), &GoFunction{
+		f:      f,
+		nArgs:  nArgs,
+		hasEtc: hasEtc,
+	})
 }
 
 func CompileLuaChunk(source []byte, env *Table) (*Closure, error) {

@@ -4,6 +4,7 @@ package runtime
 type Cont interface {
 	Push(Value)
 	RunInThread(*Thread) (Cont, error)
+	Next() Cont
 }
 
 func Push(c Cont, vals ...Value) {

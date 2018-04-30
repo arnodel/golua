@@ -68,4 +68,4 @@ print(pcall(f, "hello"))
 --> =false	hello, world!
 
 error("hello")
---> ~!!! runtime:.*
+--> ~^!!! runtime:

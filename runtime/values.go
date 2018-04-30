@@ -1,10 +1,33 @@
 package runtime
 
+import "github.com/arnodel/golua/ast"
+
 type Bool bool
 type Int int64
 type Float float64
 type NilType struct{}
 type String string
+
+func (f Float) ToInt() (Int, NumberType) {
+	n := Int(f)
+	if Float(n) == f {
+		return n, IsInt
+	}
+	return 0, NaI
+}
+
+func (s String) ToInt() (Int, NumberType) {
+	exp, err := ast.NumberFromString(string(s))
+	if err == nil {
+		switch x := exp.(type) {
+		case ast.Int:
+			return Int(x), IsInt
+		case ast.Float:
+			return Float(x).ToInt()
+		}
+	}
+	return 0, NaN
+}
 
 type Callable interface {
 	Continuation() Cont
@@ -40,10 +63,14 @@ func (c *Closure) Continuation() Cont {
 	return NewLuaCont(c)
 }
 
-type GoFunction func(t *Thread, args []Value, next Cont) (Cont, error)
+type GoFunction struct {
+	f      func(*Thread, *GoCont) (Cont, error)
+	nArgs  int
+	hasEtc bool
+}
 
-func (f GoFunction) Continuation() Cont {
-	return &GoCont{f: f}
+func (f *GoFunction) Continuation() Cont {
+	return NewGoCont(f)
 }
 
 func ContWithArgs(c Callable, args []Value, next Cont) Cont {
