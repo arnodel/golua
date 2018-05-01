@@ -64,7 +64,7 @@ func setindex(t *Thread, coll Value, idx Value, val Value) *Error {
 	}
 }
 
-func truth(v Value) bool {
+func Truth(v Value) bool {
 	if v == nil {
 		return false
 	}

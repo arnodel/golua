@@ -224,12 +224,12 @@ RunLoop:
 					pc++
 					continue RunLoop
 				case code.OpTruth:
-					res = Bool(truth(val))
+					res = Bool(Truth(val))
 				case code.OpCell:
 					// TODO: decided whether we need that
 					panic("unimplemented")
 				case code.OpNot:
-					res = Bool(!truth(val))
+					res = Bool(!Truth(val))
 				case code.OpUpvalue:
 					c.getReg(dst).(*Closure).AddUpvalue(val)
 					pc++
@@ -264,7 +264,7 @@ RunLoop:
 				pc += int16(opcode.GetN())
 				continue RunLoop
 			case code.OpJumpIf:
-				test := truth(c.getReg(opcode.GetA()))
+				test := Truth(c.getReg(opcode.GetA()))
 				if test == opcode.GetF() {
 					pc += int16(opcode.GetN())
 				} else {

@@ -7,11 +7,11 @@ func print(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if i > 0 {
 			t.Stdout.Write([]byte{'\t'})
 		}
-		res := rt.NewTerminationWith(1, false)
-		if _, err := tostring(t, []rt.Value{v}, res); err != nil {
-			return c, err
+		s, err := toString(t, v)
+		if err != nil {
+			return nil, err.AddContext(c)
 		}
-		t.Stdout.Write([]byte(res.Get(0).(rt.String)))
+		t.Stdout.Write([]byte(s))
 	}
 	t.Stdout.Write([]byte{'\n'})
 	return c.Next(), nil
