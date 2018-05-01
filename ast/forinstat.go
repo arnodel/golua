@@ -55,7 +55,7 @@ func (s ForInStat) CompileStat(c *ir.Compiler) {
 
 	LocalStat{
 		names: s.itervars,
-		values: []ExpNode{FunctionCall{
+		values: []ExpNode{&FunctionCall{
 			target: Name("<f>"),
 			args:   []ExpNode{Name("<s>"), Name("<var>")},
 		}},

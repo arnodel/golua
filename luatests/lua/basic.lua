@@ -67,5 +67,14 @@ end
 print(pcall(f, "hello"))
 --> =false	hello, world!
 
+local function f()
+    return 1, 2
+end
+local x, y
+x, y = f()
+print(x + y)
+--> =3
+
 error("hello")
 --> ~^!!! runtime:
+
