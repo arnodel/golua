@@ -16,9 +16,12 @@ func RunSource(source []byte, output io.Writer) {
 	coroutine.Load(r)
 	t := r.MainThread()
 	clos, err := runtime.CompileLuaChunk(source, r.GlobalEnv())
-	err = runtime.Call(t, clos, nil, runtime.NewTerminationWith(0, false))
 	if err != nil {
-		fmt.Fprintf(output, "!!! runtime: %s", err)
+		fmt.Fprintf(output, "!!! parsing: %s", err)
+	}
+	cerr := runtime.Call(t, clos, nil, runtime.NewTerminationWith(0, false))
+	if cerr != nil {
+		fmt.Fprintf(output, "!!! runtime: %s", cerr)
 	}
 }
 

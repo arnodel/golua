@@ -1,20 +1,18 @@
 package base
 
 import (
-	"errors"
-
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func pcall(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+func pcall(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if c.NArgs() == 0 {
-		return c, errors.New("1 argument required")
+		return nil, rt.NewErrorS("1 argument required").AddContext(c)
 	}
 	next := c.Next()
 	res := rt.NewTerminationWith(0, true)
 	if err := rt.Call(t, c.Arg(0), c.Etc(), res); err != nil {
 		next.Push(rt.Bool(false))
-		next.Push(rt.ValueFromError(err))
+		next.Push(err.Value())
 	} else {
 		next.Push(rt.Bool(true))
 		rt.Push(next, res.Etc()...)

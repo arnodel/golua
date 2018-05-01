@@ -66,7 +66,7 @@ func (c *LuaCont) Next() Cont {
 	return next
 }
 
-func (c *LuaCont) RunInThread(t *Thread) (Cont, error) {
+func (c *LuaCont) RunInThread(t *Thread) (Cont, *Error) {
 	pc := c.pc
 	consts := c.consts
 	// fmt.Println("START", c)
@@ -79,7 +79,7 @@ RunLoop:
 			x := c.getReg(opcode.GetB())
 			y := c.getReg(opcode.GetC())
 			var res Value
-			var err error
+			var err *Error
 			switch opcode.GetX() {
 
 			// Arithmetic
@@ -194,7 +194,7 @@ RunLoop:
 		case code.Type4Pfx:
 			dst := opcode.GetA()
 			var res Value
-			var err error
+			var err *Error
 			if opcode.HasType4a() {
 				val := c.getReg(opcode.GetB())
 				switch opcode.GetZ() {
@@ -211,7 +211,7 @@ RunLoop:
 					if c, ok := val.(Callable); ok {
 						res = c.Continuation()
 					} else {
-						err = fmt.Errorf("Not a callable: %+v", val)
+						err = NewErrorE(fmt.Errorf("Not a callable: %+v", val))
 					}
 				case code.OpId:
 					res = val

@@ -1,21 +1,19 @@
 package base
 
 import (
-	"errors"
-
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func selectF(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+func selectF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if c.NArgs() == 0 {
-		return c, errors.New("1 argument required")
+		return nil, rt.NewErrorS("1 argument required").AddContext(c)
 	}
 	n, tp := rt.ToInt(c.Arg(0))
 	if tp != rt.IsInt {
-		return c, errors.New("#1 must be an integer")
+		return nil, rt.NewErrorS("#1 must be an integer").AddContext(c)
 	}
 	if n < 1 {
-		return c, errors.New("#1 out of range")
+		return nil, rt.NewErrorS("#1 out of range").AddContext(c)
 	}
 	if int(n) <= len(c.Etc()) {
 		c.Next().Push(c.Etc()[n-1])

@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"errors"
 	"strconv"
 
 	"github.com/arnodel/golua/ast"
@@ -20,7 +19,7 @@ func RawGet(t *Table, k Value) Value {
 	return t.Get(k)
 }
 
-func getindex(t *Thread, coll Value, idx Value) (Value, error) {
+func getindex(t *Thread, coll Value, idx Value) (Value, *Error) {
 	if tbl, ok := coll.(*Table); ok {
 		if val := RawGet(tbl, idx); val != nil {
 			return val, nil
@@ -42,7 +41,7 @@ func getindex(t *Thread, coll Value, idx Value) (Value, error) {
 	}
 }
 
-func setindex(t *Thread, coll Value, idx Value, val Value) error {
+func setindex(t *Thread, coll Value, idx Value, val Value) *Error {
 	tbl, ok := coll.(*Table)
 	if ok {
 		if tbl.Get(idx) != nil {
@@ -79,14 +78,14 @@ func truth(v Value) bool {
 	}
 }
 
-func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (error, bool) {
+func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (*Error, bool) {
 	if f := t.MetaGetS(obj, method); f != nil {
 		return Call(t, f, args, next), true
 	}
 	return nil, false
 }
 
-func Call(t *Thread, f Value, args []Value, next Cont) error {
+func Call(t *Thread, f Value, args []Value, next Cont) *Error {
 	callable, ok := f.(Callable)
 	if ok {
 		return t.Call(callable, args, next)
@@ -95,10 +94,10 @@ func Call(t *Thread, f Value, args []Value, next Cont) error {
 	if ok {
 		return err
 	}
-	return errors.New("call expects a callable")
+	return NewErrorS("call expects a callable")
 }
 
-func metabin(t *Thread, f string, x Value, y Value) (Value, error, bool) {
+func metabin(t *Thread, f string, x Value, y Value) (Value, *Error, bool) {
 	xy := []Value{x, y}
 	res := NewTerminationWith(1, false)
 	err, ok := Metacall(t, x, f, xy, res)
@@ -111,7 +110,7 @@ func metabin(t *Thread, f string, x Value, y Value) (Value, error, bool) {
 	return nil, nil, false
 }
 
-func metaun(t *Thread, f string, x Value) (Value, error, bool) {
+func metaun(t *Thread, f string, x Value) (Value, *Error, bool) {
 	res := NewTerminationWith(1, false)
 	err, ok := Metacall(t, x, f, []Value{x}, res)
 	if ok {
@@ -142,7 +141,7 @@ func AsString(x Value) (String, bool) {
 	return String(""), false
 }
 
-func concat(t *Thread, x, y Value) (Value, error) {
+func concat(t *Thread, x, y Value) (Value, *Error) {
 	if sx, ok := AsString(x); ok {
 		if sy, ok := AsString(y); ok {
 			return sx + sy, nil
@@ -152,10 +151,10 @@ func concat(t *Thread, x, y Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("concat expects concatable values")
+	return nil, NewErrorS("concat expects concatable values")
 }
 
-func length(t *Thread, v Value) (Value, error) {
+func length(t *Thread, v Value) (Value, *Error) {
 	if s, ok := v.(String); ok {
 		return Int(len(s)), nil
 	}
@@ -167,7 +166,7 @@ func length(t *Thread, v Value) (Value, error) {
 	if tbl, ok := v.(*Table); ok {
 		return tbl.Len(), nil
 	}
-	return nil, errors.New("Cannot compute len")
+	return nil, NewErrorS("Cannot compute len")
 }
 
 func Type(v Value) String {
@@ -191,11 +190,11 @@ func Type(v Value) String {
 	return String("unknown")
 }
 
-func SetEnvFunc(t *Table, name string, f func(*Thread, []Value, Cont) (Cont, error)) {
+func SetEnvFunc(t *Table, name string, f func(*Thread, []Value, Cont) (Cont, *Error)) {
 	t.Set(String(name), &GoFunction{
 		nArgs:  0,
 		hasEtc: true,
-		f: func(t *Thread, c *GoCont) (Cont, error) {
+		f: func(t *Thread, c *GoCont) (Cont, *Error) {
 			return f(t, *c.etc, c.next)
 		},
 	})
@@ -205,7 +204,7 @@ func SetEnv(t *Table, name string, v Value) {
 	t.Set(String(name), v)
 }
 
-func SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, error), nArgs int, hasEtc bool) {
+func SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, *Error), nArgs int, hasEtc bool) {
 	t.Set(String(name), &GoFunction{
 		f:      f,
 		nArgs:  nArgs,

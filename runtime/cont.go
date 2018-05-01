@@ -3,7 +3,7 @@ package runtime
 // Cont is an interface for things that can be run.
 type Cont interface {
 	Push(Value)
-	RunInThread(*Thread) (Cont, error)
+	RunInThread(*Thread) (Cont, *Error)
 	Next() Cont
 }
 

@@ -1,15 +1,13 @@
 package base
 
 import (
-	"errors"
-
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	chunk, chunkName, err := loadChunk(c.Args())
 	if err != nil {
-		return c, err
+		return nil, rt.NewErrorE(err).AddContext(c)
 	}
 	var chunkMode string
 	var chunkEnv = t.GlobalEnv()
@@ -17,14 +15,14 @@ func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	case nargs >= 3:
 		env, ok := c.Arg(2).(*rt.Table)
 		if !ok {
-			return c, errors.New("#3 (env) must be a table")
+			return nil, rt.NewErrorS("#3 (env) must be a table").AddContext(c)
 		}
 		chunkEnv = env
 		fallthrough
 	case nargs >= 2:
 		mode, ok := c.Arg(1).(rt.String)
 		if !ok {
-			return c, errors.New("#2 (mode) must be a string")
+			return nil, rt.NewErrorS("#2 (mode) must be a string").AddContext(c)
 		}
 		chunkMode = string(mode)
 	}
@@ -32,7 +30,7 @@ func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	_, _ = chunkName, chunkMode
 	clos, err := rt.CompileLuaChunk(chunk, chunkEnv)
 	if err != nil {
-		return nil, err
+		return nil, rt.NewErrorE(err).AddContext(c)
 	}
 	c.Next().Push(clos)
 	return c.Next(), nil

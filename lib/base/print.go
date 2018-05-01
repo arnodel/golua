@@ -2,7 +2,7 @@ package base
 
 import rt "github.com/arnodel/golua/runtime"
 
-func print(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+func print(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	for i, v := range c.Etc() {
 		if i > 0 {
 			t.Stdout.Write([]byte{'\t'})

@@ -8,7 +8,6 @@ local co = coroutine.create(cof)
 print("out", coroutine.resume(co, 1))
 print("out", coroutine.resume(co, "two"))
 
----> =XX
 --> =in cof	1
 --> =out	true	3
 --> =in cof	two

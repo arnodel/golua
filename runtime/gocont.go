@@ -2,7 +2,7 @@ package runtime
 
 // GoCont implements Cont for functions written in Go.
 type GoCont struct {
-	f     func(*Thread, *GoCont) (Cont, error)
+	f     func(*Thread, *GoCont) (Cont, *Error)
 	next  Cont
 	args  []Value
 	etc   *[]Value
@@ -61,7 +61,7 @@ FillEtc:
 }
 
 // RunInThread implements Cont.RunInThread
-func (c *GoCont) RunInThread(t *Thread) (Cont, error) {
+func (c *GoCont) RunInThread(t *Thread) (Cont, *Error) {
 	return c.f(t, c)
 }
 

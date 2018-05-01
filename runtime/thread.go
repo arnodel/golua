@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"errors"
 	"sync"
 )
 
@@ -26,7 +25,7 @@ const (
 
 type valuesError struct {
 	args []Value
-	err  error
+	err  *Error
 }
 
 // Thread is a lua thread.
@@ -42,12 +41,12 @@ type Thread struct {
 	caller   *Thread
 }
 
-func (t *Thread) getResumeValues() ([]Value, error) {
+func (t *Thread) getResumeValues() ([]Value, *Error) {
 	res := <-t.resumeCh
 	return res.args, res.err
 }
 
-func (t *Thread) sendResumeValues(args []Value, err error) {
+func (t *Thread) sendResumeValues(args []Value, err *Error) {
 	t.resumeCh <- valuesError{args, err}
 }
 
@@ -61,14 +60,14 @@ func NewThread(rt *Runtime) *Thread {
 	}
 }
 
-func (t *Thread) RunContinuation(c Cont) (err error) {
+func (t *Thread) RunContinuation(c Cont) (err *Error) {
 	for c != nil && err == nil {
 		c, err = c.RunInThread(t)
 	}
 	return
 }
 
-func (t *Thread) Call(c Callable, args []Value, next Cont) error {
+func (t *Thread) Call(c Callable, args []Value, next Cont) *Error {
 	cont := ContWithArgs(c, args, next)
 	return t.RunContinuation(cont)
 }
@@ -92,10 +91,10 @@ func (t *Thread) Status() ThreadStatus {
 
 // Resume execution of a suspended thread.  Its status switches to
 // running while its caller's status switches to suspended.
-func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, error) {
+func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, *Error) {
 	// You cannot wake up from the dead, so no need for a lock.
 	if t.status == ThreadDead {
-		return nil, errors.New("Cannot resume a dead thread")
+		return nil, NewErrorS("Cannot resume a dead thread")
 	}
 	t.mux.Lock()
 	caller.mux.Lock()
@@ -115,7 +114,7 @@ func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, error) {
 
 // Yield to the caller thread.  The yielding thread's status switches
 // to suspended while the caller's status switches back to running.
-func (t *Thread) Yield(args []Value) ([]Value, error) {
+func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 	t.mux.Lock()
 	if t.status != ThreadRunning {
 		panic("Thread to yield is not running")
@@ -134,7 +133,7 @@ func (t *Thread) Yield(args []Value) ([]Value, error) {
 	return t.getResumeValues()
 }
 
-func (t *Thread) end(args []Value, err error) {
+func (t *Thread) end(args []Value, err *Error) {
 	t.mux.Lock()
 	var caller *Thread
 	if t.status == ThreadRunning {

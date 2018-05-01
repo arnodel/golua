@@ -1,8 +1,6 @@
 package coroutine
 
 import (
-	"errors"
-
 	rt "github.com/arnodel/golua/runtime"
 )
 
@@ -10,49 +8,50 @@ func Load(r *rt.Runtime) {
 	env := r.GlobalEnv()
 	pkg := rt.NewTable()
 	rt.SetEnv(env, "coroutine", pkg)
-	rt.SetEnvFunc(pkg, "create", create)
-	rt.SetEnvFunc(pkg, "resume", resume)
-	rt.SetEnvFunc(pkg, "yield", yield)
+	rt.SetEnvGoFunc(pkg, "create", create, 1, false)
+	rt.SetEnvGoFunc(pkg, "resume", resume, 1, true)
+	rt.SetEnvGoFunc(pkg, "yield", yield, 0, true)
 }
 
-func create(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
-	if len(args) == 0 {
-		return nil, errors.New("coroutine.create requires 1 argument")
+func create(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if c.NArgs() == 0 {
+		return nil, rt.NewErrorS("1 argument required").AddContext(c)
 	}
-	f, ok := args[0].(rt.Callable)
+	f, ok := c.Arg(0).(rt.Callable)
 	if !ok {
-		return nil, errors.New("First argument of coroutine.create must be a function")
+		return nil, rt.NewErrorS("#1 must be a function").AddContext(c)
 	}
 	co := rt.NewThread(t.Runtime)
 	co.Start(f)
-	next.Push(co)
-	return next, nil
+	c.Next().Push(co)
+	return c.Next(), nil
 }
 
-func resume(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
-	if len(args) == 0 {
-		return nil, errors.New("coroutine.resume requires 1 argument")
+func resume(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if c.NArgs() == 0 {
+		return nil, rt.NewErrorS("1 argument required").AddContext(c)
 	}
-	co, ok := args[0].(*rt.Thread)
+	co, ok := c.Arg(0).(*rt.Thread)
 	if !ok {
-		return nil, errors.New("First argument of coroutine.resume must be a thread")
+		return nil, rt.NewErrorS("#1 must be a thread").AddContext(c)
 	}
-	res, err := co.Resume(t, args[1:])
+	res, err := co.Resume(t, c.Etc())
+	next := c.Next()
 	if err == nil {
 		next.Push(rt.Bool(true))
 		rt.Push(next, res...)
 	} else {
 		next.Push(rt.Bool(false))
-		next.Push(rt.ValueFromError(err))
+		next.Push(err.Value())
 	}
 	return next, nil
 }
 
-func yield(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
-	res, err := t.Yield(args)
+func yield(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	res, err := t.Yield(c.Etc())
 	if err != nil {
 		return nil, err
 	}
-	rt.Push(next, res...)
-	return next, nil
+	rt.Push(c.Next(), res...)
+	return c.Next(), nil
 }

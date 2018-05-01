@@ -1,11 +1,10 @@
 package runtime
 
 import (
-	"errors"
 	"math"
 )
 
-func unm(t *Thread, x Value) (Value, error) {
+func unm(t *Thread, x Value) (Value, *Error) {
 	x, kx := ToNumber(x)
 	switch kx {
 	case IsInt:
@@ -17,10 +16,10 @@ func unm(t *Thread, x Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("cannot neg")
+	return nil, NewErrorS("cannot neg")
 }
 
-func add(t *Thread, x Value, y Value) (Value, error) {
+func add(t *Thread, x Value, y Value) (Value, *Error) {
 	x, kx := ToNumber(x)
 	y, ky := ToNumber(y)
 	switch kx {
@@ -43,10 +42,10 @@ func add(t *Thread, x Value, y Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("add expects addable values")
+	return nil, NewErrorS("add expects addable values")
 }
 
-func sub(t *Thread, x Value, y Value) (Value, error) {
+func sub(t *Thread, x Value, y Value) (Value, *Error) {
 	x, kx := ToNumber(x)
 	y, ky := ToNumber(y)
 	switch kx {
@@ -69,10 +68,10 @@ func sub(t *Thread, x Value, y Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("sub expects subtractable values")
+	return nil, NewErrorS("sub expects subtractable values")
 }
 
-func mul(t *Thread, x Value, y Value) (Value, error) {
+func mul(t *Thread, x Value, y Value) (Value, *Error) {
 	x, kx := ToNumber(x)
 	y, ky := ToNumber(y)
 	switch kx {
@@ -95,10 +94,10 @@ func mul(t *Thread, x Value, y Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("mul expects multipliable values")
+	return nil, NewErrorS("mul expects multipliable values")
 }
 
-func div(t *Thread, x Value, y Value) (Value, error) {
+func div(t *Thread, x Value, y Value) (Value, *Error) {
 	x, kx := ToNumber(x)
 	y, ky := ToNumber(y)
 	switch kx {
@@ -121,7 +120,7 @@ func div(t *Thread, x Value, y Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("div expects dividable values")
+	return nil, NewErrorS("div expects dividable values")
 }
 
 func floordivInt(x, y Int) Int {
@@ -137,7 +136,7 @@ func floordivFloat(x, y Float) Float {
 	return Float(math.Floor(float64(x / y)))
 }
 
-func idiv(t *Thread, x Value, y Value) (Value, error) {
+func idiv(t *Thread, x Value, y Value) (Value, *Error) {
 	x, kx := ToNumber(x)
 	y, ky := ToNumber(y)
 	switch kx {
@@ -160,7 +159,7 @@ func idiv(t *Thread, x Value, y Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("idiv expects idividable values")
+	return nil, NewErrorS("idiv expects idividable values")
 }
 
 func modInt(x, y Int) Int {
@@ -180,7 +179,7 @@ func modFloat(x, y Float) Float {
 	return r
 }
 
-func mod(t *Thread, x Value, y Value) (Value, error) {
+func mod(t *Thread, x Value, y Value) (Value, *Error) {
 	x, kx := ToNumber(x)
 	y, ky := ToNumber(y)
 	switch kx {
@@ -203,14 +202,14 @@ func mod(t *Thread, x Value, y Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("mod expects modable values")
+	return nil, NewErrorS("mod expects modable values")
 }
 
 func powFloat(x, y Float) Float {
 	return Float(math.Pow(float64(x), float64(y)))
 }
 
-func pow(t *Thread, x Value, y Value) (Value, error) {
+func pow(t *Thread, x Value, y Value) (Value, *Error) {
 	x, kx := ToNumber(x)
 	y, ky := ToNumber(y)
 	switch kx {
@@ -233,5 +232,5 @@ func pow(t *Thread, x Value, y Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("pow expects powidable values")
+	return nil, NewErrorS("pow expects powidable values")
 }

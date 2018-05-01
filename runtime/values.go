@@ -64,7 +64,7 @@ func (c *Closure) Continuation() Cont {
 }
 
 type GoFunction struct {
-	f      func(*Thread, *GoCont) (Cont, error)
+	f      func(*Thread, *GoCont) (Cont, *Error)
 	nArgs  int
 	hasEtc bool
 }

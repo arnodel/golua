@@ -1,14 +1,12 @@
 package base
 
 import (
-	"errors"
-
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func rawlen(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+func rawlen(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if c.NArgs() == 0 {
-		return c, errors.New("1 argument required")
+		return nil, rt.NewErrorS("1 argument required").AddContext(c)
 	}
 	next := c.Next()
 	switch x := c.Arg(0).(type) {
@@ -19,5 +17,5 @@ func rawlen(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		next.Push(x.Len())
 		return next, nil
 	}
-	return c, errors.New("#1 must be a string or table")
+	return nil, rt.NewErrorS("#1 must be a string or table").AddContext(c)
 }

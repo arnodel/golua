@@ -1,10 +1,8 @@
 package runtime
 
-import "errors"
+var errNaI = NewErrorS("Float is not an integer")
 
-var errNaI = errors.New("Float is not an integer")
-
-func band(t *Thread, x, y Value) (Value, error) {
+func band(t *Thread, x, y Value) (Value, *Error) {
 	ix, kx := ToInt(x)
 	iy, ky := ToInt(y)
 	k := kx | ky
@@ -18,10 +16,10 @@ func band(t *Thread, x, y Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("band expects bandable values")
+	return nil, NewErrorS("band expects bandable values")
 }
 
-func bor(t *Thread, x, y Value) (Value, error) {
+func bor(t *Thread, x, y Value) (Value, *Error) {
 	ix, kx := ToInt(x)
 	iy, ky := ToInt(y)
 	k := kx | ky
@@ -35,10 +33,10 @@ func bor(t *Thread, x, y Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("bor expects bordable values")
+	return nil, NewErrorS("bor expects bordable values")
 }
 
-func bxor(t *Thread, x, y Value) (Value, error) {
+func bxor(t *Thread, x, y Value) (Value, *Error) {
 	ix, kx := ToInt(x)
 	iy, ky := ToInt(y)
 	k := kx | ky
@@ -52,10 +50,10 @@ func bxor(t *Thread, x, y Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("bxor expects bxordable values")
+	return nil, NewErrorS("bxor expects bxordable values")
 }
 
-func shl(t *Thread, x, y Value) (Value, error) {
+func shl(t *Thread, x, y Value) (Value, *Error) {
 	ix, kx := ToInt(x)
 	iy, ky := ToInt(y)
 	k := kx | ky
@@ -72,10 +70,10 @@ func shl(t *Thread, x, y Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("shl expects shldable values")
+	return nil, NewErrorS("shl expects shldable values")
 }
 
-func shr(t *Thread, x, y Value) (Value, error) {
+func shr(t *Thread, x, y Value) (Value, *Error) {
 	ix, kx := ToInt(x)
 	iy, ky := ToInt(y)
 	k := kx | ky
@@ -92,10 +90,10 @@ func shr(t *Thread, x, y Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("shr expects shrdable values")
+	return nil, NewErrorS("shr expects shrdable values")
 }
 
-func bnot(t *Thread, x Value) (Value, error) {
+func bnot(t *Thread, x Value) (Value, *Error) {
 	ix, kx := ToInt(x)
 	if kx == IsInt {
 		return ^ix, nil
@@ -104,5 +102,5 @@ func bnot(t *Thread, x Value) (Value, error) {
 	if ok {
 		return res, err
 	}
-	return nil, errors.New("bnot expects a bnotable value")
+	return nil, NewErrorS("bnot expects a bnotable value")
 }

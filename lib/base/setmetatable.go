@@ -1,28 +1,26 @@
 package base
 
 import (
-	"errors"
-
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if c.NArgs() < 2 {
-		return c, errors.New("2 arguments required")
+		return nil, rt.NewErrorS("2 arguments required").AddContext(c)
 	}
 	tbl, ok := c.Arg(0).(*rt.Table)
 	if !ok {
-		return c, errors.New("#1 must be a table")
+		return nil, rt.NewErrorS("#1 must be a table").AddContext(c)
 	}
 	if rt.RawGet(tbl.Metatable(), "__metatable") != nil {
-		return c, errors.New("cannot set metatable")
+		return nil, rt.NewErrorS("cannot set metatable").AddContext(c)
 	}
 	if rt.IsNil(c.Arg(1)) {
 		tbl.SetMetatable(nil)
 	} else if meta, ok := c.Arg(1).(*rt.Table); ok {
 		tbl.SetMetatable(meta)
 	} else {
-		return c, errors.New("#2 must be a table")
+		return nil, rt.NewErrorS("#2 must be a table").AddContext(c)
 	}
 	c.Next().Push(c.Arg(1))
 	return c.Next(), nil

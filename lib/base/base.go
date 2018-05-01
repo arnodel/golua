@@ -47,9 +47,9 @@ func Load(r *rt.Runtime) {
 // 	}
 // }
 
-func tostring(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, error) {
+func tostring(t *rt.Thread, args []rt.Value, next rt.Cont) (rt.Cont, *rt.Error) {
 	if len(args) == 0 {
-		return nil, errors.New("tostring needs 1 argument at least")
+		return nil, rt.NewErrorS("tostring needs 1 argument at least")
 	}
 	v := args[0]
 	err, ok := rt.Metacall(t, v, "__tostring", []rt.Value{v}, next)
@@ -71,7 +71,7 @@ func loadChunk(args []rt.Value) (chunk []byte, chunkName string, err error) {
 	} else {
 		path, ok := args[0].(rt.String)
 		if !ok {
-			err = errors.New("argument must be a string")
+			err = errors.New("#1 must be a string")
 			return
 		}
 		chunk, err = ioutil.ReadFile(string(path))
