@@ -19,7 +19,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(env, "ipairs", ipairs, 1, false)
 	rt.SetEnvGoFunc(env, "load", load, 4, false)
 	rt.SetEnvGoFunc(env, "loadfile", loadfile, 3, false)
-	// TODO: next
+	// TODO: next (but how)
 	// TODO: pairs
 	rt.SetEnvGoFunc(env, "pcall", pcall, 1, true)
 	rt.SetEnvGoFunc(env, "print", print, 0, true)
