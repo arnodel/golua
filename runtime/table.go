@@ -6,15 +6,20 @@ const (
 	borderCheckDown
 )
 
+type tableValue struct {
+	value, next Value
+}
+
 type Table struct {
-	content     map[Value]Value
+	content     map[Value]tableValue
 	meta        *Table
 	border      Int
 	borderState int64
+	first       Value
 }
 
 func NewTable() *Table {
-	return &Table{content: make(map[Value]Value)}
+	return &Table{content: make(map[Value]tableValue)}
 }
 
 func (t *Table) Metatable() *Table {
@@ -31,7 +36,7 @@ func (t *Table) Get(k Value) Value {
 			k = n
 		}
 	}
-	return t.content[k]
+	return t.content[k].value
 }
 
 func (t *Table) setInt(n Int, v Value) {
@@ -62,12 +67,12 @@ func (t *Table) Set(k Value, v Value) {
 func (t *Table) Len() Int {
 	switch t.borderState {
 	case borderCheckDown:
-		for t.border > 0 && t.content[t.border] == nil {
+		for t.border > 0 && t.content[t.border].value == nil {
 			t.border--
 		}
 		t.borderState = borderOK
 	case borderCheckUp:
-		for t.content[t.border+1] != nil {
+		for t.content[t.border+1].value != nil {
 			t.border++
 		}
 		t.borderState = borderOK
@@ -76,9 +81,31 @@ func (t *Table) Len() Int {
 }
 
 func (t *Table) set(k Value, v Value) {
+	tv, ok := t.content[k]
 	if IsNil(v) {
-		delete(t.content, k)
+		tv.value = nil
 	} else {
-		t.content[k] = v
+		tv.value = v
 	}
+	if !ok {
+		tv.next = t.first
+		t.first = k
+	}
+	t.content[k] = tv
+}
+
+func (t *Table) Next(k Value) (next Value, val Value) {
+	if IsNil(k) {
+		next = t.first
+	} else {
+		next = t.content[k].next
+	}
+	for next != nil {
+		ntv := t.content[next]
+		if val = ntv.value; val != nil {
+			return
+		}
+		next = ntv.next
+	}
+	return
 }

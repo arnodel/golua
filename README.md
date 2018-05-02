@@ -19,12 +19,6 @@ Go applications.  It should be able to run any pure Lua code
 ## Known unsolved issues
 
 * `collectgarbage()`. Probably a noop?
-* iteration over tables (`pairs()`, `next()`).  This is a hard one if
-  I want to keep using `map[Value]Value` as the interface for tables
-  because the only way to iterate over the keys of a Go `map` is with
-  a `for ... range` construct AFAIK. The `pairs()` function could be
-  implemented with a goroutine but I don't see any solution for
-  `next()`.
 * mutable upvalues.  Easy if willing to sacrifice performance.
 * long string / comments.  Requires writing a custom lexer (see
   below).
@@ -54,6 +48,8 @@ Done
 
 Mostly done.  To do
 * implementing cells / mutable upvalues
+* tables: deleting entries with nil values
+* implementing weak tables (can it even be done?)
 
 ### Test Suite
 
@@ -75,7 +71,7 @@ TODO: write a lot more tests
 
 ### Standard Library
 
-The basic library is partly done.
+The basic library is done apart from `xpcall`.
 
 The coroutine library has `create`, `resume` and `yield` implemented
 and tested so far.
