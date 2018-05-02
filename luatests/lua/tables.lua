@@ -8,3 +8,17 @@ print(#t)
 --> =4
 print(t["x"] .. t.zz)
 --> =abc12
+
+t[6]=1
+t[5]=1
+print(#t)
+--> =6
+
+t[6]=nil
+print(#t)
+--> =5
+
+t[4]=nil
+t[5]=nil
+print(#t)
+--> =3

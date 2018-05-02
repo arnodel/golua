@@ -38,7 +38,7 @@ func (t *Table) setInt(n Int, v Value) {
 	if n > t.border {
 		t.border = n
 		t.borderState = borderCheckUp
-	} else if v == nil && t.border > 0 && n == t.border {
+	} else if IsNil(v) && t.border > 0 && n == t.border {
 		t.border--
 		t.borderState = borderCheckDown
 	}
