@@ -69,6 +69,14 @@ type GoFunction struct {
 	hasEtc bool
 }
 
+func NewGoFunction(f func(*Thread, *GoCont) (Cont, *Error), nArgs int, hasEtc bool) *GoFunction {
+	return &GoFunction{
+		f:      f,
+		nArgs:  nArgs,
+		hasEtc: hasEtc,
+	}
+}
+
 func (f *GoFunction) Continuation() Cont {
 	return NewGoCont(f)
 }

@@ -16,3 +16,15 @@ for i, v in _ipairs(t) do
 end
 print(s) -- 5*1 + 4*2 + 3*3
 --> =22
+
+s = 0
+for i, v in ipairs(t) do
+    print(i, v)
+    s = s + i * v
+end
+--> =1	5
+--> =2	4
+--> =3	3
+
+print(s)
+--> =22

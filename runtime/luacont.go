@@ -157,7 +157,7 @@ RunLoop:
 			coll := c.getReg(opcode.GetB())
 			idx := c.getReg(opcode.GetC())
 			if !opcode.GetF() {
-				val, err := getindex(t, coll, idx)
+				val, err := Index(t, coll, idx)
 				if err != nil {
 					return c, err
 				}
@@ -203,7 +203,7 @@ RunLoop:
 				case code.OpBitNot:
 					res, err = bnot(t, val)
 				case code.OpLen:
-					res, err = length(t, val)
+					res, err = Len(t, val)
 				case code.OpClosure:
 					// TODO: Decide if needed
 					panic("unimplemented")

@@ -19,7 +19,7 @@ func RawGet(t *Table, k Value) Value {
 	return t.Get(k)
 }
 
-func getindex(t *Thread, coll Value, idx Value) (Value, *Error) {
+func Index(t *Thread, coll Value, idx Value) (Value, *Error) {
 	if tbl, ok := coll.(*Table); ok {
 		if val := RawGet(tbl, idx); val != nil {
 			return val, nil
@@ -31,7 +31,7 @@ func getindex(t *Thread, coll Value, idx Value) (Value, *Error) {
 	}
 	switch metaIdx.(type) {
 	case *Table:
-		return getindex(t, metaIdx, idx)
+		return Index(t, metaIdx, idx)
 	default:
 		res := NewTerminationWith(1, false)
 		if err := Call(t, metaIdx, []Value{idx}, res); err != nil {
@@ -154,7 +154,7 @@ func concat(t *Thread, x, y Value) (Value, *Error) {
 	return nil, NewErrorS("concat expects concatable values")
 }
 
-func length(t *Thread, v Value) (Value, *Error) {
+func Len(t *Thread, v Value) (Value, *Error) {
 	if s, ok := v.(String); ok {
 		return Int(len(s)), nil
 	}

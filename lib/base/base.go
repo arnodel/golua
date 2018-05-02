@@ -16,7 +16,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(env, "error", errorF, 2, false)
 	rt.SetEnv(env, "_G", env)
 	rt.SetEnvGoFunc(env, "getmetatable", getmetatable, 1, false)
-	// TODO: ipairs
+	rt.SetEnvGoFunc(env, "ipairs", ipairs, 1, false)
 	rt.SetEnvGoFunc(env, "load", load, 4, false)
 	rt.SetEnvGoFunc(env, "loadfile", loadfile, 3, false)
 	// TODO: next
