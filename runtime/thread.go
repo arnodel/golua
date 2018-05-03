@@ -41,6 +41,10 @@ type Thread struct {
 	caller   *Thread
 }
 
+func (t *Thread) IsMain() bool {
+	return t.caller == nil
+}
+
 func (t *Thread) getResumeValues() ([]Value, *Error) {
 	res := <-t.resumeCh
 	return res.args, res.err
