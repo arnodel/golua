@@ -62,7 +62,7 @@ print(1 + 2)
 --> =3
 -- "=" means match literally the output line
 
-print("abaabab")
+print("ababab")
 --> ~^(ab)*$
 -- "~" means match with a regexp (syntax is go regexp)
 ```
