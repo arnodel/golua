@@ -186,6 +186,8 @@ func Type(v Value) String {
 		return String("bool")
 	case *Closure:
 		return String("function")
+	case *Thread:
+		return String("thread")
 	}
 	return String("unknown")
 }

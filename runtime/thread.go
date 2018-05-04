@@ -138,15 +138,20 @@ func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 }
 
 func (t *Thread) end(args []Value, err *Error) {
+	caller := t.caller
 	t.mux.Lock()
-	var caller *Thread
-	if t.status == ThreadRunning {
-		t.status = ThreadDead
-		caller = t.caller
-		t.caller = nil
-		t.mux.Unlock()
-	} else {
+	caller.mux.Lock()
+	defer t.mux.Unlock()
+	defer caller.mux.Unlock()
+	switch {
+	case t.status != ThreadRunning:
 		panic("Called Thread.end on a non-running thread")
+	case caller.status != ThreadSuspended:
+		panic("Caller thread of ending thread is not suspendd")
+	default:
+		t.status = ThreadDead
+		caller.status = ThreadRunning
+		t.caller = nil
 	}
 	caller.sendResumeValues(args, err)
 }

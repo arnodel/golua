@@ -12,3 +12,16 @@ print("out", coroutine.resume(co, "two"))
 --> =out	true	3
 --> =in cof	two
 --> =out	true	from cof
+
+print(coroutine.running())
+--> ~^thread:.*\ttrue$
+
+do
+    local function cof()
+        return coroutine.running()
+    end
+    local co = coroutine.create(cof)
+
+    print(coroutine.resume(co))
+--> ~^true\tthread:.*\tfalse$
+end
