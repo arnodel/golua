@@ -75,3 +75,17 @@ do
     print("co", coroutine.status(co))
     --> =co	dead
 end
+
+-- Test coroutine.wrap()
+do
+    local function cofib()
+        local a, b = 0, 1
+        while true do
+            coroutine.yield(a)
+            a, b = b, a+b
+        end
+    end
+    local fib = coroutine.wrap(cofib)
+    print(fib(), fib(), fib(), fib(), fib())
+    --> =0	1	1	2	3
+end
