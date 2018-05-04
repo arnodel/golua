@@ -71,19 +71,15 @@ TODO: write a lot more tests
 
 ### Standard Library
 
-The basic library is done apart from `xpcall`.
-
-The coroutine library has `create`, `resume` and `yield` implemented
-and tested so far.
-
-TODO:
-* package library
-* string library
-* utf8 library
-* table library
-* math library
-* io library
-* os library
+* basic library: done apart from `xpcall`
+* coroutine library: done
+* package library: TODO
+* string library: TODO
+* utf8 library: TODO
+* table library: TODO
+* math library: TODO
+* io library: TODO
+* os library: TODO
 * debug library (I don't know how much of this can reasonably be
   implemented as I didn't want to be constrained by it when designing
   golua)
