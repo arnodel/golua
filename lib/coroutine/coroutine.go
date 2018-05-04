@@ -82,7 +82,7 @@ func status(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			status = "dead"
 		case rt.ThreadSuspended:
 			status = "suspended"
-		case rt.ThreadRunning:
+		case rt.ThreadOK:
 			status = "normal"
 		}
 	}

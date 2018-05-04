@@ -6,7 +6,7 @@ import (
 	"regexp"
 )
 
-var expectedPtn = regexp.MustCompile(`(?m)^--> [=~].*$`)
+var expectedPtn = regexp.MustCompile(`(?m)^ *--> [=~].*$`)
 
 type LineChecker interface {
 	CheckLine([]byte) error
@@ -36,6 +36,7 @@ func ExtractLineCheckers(source []byte) []LineChecker {
 	expected := expectedPtn.FindAll(source, -1)
 	checkers := make([]LineChecker, len(expected))
 	for i, l := range expected {
+		l = bytes.TrimLeft(l, " ")
 		switch l[4] {
 		case '=':
 			checkers[i] = LiteralLineChecker(l[5:])

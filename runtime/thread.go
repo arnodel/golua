@@ -18,7 +18,7 @@ type ThreadStatus uint
 
 // Available statuses for threads.
 const (
-	ThreadRunning   ThreadStatus = 0
+	ThreadOK        ThreadStatus = 0
 	ThreadSuspended ThreadStatus = 1
 	ThreadDead      ThreadStatus = 3
 )
@@ -104,12 +104,11 @@ func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, *Error) {
 	caller.mux.Lock()
 	if t.status != ThreadSuspended {
 		panic("Thread to resume is not suspended")
-	} else if caller.status != ThreadRunning {
+	} else if caller.status != ThreadOK {
 		panic("Caller of thread to resume is not running")
 	}
 	t.caller = caller
-	t.status = ThreadRunning
-	caller.status = ThreadSuspended
+	t.status = ThreadOK
 	t.mux.Unlock()
 	caller.mux.Unlock()
 	t.sendResumeValues(args, nil)
@@ -120,16 +119,15 @@ func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, *Error) {
 // to suspended while the caller's status switches back to running.
 func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 	t.mux.Lock()
-	if t.status != ThreadRunning {
+	if t.status != ThreadOK {
 		panic("Thread to yield is not running")
 	}
 	caller := t.caller
 	caller.mux.Lock()
-	if caller.status != ThreadSuspended {
-		panic("Caller of thread to yield is not suspended")
+	if caller.status != ThreadOK {
+		panic("Caller of thread to yield is not OK")
 	}
 	t.status = ThreadSuspended
-	caller.status = ThreadRunning
 	t.caller = nil
 	t.mux.Unlock()
 	caller.mux.Unlock()
@@ -144,13 +142,12 @@ func (t *Thread) end(args []Value, err *Error) {
 	defer t.mux.Unlock()
 	defer caller.mux.Unlock()
 	switch {
-	case t.status != ThreadRunning:
+	case t.status != ThreadOK:
 		panic("Called Thread.end on a non-running thread")
-	case caller.status != ThreadSuspended:
-		panic("Caller thread of ending thread is not suspendd")
+	case caller.status != ThreadOK:
+		panic("Caller thread of ending thread is not OK")
 	default:
 		t.status = ThreadDead
-		caller.status = ThreadRunning
 		t.caller = nil
 	}
 	caller.sendResumeValues(args, err)

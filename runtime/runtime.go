@@ -17,7 +17,7 @@ func New(stdout io.Writer) *Runtime {
 		Stdout:    stdout,
 	}
 	mainThread := NewThread(r)
-	mainThread.status = ThreadRunning
+	mainThread.status = ThreadOK
 	r.mainThread = mainThread
 	return r
 }
