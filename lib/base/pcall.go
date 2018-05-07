@@ -5,8 +5,8 @@ import (
 )
 
 func pcall(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() == 0 {
-		return nil, rt.NewErrorS("1 argument required").AddContext(c)
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
 	}
 	next := c.Next()
 	res := rt.NewTerminationWith(0, true)

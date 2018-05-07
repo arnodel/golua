@@ -5,6 +5,9 @@ import (
 )
 
 func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
 	var chunk []byte
 	chunkName := "chunk"
 	chunkMode := "bt"
@@ -12,23 +15,23 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 	switch nargs := c.NArgs(); {
 	case nargs >= 4:
-		env, ok := c.Arg(3).(*rt.Table)
-		if !ok {
-			return nil, rt.NewErrorS("#4 (env) must be a table").AddContext(c)
+		var err *rt.Error
+		chunkEnv, err = c.TableArg(3)
+		if err != nil {
+			return nil, err.AddContext(c)
 		}
-		chunkEnv = env
 		fallthrough
 	case nargs >= 3:
-		mode, ok := c.Arg(2).(rt.String)
-		if !ok {
-			return nil, rt.NewErrorS("#3 (mode) must be a string").AddContext(c)
+		mode, err := c.StringArg(2)
+		if err != nil {
+			return nil, err.AddContext(c)
 		}
 		chunkMode = string(mode)
 		fallthrough
 	case nargs >= 2:
-		name, ok := c.Arg(1).(rt.String)
-		if !ok {
-			return nil, rt.NewErrorS("#2 (name) must be a string").AddContext(c)
+		name, err := c.StringArg(1)
+		if err != nil {
+			return nil, err.AddContext(c)
 		}
 		chunkName = string(name)
 		fallthrough
@@ -36,8 +39,9 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		switch x := c.Arg(0).(type) {
 		case rt.String:
 			chunk = []byte(x)
+			// TODO: function case
 		default:
-			return nil, rt.NewErrorS("#1 (chunk) must be a string").AddContext(c)
+			return nil, rt.NewErrorS("#1 must be a string or function").AddContext(c)
 		}
 	}
 	// TODO: use those

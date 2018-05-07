@@ -5,8 +5,8 @@ import (
 )
 
 func getmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() == 0 {
-		return nil, rt.NewErrorS("getmetatable expects 1 argument").AddContext(c)
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
 	}
 	c.Next().Push(t.Metatable(c.Arg(0)))
 	return c.Next(), nil

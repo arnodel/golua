@@ -19,6 +19,10 @@ func NewErrorE(e error) *Error {
 	return NewErrorS(e.Error())
 }
 
+func NewErrorF(msg string, args ...interface{}) *Error {
+	return NewErrorS(fmt.Sprintf(msg, args...))
+}
+
 func (e *Error) AddContext(cont Cont) *Error {
 	e.context = append(e.context, cont)
 	return e

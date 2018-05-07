@@ -3,13 +3,13 @@ package base
 import rt "github.com/arnodel/golua/runtime"
 
 func ipairsIteratorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() < 2 {
-		return nil, rt.NewErrorS("2 arguments required").AddContext(c)
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err.AddContext(c)
 	}
 	coll := c.Arg(0)
-	n, tp := rt.ToInt(c.Arg(1))
-	if tp != rt.IsInt {
-		return nil, rt.NewErrorS("#2 must be an integer").AddContext(c)
+	n, err := c.IntArg(1)
+	if err != nil {
+		return nil, err.AddContext(c)
 	}
 	lv, err := rt.Len(t, coll)
 	if err != nil {
@@ -35,8 +35,8 @@ func ipairsIteratorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 var ipairsIterator = rt.NewGoFunction(ipairsIteratorF, 2, false)
 
 func ipairs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() == 0 {
-		return nil, rt.NewErrorS("1 argument required").AddContext(c)
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
 	}
 	next := c.Next()
 	next.Push(ipairsIterator)

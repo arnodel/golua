@@ -5,8 +5,8 @@ import (
 )
 
 func rawequal(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() < 2 {
-		return nil, rt.NewErrorS("2 arguments required").AddContext(c)
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err.AddContext(c)
 	}
 	res, _ := rt.RawEqual(c.Arg(0), c.Arg(1))
 	c.Next().Push(rt.Bool(res))

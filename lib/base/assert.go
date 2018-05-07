@@ -3,8 +3,8 @@ package base
 import rt "github.com/arnodel/golua/runtime"
 
 func assert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() == 0 {
-		return nil, rt.NewErrorS("1 argument required").AddContext(c)
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
 	}
 	if !rt.Truth(c.Arg(0)) {
 		var msg rt.Value

@@ -5,12 +5,12 @@ import (
 )
 
 func rawset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() < 3 {
-		return nil, rt.NewErrorS("3 arguments required").AddContext(c)
+	if err := c.CheckNArgs(3); err != nil {
+		return nil, err.AddContext(c)
 	}
-	tbl, ok := c.Arg(0).(*rt.Table)
-	if !ok {
-		return nil, rt.NewErrorS("#1 must be a table").AddContext(c)
+	tbl, err := c.TableArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
 	}
 	key := c.Arg(1)
 	if rt.IsNil(key) {

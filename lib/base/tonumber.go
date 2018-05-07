@@ -7,23 +7,23 @@ import (
 )
 
 func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
 	nargs := c.NArgs()
 	next := c.Next()
-	if nargs == 0 {
-		return nil, rt.NewErrorS("1 argument required").AddContext(c)
-	}
 	n := c.Arg(0)
 	if nargs == 1 {
 		n, _ = rt.ToNumber(n)
 		next.Push(n)
 		return next, nil
 	}
-	base, ok := c.Arg(1).(rt.Int)
-	if !ok {
-		return nil, rt.NewErrorS("#2 (base) must be an integer").AddContext(c)
+	base, err := c.IntArg(1)
+	if err != nil {
+		return nil, err.AddContext(c)
 	}
 	if base < 2 || base > 36 {
-		return nil, rt.NewErrorS("#2 (base) out of range").AddContext(c)
+		return nil, rt.NewErrorS("#2 out of range").AddContext(c)
 	}
 	s, ok := n.(rt.String)
 	if !ok {

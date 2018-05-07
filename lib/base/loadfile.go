@@ -13,16 +13,16 @@ func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	var chunkEnv = t.GlobalEnv()
 	switch nargs := c.NArgs(); {
 	case nargs >= 3:
-		env, ok := c.Arg(2).(*rt.Table)
-		if !ok {
-			return nil, rt.NewErrorS("#3 (env) must be a table").AddContext(c)
+		var err *rt.Error
+		chunkEnv, err = c.TableArg(2)
+		if err != nil {
+			return nil, err.AddContext(c)
 		}
-		chunkEnv = env
 		fallthrough
 	case nargs >= 2:
-		mode, ok := c.Arg(1).(rt.String)
-		if !ok {
-			return nil, rt.NewErrorS("#2 (mode) must be a string").AddContext(c)
+		mode, err := c.StringArg(1)
+		if err != nil {
+			return nil, err.AddContext(c)
 		}
 		chunkMode = string(mode)
 	}

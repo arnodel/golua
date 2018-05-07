@@ -87,3 +87,57 @@ func (c *GoCont) Etc() []Value {
 	}
 	return *c.etc
 }
+
+func (c *GoCont) Check1Arg() *Error {
+	if c.nArgs == 0 {
+		return NewErrorS("1 argument needed")
+	}
+	return nil
+}
+
+func (c *GoCont) CheckNArgs(n int) *Error {
+	if c.nArgs < n {
+		return NewErrorF("%d arguments needed", n)
+	}
+	return nil
+}
+
+func (c *GoCont) StringArg(n int) (String, *Error) {
+	s, ok := c.Arg(n).(String)
+	if !ok {
+		return "", NewErrorF("#%d must be a string", n+1)
+	}
+	return s, nil
+}
+
+func (c *GoCont) CallableArg(n int) (Callable, *Error) {
+	f, ok := c.Arg(n).(Callable)
+	if !ok {
+		return nil, NewErrorF("#%d must be a callable", n+1)
+	}
+	return f, nil
+}
+
+func (c *GoCont) ThreadArg(n int) (*Thread, *Error) {
+	t, ok := c.Arg(n).(*Thread)
+	if !ok {
+		return nil, NewErrorF("#%d must be a callable", n+1)
+	}
+	return t, nil
+}
+
+func (c *GoCont) IntArg(n int) (Int, *Error) {
+	i, tp := ToInt(c.Arg(n))
+	if tp != IsInt {
+		return 0, NewErrorF("#%d must be an integer", n+1)
+	}
+	return i, nil
+}
+
+func (c *GoCont) TableArg(n int) (*Table, *Error) {
+	t, ok := c.Arg(n).(*Table)
+	if !ok {
+		return nil, NewErrorF("#%d must be a table", n+1)
+	}
+	return t, nil
+}

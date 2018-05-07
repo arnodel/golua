@@ -5,12 +5,12 @@ import (
 )
 
 func rawget(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() < 2 {
-		return nil, rt.NewErrorS("2 arguments required").AddContext(c)
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err.AddContext(c)
 	}
-	tbl, ok := c.Arg(0).(*rt.Table)
-	if !ok {
-		return nil, rt.NewErrorS("#1 must be a table").AddContext(c)
+	tbl, err := c.TableArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
 	}
 	c.Next().Push(rt.RawGet(tbl, c.Arg(1)))
 	return c.Next(), nil

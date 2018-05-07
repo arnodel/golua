@@ -18,12 +18,13 @@ func Load(r *rt.Runtime) {
 }
 
 func create(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() == 0 {
-		return nil, rt.NewErrorS("1 argument required").AddContext(c)
+	var f rt.Callable
+	err := c.Check1Arg()
+	if err == nil {
+		f, err = c.CallableArg(0)
 	}
-	f, ok := c.Arg(0).(rt.Callable)
-	if !ok {
-		return nil, rt.NewErrorS("#1 must be a function").AddContext(c)
+	if err != nil {
+		return nil, err.AddContext(c)
 	}
 	co := rt.NewThread(t.Runtime)
 	co.Start(f)
@@ -31,26 +32,14 @@ func create(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.Next(), nil
 }
 
-func doResume(t *rt.Thread, co *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	res, err := co.Resume(t, c.Etc())
-	next := c.Next()
-	if err == nil {
-		next.Push(rt.Bool(true))
-		rt.Push(next, res...)
-	} else {
-		next.Push(rt.Bool(false))
-		next.Push(err.Value())
-	}
-	return next, nil
-}
-
 func resume(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() == 0 {
-		return nil, rt.NewErrorS("1 argument required").AddContext(c)
+	var co *rt.Thread
+	err := c.Check1Arg()
+	if err == nil {
+		co, err = c.ThreadArg(0)
 	}
-	co, ok := c.Arg(0).(*rt.Thread)
-	if !ok {
-		return nil, rt.NewErrorS("#1 must be a thread").AddContext(c)
+	if err != nil {
+		return nil, err.AddContext(c)
 	}
 	res, err := co.Resume(t, c.Etc())
 	next := c.Next()
@@ -80,12 +69,13 @@ func isyieldable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func status(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() == 0 {
-		return nil, rt.NewErrorS("1 argument required").AddContext(c)
+	var co *rt.Thread
+	err := c.Check1Arg()
+	if err == nil {
+		co, err = c.ThreadArg(0)
 	}
-	co, ok := c.Arg(0).(*rt.Thread)
-	if !ok {
-		return nil, rt.NewErrorS("#1 must be a thread").AddContext(c)
+	if err != nil {
+		return nil, err.AddContext(c)
 	}
 	var status string
 	if co == t {
@@ -113,12 +103,13 @@ func running(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func wrap(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() == 0 {
-		return nil, rt.NewErrorS("1 argument required").AddContext(c)
+	var f rt.Callable
+	err := c.Check1Arg()
+	if err == nil {
+		f, err = c.CallableArg(0)
 	}
-	f, ok := c.Arg(0).(rt.Callable)
-	if !ok {
-		return nil, rt.NewErrorS("#1 must be a callable").AddContext(c)
+	if err != nil {
+		return nil, err.AddContext(c)
 	}
 	co := rt.NewThread(t.Runtime)
 	co.Start(f)

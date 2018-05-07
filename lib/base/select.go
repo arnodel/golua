@@ -5,12 +5,12 @@ import (
 )
 
 func selectF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() == 0 {
-		return nil, rt.NewErrorS("1 argument required").AddContext(c)
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
 	}
-	n, tp := rt.ToInt(c.Arg(0))
-	if tp != rt.IsInt {
-		return nil, rt.NewErrorS("#1 must be an integer").AddContext(c)
+	n, err := c.IntArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
 	}
 	if n < 1 {
 		return nil, rt.NewErrorS("#1 out of range").AddContext(c)
