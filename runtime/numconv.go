@@ -29,7 +29,7 @@ func ToNumber(x Value) (Value, NumberType) {
 			}
 		}
 	}
-	return nil, NaN
+	return x, NaN
 }
 
 func ToInt(v Value) (Int, NumberType) {

@@ -39,8 +39,11 @@ func Load(r *rt.Runtime) {
 func toString(t *rt.Thread, v rt.Value) (rt.String, *rt.Error) {
 	next := rt.NewTerminationWith(1, false)
 	err, ok := rt.Metacall(t, v, "__tostring", []rt.Value{v}, next)
-	if ok {
+	if err != nil {
 		return "", err
+	}
+	if ok {
+		v = next.Get(0)
 	}
 	s, ok := rt.AsString(v)
 	if !ok {

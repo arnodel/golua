@@ -14,8 +14,12 @@ func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
 	n := c.Arg(0)
 	if nargs == 1 {
-		n, _ = rt.ToNumber(n)
-		next.Push(n)
+		n, tp := rt.ToNumber(n)
+		if tp != rt.NaN {
+			next.Push(n)
+		} else {
+			next.Push(nil)
+		}
 		return next, nil
 	}
 	base, err := c.IntArg(1)

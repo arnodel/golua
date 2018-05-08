@@ -85,6 +85,34 @@ func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (*Er
 	return nil, false
 }
 
+func Metacont(t *Thread, obj Value, method string, next Cont) (Cont, *Error, bool) {
+	f := t.MetaGetS(obj, method)
+	if IsNil(f) {
+		return nil, nil, false
+	}
+	cont, err := Continue(t, f, next)
+	if err != nil {
+		return nil, err, true
+	}
+	cont.Push(next)
+	return cont, nil, true
+}
+
+func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
+	callable, ok := f.(Callable)
+	if ok {
+		return callable.Continuation(), nil
+	}
+	cont, err, ok := Metacont(t, f, "__call", next)
+	if !ok {
+		return nil, NewErrorF("cannot call %v", f)
+	}
+	if cont != nil {
+		cont.Push(t)
+	}
+	return cont, err
+}
+
 func Call(t *Thread, f Value, args []Value, next Cont) *Error {
 	callable, ok := f.(Callable)
 	if ok {

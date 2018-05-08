@@ -90,7 +90,7 @@ func mul(t *Thread, x Value, y Value) (Value, *Error) {
 			return x.(Float) * y.(Float), nil
 		}
 	}
-	res, err, ok := metabin(t, "__sub", x, y)
+	res, err, ok := metabin(t, "__mul", x, y)
 	if ok {
 		return res, err
 	}
@@ -155,7 +155,7 @@ func idiv(t *Thread, x Value, y Value) (Value, *Error) {
 			return floordivFloat(x.(Float), y.(Float)), nil
 		}
 	}
-	res, err, ok := metabin(t, "__div", x, y)
+	res, err, ok := metabin(t, "__idiv", x, y)
 	if ok {
 		return res, err
 	}

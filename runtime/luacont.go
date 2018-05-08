@@ -1,8 +1,6 @@
 package runtime
 
 import (
-	"fmt"
-
 	"github.com/arnodel/golua/code"
 )
 
@@ -208,11 +206,7 @@ RunLoop:
 					// TODO: Decide if needed
 					panic("unimplemented")
 				case code.OpCont:
-					if c, ok := val.(Callable); ok {
-						res = c.Continuation()
-					} else {
-						err = NewErrorE(fmt.Errorf("Not a callable: %+v", val))
-					}
+					res, err = Continue(t, val, c)
 				case code.OpId:
 					res = val
 				case code.OpEtcId:
@@ -249,7 +243,7 @@ RunLoop:
 				}
 			}
 			if err != nil {
-				return c, err
+				return nil, err.AddContext(c)
 			}
 			if opcode.GetF() {
 				c.getReg(dst).(Cont).Push(res)

@@ -29,7 +29,7 @@ func bor(t *Thread, x, y Value) (Value, *Error) {
 	case k&NaI != 0:
 		return nil, errNaI
 	}
-	res, err, ok := metabin(t, "__or", x, y)
+	res, err, ok := metabin(t, "__bor", x, y)
 	if ok {
 		return res, err
 	}
@@ -46,7 +46,7 @@ func bxor(t *Thread, x, y Value) (Value, *Error) {
 	case k&NaI != 0:
 		return nil, errNaI
 	}
-	res, err, ok := metabin(t, "__xor", x, y)
+	res, err, ok := metabin(t, "__bxor", x, y)
 	if ok {
 		return res, err
 	}
