@@ -70,3 +70,24 @@ print(w(1) < w(2), w(3) <= w(3), w(4) > w(3), w(6) >= w(1))
 
 print(w(1) > w(2), w(3) >= w(3), w(4) < w(3), w(6) <= w(1))
 --> =false	true	false	false
+
+local tbl = {x=5}
+local m = {__index={x=1, y=2}}
+setmetatable(tbl, m)
+
+print(tbl.x, tbl.y, tbl.z)
+--> =5	2	nil
+
+function m.__index(n) return "[" .. tostring(n) .. "]" end
+
+print(tbl.x, tbl.y, tbl.z)
+--> =5	[y]	[z]
+
+-- TODO: __newindex with table
+-- TODO: __newindex with function
+
+-- TODO: __concat
+
+-- TODO: __call
+
+
