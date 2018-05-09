@@ -78,16 +78,39 @@ setmetatable(tbl, m)
 print(tbl.x, tbl.y, tbl.z)
 --> =5	2	nil
 
-function m.__index(n) return "[" .. tostring(n) .. "]" end
+function m.__index(t, n) return "[" .. tostring(n) .. "]" end
 
 print(tbl.x, tbl.y, tbl.z)
 --> =5	[y]	[z]
 
--- TODO: __newindex with table
--- TODO: __newindex with function
+function m.__newindex(t, k, v) rawset(t, k, "new:" .. tostring(v)) end
 
--- TODO: __concat
+tbl.x = 44
+tbl.y = 11
+print(tbl.x, tbl.y)
+--> =44	new:11
 
--- TODO: __call
+tbl.y = 33
+print(tbl.y)
+--> =33
 
+local indexTbl = {}
+m.__newindex = indexTbl
+
+tbl.a = "hello"
+print(indexTbl.a)
+--> =hello
+
+tbl.a = "bye"
+print(indexTbl.a)
+--> =bye
+
+function m.__concat(x, y) return "..." end
+print(tbl .. 1, 1 .. tbl)
+--> =...	...
+
+-- TODO: fix this test
+-- function m.__call(t, x, y) return "call(" .. tostring(x) .. "," .. tostring(y) .. ")" end
+-- print(tbl(1, 2))
+-- --> =call(1,2)
 

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/arnodel/golua/ast"
@@ -34,7 +35,7 @@ func Index(t *Thread, coll Value, idx Value) (Value, *Error) {
 		return Index(t, metaIdx, idx)
 	default:
 		res := NewTerminationWith(1, false)
-		if err := Call(t, metaIdx, []Value{idx}, res); err != nil {
+		if err := Call(t, metaIdx, []Value{coll, idx}, res); err != nil {
 			return nil, err
 		}
 		return res.Get(0), nil
@@ -60,7 +61,7 @@ func setindex(t *Thread, coll Value, idx Value, val Value) *Error {
 	case *Table:
 		return setindex(t, metaNewIndex, idx, val)
 	default:
-		return Call(t, metaNewIndex, []Value{coll, idx, val}, nil)
+		return Call(t, metaNewIndex, []Value{coll, idx, val}, NewTermination(nil, nil))
 	}
 }
 
@@ -108,7 +109,7 @@ func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
 		return nil, NewErrorF("cannot call %v", f)
 	}
 	if cont != nil {
-		cont.Push(t)
+		cont.Push(f)
 	}
 	return cont, err
 }
@@ -217,7 +218,7 @@ func Type(v Value) String {
 	case *Thread:
 		return String("thread")
 	}
-	return String("unknown")
+	return String(fmt.Sprintf("unknown(%+v)", v))
 }
 
 func SetEnvFunc(t *Table, name string, f func(*Thread, []Value, Cont) (Cont, *Error)) {
