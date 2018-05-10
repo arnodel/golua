@@ -37,7 +37,7 @@ func (f FunctionCall) HWrite(w HWriter) {
 }
 
 func (f FunctionCall) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	f.CompileCall(c)
+	f.CompileCall(c, false)
 	c.Emit(ir.Receive{Dst: []ir.Register{dst}})
 	return dst
 }
@@ -50,7 +50,7 @@ func CallWithArgs(c *ir.Compiler, args []ExpNode, fReg ir.Register) {
 		if i == len(args)-1 {
 			switch x := arg.(type) {
 			case *FunctionCall:
-				x.CompileCall(c)
+				x.CompileCall(c, false)
 				argReg = c.GetFreeRegister()
 				c.Emit(ir.ReceiveEtc{Etc: argReg})
 				c.Emit(ir.Push{Cont: fReg, Item: argReg, Etc: true})
@@ -71,7 +71,7 @@ func CallWithArgs(c *ir.Compiler, args []ExpNode, fReg ir.Register) {
 	c.ReleaseRegister(fReg)
 }
 
-func (f FunctionCall) CompileCall(c *ir.Compiler) {
+func (f FunctionCall) CompileCall(c *ir.Compiler, tail bool) {
 	fReg := CompileExp(c, f.target)
 	var contReg ir.Register
 	if f.method != "" {
@@ -86,18 +86,17 @@ func (f FunctionCall) CompileCall(c *ir.Compiler) {
 			Index: mReg,
 		})
 		contReg = c.GetFreeRegister()
-		c.Emit(ir.MkCont{Dst: contReg, Closure: fReg})
+		c.Emit(ir.MkCont{Dst: contReg, Closure: fReg, Tail: tail})
 		c.Emit(ir.Push{Cont: fReg, Item: self})
 		c.ReleaseRegister(self)
 	} else {
 		contReg = c.GetFreeRegister()
-		c.Emit(ir.MkCont{Dst: contReg, Closure: fReg})
+		c.Emit(ir.MkCont{Dst: contReg, Closure: fReg, Tail: tail})
 	}
-	c.Emit(ir.PushCC{Cont: contReg})
 	CallWithArgs(c, f.args, contReg)
 }
 
 func (f FunctionCall) CompileStat(c *ir.Compiler) {
-	f.CompileCall(c)
+	f.CompileCall(c, false)
 	c.Emit(ir.Receive{})
 }

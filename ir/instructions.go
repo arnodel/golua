@@ -224,6 +224,7 @@ func (m MkClosure) String() string {
 type MkCont struct {
 	Dst     Register
 	Closure Register
+	Tail    bool
 }
 
 func (m MkCont) Compile(kc *ConstantCompiler) {

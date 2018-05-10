@@ -1,6 +1,8 @@
 package runtime
 
-import "github.com/arnodel/golua/ast"
+import (
+	"github.com/arnodel/golua/ast"
+)
 
 type Bool bool
 type Int int64
@@ -30,7 +32,7 @@ func (s String) ToInt() (Int, NumberType) {
 }
 
 type Callable interface {
-	Continuation() Cont
+	Continuation(Cont) Cont
 }
 
 type ToStringable interface {
@@ -59,8 +61,8 @@ func (c *Closure) AddUpvalue(v Value) {
 	c.upvalueIndex++
 }
 
-func (c *Closure) Continuation() Cont {
-	return NewLuaCont(c)
+func (c *Closure) Continuation(next Cont) Cont {
+	return NewLuaCont(c, next)
 }
 
 type GoFunction struct {
@@ -77,16 +79,13 @@ func NewGoFunction(f func(*Thread, *GoCont) (Cont, *Error), nArgs int, hasEtc bo
 	}
 }
 
-func (f *GoFunction) Continuation() Cont {
-	return NewGoCont(f)
+func (f *GoFunction) Continuation(next Cont) Cont {
+	return NewGoCont(f, next)
 }
 
 func ContWithArgs(c Callable, args []Value, next Cont) Cont {
-	cont := c.Continuation()
-	cont.Push(next)
-	for _, arg := range args {
-		cont.Push(arg)
-	}
+	cont := c.Continuation(next)
+	Push(cont, args...)
 	return cont
 }
 

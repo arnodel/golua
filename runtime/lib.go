@@ -95,14 +95,13 @@ func Metacont(t *Thread, obj Value, method string, next Cont) (Cont, *Error, boo
 	if err != nil {
 		return nil, err, true
 	}
-	cont.Push(next)
 	return cont, nil, true
 }
 
 func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
 	callable, ok := f.(Callable)
 	if ok {
-		return callable.Continuation(), nil
+		return callable.Continuation(next), nil
 	}
 	cont, err, ok := Metacont(t, f, "__call", next)
 	if !ok {

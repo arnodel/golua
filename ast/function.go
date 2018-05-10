@@ -36,14 +36,13 @@ func (f Function) HWrite(w HWriter) {
 }
 
 func (f Function) CompileBody(c *ir.Compiler) {
-	recvRegs := make([]ir.Register, 1+len(f.params))
+	recvRegs := make([]ir.Register, len(f.params))
 	callerReg := c.GetFreeRegister()
 	c.DeclareLocal("<caller>", callerReg)
-	recvRegs[0] = callerReg
 	for i, p := range f.params {
 		reg := c.GetFreeRegister()
 		c.DeclareLocal(ir.Name(p), reg)
-		recvRegs[i+1] = reg
+		recvRegs[i] = reg
 	}
 	if !f.hasDots {
 		c.Emit(ir.Receive{Dst: recvRegs})

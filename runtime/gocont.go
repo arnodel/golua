@@ -9,7 +9,7 @@ type GoCont struct {
 	nArgs int
 }
 
-func NewGoCont(f *GoFunction) *GoCont {
+func NewGoCont(f *GoFunction, next Cont) *GoCont {
 	var args []Value
 	var etc *[]Value
 	if f.nArgs > 0 {
@@ -22,18 +22,13 @@ func NewGoCont(f *GoFunction) *GoCont {
 		f:    f.f,
 		args: args,
 		etc:  etc,
+		next: next,
 	}
 }
 
 // Push implements Cont.Push.
 func (c *GoCont) Push(v Value) {
-	if c.next == nil {
-		var ok bool
-		c.next, ok = v.(Cont)
-		if !ok {
-			panic("First push must be a continuation")
-		}
-	} else if c.nArgs < len(c.args) {
+	if c.nArgs < len(c.args) {
 		c.args[c.nArgs] = v
 		c.nArgs++
 	} else if c.etc != nil {

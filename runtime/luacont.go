@@ -11,13 +11,15 @@ type LuaCont struct {
 	acc       []Value
 }
 
-func NewLuaCont(clos *Closure) *LuaCont {
+func NewLuaCont(clos *Closure, next Cont) *LuaCont {
 	if clos.upvalueIndex < len(clos.upvalues) {
 		panic("Closure not ready")
 	}
+	registers := make([]Value, clos.RegCount)
+	registers[0] = next
 	return &LuaCont{
 		Closure:   clos,
-		registers: make([]Value, clos.RegCount),
+		registers: registers,
 	}
 }
 

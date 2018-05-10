@@ -39,7 +39,7 @@ func CompileExpList(c *ir.Compiler, exps []ExpNode, dstRegs []ir.Register) {
 		dstRegs[i] = dst
 	}
 	if doFCall {
-		fCall.CompileCall(c)
+		fCall.CompileCall(c, false)
 		c.Emit(ir.Receive{Dst: dstRegs[commonCount:]})
 	} else if len(dstRegs) > len(exps) {
 		nilK := ir.NilType{}

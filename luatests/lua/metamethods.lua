@@ -109,8 +109,7 @@ function m.__concat(x, y) return "..." end
 print(tbl .. 1, 1 .. tbl)
 --> =...	...
 
--- TODO: fix this test
--- function m.__call(t, x, y) return "call(" .. tostring(x) .. "," .. tostring(y) .. ")" end
--- print(tbl(1, 2))
--- --> =call(1,2)
+function m.__call(t, x, y) return "call(" .. tostring(x) .. "," .. tostring(y) .. ")" end
+print(tbl(1, 2))
+--> =call(1,2)
 
