@@ -38,9 +38,9 @@ func (c *LuaCont) Push(val Value) {
 }
 
 func (c *LuaCont) setReg(reg code.Reg, val Value) {
-	if val == nil {
-		val = NilType{}
-	}
+	// if val == nil {
+	// 	val = NilType{}
+	// }
 	switch reg.Tp() {
 	case code.Register:
 		c.registers[reg.Idx()] = val
@@ -55,6 +55,12 @@ func (c *LuaCont) getReg(reg code.Reg) Value {
 		return c.registers[reg.Idx()]
 	default:
 		return c.upvalues[reg.Idx()]
+	}
+}
+
+func (c *LuaCont) clearReg(reg code.Reg) {
+	if reg.Tp() == code.Register {
+		c.registers[reg.Idx()] = nil
 	}
 }
 
@@ -240,6 +246,11 @@ RunLoop:
 					res = c
 				case code.OpTable:
 					res = NewTable()
+				case code.OpClear:
+					// Special case: clear reg
+					c.clearReg(dst)
+					pc++
+					continue RunLoop
 				default:
 					panic("unsupported")
 				}

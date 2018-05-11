@@ -22,7 +22,7 @@ func LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 		case code.Bool:
 			constants[i] = Bool(k)
 		case code.NilType:
-			constants[i] = NilType{}
+			// constants[i] = NilType{}
 		case code.Code:
 			constants[i] = &Code{
 				code:         unit.Code[k.StartOffset:k.EndOffset],

@@ -226,6 +226,7 @@ const (
 	OpStr1
 	OpBool
 	OpCC
+	OpClear
 	OpInt   // Extra 64 bits (2 opcodes)
 	OpFloat // Extra 64 bits (2 opcodes)
 	OpStrN  // Extra [n / 4] opcodes

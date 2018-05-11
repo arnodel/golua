@@ -4,9 +4,6 @@ import (
 	"sync"
 )
 
-// Value is a runtime value.
-type Value interface{}
-
 // ThreadStarter is an interface for things that can make a start a
 // thread.
 type ThreadStarter interface {

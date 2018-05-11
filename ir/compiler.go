@@ -9,17 +9,30 @@ import (
 
 type Name string
 
+type taggedReg struct {
+	reg  Register
+	tags uint
+}
+
+const regHasUpvalue uint = 1
+
 type lexicalMap struct {
-	reg   map[Name]Register
+	reg   map[Name]taggedReg
 	label map[Name]Label
 }
 
 type LexicalContext []lexicalMap
 
-func (c LexicalContext) GetRegister(name Name) (reg Register, ok bool) {
+func (c LexicalContext) GetRegister(name Name, tags uint) (reg Register, ok bool) {
 	for i := len(c) - 1; i >= 0; i-- {
-		reg, ok = c[i].reg[name]
+		var tr taggedReg
+		tr, ok = c[i].reg[name]
 		if ok {
+			reg = tr.reg
+			if tags != 0 {
+				tr.tags |= tags
+				c[i].reg[name] = tr
+			}
 			break
 		}
 	}
@@ -39,7 +52,7 @@ func (c LexicalContext) GetLabel(name Name) (label Label, ok bool) {
 func (c LexicalContext) AddToRoot(name Name, reg Register) (ok bool) {
 	ok = len(c) > 0
 	if ok {
-		c[0].reg[name] = reg
+		c[0].reg[name] = taggedReg{reg, 0}
 	}
 	return
 }
@@ -47,7 +60,7 @@ func (c LexicalContext) AddToRoot(name Name, reg Register) (ok bool) {
 func (c LexicalContext) AddToTop(name Name, reg Register) (ok bool) {
 	ok = len(c) > 0
 	if ok {
-		c[len(c)-1].reg[name] = reg
+		c[len(c)-1].reg[name] = taggedReg{reg, 0}
 	}
 	return
 }
@@ -62,7 +75,7 @@ func (c LexicalContext) AddLabel(name Name, label Label) (ok bool) {
 
 func (c LexicalContext) PushNew() LexicalContext {
 	return append(c, lexicalMap{
-		reg:   make(map[Name]Register),
+		reg:   make(map[Name]taggedReg),
 		label: make(map[Name]Label),
 	})
 }
@@ -84,8 +97,8 @@ func (c LexicalContext) Top() lexicalMap {
 func (c LexicalContext) Dump() {
 	for i, ns := range c {
 		fmt.Printf("NS %d:\n", i)
-		for name, reg := range ns.reg {
-			fmt.Printf("  %s: %s\n", name, reg)
+		for name, tr := range ns.reg {
+			fmt.Printf("  %s: %s\n", name, tr.reg)
 		}
 		// TODO: dump labels
 	}
@@ -171,13 +184,16 @@ func (c *Compiler) EmitLabel(lbl Label) {
 	c.labelPos[pos] = append(c.labelPos[pos], lbl)
 }
 
-func (c *Compiler) GetRegister(name Name) (reg Register, ok bool) {
-	reg, ok = c.context.GetRegister(name)
-	// fmt.Println("GET", name, reg, ok)
+func (c *Compiler) GetRegister(name Name) (Register, bool) {
+	return c.getRegister(name, 0)
+}
+
+func (c *Compiler) getRegister(name Name, tags uint) (reg Register, ok bool) {
+	reg, ok = c.context.GetRegister(name, tags)
 	if ok || c.parent == nil {
 		return
 	}
-	reg, ok = c.parent.GetRegister(name)
+	reg, ok = c.parent.getRegister(name, regHasUpvalue)
 	if ok {
 		c.upvalues = append(c.upvalues, reg)
 		reg = Register(-len(c.upvalues))
@@ -231,8 +247,11 @@ func (c *Compiler) PopContext() {
 		panic("Cannot pop empty context")
 	}
 	c.context = context
-	for _, reg := range top.reg {
-		c.ReleaseRegister(reg)
+	for _, tr := range top.reg {
+		c.ReleaseRegister(tr.reg)
+		if tr.tags&regHasUpvalue != 0 && tr.reg >= 0 {
+			c.Emit(ClearReg{Dst: tr.reg})
+		}
 	}
 }
 

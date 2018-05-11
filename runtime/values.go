@@ -4,6 +4,9 @@ import (
 	"github.com/arnodel/golua/ast"
 )
 
+// Value is a runtime value.
+type Value interface{}
+
 type Bool bool
 type Int int64
 type Float float64

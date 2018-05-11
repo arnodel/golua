@@ -236,17 +236,17 @@ func (m MkCont) String() string {
 	return fmt.Sprintf("%s := mkcont(%s)", m.Dst, m.Closure)
 }
 
-type MkCell struct {
+type ClearReg struct {
 	Dst Register
-	Src Register
 }
 
-func (m MkCell) Compile(kc *ConstantCompiler) {
-	// TODO: perhaps this instruction is not needed.
+func (i ClearReg) Compile(kc *ConstantCompiler) {
+	opcode := code.MkType4b(code.Off, code.OpClear, codeReg(i.Dst), code.Lit8(0))
+	kc.Emit(opcode)
 }
 
-func (m MkCell) String() string {
-	return fmt.Sprintf("%s := mkcell(%s)", m.Dst, m.Src)
+func (i ClearReg) String() string {
+	return fmt.Sprintf("clrreg(%s)", i.Dst)
 }
 
 type MkTable struct {

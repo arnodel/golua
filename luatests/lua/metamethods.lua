@@ -112,4 +112,3 @@ print(tbl .. 1, 1 .. tbl)
 function m.__call(t, x, y) return "call(" .. tostring(x) .. "," .. tostring(y) .. ")" end
 print(tbl(1, 2))
 --> =call(1,2)
-

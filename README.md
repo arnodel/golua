@@ -50,6 +50,7 @@ Mostly done.  To do
 * implementing cells / mutable upvalues
 * tables: deleting entries with nil values
 * implementing weak tables (can it even be done?)
+* nil: decide between NilType{} and nil (currently both work)
 
 ### Test Suite
 
