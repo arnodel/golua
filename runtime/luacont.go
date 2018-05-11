@@ -45,14 +45,29 @@ func (c *LuaCont) setReg(reg code.Reg, val Value) {
 	case code.Register:
 		c.registers[reg.Idx()] = val
 	default:
-		c.upvalues[reg.Idx()] = val
+		c.upvalues[reg.Idx()] = asCell(val)
 	}
 }
 
 func (c *LuaCont) getReg(reg code.Reg) Value {
 	switch reg.Tp() {
 	case code.Register:
-		return c.registers[reg.Idx()]
+		return asValue(c.registers[reg.Idx()])
+	default:
+		return *c.upvalues[reg.Idx()].ref
+	}
+}
+
+func (c *LuaCont) getRegCell(reg code.Reg) Cell {
+	switch reg.Tp() {
+	case code.Register:
+		v := c.registers[reg.Idx()]
+		cell, ok := v.(Cell)
+		if !ok {
+			cell = Cell{&v}
+			c.registers[reg.Idx()] = cell
+		}
+		return cell
 	default:
 		return c.upvalues[reg.Idx()]
 	}
@@ -233,7 +248,9 @@ RunLoop:
 				case code.OpNot:
 					res = Bool(!Truth(val))
 				case code.OpUpvalue:
-					c.getReg(dst).(*Closure).AddUpvalue(val)
+					// TODO: wasteful as we already have got getReg
+					cell := c.getRegCell(opcode.GetB())
+					c.getReg(dst).(*Closure).AddUpvalue(cell)
 					pc++
 					continue RunLoop
 				default:

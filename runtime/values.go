@@ -46,28 +46,6 @@ type Metatabler interface {
 	Metatable() *Table
 }
 
-type Closure struct {
-	*Code
-	upvalues     []Value
-	upvalueIndex int
-}
-
-func NewClosure(c *Code) *Closure {
-	return &Closure{
-		Code:     c,
-		upvalues: make([]Value, c.UpvalueCount),
-	}
-}
-
-func (c *Closure) AddUpvalue(v Value) {
-	c.upvalues[c.upvalueIndex] = v
-	c.upvalueIndex++
-}
-
-func (c *Closure) Continuation(next Cont) Cont {
-	return NewLuaCont(c, next)
-}
-
 type GoFunction struct {
 	f      func(*Thread, *GoCont) (Cont, *Error)
 	nArgs  int

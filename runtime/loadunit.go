@@ -34,7 +34,8 @@ func LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 			panic("Unsupported constant type")
 		}
 	}
+	var envVal Value = env
 	clos := NewClosure(constants[0].(*Code))
-	clos.AddUpvalue(env)
+	clos.AddUpvalue(Cell{&envVal})
 	return clos
 }

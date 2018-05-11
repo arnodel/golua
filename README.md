@@ -19,7 +19,6 @@ Go applications.  It should be able to run any pure Lua code
 ## Known unsolved issues
 
 * `collectgarbage()`. Probably a noop?
-* mutable upvalues.  Easy if willing to sacrifice performance.
 * long string / comments.  Requires writing a custom lexer (see
   below).
 
@@ -37,8 +36,7 @@ https://talks.golang.org/2011/lex.slide#1)
 
 ### AST -> IR Compilation
 
-Almost there.  To do:
-* upvalue mutations - is that a runtime thing though?
+Done
 
 ### IR -> Code Compilation
 
@@ -47,7 +45,6 @@ Done
 ### Runtime
 
 Mostly done.  To do
-* implementing cells / mutable upvalues
 * tables: deleting entries with nil values
 * implementing weak tables (can it even be done?)
 * nil: decide between NilType{} and nil (currently both work)
