@@ -352,6 +352,9 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 			k = "CC"
 		case OpTable:
 			k = "{}"
+		case OpClear:
+			// Special case
+			return fmt.Sprintf("clr %s", rA)
 		}
 		if f {
 			return fmt.Sprintf("push %s, "+k, rA)
