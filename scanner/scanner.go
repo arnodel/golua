@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -15,6 +16,7 @@ type lexer struct {
 	start, last, pos token.Pos
 	items            chan *token.Token // channel of scanned items.
 	state            stateFn
+	errorMsg         string
 }
 
 // stateFn represents the state of the scanner
@@ -22,13 +24,22 @@ type lexer struct {
 type stateFn func(*lexer) stateFn
 
 // emit passes an item back to the client.
-func (l *lexer) emit(t token.Type) {
+func (l *lexer) emit(t token.Type, useMap bool) {
 	lit := l.input[l.start.Offset:l.pos.Offset]
-	if t == -1 {
-		t = token.TokMap.Type(string(lit))
+	tp := t
+	if useMap {
+		tp = token.TokMap.Type(string(lit))
+		if tp == token.INVALID {
+			tp = t
+		}
 	}
+	if tp == token.INVALID {
+		fmt.Println("Cannot emit", string(lit))
+		panic("emit bails out")
+	}
+	fmt.Println("EMIT", t, useMap, string(lit), tp)
 	l.items <- &token.Token{
-		Type: t,
+		Type: tp,
 		Lit:  lit,
 		Pos:  l.start,
 	}
@@ -38,7 +49,8 @@ func (l *lexer) emit(t token.Type) {
 // next returns the next rune in the input.
 func (l *lexer) next() rune {
 	if l.pos.Offset >= len(l.input) {
-		l.last = token.Pos{}
+		l.last = l.pos
+		fmt.Println("NEXT EOF")
 		return -1
 	}
 	c, width := utf8.DecodeRune(l.input[l.pos.Offset:])
@@ -50,6 +62,7 @@ func (l *lexer) next() rune {
 	} else {
 		l.pos.Column++
 	}
+	fmt.Println("NEXT", strconv.QuoteRune(c))
 	return c
 }
 
@@ -62,9 +75,6 @@ func (l *lexer) ignore() {
 // backup steps back one rune.
 // Can be called only once per call of next.
 func (l *lexer) backup() {
-	if l.last == (token.Pos{}) {
-		panic("oops")
-	}
 	l.pos = l.last
 }
 
@@ -97,10 +107,11 @@ func (l *lexer) acceptRun(valid string) {
 // by passing back a nil pointer that will be the next
 // state, terminating l.run.
 func (l *lexer) errorf(format string, args ...interface{}) stateFn {
+	l.errorMsg = fmt.Sprintf(format, args...)
 	l.items <- &token.Token{
 		Type: token.INVALID,
-		Lit:  []byte(fmt.Sprintf(format, args...)),
-		Pos:  l.pos,
+		Lit:  l.input[l.start.Offset:l.pos.Offset],
+		Pos:  l.start,
 	}
 	return nil
 }
@@ -120,12 +131,20 @@ func lex(name string, input []byte) *lexer {
 
 // nextItem returns the next item from the input.
 func (l *lexer) Scan() *token.Token {
+	fmt.Println("SCAN")
 	for {
 		select {
 		case item := <-l.items:
 			return item
 		default:
+			if l.state == nil {
+				return nil
+			}
 			l.state = l.state(l)
 		}
 	}
+}
+
+func (l *lexer) ErrorMsg() string {
+	return l.errorMsg
 }

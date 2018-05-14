@@ -1,6 +1,14 @@
 package scanner
 
-import "github.com/arnodel/golua/token"
+import (
+	"fmt"
+
+	"github.com/arnodel/golua/token"
+)
+
+func emitT(l *lexer) {
+	l.emit(token.INVALID, true)
+}
 
 func scanToken(l *lexer) stateFn {
 	for {
@@ -10,7 +18,7 @@ func scanToken(l *lexer) stateFn {
 				return scanComment
 			}
 			l.backup()
-			l.emit(-1)
+			emitT(l)
 		case c == '"' || c == '\'':
 			return scanShortString(c)
 		case isDec(c):
@@ -19,10 +27,11 @@ func scanToken(l *lexer) stateFn {
 		case c == '[':
 			n := l.next()
 			if n == '[' || n == '=' {
+				l.backup()
 				return scanLongString
 			}
 			l.backup()
-			l.emit(-1)
+			emitT(l)
 		case isAlpha(c):
 			return scanIdent
 		case c == ' ' || c == '\t' || c == '\n' || c == '\r':
@@ -37,8 +46,8 @@ func scanToken(l *lexer) stateFn {
 			case ':':
 				l.accept(":")
 			case '.':
-				if l.accept(":") {
-					l.accept(":")
+				if l.accept(".") {
+					l.accept(".")
 				}
 			case '<':
 				l.accept("=<")
@@ -49,7 +58,6 @@ func scanToken(l *lexer) stateFn {
 				l.accept("=")
 			case '&':
 			case '+':
-			case '-':
 			case '*':
 			case '/':
 				l.accept("/")
@@ -58,11 +66,17 @@ func scanToken(l *lexer) stateFn {
 			case ']':
 			case '{':
 			case '}':
+			case -1:
+				l.emit(token.EOF, false)
+				return nil
 			default:
-				return l.errorf("Unknow character")
+				return l.errorf("Illegal character")
 			}
-			l.emit(-1)
+			fmt.Println("---")
+			emitT(l)
+			fmt.Println("+++")
 		}
+		return scanToken
 	}
 }
 
@@ -76,6 +90,7 @@ func scanComment(l *lexer) stateFn {
 }
 
 func scanShortComment(l *lexer) stateFn {
+	fmt.Println("SHORT COMMENT")
 	for {
 		switch c := l.next(); c {
 		case '\n', '\r':
@@ -83,6 +98,8 @@ func scanShortComment(l *lexer) stateFn {
 			return scanToken
 		case -1:
 			l.ignore()
+			fmt.Println("YYY")
+			l.emit(token.EOF, false)
 			return nil
 		}
 	}
@@ -107,7 +124,7 @@ func scanLong(comment bool) stateFn {
 					l.ignore()
 					return scanShortComment
 				}
-				l.errorf("expected opening long bracket")
+				return l.errorf("Expected opening long bracket")
 			}
 		}
 		closeLevel := -1
@@ -123,7 +140,7 @@ func scanLong(comment bool) stateFn {
 					if comment {
 						l.ignore()
 					} else {
-						l.emit(token.TokMap.Type("longstring"))
+						l.emit(token.TokMap.Type("longstring"), false)
 					}
 					return scanToken
 				} else {
@@ -134,7 +151,7 @@ func scanLong(comment bool) stateFn {
 					closeLevel++
 				}
 			case -1:
-				l.errorf("expected closing long bracket of level %d", level)
+				return l.errorf("Illegal EOF in long bracket of level %d", level)
 			default:
 				closeLevel = -1
 			}
@@ -147,37 +164,38 @@ func scanShortString(q rune) stateFn {
 		for {
 			switch c := l.next(); c {
 			case q:
-				l.emit(token.TokMap.Type("string"))
+				l.emit(token.TokMap.Type("string"), false)
+				return scanToken
 			case '\\':
 				switch c := l.next(); {
 				case c == 'x':
 					if accept(l, isHex, 2) != 2 {
-						return l.errorf("expected 2 hex digits")
+						return l.errorf(`\x must be followed by 2 hex digits`)
 					}
 				case isDec(c):
 					accept(l, isDec, 2)
 				case c == 'u':
 					if l.next() != '{' {
-						return l.errorf("expected {")
+						return l.errorf(`\u must be followed by '{'`)
 					}
 					if accept(l, isHex, -1) == 0 {
-						return l.errorf("expected at least 1 hex digit")
+						return l.errorf("At least 1 hex digit required")
 					}
 					if l.next() != '}' {
-						return l.errorf("expected }")
+						return l.errorf("Missing '}'")
 					}
 				default:
 					switch c {
 					case 'a', 'b', 'f', 'n', 'r', 't', 'v', 'z', '"', '\'', '\n':
 						break
 					default:
-						// error
+						return l.errorf("Illegal escaped character")
 					}
 				}
 			case '\n', '\r':
-				return l.errorf("unexpected newline in string literal")
+				return l.errorf("Illegal new line in string literal")
 			case -1:
-				return l.errorf("unexpected EOF in string literal")
+				return l.errorf("Illegal EOF in string literal")
 			}
 		}
 	}
@@ -199,13 +217,13 @@ func scanNumber(l *lexer) stateFn {
 	if l.accept(exp) {
 		l.accept("+-")
 		if accept(l, isDigit, -1) == 0 {
-			return l.errorf("expected digit after exponent")
+			return l.errorf("Digit required after exponent")
 		}
 	}
 	if isAlpha(l.peek()) {
-		return l.errorf("number followed by letter")
+		return l.errorf("Illegal character following number")
 	}
-	l.emit(tp)
+	l.emit(tp, false)
 	return scanToken
 }
 
@@ -215,7 +233,7 @@ func scanLongString(l *lexer) stateFn {
 
 func scanIdent(l *lexer) stateFn {
 	accept(l, isAlnum, -1)
-	l.emit(token.TokMap.Type("ident"))
+	l.emit(token.TokMap.Type("ident"), true)
 	return scanToken
 }
 
