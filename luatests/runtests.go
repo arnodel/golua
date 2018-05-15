@@ -15,7 +15,8 @@ func RunSource(source []byte, output io.Writer) {
 	base.Load(r)
 	coroutine.Load(r)
 	t := r.MainThread()
-	clos, err := runtime.CompileLuaChunk(source, r.GlobalEnv())
+	// TODO: use the file name
+	clos, err := runtime.CompileLuaChunk("luatest", source, r.GlobalEnv())
 	if err != nil {
 		fmt.Fprintf(output, "!!! parsing: %s", err)
 		return

@@ -242,10 +242,9 @@ func SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, *Error)
 	})
 }
 
-func CompileLuaChunk(source []byte, env *Table) (*Closure, error) {
+func CompileLuaChunk(name string, source []byte, env *Table) (*Closure, error) {
 	p := parser.NewParser()
-	// s := lexer.NewLexer(source)
-	s := scanner.New("chunk", source)
+	s := scanner.New(name, source)
 	tree, err := p.Parse(s)
 	if err != nil {
 		// It would be better if the parser just forwarded the
