@@ -36,12 +36,9 @@ func scanToken(l *Scanner) stateFn {
 			l.ignore()
 		default:
 			switch c {
-			case ';':
-			case '(':
-			case ')':
+			case ';', '(', ')', ',', '|', '&', '+', '*', '%', '^', '#', ']', '{', '}':
 			case '=':
 				l.accept("=")
-			case ',':
 			case ':':
 				l.accept(":")
 			case '.':
@@ -52,20 +49,10 @@ func scanToken(l *Scanner) stateFn {
 				l.accept("=<")
 			case '>':
 				l.accept("=>")
-			case '|':
 			case '~':
 				l.accept("=")
-			case '&':
-			case '+':
-			case '*':
 			case '/':
 				l.accept("/")
-			case '%':
-			case '^':
-			case '#':
-			case ']':
-			case '{':
-			case '}':
 			case -1:
 				l.emit(token.EOF, false)
 				return nil
