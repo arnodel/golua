@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/arnodel/golua/ast"
-	"github.com/arnodel/golua/lexer"
 	"github.com/arnodel/golua/parser"
+	"github.com/arnodel/golua/scanner"
 )
 
 func IsNil(v Value) bool {
@@ -244,7 +244,8 @@ func SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, *Error)
 
 func CompileLuaChunk(source []byte, env *Table) (*Closure, error) {
 	p := parser.NewParser()
-	s := lexer.NewLexer(source)
+	// s := lexer.NewLexer(source)
+	s := scanner.New("chunk", source)
 	tree, err := p.Parse(s)
 	if err != nil {
 		return nil, err

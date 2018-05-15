@@ -1,16 +1,14 @@
 package scanner
 
 import (
-	"fmt"
-
 	"github.com/arnodel/golua/token"
 )
 
-func emitT(l *lexer) {
+func emitT(l *Scanner) {
 	l.emit(token.INVALID, true)
 }
 
-func scanToken(l *lexer) stateFn {
+func scanToken(l *Scanner) stateFn {
 	for {
 		switch c := l.next(); {
 		case c == '-':
@@ -42,6 +40,7 @@ func scanToken(l *lexer) stateFn {
 			case '(':
 			case ')':
 			case '=':
+				l.accept("=")
 			case ',':
 			case ':':
 				l.accept(":")
@@ -62,6 +61,7 @@ func scanToken(l *lexer) stateFn {
 			case '/':
 				l.accept("/")
 			case '%':
+			case '^':
 			case '#':
 			case ']':
 			case '{':
@@ -72,15 +72,13 @@ func scanToken(l *lexer) stateFn {
 			default:
 				return l.errorf("Illegal character")
 			}
-			fmt.Println("---")
 			emitT(l)
-			fmt.Println("+++")
 		}
 		return scanToken
 	}
 }
 
-func scanComment(l *lexer) stateFn {
+func scanComment(l *Scanner) stateFn {
 	c := l.next()
 	if c == '[' {
 		return scanLongComment
@@ -89,8 +87,7 @@ func scanComment(l *lexer) stateFn {
 	return scanShortComment
 }
 
-func scanShortComment(l *lexer) stateFn {
-	fmt.Println("SHORT COMMENT")
+func scanShortComment(l *Scanner) stateFn {
 	for {
 		switch c := l.next(); c {
 		case '\n', '\r':
@@ -98,19 +95,18 @@ func scanShortComment(l *lexer) stateFn {
 			return scanToken
 		case -1:
 			l.ignore()
-			fmt.Println("YYY")
 			l.emit(token.EOF, false)
 			return nil
 		}
 	}
 }
 
-func scanLongComment(l *lexer) stateFn {
+func scanLongComment(l *Scanner) stateFn {
 	return scanLong(true)
 }
 
 func scanLong(comment bool) stateFn {
-	return func(l *lexer) stateFn {
+	return func(l *Scanner) stateFn {
 		level := 0
 	OpeningLoop:
 		for {
@@ -160,7 +156,7 @@ func scanLong(comment bool) stateFn {
 }
 
 func scanShortString(q rune) stateFn {
-	return func(l *lexer) stateFn {
+	return func(l *Scanner) stateFn {
 		for {
 			switch c := l.next(); c {
 			case q:
@@ -201,7 +197,7 @@ func scanShortString(q rune) stateFn {
 	}
 }
 
-func scanNumber(l *lexer) stateFn {
+func scanNumber(l *Scanner) stateFn {
 	isDigit := isDec
 	exp := "eE"
 	tp := token.TokMap.Type("numdec")
@@ -227,11 +223,11 @@ func scanNumber(l *lexer) stateFn {
 	return scanToken
 }
 
-func scanLongString(l *lexer) stateFn {
+func scanLongString(l *Scanner) stateFn {
 	return scanLong(false)
 }
 
-func scanIdent(l *lexer) stateFn {
+func scanIdent(l *Scanner) stateFn {
 	accept(l, isAlnum, -1)
 	l.emit(token.TokMap.Type("ident"), true)
 	return scanToken
@@ -255,7 +251,7 @@ func isHex(x rune) bool {
 
 type runePredicate func(rune) bool
 
-func accept(l *lexer, p runePredicate, max int) int {
+func accept(l *Scanner, p runePredicate, max int) int {
 	for i := 0; i != max; i++ {
 		if !p(l.next()) {
 			l.backup()
