@@ -18,6 +18,7 @@ func RunSource(source []byte, output io.Writer) {
 	clos, err := runtime.CompileLuaChunk(source, r.GlobalEnv())
 	if err != nil {
 		fmt.Fprintf(output, "!!! parsing: %s", err)
+		return
 	}
 	cerr := runtime.Call(t, clos, nil, runtime.NewTerminationWith(0, false))
 	if cerr != nil {

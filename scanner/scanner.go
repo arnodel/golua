@@ -130,7 +130,6 @@ func New(name string, input []byte) *Scanner {
 
 // nextItem returns the next item from the input.
 func (l *Scanner) Scan() *token.Token {
-	// fmt.Println("SCAN")
 	for {
 		select {
 		case item := <-l.items:
@@ -146,4 +145,11 @@ func (l *Scanner) Scan() *token.Token {
 
 func (l *Scanner) ErrorMsg() string {
 	return l.errorMsg
+}
+
+func (l *Scanner) Error() error {
+	if l.errorMsg == "" {
+		return nil
+	}
+	return fmt.Errorf("%s:%d (col %d): %s", l.name, l.pos.Line, l.pos.Column, l.errorMsg)
 }
