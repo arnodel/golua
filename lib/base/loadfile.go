@@ -26,9 +26,9 @@ func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		chunkMode = string(mode)
 	}
-	// TODO: use name and mode
-	_, _ = chunkName, chunkMode
-	clos, err := rt.CompileLuaChunk(chunk, chunkEnv)
+	// TODO: use mode
+	_ = chunkMode
+	clos, err := rt.CompileLuaChunk(chunkName, chunk, chunkEnv)
 	if err != nil {
 		return nil, rt.NewErrorE(err).AddContext(c)
 	}

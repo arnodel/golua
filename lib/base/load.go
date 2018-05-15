@@ -44,9 +44,9 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, rt.NewErrorS("#1 must be a string or function").AddContext(c)
 		}
 	}
-	// TODO: use those
-	_, _ = chunkName, chunkMode
-	clos, err := rt.CompileLuaChunk(chunk, chunkEnv)
+	// TODO: use chunkMode
+	_ = chunkMode
+	clos, err := rt.CompileLuaChunk(chunkName, chunk, chunkEnv)
 	if err != nil {
 		return nil, rt.NewErrorE(err).AddContext(c)
 	}
