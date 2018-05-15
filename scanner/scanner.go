@@ -1,3 +1,5 @@
+// Package scanner implements a tokeniser for lua.
+// Inspired by https://talks.golang.org/2011/lex.slide#1
 package scanner
 
 import (
