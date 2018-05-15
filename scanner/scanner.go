@@ -2,15 +2,14 @@ package scanner
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/arnodel/golua/token"
 )
 
-// lexer holds the state of the scanner.
-type lexer struct {
+// Scanner holds the state of the scanner.
+type Scanner struct {
 	name             string // used only for error reports.
 	input            []byte // the string being scanned.
 	start, last, pos token.Pos
@@ -21,10 +20,10 @@ type lexer struct {
 
 // stateFn represents the state of the scanner
 // as a function that returns the next state.
-type stateFn func(*lexer) stateFn
+type stateFn func(*Scanner) stateFn
 
 // emit passes an item back to the client.
-func (l *lexer) emit(t token.Type, useMap bool) {
+func (l *Scanner) emit(t token.Type, useMap bool) {
 	lit := l.input[l.start.Offset:l.pos.Offset]
 	tp := t
 	if useMap {
@@ -37,7 +36,7 @@ func (l *lexer) emit(t token.Type, useMap bool) {
 		fmt.Println("Cannot emit", string(lit))
 		panic("emit bails out")
 	}
-	fmt.Println("EMIT", t, useMap, string(lit), tp)
+	// fmt.Println("EMIT", t, useMap, string(lit), tp)
 	l.items <- &token.Token{
 		Type: tp,
 		Lit:  lit,
@@ -47,10 +46,10 @@ func (l *lexer) emit(t token.Type, useMap bool) {
 }
 
 // next returns the next rune in the input.
-func (l *lexer) next() rune {
+func (l *Scanner) next() rune {
 	if l.pos.Offset >= len(l.input) {
 		l.last = l.pos
-		fmt.Println("NEXT EOF")
+		// fmt.Println("NEXT EOF")
 		return -1
 	}
 	c, width := utf8.DecodeRune(l.input[l.pos.Offset:])
@@ -62,25 +61,25 @@ func (l *lexer) next() rune {
 	} else {
 		l.pos.Column++
 	}
-	fmt.Println("NEXT", strconv.QuoteRune(c))
+	// fmt.Println("NEXT", strconv.QuoteRune(c))
 	return c
 }
 
 // ignore skips over the pending input before this point.
-func (l *lexer) ignore() {
+func (l *Scanner) ignore() {
 	l.start = l.pos
 	l.last = token.Pos{}
 }
 
 // backup steps back one rune.
 // Can be called only once per call of next.
-func (l *lexer) backup() {
+func (l *Scanner) backup() {
 	l.pos = l.last
 }
 
 // peek returns but does not consume
 // the next rune in the input.
-func (l *lexer) peek() rune {
+func (l *Scanner) peek() rune {
 	rune := l.next()
 	l.backup()
 	return rune
@@ -88,7 +87,7 @@ func (l *lexer) peek() rune {
 
 // accept consumes the next rune
 // if it's from the valid set.
-func (l *lexer) accept(valid string) bool {
+func (l *Scanner) accept(valid string) bool {
 	if strings.IndexRune(valid, l.next()) >= 0 {
 		return true
 	}
@@ -97,7 +96,7 @@ func (l *lexer) accept(valid string) bool {
 }
 
 // acceptRun consumes a run of runes from the valid set.
-func (l *lexer) acceptRun(valid string) {
+func (l *Scanner) acceptRun(valid string) {
 	for strings.IndexRune(valid, l.next()) >= 0 {
 	}
 	l.backup()
@@ -106,7 +105,7 @@ func (l *lexer) acceptRun(valid string) {
 // error returns an error token and terminates the scan
 // by passing back a nil pointer that will be the next
 // state, terminating l.run.
-func (l *lexer) errorf(format string, args ...interface{}) stateFn {
+func (l *Scanner) errorf(format string, args ...interface{}) stateFn {
 	l.errorMsg = fmt.Sprintf(format, args...)
 	l.items <- &token.Token{
 		Type: token.INVALID,
@@ -116,9 +115,9 @@ func (l *lexer) errorf(format string, args ...interface{}) stateFn {
 	return nil
 }
 
-// lex creates a new scanner for the input string.
-func lex(name string, input []byte) *lexer {
-	l := &lexer{
+// New creates a new scanner for the input string.
+func New(name string, input []byte) *Scanner {
+	l := &Scanner{
 		name:  name,
 		input: input,
 		state: scanToken,
@@ -130,8 +129,8 @@ func lex(name string, input []byte) *lexer {
 }
 
 // nextItem returns the next item from the input.
-func (l *lexer) Scan() *token.Token {
-	fmt.Println("SCAN")
+func (l *Scanner) Scan() *token.Token {
+	// fmt.Println("SCAN")
 	for {
 		select {
 		case item := <-l.items:
@@ -145,6 +144,6 @@ func (l *lexer) Scan() *token.Token {
 	}
 }
 
-func (l *lexer) ErrorMsg() string {
+func (l *Scanner) ErrorMsg() string {
 	return l.errorMsg
 }

@@ -184,10 +184,9 @@ func TestScanner(t *testing.T) {
 	for i, test := range tests {
 		name := fmt.Sprintf("Test %d", i+1)
 		t.Run(name, func(t *testing.T) {
-			scanner := lex("test", []byte(test.text))
+			scanner := New("test", []byte(test.text))
 			for j, ts := range test.toks {
 				next := scanner.Scan()
-				fmt.Println("SCANNED", next)
 				if next == nil {
 					t.Fatalf("Token %d: scan returns nil", j+1)
 				}
