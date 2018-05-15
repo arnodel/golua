@@ -248,6 +248,11 @@ func CompileLuaChunk(source []byte, env *Table) (*Closure, error) {
 	s := scanner.New("chunk", source)
 	tree, err := p.Parse(s)
 	if err != nil {
+		// It would be better if the parser just forwarded the
+		// tokenising error but...
+		if s.Error() != nil {
+			return nil, s.Error()
+		}
 		return nil, err
 	}
 	c := tree.(ast.BlockStat).CompileChunk()
