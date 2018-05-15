@@ -26,21 +26,29 @@ Go applications.  It should be able to run any pure Lua code
 
 ### Lexer / Parser
 
-This almost works apart from:
-* long strings (e.g. `[===[ ... ]===]`)
-* long comments (e.g. `-- [=[ ... ]=]`)
+Done. Note a custom lexer is required to tokenise long strings and
+long comments.
 
-They would require writing a custom lexer rather than generating one
-with gocc though (good resource:
-https://talks.golang.org/2011/lex.slide#1)
+* The lexer is implemented in the package `scanner`.
+* The parser is generated from `lua.bnf` using gocc
+  (https://github.com/goccmack/gocc). The command used is `gocc -a
+  lua.bnf`.
 
 ### AST -> IR Compilation
 
 Done
 
+* Each node in the AST (package `ast`) knows how to compile itself
+  using an `ir.Compiler` instance.
+* IR instructions and compiler are defined in the `ir` package.
+
 ### IR -> Code Compilation
 
 Done
+
+* Each IR instruction (package `ir`) know how to compiler itself using
+  an `ir.ConstantCompiler` instance (TODO: rename this type).
+* Runtime bytecode is defined in the `code` package
 
 ### Runtime
 
@@ -48,6 +56,8 @@ Mostly done.  To do
 * tables: deleting entries with nil values
 * implementing weak tables (can it even be done?)
 * nil: decide between NilType{} and nil (currently both work)
+
+* The runtime is implemented in the `runtime` package.
 
 ### Test Suite
 
