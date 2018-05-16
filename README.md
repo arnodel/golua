@@ -31,8 +31,8 @@ long comments.
 
 * The lexer is implemented in the package `scanner`.
 * The parser is generated from `lua.bnf` using gocc
-  (https://github.com/goccmack/gocc). The command used is `gocc -a
-  lua.bnf`.
+  (https://github.com/goccmack/gocc). The command used is:
+  `gocc -no_lexer lua.bnf`.
 
 ### AST -> IR Compilation
 

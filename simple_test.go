@@ -7,11 +7,11 @@ import (
 
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/code"
-	"github.com/arnodel/golua/lexer"
 	"github.com/arnodel/golua/lib/base"
 	"github.com/arnodel/golua/lib/coroutine"
 	"github.com/arnodel/golua/parser"
 	"github.com/arnodel/golua/runtime"
+	"github.com/arnodel/golua/scanner"
 )
 
 func Test1(t *testing.T) {
@@ -118,7 +118,7 @@ print(s)
 	p := parser.NewParser()
 	for i, src := range testData {
 		t.Run(fmt.Sprintf("t%d", i), func(t *testing.T) {
-			s := lexer.NewLexer([]byte(src))
+			s := scanner.New("test", []byte(src))
 			tree, err := p.Parse(s)
 			if err != nil {
 				t.Error(err)

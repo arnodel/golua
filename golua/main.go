@@ -8,8 +8,8 @@ import (
 
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/code"
-	"github.com/arnodel/golua/lexer"
 	"github.com/arnodel/golua/parser"
+	"github.com/arnodel/golua/scanner"
 )
 
 func main() {
@@ -26,7 +26,7 @@ func main() {
 	}
 	w := ast.NewIndentWriter(os.Stdout)
 	p := parser.NewParser()
-	s := lexer.NewLexer(src)
+	s := scanner.New(path, src)
 	tree, err := p.Parse(s)
 	if err != nil {
 		fmt.Println(err)
