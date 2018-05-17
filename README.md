@@ -2,6 +2,48 @@
 
 Implementation of Lua in Go.
 
+# Quick start
+
+To install, run:
+
+```sh
+$ go get github.com/arnodel/golua
+```
+
+To run a lua file:
+
+```sh
+$ golua myfile.lua
+```
+
+Or
+
+```sh
+cat myfile.lua | golua
+```
+
+E.g. if the file `myfile.lua` contains:
+
+```lua
+local function counter(start, step)
+    return function()
+        local val = start
+        start = start + step
+        return val
+    end
+end
+
+local nxt = counter(5, 3)
+print(nxt(), nxt(), nxt(), nxt())
+```
+
+Then:
+
+```sh
+$ golua myfile.lua
+5	8	11	14
+```
+
 ## Aim
 
 To implememt the Lua programming language in Go, easily embeddable in
