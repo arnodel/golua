@@ -19,8 +19,6 @@ Go applications.  It should be able to run any pure Lua code
 ## Known unsolved issues
 
 * `collectgarbage()`. Probably a noop?
-* long string / comments.  Requires writing a custom lexer (see
-  below).
 
 ## Roadmap
 
@@ -81,7 +79,9 @@ TODO: write a lot more tests
 
 * basic library: done apart from `xpcall`
 * coroutine library: done
-* package library: TODO
+* package library: loading lua modules done - think about loading go
+  modules, perhaps using the plugin mechanism
+  (https://golang.org/pkg/plugin/)
 * string library: TODO
 * utf8 library: TODO
 * table library: TODO

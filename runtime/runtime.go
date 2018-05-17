@@ -9,12 +9,14 @@ type Runtime struct {
 	boolMeta   *Table
 	Stdout     io.Writer
 	mainThread *Thread
+	registry   *Table
 }
 
 func New(stdout io.Writer) *Runtime {
 	r := &Runtime{
 		globalEnv: NewTable(),
 		Stdout:    stdout,
+		registry:  NewTable(),
 	}
 	mainThread := NewThread(r)
 	mainThread.status = ThreadOK
@@ -24,6 +26,14 @@ func New(stdout io.Writer) *Runtime {
 
 func (r *Runtime) GlobalEnv() *Table {
 	return r.globalEnv
+}
+
+func (r *Runtime) Registry(key Value) Value {
+	return r.registry.Get(key)
+}
+
+func (r *Runtime) SetRegistry(k, v Value) {
+	r.registry.Set(k, v)
 }
 
 func (r *Runtime) MainThread() *Thread {

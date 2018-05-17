@@ -1,0 +1,2 @@
+print "foo"
+return "bar"
