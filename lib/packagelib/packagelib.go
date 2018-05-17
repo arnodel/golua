@@ -16,6 +16,8 @@ var configKey = rt.String("config")
 var loadedKey = rt.String("loaded")
 var searchersKey = rt.String("searchers")
 
+const defaultPath = `./?.lua;./?/init.lua`
+
 func Load(r *rt.Runtime) {
 	env := r.GlobalEnv()
 	pkg := rt.NewTable()
@@ -26,7 +28,7 @@ func Load(r *rt.Runtime) {
 	searchers.Set(rt.Int(1), searchPreloadGoFunc)
 	searchers.Set(rt.Int(2), searchLuaGoFunc)
 	pkg.Set(searchersKey, searchers)
-	pkg.Set(pathKey, rt.String(`./?.lua;./?/init.lua`))
+	pkg.Set(pathKey, rt.String(defaultPath))
 	rt.SetEnv(env, "package", pkg)
 	rt.SetEnvGoFunc(env, "require", require, 1, false)
 }
@@ -102,7 +104,6 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		res := rt.NewTerminationWith(2, false)
 		if err = rt.Call(t, searcher, []rt.Value{name}, res); err != nil {
-			fmt.Printf("XXX %+v\n", searcher)
 			break
 		}
 		// We got a loader, so call it

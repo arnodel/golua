@@ -35,7 +35,10 @@ func LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 		}
 	}
 	var envVal Value = env
-	clos := NewClosure(constants[0].(*Code))
-	clos.AddUpvalue(Cell{&envVal})
+	mainCode := constants[0].(*Code) // It must be some code
+	clos := NewClosure(mainCode)
+	if mainCode.UpvalueCount > 0 {
+		clos.AddUpvalue(Cell{&envVal})
+	}
 	return clos
 }
