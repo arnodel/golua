@@ -26,7 +26,7 @@ type stateFn func(*Scanner) stateFn
 
 // emit passes an item back to the client.
 func (l *Scanner) emit(t token.Type, useMap bool) {
-	lit := l.input[l.start.Offset:l.pos.Offset]
+	lit := l.lit()
 	tp := t
 	if useMap {
 		tp = token.TokMap.Type(string(lit))
@@ -45,6 +45,10 @@ func (l *Scanner) emit(t token.Type, useMap bool) {
 		Pos:  l.start,
 	}
 	l.start = l.pos
+}
+
+func (l *Scanner) lit() []byte {
+	return l.input[l.start.Offset:l.pos.Offset]
 }
 
 // next returns the next rune in the input.
@@ -111,7 +115,7 @@ func (l *Scanner) errorf(format string, args ...interface{}) stateFn {
 	l.errorMsg = fmt.Sprintf(format, args...)
 	l.items <- &token.Token{
 		Type: token.INVALID,
-		Lit:  l.input[l.start.Offset:l.pos.Offset],
+		Lit:  l.lit(),
 		Pos:  l.start,
 	}
 	return nil

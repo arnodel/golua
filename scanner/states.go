@@ -214,9 +214,33 @@ func scanLongString(l *Scanner) stateFn {
 	return scanLong(false)
 }
 
+var isKeyword = map[string]bool{
+	"break":    true,
+	"goto":     true,
+	"do":       true,
+	"while":    true,
+	"end":      true,
+	"repeat":   true,
+	"until":    true,
+	"then":     true,
+	"elseif":   true,
+	"if":       true,
+	"for":      true,
+	"in":       true,
+	"function": true,
+	"local":    true,
+	"and":      true,
+	"or":       true,
+	"not":      true,
+	"nil":      true,
+	"true":     true,
+	"false":    true,
+	"return":   true,
+}
+
 func scanIdent(l *Scanner) stateFn {
 	accept(l, isAlnum, -1)
-	l.emit(token.TokMap.Type("ident"), true)
+	l.emit(token.TokMap.Type("ident"), isKeyword[string(l.lit())])
 	return scanToken
 }
 
