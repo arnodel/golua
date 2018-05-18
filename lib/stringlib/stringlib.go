@@ -6,6 +6,9 @@ func Load(r *rt.Runtime) {
 	pkg := rt.NewTable()
 	rt.SetEnv(r.GlobalEnv(), "string", pkg)
 	rt.SetEnvGoFunc(pkg, "byte", bytef, 3, false)
+	stringMeta := rt.NewTable()
+	rt.SetEnv(stringMeta, "__index", pkg)
+	r.SetStringMeta(stringMeta)
 }
 
 func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

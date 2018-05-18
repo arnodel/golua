@@ -40,6 +40,10 @@ func (r *Runtime) MainThread() *Thread {
 	return r.mainThread
 }
 
+func (r *Runtime) SetStringMeta(meta *Table) {
+	r.stringMeta = meta
+}
+
 func (r *Runtime) RawMetatable(v Value) *Table {
 	switch x := v.(type) {
 	case String:
