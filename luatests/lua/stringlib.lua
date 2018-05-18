@@ -19,3 +19,14 @@ do
     print(s:byte(3))
     --> =108
 end
+
+do
+    print(string.char(65, 66, 67))
+    --> =ABC
+
+    print(pcall(string.char, -1))
+    --> ~^false\t.*out of range.*
+
+    print(pcall(string.char, 256))
+    --> ~^false\t.*out of range.*
+end

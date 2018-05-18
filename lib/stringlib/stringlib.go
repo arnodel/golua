@@ -5,7 +5,10 @@ import rt "github.com/arnodel/golua/runtime"
 func Load(r *rt.Runtime) {
 	pkg := rt.NewTable()
 	rt.SetEnv(r.GlobalEnv(), "string", pkg)
+
 	rt.SetEnvGoFunc(pkg, "byte", bytef, 3, false)
+	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
+
 	stringMeta := rt.NewTable()
 	rt.SetEnv(stringMeta, "__index", pkg)
 	r.SetStringMeta(stringMeta)
@@ -52,5 +55,23 @@ func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next.Push(rt.Int(s[i-1]))
 		i++
 	}
+	return next, nil
+}
+
+func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	vals := c.Etc()
+	buf := make([]byte, len(vals))
+	for i, v := range vals {
+		x, tp := rt.ToInt(v)
+		if tp != rt.IsInt {
+			return nil, rt.NewErrorS("arguments must be integers").AddContext(c)
+		}
+		if x < 0 || x > 255 {
+			return nil, rt.NewErrorF("#%d out of range", i+1).AddContext(c)
+		}
+		buf[i] = byte(x)
+	}
+	next := c.Next()
+	next.Push(rt.String(buf))
 	return next, nil
 }
