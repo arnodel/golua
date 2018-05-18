@@ -10,6 +10,33 @@ To install, run:
 $ go get github.com/arnodel/golua
 ```
 
+To run interactively (in a repl):
+
+```
+$ golua
+> function fac(n)
+|   if n == 0 then
+|     return 1
+|   else
+|     return n * fac(n - 1)
+|   end
+| end
+> -- For convenience the repl also evaluates expressions
+> -- and prints their value
+> fac(10)
+3628800
+> for i = 0, 5 do
+|   print(i, fac(i))
+| end
+0	1
+1	1
+2	2
+3	6
+4	24
+5	120
+>
+```
+
 To run a lua file:
 
 ```sh
