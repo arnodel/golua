@@ -3,11 +3,12 @@ package ast
 import "github.com/arnodel/golua/ir"
 
 type WhileStat struct {
+	Location
 	CondStat
 }
 
 func NewWhileStat(cond ExpNode, body BlockStat) (WhileStat, error) {
-	return WhileStat{CondStat{cond: cond, body: body}}, nil
+	return WhileStat{CondStat: CondStat{cond: cond, body: body}}, nil
 }
 
 func (s WhileStat) HWrite(w HWriter) {

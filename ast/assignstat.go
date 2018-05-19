@@ -3,6 +3,7 @@ package ast
 import "github.com/arnodel/golua/ir"
 
 type AssignStat struct {
+	Location
 	dst []Var
 	src []ExpNode
 }

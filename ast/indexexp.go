@@ -3,6 +3,7 @@ package ast
 import "github.com/arnodel/golua/ir"
 
 type IndexExp struct {
+	Location
 	collection ExpNode
 	index      ExpNode
 }

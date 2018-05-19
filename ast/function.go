@@ -5,6 +5,7 @@ import (
 )
 
 type Function struct {
+	Location
 	ParList
 	body BlockStat
 }
@@ -20,7 +21,7 @@ func NewFunction(parList ParList, body BlockStat) (Function, error) {
 func (f Function) HWrite(w HWriter) {
 	w.Writef("(")
 	for i, param := range f.params {
-		w.Writef(string(param))
+		w.Writef(param.string)
 		if i < len(f.params)-1 || f.hasDots {
 			w.Writef(", ")
 		}
@@ -41,7 +42,7 @@ func (f Function) CompileBody(c *ir.Compiler) {
 	c.DeclareLocal("<caller>", callerReg)
 	for i, p := range f.params {
 		reg := c.GetFreeRegister()
-		c.DeclareLocal(ir.Name(p), reg)
+		c.DeclareLocal(ir.Name(p.string), reg)
 		recvRegs[i] = reg
 	}
 	if !f.hasDots {

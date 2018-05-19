@@ -2,12 +2,12 @@ package ast
 
 func NewFunctionStat(name FunctionName, fx Function) (AssignStat, error) {
 	fName := name.name
-	if name.method != "" {
+	if name.method.string != "" {
 		fx, _ = NewFunction(
-			ParList{append([]Name{"self"}, fx.params...), fx.hasDots},
+			ParList{append([]Name{{string: "self"}}, fx.params...), fx.hasDots},
 			fx.body,
 		)
-		fName, _ = NewIndexExp(name.name, String(name.method))
+		fName, _ = NewIndexExp(name.name, String{val: []byte(name.method.string)})
 	}
 	return NewAssignStat([]Var{fName}, []ExpNode{fx})
 }
@@ -26,7 +26,7 @@ func NewFunctionName(name Var, method Name) (FunctionName, error) {
 
 func (n FunctionName) HWrite(w HWriter) {
 	n.name.HWrite(w)
-	if n.method != "" {
+	if n.method.string != "" {
 		w.Writef(":%s", n.method)
 	}
 }

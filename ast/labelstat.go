@@ -2,16 +2,19 @@ package ast
 
 import "github.com/arnodel/golua/ir"
 
-type LabelStat Name
+type LabelStat struct {
+	Location
+	Name
+}
 
 func NewLabelStat(label Name) (LabelStat, error) {
-	return LabelStat(label), nil
+	return LabelStat{Name: label}, nil
 }
 
 func (s LabelStat) HWrite(w HWriter) {
-	w.Writef("label %s", string(s))
+	w.Writef("label %s", s.Name.string)
 }
 
 func (s LabelStat) CompileStat(c *ir.Compiler) {
-	c.EmitGotoLabel(ir.Name(s))
+	c.EmitGotoLabel(ir.Name(s.Name.string))
 }

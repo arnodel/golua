@@ -8,6 +8,7 @@ func Load(r *rt.Runtime) {
 
 	rt.SetEnvGoFunc(pkg, "byte", bytef, 3, false)
 	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
+	rt.SetEnvGoFunc(pkg, "len", lenf, 1, false)
 
 	stringMeta := rt.NewTable()
 	rt.SetEnv(stringMeta, "__index", pkg)
@@ -71,7 +72,16 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		buf[i] = byte(x)
 	}
-	next := c.Next()
-	next.Push(rt.String(buf))
-	return next, nil
+	return c.PushingNext(rt.String(buf)), nil
+}
+
+func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	s, err := c.StringArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	return c.PushingNext(rt.Int(len(s))), nil
 }

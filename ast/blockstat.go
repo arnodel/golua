@@ -3,12 +3,13 @@ package ast
 import "github.com/arnodel/golua/ir"
 
 type BlockStat struct {
+	Location
 	statements   []Stat
 	returnValues []ExpNode
 }
 
 func NewBlockStat(stats []Stat, rtn []ExpNode) (BlockStat, error) {
-	return BlockStat{stats, rtn}, nil
+	return BlockStat{statements: stats, returnValues: rtn}, nil
 }
 
 func (s BlockStat) HWrite(w HWriter) {
@@ -45,7 +46,7 @@ func (s BlockStat) CompileBlock(c *ir.Compiler) {
 		stat.CompileStat(c)
 	}
 	if s.returnValues != nil {
-		cont, ok := c.GetRegister(ir.Name(Name("<caller>")))
+		cont, ok := c.GetRegister(ir.Name("<caller>"))
 		if !ok {
 			panic("Cannot return: no caller")
 		}
@@ -79,7 +80,7 @@ func getLabels(c *ir.Compiler, statements []Stat) {
 	for _, stat := range statements {
 		switch s := stat.(type) {
 		case LabelStat:
-			c.DeclareGotoLabel(ir.Name(s))
+			c.DeclareGotoLabel(ir.Name(s.Name.string))
 		case LocalStat, LocalFunctionStat:
 			return
 		}
@@ -91,7 +92,7 @@ func getBackLabels(c *ir.Compiler, statements []Stat) int {
 	for i := len(statements) - 1; i >= 0; i-- {
 		if lbl, ok := statements[i].(LabelStat); ok {
 			count++
-			c.DeclareGotoLabel(ir.Name(lbl))
+			c.DeclareGotoLabel(ir.Name(lbl.Name.string))
 		} else {
 			break
 		}

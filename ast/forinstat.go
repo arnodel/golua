@@ -6,6 +6,7 @@ import (
 )
 
 type ForInStat struct {
+	Location
 	itervars []Name
 	params   []ExpNode
 	body     BlockStat
@@ -56,11 +57,11 @@ func (s ForInStat) CompileStat(c *ir.Compiler) {
 	LocalStat{
 		names: s.itervars,
 		values: []ExpNode{&FunctionCall{
-			target: Name("<f>"),
-			args:   []ExpNode{Name("<s>"), Name("<var>")},
+			target: Name{string: "<f>"},
+			args:   []ExpNode{Name{string: "<s>"}, Name{string: "<var>"}},
 		}},
 	}.CompileStat(c)
-	var1, _ := c.GetRegister(ir.Name(s.itervars[0]))
+	var1, _ := c.GetRegister(ir.Name(s.itervars[0].string))
 
 	testReg := c.GetFreeRegister()
 	ir.EmitConstant(c, ir.NilType{}, testReg)

@@ -72,7 +72,7 @@ Else
 IfStat : "if" Exp "then" Chunk Else << $4.(ast.IfStat).AddIf($1.(ast.ExpNode), $3.(ast.BlockStat)) >>;
 
 ForList
-    : Exp "," Exp         << []ast.ExpNode{$0.(ast.ExpNode), $2.(ast.ExpNode), ast.Int(1)}, nil >>
+    : Exp "," Exp         << []ast.ExpNode{$0.(ast.ExpNode), $2.(ast.ExpNode), ast.NewInt(1)}, nil >>
     | Exp "," Exp "," Exp << []ast.ExpNode{$0.(ast.ExpNode), $2.(ast.ExpNode), $4.(ast.ExpNode)}, nil >>
     ;
 
@@ -95,11 +95,11 @@ Label : "::" Name "::" << ast.NewLabelStat($1.(ast.Name)) >>;
 
 DottedName
     : Name                << $0.(ast.Name), nil >>
-    | DottedName "." Name << ast.NewIndexExp($0.(ast.ExpNode), ast.String($2.(ast.Name))) >>
+    | DottedName "." Name << ast.NewIndexExp($0.(ast.ExpNode), $2.(ast.Name).AstString()) >>
     ;
 
 FuncName
-    : DottedName          << ast.NewFunctionName($0.(ast.Var), ast.Name("")) >>
+    : DottedName          << ast.NewFunctionName($0.(ast.Var), ast.Name{}) >>
     | DottedName ":" Name << ast.NewFunctionName($0.(ast.Var), $2.(ast.Name)) >>
     ;
 
@@ -220,14 +220,14 @@ Var
     ;
 
 FunctionCall
-    : PrefixExp Args           << ast.NewFunctionCall($0.(ast.ExpNode), ast.Name(""), $1.([]ast.ExpNode)) >>
+    : PrefixExp Args           << ast.NewFunctionCall($0.(ast.ExpNode), ast.Name{}, $1.([]ast.ExpNode)) >>
     | PrefixExp ":" Name Args  << ast.NewFunctionCall($0.(ast.ExpNode), $2.(ast.Name), $3.([]ast.ExpNode)) >>
     ;
 
 Atom
-    : "nil"    << ast.Nil, nil >>
-    | "true"   << ast.True, nil >>
-    | "false"  << ast.False, nil >>
+    : "nil"    << ast.Nil($0.(*token.Token)), nil >>
+    | "true"   << ast.True($0.(*token.Token)), nil >>
+    | "false"  << ast.False($0.(*token.Token)), nil >>
     | "..."    << ast.Etc, nil >>
     | numdec   << ast.NewNumber($0.(*token.Token)) >>
     | numhex   << ast.NewNumber($0.(*token.Token)) >>

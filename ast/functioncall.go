@@ -3,6 +3,7 @@ package ast
 import "github.com/arnodel/golua/ir"
 
 type FunctionCall struct {
+	Location
 	target ExpNode
 	method Name
 	args   []ExpNode
@@ -24,7 +25,7 @@ func (f FunctionCall) HWrite(w HWriter) {
 	// w.Indent()
 	f.target.HWrite(w)
 	// w.Dedent()
-	if f.method != "" {
+	if f.method.string != "" {
 		w.Next()
 		w.Writef("method: %s", f.method)
 	}
@@ -74,12 +75,12 @@ func CallWithArgs(c *ir.Compiler, args []ExpNode, fReg ir.Register) {
 func (f FunctionCall) CompileCall(c *ir.Compiler, tail bool) {
 	fReg := CompileExp(c, f.target)
 	var contReg ir.Register
-	if f.method != "" {
+	if f.method.string != "" {
 		self := fReg
 		c.TakeRegister(self)
 		fReg = c.GetFreeRegister()
 		mReg := c.GetFreeRegister()
-		ir.EmitConstant(c, ir.String(f.method), mReg)
+		ir.EmitConstant(c, ir.String(f.method.string), mReg)
 		c.Emit(ir.Lookup{
 			Dst:   fReg,
 			Table: self,
