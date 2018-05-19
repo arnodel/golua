@@ -14,37 +14,55 @@ func NumberFromString(nstring string) (ExpNode, error) {
 		if err != nil {
 			return nil, err
 		}
-		return Float(f), nil
+		return Float{val: f}, nil
 	}
 	n, err := strconv.ParseInt(nstring, 0, 64)
 	if err != nil {
 		return nil, err
 	}
-	return Int(n), nil
+	return Int{val: n}, nil
 }
 
 func NewNumber(id *token.Token) (ExpNode, error) {
 	return NumberFromString(string(id.Lit))
 }
 
-type Int int64
+type Int struct {
+	Location
+	val int64
+}
+
+func NewInt(val int64) Int {
+	return Int{val: val}
+}
+
+func (n Int) Val() int64 {
+	return n.val
+}
 
 func (n Int) HWrite(w HWriter) {
-	w.Writef("%d", int64(n))
+	w.Writef("%d", n.val)
 }
 
 func (n Int) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	ir.EmitConstant(c, ir.Int(n), dst)
+	ir.EmitConstant(c, ir.Int(n.val), dst)
 	return dst
 }
 
-type Float float64
+type Float struct {
+	Location
+	val float64
+}
 
 func (f Float) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	ir.EmitConstant(c, ir.Float(f), dst)
+	ir.EmitConstant(c, ir.Float(f.val), dst)
 	return dst
 }
 
 func (f Float) HWrite(w HWriter) {
-	w.Writef("%f", float64(f))
+	w.Writef("%f", f.val)
+}
+
+func (f Float) Val() float64 {
+	return f.val
 }

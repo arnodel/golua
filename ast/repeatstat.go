@@ -6,11 +6,12 @@ import (
 )
 
 type RepeatStat struct {
+	Location
 	CondStat
 }
 
 func NewRepeatStat(body BlockStat, cond ExpNode) (RepeatStat, error) {
-	return RepeatStat{CondStat{body: body, cond: cond}}, nil
+	return RepeatStat{CondStat: CondStat{body: body, cond: cond}}, nil
 }
 
 func (s RepeatStat) HWrite(w HWriter) {

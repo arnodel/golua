@@ -6,6 +6,7 @@ import (
 )
 
 type ForStat struct {
+	Location
 	itervar Name
 	start   ExpNode
 	stop    ExpNode
@@ -114,7 +115,7 @@ func (s ForStat) CompileStat(c *ir.Compiler) {
 
 	iterReg := c.GetFreeRegister()
 	ir.EmitMove(c, iterReg, startReg)
-	c.DeclareLocal(ir.Name(s.itervar), iterReg)
+	c.DeclareLocal(ir.Name(s.itervar.string), iterReg)
 	s.body.CompileBlock(c)
 
 	c.Emit(ir.Combine{

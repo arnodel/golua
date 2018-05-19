@@ -23,9 +23,9 @@ func ToNumber(x Value) (Value, NumberType) {
 		if err == nil {
 			switch n := exp.(type) {
 			case ast.Int:
-				return Int(n), IsInt
+				return Int(n.Val()), IsInt
 			case ast.Float:
-				return Float(n), IsFloat
+				return Float(n.Val()), IsFloat
 			}
 		}
 	}

@@ -36,6 +36,15 @@ func (c *GoCont) Push(v Value) {
 	}
 }
 
+// Pushing is convenient when implementing go functions
+func (c *GoCont) PushingNext(vals ...Value) Cont {
+	next := c.Next()
+	for _, v := range vals {
+		next.Push(v)
+	}
+	return next
+}
+
 func (c *GoCont) PushEtc(etc []Value) {
 	if c.nArgs < len(c.args) {
 		for i, v := range etc {

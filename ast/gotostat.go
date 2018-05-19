@@ -3,6 +3,7 @@ package ast
 import "github.com/arnodel/golua/ir"
 
 type GotoStat struct {
+	Location
 	label Name
 }
 
@@ -15,7 +16,7 @@ func (s GotoStat) HWrite(w HWriter) {
 }
 
 func (s GotoStat) CompileStat(c *ir.Compiler) {
-	lbl, ok := c.GetGotoLabel(ir.Name(s.label))
+	lbl, ok := c.GetGotoLabel(ir.Name(s.label.string))
 	if !ok {
 		panic("Undefined label for goto")
 	}

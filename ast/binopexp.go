@@ -6,6 +6,7 @@ import (
 )
 
 type BinOp struct {
+	Location
 	left   ExpNode
 	opType ops.Op
 	right  []operand

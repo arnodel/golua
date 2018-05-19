@@ -4,7 +4,9 @@ import (
 	"github.com/arnodel/golua/ir"
 )
 
-type EtcType struct{}
+type EtcType struct {
+	Location
+}
 
 var Etc EtcType
 

@@ -30,3 +30,8 @@ do
     print(pcall(string.char, 256))
     --> ~^false\t.*out of range.*
 end
+
+do
+    print(string.len("abc"), string.len(""))
+    --> =3	0
+end

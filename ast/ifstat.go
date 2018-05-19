@@ -3,6 +3,7 @@ package ast
 import "github.com/arnodel/golua/ir"
 
 type IfStat struct {
+	Location
 	ifstat      CondStat
 	elseifstats []CondStat
 	elsestat    *BlockStat

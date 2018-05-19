@@ -2,7 +2,9 @@ package ast
 
 import "github.com/arnodel/golua/ir"
 
-type BreakStat struct{}
+type BreakStat struct {
+	Location
+}
 
 func NewBreakStat() (BreakStat, error) {
 	return BreakStat{}, nil

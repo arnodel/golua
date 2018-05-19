@@ -2,7 +2,9 @@ package ast
 
 import "github.com/arnodel/golua/ir"
 
-type EmptyStat struct{}
+type EmptyStat struct {
+	Location
+}
 
 func NewEmptyStat() (EmptyStat, error) {
 	return EmptyStat{}, nil

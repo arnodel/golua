@@ -6,6 +6,7 @@ import (
 )
 
 type UnOp struct {
+	Location
 	op      ops.Op
 	operand ExpNode
 }

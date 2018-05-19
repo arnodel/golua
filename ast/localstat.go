@@ -3,6 +3,7 @@ package ast
 import "github.com/arnodel/golua/ir"
 
 type LocalStat struct {
+	Location
 	names  []Name
 	values []ExpNode
 }
@@ -31,6 +32,6 @@ func (s LocalStat) CompileStat(c *ir.Compiler) {
 	CompileExpList(c, s.values, localRegs)
 	for i, reg := range localRegs {
 		c.ReleaseRegister(reg)
-		c.DeclareLocal(ir.Name(s.names[i]), reg)
+		c.DeclareLocal(ir.Name(s.names[i].string), reg)
 	}
 }

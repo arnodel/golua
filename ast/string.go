@@ -9,11 +9,14 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
-type String []byte
+type String struct {
+	Location
+	val []byte
+}
 
 func NewString(id *token.Token) String {
 	s := id.Lit
-	return String(escapeSeqs.ReplaceAllFunc(s[1:len(s)-1], replaceEscapeSeq))
+	return String{val: escapeSeqs.ReplaceAllFunc(s[1:len(s)-1], replaceEscapeSeq)}
 }
 
 func NewLongString(id *token.Token) String {
@@ -23,15 +26,15 @@ func NewLongString(id *token.Token) String {
 	if contents[0] == '\n' {
 		contents = contents[1:]
 	}
-	return String(contents)
+	return String{val: contents}
 }
 
 func (s String) HWrite(w HWriter) {
-	w.Writef("%q", string(s))
+	w.Writef("%q", s.val)
 }
 
 func (s String) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	ir.EmitConstant(c, ir.String(s), dst)
+	ir.EmitConstant(c, ir.String(s.val), dst)
 	return dst
 }
 

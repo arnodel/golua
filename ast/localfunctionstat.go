@@ -3,6 +3,7 @@ package ast
 import "github.com/arnodel/golua/ir"
 
 type LocalFunctionStat struct {
+	Location
 	Function
 	name Name
 }
@@ -19,7 +20,7 @@ func (s LocalFunctionStat) HWrite(w HWriter) {
 
 func (s LocalFunctionStat) CompileStat(c *ir.Compiler) {
 	fReg := c.GetFreeRegister()
-	c.DeclareLocal(ir.Name(s.name), fReg)
+	c.DeclareLocal(ir.Name(s.name.string), fReg)
 	reg := s.Function.CompileExp(c, fReg)
 	ir.EmitMove(c, fReg, reg)
 

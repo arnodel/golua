@@ -26,9 +26,9 @@ func (s String) ToInt() (Int, NumberType) {
 	if err == nil {
 		switch x := exp.(type) {
 		case ast.Int:
-			return Int(x), IsInt
+			return Int(x.Val()), IsInt
 		case ast.Float:
-			return Float(x).ToInt()
+			return Float(x.Val()).ToInt()
 		}
 	}
 	return 0, NaN
