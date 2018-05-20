@@ -3,6 +3,7 @@ package ast
 import (
 	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/ops"
+	"github.com/arnodel/golua/token"
 )
 
 type RepeatStat struct {
@@ -10,8 +11,11 @@ type RepeatStat struct {
 	CondStat
 }
 
-func NewRepeatStat(body BlockStat, cond ExpNode) (RepeatStat, error) {
-	return RepeatStat{CondStat: CondStat{body: body, cond: cond}}, nil
+func NewRepeatStat(repTok *token.Token, body BlockStat, cond ExpNode) (RepeatStat, error) {
+	return RepeatStat{
+		Location: MergeLocations(LocFromToken(repTok), cond),
+		CondStat: CondStat{body: body, cond: cond},
+	}, nil
 }
 
 func (s RepeatStat) HWrite(w HWriter) {

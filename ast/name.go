@@ -11,7 +11,10 @@ type Name struct {
 }
 
 func NewName(id *token.Token) (Name, error) {
-	return Name{string: string(id.Lit)}, nil
+	return Name{
+		Location: LocFromToken(id),
+		string:   string(id.Lit),
+	}, nil
 }
 
 func (n Name) HWrite(w HWriter) {

@@ -1,13 +1,16 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
+import (
+	"github.com/arnodel/golua/ir"
+	"github.com/arnodel/golua/token"
+)
 
 type BreakStat struct {
 	Location
 }
 
-func NewBreakStat() (BreakStat, error) {
-	return BreakStat{}, nil
+func NewBreakStat(tok *token.Token) (BreakStat, error) {
+	return BreakStat{Location: LocFromToken(tok)}, nil
 }
 
 func (s BreakStat) HWrite(w HWriter) {

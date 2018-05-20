@@ -9,7 +9,11 @@ type LocalStat struct {
 }
 
 func NewLocalStat(names []Name, values []ExpNode) (LocalStat, error) {
-	return LocalStat{names: names, values: values}, nil
+	loc := MergeLocations(names[0], names[len(names)-1])
+	if len(values) > 0 {
+		loc = MergeLocations(loc, values[len(values)-1])
+	}
+	return LocalStat{Location: loc, names: names, values: values}, nil
 }
 
 func (s LocalStat) HWrite(w HWriter) {

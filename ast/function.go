@@ -2,6 +2,7 @@ package ast
 
 import (
 	"github.com/arnodel/golua/ir"
+	"github.com/arnodel/golua/token"
 )
 
 type Function struct {
@@ -10,12 +11,16 @@ type Function struct {
 	body BlockStat
 }
 
-func NewFunction(parList ParList, body BlockStat) (Function, error) {
+func NewFunction(startTok, endTok *token.Token, parList ParList, body BlockStat) (Function, error) {
 	// Make sure we return at the end of the function
 	if body.returnValues == nil {
 		body.returnValues = []ExpNode{}
 	}
-	return Function{ParList: parList, body: body}, nil
+	return Function{
+		Location: LocFromTokens(startTok, endTok),
+		ParList:  parList,
+		body:     body,
+	}, nil
 }
 
 func (f Function) HWrite(w HWriter) {

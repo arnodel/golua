@@ -16,7 +16,10 @@ type String struct {
 
 func NewString(id *token.Token) String {
 	s := id.Lit
-	return String{val: escapeSeqs.ReplaceAllFunc(s[1:len(s)-1], replaceEscapeSeq)}
+	return String{
+		Location: LocFromToken(id),
+		val:      escapeSeqs.ReplaceAllFunc(s[1:len(s)-1], replaceEscapeSeq),
+	}
 }
 
 func NewLongString(id *token.Token) String {
@@ -26,7 +29,10 @@ func NewLongString(id *token.Token) String {
 	if contents[0] == '\n' {
 		contents = contents[1:]
 	}
-	return String{val: contents}
+	return String{
+		Location: LocFromToken(id),
+		val:      contents,
+	}
 }
 
 func (s String) HWrite(w HWriter) {

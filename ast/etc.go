@@ -2,13 +2,16 @@ package ast
 
 import (
 	"github.com/arnodel/golua/ir"
+	"github.com/arnodel/golua/token"
 )
 
 type EtcType struct {
 	Location
 }
 
-var Etc EtcType
+func Etc(tok *token.Token) EtcType {
+	return EtcType{Location: LocFromToken(tok)}
+}
 
 func (e EtcType) HWrite(w HWriter) {
 	w.Writef("...")

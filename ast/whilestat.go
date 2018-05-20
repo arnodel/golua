@@ -1,14 +1,19 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
+import (
+	"github.com/arnodel/golua/ir"
+	"github.com/arnodel/golua/token"
+)
 
 type WhileStat struct {
 	Location
 	CondStat
 }
 
-func NewWhileStat(cond ExpNode, body BlockStat) (WhileStat, error) {
-	return WhileStat{CondStat: CondStat{cond: cond, body: body}}, nil
+func NewWhileStat(whileTok, endTok *token.Token, cond ExpNode, body BlockStat) (WhileStat, error) {
+	return WhileStat{
+		Location: LocFromTokens(whileTok, endTok),
+		CondStat: CondStat{cond: cond, body: body}}, nil
 }
 
 func (s WhileStat) HWrite(w HWriter) {

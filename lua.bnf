@@ -28,7 +28,7 @@ PrefixExp
     ;
 
 Stat
-    : ";"              << ast.NewEmptyStat() >>
+    : ";"              << ast.NewEmptyStat($0.(*token.Token)) >>
     | AssignStat
     | FunctionCall /*";"*/ /* TODO: can remove? */
     | Label
@@ -47,38 +47,43 @@ Stat
 
 AssignStat : VarList "=" ExpList << ast.NewAssignStat($0.([]ast.Var), $2.([]ast.ExpNode)) >>;
 
-BreakStat : "break" << ast.NewBreakStat() >>;
+BreakStat : "break" << ast.NewBreakStat($0.(*token.Token)) >>;
 
-GotoStat : "goto" Name << ast.NewGotoStat($1.(ast.Name)) >>;
+GotoStat : "goto" Name << ast.NewGotoStat($0.(*token.Token), $1.(ast.Name)) >>;
 
 BlockStat : "do" Chunk "end" << $1, nil >>;
 
-WhileStat : "while" Exp "do" Chunk "end" << ast.NewWhileStat($1.(ast.ExpNode), $3.(ast.BlockStat)) >>;
+WhileStat : "while" Exp "do" Chunk "end"
+            << ast.NewWhileStat($0.(*token.Token), $4.(*token.Token), $1.(ast.ExpNode), $3.(ast.BlockStat)) >>;
 
-RepeatStat : "repeat" Chunk "until" Exp << ast.NewRepeatStat($1.(ast.BlockStat), $3.(ast.ExpNode)) >>;
+RepeatStat : "repeat" Chunk "until" Exp
+             << ast.NewRepeatStat($0.(*token.Token), $1.(ast.BlockStat), $3.(ast.ExpNode)) >>;
 
 ElseIf
-    : Exp "then" Chunk                 << ast.NewIfStat().AddElseIf($0.(ast.ExpNode), $2.(ast.BlockStat)) >>
+    : Exp "then" Chunk                 << ast.NewIfStat(nil).AddElseIf($0.(ast.ExpNode), $2.(ast.BlockStat)) >>
     | ElseIf "elseif" Exp "then" Chunk << $0.(ast.IfStat).AddElseIf($2.(ast.ExpNode), $4.(ast.BlockStat)) >>
     ;
 
 Else
-    : "elseif" ElseIf "else" Chunk "end" << $1.(ast.IfStat).AddElse($3.(ast.BlockStat)) >>
+    : "elseif" ElseIf "else" Chunk "end" << $1.(ast.IfStat).AddElse($4.(*token.Token), $3.(ast.BlockStat)) >>
     | "elseif" ElseIf "end"              << $1, nil >>
-    | "else" Chunk "end"                 << ast.NewIfStat().AddElse($1.(ast.BlockStat)) >>
-    | "end"                              << ast.NewIfStat(), nil >>
+    | "else" Chunk "end"                 << ast.NewIfStat(nil).AddElse($0.(*token.Token), $1.(ast.BlockStat)) >>
+    | "end"                              << ast.NewIfStat($0.(*token.Token)), nil >>
     ;
 
-IfStat : "if" Exp "then" Chunk Else << $4.(ast.IfStat).AddIf($1.(ast.ExpNode), $3.(ast.BlockStat)) >>;
+IfStat : "if" Exp "then" Chunk Else
+         << $4.(ast.IfStat).AddIf($0.(*token.Token), $1.(ast.ExpNode), $3.(ast.BlockStat)) >>;
 
 ForList
     : Exp "," Exp         << []ast.ExpNode{$0.(ast.ExpNode), $2.(ast.ExpNode), ast.NewInt(1)}, nil >>
     | Exp "," Exp "," Exp << []ast.ExpNode{$0.(ast.ExpNode), $2.(ast.ExpNode), $4.(ast.ExpNode)}, nil >>
     ;
 
-ForStat : "for" Name "=" ForList "do" Chunk "end" << ast.NewForStat($1.(ast.Name), $3.([]ast.ExpNode), $5.(ast.BlockStat)) >>;
+ForStat : "for" Name "=" ForList "do" Chunk "end"
+          << ast.NewForStat($0.(*token.Token), $6.(*token.Token), $1.(ast.Name), $3.([]ast.ExpNode), $5.(ast.BlockStat)) >>;
 
-ForInStat : "for" NameList "in" ExpList "do" Chunk "end" << ast.NewForInStat($1.([]ast.Name), $3.([]ast.ExpNode), $5.(ast.BlockStat))>>;
+ForInStat : "for" NameList "in" ExpList "do" Chunk "end"
+            << ast.NewForInStat($0.(*token.Token), $6.(*token.Token), $1.([]ast.Name), $3.([]ast.ExpNode), $5.(ast.BlockStat))>>;
 
 FunctionStat : "function" FuncName FuncBody << ast.NewFunctionStat($1.(ast.FunctionName), $2.(ast.Function)) >>;
 
@@ -196,15 +201,11 @@ Term
     | Term TermOp Factor << ast.NewBinOp($0.(ast.ExpNode), $1.(ops.Op), $2.(ast.ExpNode)) >>
     ;
 
-UnOp 
-     : "-"   << ops.OpNeg, nil >>
-     | "not" << ops.OpNot, nil >>
-     | "#"   << ops.OpLen, nil >>
-     | "~"   << ops.OpBitNot, nil>>
-     ;
-
 Factor
-    : UnOp Factor << ast.NewUnOp($0.(ops.Op), $1.(ast.ExpNode)) >>
+    : "-" Factor   << ast.NewUnOp($0.(*token.Token), ops.OpNeg, $1.(ast.ExpNode)) >>
+    | "not" Factor << ast.NewUnOp($0.(*token.Token), ops.OpNot, $1.(ast.ExpNode)) >>
+    | "#" Factor   << ast.NewUnOp($0.(*token.Token), ops.OpLen, $1.(ast.ExpNode)) >>
+    | "~" Factor   << ast.NewUnOp($0.(*token.Token), ops.OpBitNot, $1.(ast.ExpNode)) >>
     | Power
     ;
 
@@ -228,7 +229,7 @@ Atom
     : "nil"    << ast.Nil($0.(*token.Token)), nil >>
     | "true"   << ast.True($0.(*token.Token)), nil >>
     | "false"  << ast.False($0.(*token.Token)), nil >>
-    | "..."    << ast.Etc, nil >>
+    | "..."    << ast.Etc($0.(*token.Token)), nil >>
     | numdec   << ast.NewNumber($0.(*token.Token)) >>
     | numhex   << ast.NewNumber($0.(*token.Token)) >>
     | string   << ast.NewString($0.(*token.Token)), nil >>
@@ -255,12 +256,13 @@ ParList
     | empty              << ast.NewParList(nil, false) >>
     ;
 
-FuncBody : "(" ParList ")" Chunk "end" << ast.NewFunction($1.(ast.ParList), $3.(ast.BlockStat)) >>;
+FuncBody : "(" ParList ")" Chunk "end"
+           << ast.NewFunction($0.(*token.Token), $4.(*token.Token), $1.(ast.ParList), $3.(ast.BlockStat)) >>;
 
 TableConstructor 
-    : "{" FieldList "}"          << ast.NewTableConstructor($1.([]ast.TableField)) >>
-    | "{" FieldList FieldSep "}" << ast.NewTableConstructor($1.([]ast.TableField)) >>
-    | "{" "}"                    << ast.NewTableConstructor(nil) >>
+    : "{" FieldList "}"          << ast.NewTableConstructor($0.(*token.Token), $2.(*token.Token), $1.([]ast.TableField)) >>
+    | "{" FieldList FieldSep "}" << ast.NewTableConstructor($0.(*token.Token), $3.(*token.Token), $1.([]ast.TableField)) >>
+    | "{" "}"                    << ast.NewTableConstructor($0.(*token.Token), $1.(*token.Token), nil) >>
     ;
 
 FieldSep : "," | ";";

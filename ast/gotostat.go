@@ -1,14 +1,20 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
+import (
+	"github.com/arnodel/golua/ir"
+	"github.com/arnodel/golua/token"
+)
 
 type GotoStat struct {
 	Location
 	label Name
 }
 
-func NewGotoStat(lbl Name) (GotoStat, error) {
-	return GotoStat{label: lbl}, nil
+func NewGotoStat(gotoTok *token.Token, lbl Name) (GotoStat, error) {
+	return GotoStat{
+		Location: MergeLocations(LocFromToken(gotoTok), lbl),
+		label:    lbl,
+	}, nil
 }
 
 func (s GotoStat) HWrite(w HWriter) {
