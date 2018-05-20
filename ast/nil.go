@@ -19,5 +19,5 @@ func (n NilType) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 }
 
 func Nil(tok *token.Token) NilType {
-	return NilType{}
+	return NilType{Location: LocFromToken(tok)}
 }

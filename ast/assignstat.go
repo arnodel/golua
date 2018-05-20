@@ -10,8 +10,9 @@ type AssignStat struct {
 
 func NewAssignStat(dst []Var, src []ExpNode) (AssignStat, error) {
 	return AssignStat{
-		dst: dst,
-		src: src,
+		Location: MergeLocations(dst[0], src[len(src)-1]),
+		dst:      dst,
+		src:      src,
 	}, nil
 }
 

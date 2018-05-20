@@ -20,9 +20,9 @@ func (b Bool) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 }
 
 func True(tok *token.Token) Bool {
-	return Bool{val: true}
+	return Bool{Location: LocFromToken(tok), val: true}
 }
 
 func False(tok *token.Token) Bool {
-	return Bool{val: false}
+	return Bool{Location: LocFromToken(tok), val: false}
 }

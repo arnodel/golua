@@ -1,7 +1,5 @@
 package runtime
 
-import "github.com/arnodel/golua/ast"
-
 type NumberType uint16
 
 const (
@@ -19,15 +17,7 @@ func ToNumber(x Value) (Value, NumberType) {
 	case Float:
 		return x, IsFloat
 	case String:
-		exp, err := ast.NumberFromString(string(x.(String)))
-		if err == nil {
-			switch n := exp.(type) {
-			case ast.Int:
-				return Int(n.Val()), IsInt
-			case ast.Float:
-				return Float(n.Val()), IsFloat
-			}
-		}
+		return x.(String).ToNumber()
 	}
 	return x, NaN
 }

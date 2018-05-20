@@ -13,19 +13,22 @@ type BinOp struct {
 }
 
 func NewBinOp(left ExpNode, op ops.Op, right ExpNode) (*BinOp, error) {
+	loc := MergeLocations(left, right)
 	leftOp, ok := left.(*BinOp)
 	opType := op & 0xFF
 	if ok && leftOp.opType == opType {
 		return &BinOp{
-			left:   leftOp.left,
-			opType: opType,
-			right:  append(leftOp.right, operand{op, right}),
+			Location: loc,
+			left:     leftOp.left,
+			opType:   opType,
+			right:    append(leftOp.right, operand{op, right}),
 		}, nil
 	}
 	return &BinOp{
-		left:   left.(ExpNode),
-		opType: opType,
-		right:  []operand{{op, right}},
+		Location: loc,
+		left:     left.(ExpNode),
+		opType:   opType,
+		right:    []operand{{op, right}},
 	}, nil
 }
 

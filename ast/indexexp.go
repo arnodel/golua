@@ -10,6 +10,7 @@ type IndexExp struct {
 
 func NewIndexExp(coll ExpNode, idx ExpNode) (IndexExp, error) {
 	return IndexExp{
+		Location:   MergeLocations(coll, idx), // TODO: use the "]" for locaion end
 		collection: coll,
 		index:      idx,
 	}, nil

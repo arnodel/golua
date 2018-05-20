@@ -10,10 +10,18 @@ type FunctionCall struct {
 }
 
 func NewFunctionCall(target ExpNode, method Name, args []ExpNode) (*FunctionCall, error) {
+	// TODO: fix this by creating an Args node
+	loc := target.Locate()
+	if len(args) > 0 {
+		loc = MergeLocations(loc, args[len(args)-1])
+	} else if method.string != "" {
+		loc = MergeLocations(loc, method)
+	}
 	return &FunctionCall{
-		target: target,
-		method: method,
-		args:   args,
+		Location: loc,
+		target:   target,
+		method:   method,
+		args:     args,
 	}, nil
 }
 

@@ -9,7 +9,11 @@ type BlockStat struct {
 }
 
 func NewBlockStat(stats []Stat, rtn []ExpNode) (BlockStat, error) {
-	return BlockStat{statements: stats, returnValues: rtn}, nil
+	return BlockStat{
+		// TODO: set Location
+		statements:   stats,
+		returnValues: rtn,
+	}, nil
 }
 
 func (s BlockStat) HWrite(w HWriter) {

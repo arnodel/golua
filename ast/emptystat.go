@@ -1,13 +1,16 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
+import (
+	"github.com/arnodel/golua/ir"
+	"github.com/arnodel/golua/token"
+)
 
 type EmptyStat struct {
 	Location
 }
 
-func NewEmptyStat() (EmptyStat, error) {
-	return EmptyStat{}, nil
+func NewEmptyStat(tok *token.Token) (EmptyStat, error) {
+	return EmptyStat{Location: LocFromToken(tok)}, nil
 }
 
 func (s EmptyStat) HWrite(w HWriter) {

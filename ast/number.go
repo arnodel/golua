@@ -8,23 +8,21 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
-func NumberFromString(nstring string) (ExpNode, error) {
+func NewNumber(id *token.Token) (ExpNode, error) {
+	loc := LocFromToken(id)
+	nstring := string(id.Lit)
 	if strings.ContainsAny(nstring, ".eE") {
 		f, err := strconv.ParseFloat(nstring, 64)
 		if err != nil {
 			return nil, err
 		}
-		return Float{val: f}, nil
+		return Float{Location: loc, val: f}, nil
 	}
 	n, err := strconv.ParseInt(nstring, 0, 64)
 	if err != nil {
 		return nil, err
 	}
-	return Int{val: n}, nil
-}
-
-func NewNumber(id *token.Token) (ExpNode, error) {
-	return NumberFromString(string(id.Lit))
+	return Int{Location: loc, val: n}, nil
 }
 
 type Int struct {

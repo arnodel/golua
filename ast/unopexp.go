@@ -3,6 +3,7 @@ package ast
 import (
 	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/ops"
+	"github.com/arnodel/golua/token"
 )
 
 type UnOp struct {
@@ -11,10 +12,11 @@ type UnOp struct {
 	operand ExpNode
 }
 
-func NewUnOp(op ops.Op, exp ExpNode) (*UnOp, error) {
+func NewUnOp(opTok *token.Token, op ops.Op, exp ExpNode) (*UnOp, error) {
 	return &UnOp{
-		op:      op,
-		operand: exp,
+		Location: MergeLocations(LocFromToken(opTok), exp),
+		op:       op,
+		operand:  exp,
 	}, nil
 }
 

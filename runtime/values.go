@@ -1,7 +1,8 @@
 package runtime
 
 import (
-	"github.com/arnodel/golua/ast"
+	"strconv"
+	"strings"
 )
 
 // Value is a runtime value.
@@ -22,16 +23,30 @@ func (f Float) ToInt() (Int, NumberType) {
 }
 
 func (s String) ToInt() (Int, NumberType) {
-	exp, err := ast.NumberFromString(string(s))
-	if err == nil {
-		switch x := exp.(type) {
-		case ast.Int:
-			return Int(x.Val()), IsInt
-		case ast.Float:
-			return Float(x.Val()).ToInt()
-		}
+	v, tp := s.ToNumber()
+	switch tp {
+	case IsInt:
+		return v.(Int), IsInt
+	case IsFloat:
+		return v.(Float).ToInt()
 	}
 	return 0, NaN
+}
+
+func (s String) ToNumber() (Value, NumberType) {
+	nstring := string(s)
+	if strings.ContainsAny(nstring, ".eE") {
+		f, err := strconv.ParseFloat(nstring, 64)
+		if err != nil {
+			return nil, NaN
+		}
+		return Float(f), IsFloat
+	}
+	n, err := strconv.ParseInt(nstring, 0, 64)
+	if err != nil {
+		return nil, NaN
+	}
+	return Int(n), IsInt
 }
 
 type Callable interface {

@@ -1,12 +1,16 @@
 package ast
 
 func NewFunctionStat(name FunctionName, fx Function) (AssignStat, error) {
+	// TODO: include the "function" keywork in the location calculation
 	fName := name.name
 	if name.method.string != "" {
+		loc := fx.Locate()
 		fx, _ = NewFunction(
+			nil, nil,
 			ParList{append([]Name{{string: "self"}}, fx.params...), fx.hasDots},
 			fx.body,
 		)
+		fx.Location = loc
 		fName, _ = NewIndexExp(name.name, String{val: []byte(name.method.string)})
 	}
 	return NewAssignStat([]Var{fName}, []ExpNode{fx})

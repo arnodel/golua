@@ -3,6 +3,7 @@ package ast
 import (
 	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/ops"
+	"github.com/arnodel/golua/token"
 )
 
 type ForInStat struct {
@@ -12,8 +13,9 @@ type ForInStat struct {
 	body     BlockStat
 }
 
-func NewForInStat(itervars []Name, params []ExpNode, body BlockStat) (*ForInStat, error) {
+func NewForInStat(startTok, endTok *token.Token, itervars []Name, params []ExpNode, body BlockStat) (*ForInStat, error) {
 	return &ForInStat{
+		Location: LocFromTokens(startTok, endTok),
 		itervars: itervars,
 		params:   params,
 		body:     body,

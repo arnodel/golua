@@ -1,6 +1,9 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
+import (
+	"github.com/arnodel/golua/ir"
+	"github.com/arnodel/golua/token"
+)
 
 //
 // TabelConstructor
@@ -11,8 +14,11 @@ type TableConstructor struct {
 	fields []TableField
 }
 
-func NewTableConstructor(fields []TableField) (TableConstructor, error) {
-	return TableConstructor{fields: fields}, nil
+func NewTableConstructor(opTok, clTok *token.Token, fields []TableField) (TableConstructor, error) {
+	return TableConstructor{
+		Location: LocFromTokens(opTok, clTok),
+		fields:   fields,
+	}, nil
 }
 
 func (c TableConstructor) HWrite(w HWriter) {
@@ -65,8 +71,9 @@ type TableField struct {
 
 func NewTableField(key ExpNode, value ExpNode) (TableField, error) {
 	return TableField{
-		key:   key,
-		value: value,
+		Location: MergeLocations(key, value),
+		key:      key,
+		value:    value,
 	}, nil
 }
 

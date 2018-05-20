@@ -9,7 +9,11 @@ type LocalFunctionStat struct {
 }
 
 func NewLocalFunctionStat(name Name, fx Function) (LocalFunctionStat, error) {
-	return LocalFunctionStat{Function: fx, name: name}, nil
+	return LocalFunctionStat{
+		Location: MergeLocations(name, fx), // TODO: use "local" for location start
+		Function: fx,
+		name:     name,
+	}, nil
 }
 
 func (s LocalFunctionStat) HWrite(w HWriter) {

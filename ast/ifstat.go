@@ -1,6 +1,9 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
+import (
+	"github.com/arnodel/golua/ir"
+	"github.com/arnodel/golua/token"
+)
 
 type IfStat struct {
 	Location
@@ -9,16 +12,18 @@ type IfStat struct {
 	elsestat    *BlockStat
 }
 
-func NewIfStat() IfStat {
-	return IfStat{}
+func NewIfStat(endTok *token.Token) IfStat {
+	return IfStat{Location: LocFromToken(endTok)}
 }
 
-func (s IfStat) AddIf(cond ExpNode, body BlockStat) (IfStat, error) {
+func (s IfStat) AddIf(ifTok *token.Token, cond ExpNode, body BlockStat) (IfStat, error) {
+	s.Location = MergeLocations(LocFromToken(ifTok), s)
 	s.ifstat = CondStat{cond, body}
 	return s, nil
 }
 
-func (s IfStat) AddElse(body BlockStat) (IfStat, error) {
+func (s IfStat) AddElse(endTok *token.Token, body BlockStat) (IfStat, error) {
+	s.Location = MergeLocations(s, LocFromToken(endTok))
 	s.elsestat = &body
 	return s, nil
 }
