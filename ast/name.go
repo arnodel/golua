@@ -27,7 +27,7 @@ func (n Name) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 		return reg
 	}
 	return IndexExp{
-		collection: Name{string: "_ENV"},
+		collection: Name{Location: n.Location, string: "_ENV"},
 		index:      n.AstString(),
 	}.CompileExp(c, dst)
 }
@@ -35,15 +35,15 @@ func (n Name) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 func (n Name) CompileAssign(c *ir.Compiler, src ir.Register) {
 	reg, ok := c.GetRegister(ir.Name(n.string))
 	if ok {
-		ir.EmitMove(c, reg, src)
+		EmitMove(c, n, reg, src)
 		return
 	}
 	IndexExp{
-		collection: Name{string: "_ENV"},
+		collection: Name{Location: n.Location, string: "_ENV"},
 		index:      n.AstString(),
 	}.CompileAssign(c, src)
 }
 
 func (n Name) AstString() String {
-	return String{val: []byte(n.string)}
+	return String{Location: n.Location, val: []byte(n.string)}
 }

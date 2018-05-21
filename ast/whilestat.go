@@ -30,7 +30,7 @@ func (s WhileStat) CompileStat(c *ir.Compiler) {
 
 	s.CondStat.CompileCond(c, stopLbl)
 
-	c.Emit(ir.Jump{Label: loopLbl})
+	EmitInstr(c, s, ir.Jump{Label: loopLbl}) // TODO: better location
 
 	c.EmitGotoLabel(breakLblName)
 	c.PopContext()

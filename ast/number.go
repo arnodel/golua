@@ -43,7 +43,7 @@ func (n Int) HWrite(w HWriter) {
 }
 
 func (n Int) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	ir.EmitConstant(c, ir.Int(n.val), dst)
+	EmitLoadConst(c, n, ir.Int(n.val), dst)
 	return dst
 }
 
@@ -53,7 +53,7 @@ type Float struct {
 }
 
 func (f Float) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	ir.EmitConstant(c, ir.Float(f.val), dst)
+	EmitLoadConst(c, f, ir.Float(f.val), dst)
 	return dst
 }
 

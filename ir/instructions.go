@@ -10,7 +10,7 @@ import (
 
 type Instruction interface {
 	fmt.Stringer
-	Compile(*ConstantCompiler)
+	Compile(InstrCompiler)
 }
 
 type Register int
@@ -62,7 +62,7 @@ var codeUnOp = map[ops.Op]code.UnOp{
 	ops.OpId:     code.OpId,
 }
 
-func (c Combine) Compile(kc *ConstantCompiler) {
+func (c Combine) Compile(kc InstrCompiler) {
 	codeOp, ok := codeBinOp[c.Op]
 	if !ok {
 		panic(fmt.Sprintf("Cannot compile %v: invalid op", c))
@@ -81,7 +81,7 @@ type Transform struct {
 	Src Register
 }
 
-func (t Transform) Compile(kc *ConstantCompiler) {
+func (t Transform) Compile(kc InstrCompiler) {
 	codeOp, ok := codeUnOp[t.Op]
 	if !ok {
 		panic(fmt.Sprintf("Cannot compile %v: invalid op", t))
@@ -99,7 +99,7 @@ type LoadConst struct {
 	Kidx uint
 }
 
-func (l LoadConst) Compile(kc *ConstantCompiler) {
+func (l LoadConst) Compile(kc InstrCompiler) {
 	ckidx := kc.QueueConstant(l.Kidx)
 	if ckidx > 0xffff {
 		panic("Only 2^16 constants are supported in one compilation unit")
@@ -118,7 +118,7 @@ type Push struct {
 	Etc  bool
 }
 
-func (p Push) Compile(kc *ConstantCompiler) {
+func (p Push) Compile(kc InstrCompiler) {
 	op := code.OpId
 	if p.Etc {
 		op = code.OpEtcId
@@ -135,7 +135,7 @@ type PushCC struct {
 	Cont Register
 }
 
-func (p PushCC) Compile(kc *ConstantCompiler) {
+func (p PushCC) Compile(kc InstrCompiler) {
 	opcode := code.MkType4b(code.On, code.OpCC, codeReg(p.Cont), code.Lit8(0))
 	kc.Emit(opcode)
 }
@@ -152,7 +152,7 @@ func (j Jump) String() string {
 	return fmt.Sprintf("jump %s", j.Label)
 }
 
-func (j Jump) Compile(kc *ConstantCompiler) {
+func (j Jump) Compile(kc InstrCompiler) {
 	opcode := code.MkType5(code.Off, code.OpJump, code.Reg(0), code.Lit16(0))
 	kc.EmitJump(opcode, code.Label(j.Label))
 }
@@ -163,7 +163,7 @@ type JumpIf struct {
 	Not   bool
 }
 
-func (j JumpIf) Compile(kc *ConstantCompiler) {
+func (j JumpIf) Compile(kc InstrCompiler) {
 	flag := code.Off
 	if !j.Not {
 		flag = code.On
@@ -180,7 +180,7 @@ type Call struct {
 	Cont Register
 }
 
-func (c Call) Compile(kc *ConstantCompiler) {
+func (c Call) Compile(kc InstrCompiler) {
 	// TODO: tailcall
 	opcode := code.MkType5(code.Off, code.OpCall, codeReg(c.Cont), code.Lit16(0))
 	kc.Emit(opcode)
@@ -196,7 +196,7 @@ type MkClosure struct {
 	Upvalues []Register
 }
 
-func (m MkClosure) Compile(kc *ConstantCompiler) {
+func (m MkClosure) Compile(kc InstrCompiler) {
 	if m.Code > 0xffff {
 		panic("Only 2^16 constants supported")
 	}
@@ -227,7 +227,7 @@ type MkCont struct {
 	Tail    bool
 }
 
-func (m MkCont) Compile(kc *ConstantCompiler) {
+func (m MkCont) Compile(kc InstrCompiler) {
 	opcode := code.MkType4a(code.Off, code.OpCont, codeReg(m.Dst), codeReg(m.Closure))
 	kc.Emit(opcode)
 }
@@ -240,7 +240,7 @@ type ClearReg struct {
 	Dst Register
 }
 
-func (i ClearReg) Compile(kc *ConstantCompiler) {
+func (i ClearReg) Compile(kc InstrCompiler) {
 	opcode := code.MkType4b(code.Off, code.OpClear, codeReg(i.Dst), code.Lit8(0))
 	kc.Emit(opcode)
 }
@@ -253,7 +253,7 @@ type MkTable struct {
 	Dst Register
 }
 
-func (m MkTable) Compile(kc *ConstantCompiler) {
+func (m MkTable) Compile(kc InstrCompiler) {
 	opcode := code.MkType4b(code.Off, code.OpTable, codeReg(m.Dst), code.Lit8(0))
 	kc.Emit(opcode)
 }
@@ -268,7 +268,7 @@ type Lookup struct {
 	Index Register
 }
 
-func (s Lookup) Compile(kc *ConstantCompiler) {
+func (s Lookup) Compile(kc InstrCompiler) {
 	opcode := code.MkType2(code.Off, codeReg(s.Dst), codeReg(s.Table), codeReg(s.Index))
 	kc.Emit(opcode)
 }
@@ -283,7 +283,7 @@ type SetIndex struct {
 	Src   Register
 }
 
-func (s SetIndex) Compile(kc *ConstantCompiler) {
+func (s SetIndex) Compile(kc InstrCompiler) {
 	opcode := code.MkType2(code.On, codeReg(s.Src), codeReg(s.Table), codeReg(s.Index))
 	kc.Emit(opcode)
 }
@@ -306,7 +306,7 @@ type Receive struct {
 // func (r Receive) HasEtc() bool             { return false }
 // func (r Receive) GetEtc() Register         { return Register(0) }
 
-func (r Receive) Compile(kc *ConstantCompiler) {
+func (r Receive) Compile(kc InstrCompiler) {
 	for _, reg := range r.Dst {
 		kc.Emit(code.MkType0(code.Off, codeReg(reg)))
 	}
@@ -329,7 +329,7 @@ func (r ReceiveEtc) String() string {
 	return fmt.Sprintf("recv(%s, ...%s)", joinRegisters(r.Dst, ", "), r.Etc)
 }
 
-func (r ReceiveEtc) Compile(kc *ConstantCompiler) {
+func (r ReceiveEtc) Compile(kc InstrCompiler) {
 	for _, reg := range r.Dst {
 		kc.Emit(code.MkType0(code.Off, codeReg(reg)))
 	}
@@ -343,7 +343,7 @@ type JumpIfForLoopDone struct {
 	Step  Register
 }
 
-func (j JumpIfForLoopDone) Compile(kc *ConstantCompiler) {
+func (j JumpIfForLoopDone) Compile(kc InstrCompiler) {
 	opcode := code.MkType5(code.Off, code.OpJumpIfForLoopDone, code.Reg(0), code.Lit16(0))
 	kc.EmitJump(opcode, code.Label(j.Label))
 }

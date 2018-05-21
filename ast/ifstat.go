@@ -55,13 +55,13 @@ func (s IfStat) CompileStat(c *ir.Compiler) {
 	lbl := c.GetNewLabel()
 	s.ifstat.CompileCond(c, lbl)
 	for _, s := range s.elseifstats {
-		c.Emit(ir.Jump{Label: endLbl})
+		EmitInstr(c, s.cond, ir.Jump{Label: endLbl}) // TODO: better location
 		c.EmitLabel(lbl)
 		lbl = c.GetNewLabel()
 		s.CompileCond(c, lbl)
 	}
 	if s.elsestat != nil {
-		c.Emit(ir.Jump{Label: endLbl})
+		EmitInstr(c, s, ir.Jump{Label: endLbl}) // TODO: better location
 		c.EmitLabel(lbl)
 		s.elsestat.CompileStat(c)
 	} else {

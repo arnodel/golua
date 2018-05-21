@@ -26,6 +26,6 @@ func (s LocalFunctionStat) CompileStat(c *ir.Compiler) {
 	fReg := c.GetFreeRegister()
 	c.DeclareLocal(ir.Name(s.name.string), fReg)
 	reg := s.Function.CompileExp(c, fReg)
-	ir.EmitMove(c, fReg, reg)
+	EmitMove(c, s, fReg, reg)
 
 }

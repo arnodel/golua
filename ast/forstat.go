@@ -52,26 +52,26 @@ func (s *ForStat) HWrite(w HWriter) {
 func (s ForStat) CompileStat(c *ir.Compiler) {
 	startReg := c.GetFreeRegister()
 	r := s.start.CompileExp(c, startReg)
-	ir.EmitMove(c, startReg, r)
+	ir.EmitMoveNoLine(c, startReg, r)
 	c.TakeRegister(startReg)
 
 	stopReg := c.GetFreeRegister()
 	r = s.stop.CompileExp(c, stopReg)
-	ir.EmitMove(c, stopReg, r)
+	ir.EmitMoveNoLine(c, stopReg, r)
 	c.TakeRegister(stopReg)
 
 	stepReg := c.GetFreeRegister()
 	r = s.step.CompileExp(c, stepReg)
-	ir.EmitMove(c, stepReg, r)
+	ir.EmitMoveNoLine(c, stepReg, r)
 	c.TakeRegister(stepReg)
 
 	zReg := c.GetFreeRegister()
 	c.TakeRegister(zReg)
-	c.Emit(ir.LoadConst{
+	c.EmitNoLine(ir.LoadConst{
 		Dst:  zReg,
 		Kidx: c.GetConstant(ir.Int(0)),
 	})
-	c.Emit(ir.Combine{
+	c.EmitNoLine(ir.Combine{
 		Op:   ops.OpLt,
 		Dst:  zReg,
 		Lsrc: stepReg,
@@ -87,46 +87,46 @@ func (s ForStat) CompileStat(c *ir.Compiler) {
 	condReg := c.GetFreeRegister()
 	negStepLbl := c.GetNewLabel()
 	bodyLbl := c.GetNewLabel()
-	c.Emit(ir.JumpIf{
+	c.EmitNoLine(ir.JumpIf{
 		Cond:  zReg,
 		Label: negStepLbl,
 	})
-	c.Emit(ir.Combine{
+	c.EmitNoLine(ir.Combine{
 		Op:   ops.OpLt,
 		Dst:  condReg,
 		Lsrc: stopReg,
 		Rsrc: startReg,
 	})
-	c.Emit(ir.JumpIf{
+	c.EmitNoLine(ir.JumpIf{
 		Cond:  condReg,
 		Label: endLbl,
 	})
-	c.Emit(ir.Jump{Label: bodyLbl})
+	c.EmitNoLine(ir.Jump{Label: bodyLbl})
 	c.EmitLabel(negStepLbl)
-	c.Emit(ir.Combine{
+	c.EmitNoLine(ir.Combine{
 		Op:   ops.OpLt,
 		Dst:  condReg,
 		Lsrc: startReg,
 		Rsrc: stopReg,
 	})
-	c.Emit(ir.JumpIf{
+	c.EmitNoLine(ir.JumpIf{
 		Cond:  condReg,
 		Label: endLbl,
 	})
 	c.EmitLabel(bodyLbl)
 
 	iterReg := c.GetFreeRegister()
-	ir.EmitMove(c, iterReg, startReg)
+	ir.EmitMoveNoLine(c, iterReg, startReg)
 	c.DeclareLocal(ir.Name(s.itervar.string), iterReg)
 	s.body.CompileBlock(c)
 
-	c.Emit(ir.Combine{
+	c.EmitNoLine(ir.Combine{
 		Op:   ops.OpAdd,
 		Dst:  startReg,
 		Lsrc: startReg,
 		Rsrc: stepReg,
 	})
-	c.Emit(ir.Jump{Label: loopLbl})
+	c.EmitNoLine(ir.Jump{Label: loopLbl})
 
 	c.EmitGotoLabel(breakLblName)
 	c.PopContext()

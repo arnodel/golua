@@ -15,7 +15,7 @@ func (b Bool) HWrite(w HWriter) {
 }
 
 func (b Bool) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	ir.EmitConstant(c, ir.Bool(b.val), dst)
+	EmitLoadConst(c, b, ir.Bool(b.val), dst)
 	return dst
 }
 

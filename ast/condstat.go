@@ -16,6 +16,6 @@ func (s CondStat) HWrite(w HWriter) {
 
 func (s CondStat) CompileCond(c *ir.Compiler, lbl ir.Label) {
 	condReg := CompileExp(c, s.cond)
-	c.Emit(ir.JumpIf{Cond: condReg, Label: lbl, Not: true})
+	EmitInstr(c, s.cond, ir.JumpIf{Cond: condReg, Label: lbl, Not: true})
 	s.body.CompileStat(c)
 }

@@ -53,23 +53,27 @@ func (n NilType) ShortString() string {
 }
 
 type Compiler struct {
+	source   string
+	lines    []int
 	code     []Opcode
 	jumpTo   map[Label]int
 	jumpFrom map[Label][]int
 }
 
-func NewCompiler() *Compiler {
+func NewCompiler(source string) *Compiler {
 	return &Compiler{
+		source:   source,
 		jumpTo:   make(map[Label]int),
 		jumpFrom: make(map[Label][]int),
 	}
 }
 
-func (c *Compiler) Emit(opcode Opcode) {
+func (c *Compiler) Emit(opcode Opcode, line int) {
 	c.code = append(c.code, opcode)
+	c.lines = append(c.lines, line)
 }
 
-func (c *Compiler) EmitJump(opcode Opcode, lbl Label) {
+func (c *Compiler) EmitJump(opcode Opcode, lbl Label, line int) {
 	jumpToAddr, ok := c.jumpTo[lbl]
 	addr := len(c.code)
 	if ok {
@@ -77,7 +81,7 @@ func (c *Compiler) EmitJump(opcode Opcode, lbl Label) {
 	} else {
 		c.jumpFrom[lbl] = append(c.jumpFrom[lbl], addr)
 	}
-	c.Emit(opcode)
+	c.Emit(opcode, line)
 }
 
 func (c *Compiler) EmitLabel(lbl Label) {
@@ -104,4 +108,8 @@ func (c *Compiler) Offset() uint {
 
 func (c *Compiler) Code() []Opcode {
 	return c.code
+}
+
+func (c *Compiler) Lines() []int {
+	return c.lines
 }

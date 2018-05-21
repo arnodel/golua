@@ -105,18 +105,21 @@ func (c LexicalContext) Dump() {
 }
 
 type Compiler struct {
+	source       string
 	registers    []int
 	context      LexicalContext
 	parent       *Compiler
 	upvalues     []Register
 	code         []Instruction
+	lines        []int
 	constantPool *ConstantPool
 	labels       map[Label]int
 	labelPos     map[int][]Label
 }
 
-func NewCompiler() *Compiler {
+func NewCompiler(source string) *Compiler {
 	return &Compiler{
+		source:       source,
 		context:      LexicalContext{}.PushNew(),
 		labels:       make(map[Label]int),
 		labelPos:     make(map[int][]Label),
@@ -126,6 +129,7 @@ func NewCompiler() *Compiler {
 
 func (c *Compiler) NewChild() *Compiler {
 	return &Compiler{
+		source:       c.source,
 		context:      LexicalContext{}.PushNew(),
 		labels:       make(map[Label]int),
 		labelPos:     make(map[int][]Label),
@@ -250,7 +254,7 @@ func (c *Compiler) PopContext() {
 	for _, tr := range top.reg {
 		c.ReleaseRegister(tr.reg)
 		if tr.tags&regHasUpvalue != 0 && tr.reg >= 0 {
-			c.Emit(ClearReg{Dst: tr.reg})
+			c.EmitNoLine(ClearReg{Dst: tr.reg})
 		}
 	}
 }
@@ -262,9 +266,14 @@ func (c *Compiler) DeclareLocal(name Name, reg Register) {
 	c.context.AddToTop(name, reg)
 }
 
-func (c *Compiler) Emit(instr Instruction) {
+func (c *Compiler) EmitNoLine(instr Instruction) {
 	// fmt.Printf("Emit %s\n", instr)
+	c.Emit(instr, 0)
+}
+
+func (c *Compiler) Emit(instr Instruction, line int) {
 	c.code = append(c.code, instr)
+	c.lines = append(c.lines, line)
 }
 
 func (c *Compiler) GetConstant(k Constant) uint {
@@ -274,6 +283,7 @@ func (c *Compiler) GetConstant(k Constant) uint {
 func (c *Compiler) GetCode() *Code {
 	return &Code{
 		Instructions: c.code,
+		Lines:        c.lines,
 		Constants:    c.constantPool.Constants(),
 		RegCount:     len(c.registers),
 		UpvalueCount: len(c.upvalues),
@@ -281,20 +291,26 @@ func (c *Compiler) GetCode() *Code {
 	}
 }
 
-func EmitConstant(c *Compiler, k Constant, reg Register) {
-	c.Emit(LoadConst{Dst: reg, Kidx: c.GetConstant(k)})
+func EmitConstant(c *Compiler, k Constant, reg Register, line int) {
+	c.Emit(LoadConst{Dst: reg, Kidx: c.GetConstant(k)}, line)
 }
 
-func EmitMove(c *Compiler, dst Register, src Register) {
+func EmitMoveNoLine(c *Compiler, dst Register, src Register) {
 	if dst != src {
-		c.Emit(Transform{Op: ops.OpId, Dst: dst, Src: src})
+		c.EmitNoLine(Transform{Op: ops.OpId, Dst: dst, Src: src})
+	}
+}
+
+func EmitMove(c *Compiler, dst Register, src Register, line int) {
+	if dst != src {
+		c.Emit(Transform{Op: ops.OpId, Dst: dst, Src: src}, line)
 	}
 }
 
 func (c *Compiler) NewConstantCompiler() *ConstantCompiler {
 	ki := c.GetConstant(c.GetCode())
 	kc := &ConstantCompiler{
-		Compiler:    code.NewCompiler(),
+		Compiler:    code.NewCompiler(c.source),
 		constants:   c.constantPool.Constants(),
 		constantMap: make(map[uint]int),
 	}

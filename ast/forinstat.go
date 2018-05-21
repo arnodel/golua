@@ -56,29 +56,35 @@ func (s ForInStat) CompileStat(c *ir.Compiler) {
 	loopLbl := c.GetNewLabel()
 	c.EmitLabel(loopLbl)
 
+	// TODO: better locations
+
 	LocalStat{
 		names: s.itervars,
 		values: []ExpNode{&FunctionCall{
-			target: Name{string: "<f>"},
-			args:   []ExpNode{Name{string: "<s>"}, Name{string: "<var>"}},
+			Location: s.Location,
+			target:   Name{Location: s.Location, string: "<f>"},
+			args: []ExpNode{
+				Name{Location: s.Location, string: "<s>"},
+				Name{Location: s.Location, string: "<var>"},
+			},
 		}},
 	}.CompileStat(c)
 	var1, _ := c.GetRegister(ir.Name(s.itervars[0].string))
 
 	testReg := c.GetFreeRegister()
-	ir.EmitConstant(c, ir.NilType{}, testReg)
-	c.Emit(ir.Combine{
+	EmitLoadConst(c, s, ir.NilType{}, testReg)
+	EmitInstr(c, s, ir.Combine{
 		Dst:  testReg,
 		Op:   ops.OpEq,
 		Lsrc: var1,
 		Rsrc: testReg,
 	})
 	endLbl := c.DeclareGotoLabel(ir.Name("<break>"))
-	c.Emit(ir.JumpIf{Cond: testReg, Label: endLbl})
-	c.Emit(ir.Transform{Dst: varReg, Op: ops.OpId, Src: var1})
+	EmitInstr(c, s, ir.JumpIf{Cond: testReg, Label: endLbl})
+	EmitInstr(c, s, ir.Transform{Dst: varReg, Op: ops.OpId, Src: var1})
 	s.body.CompileBlock(c)
 
-	c.Emit(ir.Jump{Label: loopLbl})
+	EmitInstr(c, s, ir.Jump{Label: loopLbl})
 
 	c.EmitGotoLabel(ir.Name("<break>"))
 	c.PopContext()

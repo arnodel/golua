@@ -13,6 +13,7 @@ import (
 	"github.com/arnodel/golua/lib/base"
 	"github.com/arnodel/golua/lib/coroutine"
 	"github.com/arnodel/golua/lib/packagelib"
+	"github.com/arnodel/golua/lib/stringlib"
 	"github.com/arnodel/golua/runtime"
 	"github.com/arnodel/golua/token"
 )
@@ -27,6 +28,7 @@ func main() {
 	base.Load(r)
 	coroutine.Load(r)
 	packagelib.Load(r)
+	stringlib.Load(r)
 
 	switch flag.NArg() {
 	case 0:

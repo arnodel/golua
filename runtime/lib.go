@@ -254,7 +254,7 @@ func CompileLuaChunk(name string, source []byte, env *Table) (*Closure, error) {
 		}
 		return nil, err
 	}
-	c := tree.(ast.BlockStat).CompileChunk()
+	c := tree.(ast.BlockStat).CompileChunk(name)
 	kc := c.NewConstantCompiler()
 	unit := kc.CompileQueue()
 	return LoadLuaUnit(unit, env), nil

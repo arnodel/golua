@@ -51,11 +51,11 @@ func (f Function) CompileBody(c *ir.Compiler) {
 		recvRegs[i] = reg
 	}
 	if !f.hasDots {
-		c.Emit(ir.Receive{Dst: recvRegs})
+		EmitInstr(c, f, ir.Receive{Dst: recvRegs})
 	} else {
 		reg := c.GetFreeRegister()
 		c.DeclareLocal("...", reg)
-		c.Emit(ir.ReceiveEtc{Dst: recvRegs, Etc: reg})
+		EmitInstr(c, f, ir.ReceiveEtc{Dst: recvRegs, Etc: reg})
 	}
 
 	// Need to make sure there is a return instruction emitted at the
@@ -71,7 +71,7 @@ func (f Function) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	fc := c.NewChild()
 	f.CompileBody(fc)
 	kidx := c.GetConstant(fc.GetCode())
-	c.Emit(ir.MkClosure{
+	EmitInstr(c, f, ir.MkClosure{
 		Dst:      dst,
 		Code:     kidx,
 		Upvalues: fc.Upvalues(),

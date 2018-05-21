@@ -7,12 +7,14 @@ import (
 
 type Unit struct {
 	Code      []Opcode
+	Lines     []int
 	Constants []Constant
 }
 
-func NewUnit(code []Opcode, constants []Constant) *Unit {
+func NewUnit(code []Opcode, lines []int, constants []Constant) *Unit {
 	return &Unit{
 		Code:      code,
+		Lines:     lines,
 		Constants: constants,
 	}
 }
@@ -53,6 +55,6 @@ func (d *UnitDisassembler) Disassemble(w io.Writer) {
 		disCode[i] = opcode.Disassemble(d, i)
 	}
 	for i, dis := range disCode {
-		fmt.Fprintf(w, "%s\t%d\t%08x\t%s\n", d.labels[i], i, d.unit.Code[i], dis)
+		fmt.Fprintf(w, "%d\t%s\t%d\t%08x\t%s\n", d.unit.Lines[i], d.labels[i], i, d.unit.Code[i], dis)
 	}
 }

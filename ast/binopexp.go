@@ -61,20 +61,20 @@ func (b *BinOp) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 		switch r.op {
 		case ops.OpNeq:
 			// x ~= y ==> ~(x = y)
-			c.Emit(ir.Combine{
+			EmitInstr(c, b, ir.Combine{
 				Op:   ops.OpEq,
 				Dst:  dst,
 				Lsrc: lsrc,
 				Rsrc: rsrc,
 			})
-			c.Emit(ir.Transform{
+			EmitInstr(c, b, ir.Transform{
 				Op:  ops.OpNot,
 				Dst: dst,
 				Src: dst,
 			})
 		case ops.OpGt:
 			// x > y ==> y < x
-			c.Emit(ir.Combine{
+			EmitInstr(c, b, ir.Combine{
 				Op:   ops.OpLt,
 				Dst:  dst,
 				Lsrc: rsrc,
@@ -82,14 +82,14 @@ func (b *BinOp) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 			})
 		case ops.OpGeq:
 			// x >= y ==> y <= x
-			c.Emit(ir.Combine{
+			EmitInstr(c, b, ir.Combine{
 				Op:   ops.OpLeq,
 				Dst:  dst,
 				Lsrc: rsrc,
 				Rsrc: rsrc,
 			})
 		default:
-			c.Emit(ir.Combine{
+			EmitInstr(c, b, ir.Combine{
 				Op:   r.op,
 				Dst:  dst,
 				Lsrc: lsrc,
@@ -112,13 +112,13 @@ type operand struct {
 func compileLogicalOp(c *ir.Compiler, b *BinOp, dst ir.Register, not bool) ir.Register {
 	doneLbl := c.GetNewLabel()
 	reg := b.left.CompileExp(c, dst)
-	ir.EmitMove(c, dst, reg)
-	c.Emit(ir.JumpIf{Cond: dst, Label: doneLbl, Not: not})
+	EmitMove(c, b.left, dst, reg)
+	EmitInstr(c, b.left, ir.JumpIf{Cond: dst, Label: doneLbl, Not: not})
 	for i, r := range b.right {
 		reg := r.operand.CompileExp(c, dst)
-		ir.EmitMove(c, dst, reg)
+		EmitMove(c, r.operand, dst, reg)
 		if i < len(b.right) {
-			c.Emit(ir.JumpIf{Cond: dst, Label: doneLbl, Not: not})
+			EmitInstr(c, r.operand, ir.JumpIf{Cond: dst, Label: doneLbl, Not: not})
 		}
 	}
 	c.EmitLabel(doneLbl)
