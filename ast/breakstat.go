@@ -22,7 +22,7 @@ func (s BreakStat) CompileStat(c *ir.Compiler) {
 	if !ok {
 		panic("Cannot break from here")
 	}
-	c.Emit(ir.Jump{Label: lbl})
+	EmitInstr(c, s, ir.Jump{Label: lbl})
 }
 
 var breakLblName = ir.Name("<break>")

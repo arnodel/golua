@@ -14,7 +14,7 @@ func (n NilType) HWrite(w HWriter) {
 }
 
 func (n NilType) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	ir.EmitConstant(c, ir.NilType{}, dst)
+	EmitLoadConst(c, n, ir.NilType{}, dst)
 	return dst
 }
 

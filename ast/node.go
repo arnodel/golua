@@ -6,6 +6,39 @@ import (
 	"github.com/arnodel/golua/ir"
 )
 
+func EmitInstr(c *ir.Compiler, l Locator, instr ir.Instruction) {
+	line := 0
+	if l != nil {
+		loc := l.Locate()
+		if loc.start != nil {
+			line = loc.start.Line
+		}
+	}
+	c.Emit(instr, line)
+}
+
+func EmitLoadConst(c *ir.Compiler, l Locator, k ir.Constant, reg ir.Register) {
+	line := 0
+	if l != nil {
+		loc := l.Locate()
+		if loc.start != nil {
+			line = loc.start.Line
+		}
+	}
+	ir.EmitConstant(c, k, reg, line)
+}
+
+func EmitMove(c *ir.Compiler, l Locator, dst, src ir.Register) {
+	line := 0
+	if l != nil {
+		loc := l.Locate()
+		if loc.start != nil {
+			line = loc.start.Line
+		}
+	}
+	ir.EmitMove(c, dst, src, line)
+}
+
 type Locator interface {
 	Locate() Location
 }
@@ -38,7 +71,7 @@ func LocFromToken(tok *token.Token) Location {
 func LocFromTokens(t1, t2 *token.Token) Location {
 	var p1, p2 *token.Pos
 	if t1 != nil {
-		p1 := new(token.Pos)
+		p1 = new(token.Pos)
 		*p1 = t1.Pos
 	}
 	if t2 != nil {

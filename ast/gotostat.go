@@ -26,5 +26,5 @@ func (s GotoStat) CompileStat(c *ir.Compiler) {
 	if !ok {
 		panic("Undefined label for goto")
 	}
-	c.Emit(ir.Jump{Label: lbl})
+	EmitInstr(c, s, ir.Jump{Label: lbl})
 }

@@ -20,7 +20,7 @@ func (e IndexExp) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	tReg := CompileExp(c, e.collection)
 	c.TakeRegister(tReg)
 	iReg := CompileExp(c, e.index)
-	c.Emit(ir.Lookup{
+	EmitInstr(c, e, ir.Lookup{
 		Dst:   dst,
 		Table: tReg,
 		Index: iReg,
@@ -36,7 +36,7 @@ func (e IndexExp) CompileAssign(c *ir.Compiler, src ir.Register) {
 	iReg := CompileExp(c, e.index)
 	c.ReleaseRegister(src)
 	c.ReleaseRegister(tReg)
-	c.Emit(ir.SetIndex{
+	EmitInstr(c, e, ir.SetIndex{
 		Table: tReg,
 		Index: iReg,
 		Src:   src,

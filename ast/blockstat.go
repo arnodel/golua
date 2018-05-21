@@ -61,8 +61,8 @@ func (s BlockStat) CompileBlock(c *ir.Compiler) {
 	}
 }
 
-func (s BlockStat) CompileChunk() *ir.Compiler {
-	pc := ir.NewCompiler()
+func (s BlockStat) CompileChunk(source string) *ir.Compiler {
+	pc := ir.NewCompiler(source)
 	pc.DeclareLocal("_ENV", pc.GetFreeRegister())
 	c := pc.NewChild()
 

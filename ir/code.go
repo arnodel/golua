@@ -56,6 +56,7 @@ func (n NilType) Compile(kc *ConstantCompiler) code.Constant {
 
 type Code struct {
 	Instructions []Instruction
+	Lines        []int
 	Constants    []Constant
 	RegCount     int
 	UpvalueCount int
@@ -68,7 +69,7 @@ func (c *Code) Compile(kc *ConstantCompiler) code.Constant {
 		for _, lbl := range c.LabelPos[i] {
 			kc.EmitLabel(code.Label(lbl))
 		}
-		instr.Compile(kc)
+		instr.Compile(InstrCompiler{c.Lines[i], kc})
 	}
 	end := kc.Offset()
 	return code.Code{
@@ -77,6 +78,19 @@ func (c *Code) Compile(kc *ConstantCompiler) code.Constant {
 		UpvalueCount: c.UpvalueCount,
 		RegCount:     c.RegCount,
 	}
+}
+
+type InstrCompiler struct {
+	line int
+	*ConstantCompiler
+}
+
+func (ic InstrCompiler) Emit(opcode code.Opcode) {
+	ic.Compiler.Emit(opcode, ic.line)
+}
+
+func (ic InstrCompiler) EmitJump(opcode code.Opcode, lbl code.Label) {
+	ic.Compiler.EmitJump(opcode, lbl, ic.line)
 }
 
 type ConstantCompiler struct {
@@ -114,5 +128,5 @@ func (kc *ConstantCompiler) CompileQueue() *code.Unit {
 			kc.compiled = append(kc.compiled, ck)
 		}
 	}
-	return code.NewUnit(kc.Code(), kc.compiled)
+	return code.NewUnit(kc.Code(), kc.Lines(), kc.compiled)
 }

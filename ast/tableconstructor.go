@@ -36,7 +36,7 @@ func (c TableConstructor) HWrite(w HWriter) {
 }
 
 func (t TableConstructor) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	c.Emit(ir.MkTable{Dst: dst})
+	EmitInstr(c, t, ir.MkTable{Dst: dst})
 	c.TakeRegister(dst)
 	currImplicitKey := int64(1)
 	for _, field := range t.fields {
@@ -48,7 +48,7 @@ func (t TableConstructor) CompileExp(c *ir.Compiler, dst ir.Register) ir.Registe
 			currImplicitKey++
 		}
 		keyReg := CompileExp(c, keyExp)
-		c.Emit(ir.SetIndex{
+		EmitInstr(c, field.value, ir.SetIndex{
 			Table: dst,
 			Index: keyReg,
 			Src:   valReg,

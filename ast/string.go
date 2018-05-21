@@ -40,7 +40,7 @@ func (s String) HWrite(w HWriter) {
 }
 
 func (s String) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	ir.EmitConstant(c, ir.String(s.val), dst)
+	EmitLoadConst(c, s, ir.String(s.val), dst)
 	return dst
 }
 

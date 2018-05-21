@@ -47,13 +47,13 @@ func (f FunctionCall) HWrite(w HWriter) {
 
 func (f FunctionCall) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	f.CompileCall(c, false)
-	c.Emit(ir.Receive{Dst: []ir.Register{dst}})
+	EmitInstr(c, f, ir.Receive{Dst: []ir.Register{dst}})
 	return dst
 }
 
 // TODO: move this to somewhere better
-func CallWithArgs(c *ir.Compiler, args []ExpNode, fReg ir.Register) {
-	c.TakeRegister(fReg)
+func CallWithArgs(c *ir.Compiler, args []ExpNode, contReg ir.Register) {
+	c.TakeRegister(contReg)
 	for i, arg := range args {
 		var argReg ir.Register
 		if i == len(args)-1 {
@@ -61,23 +61,23 @@ func CallWithArgs(c *ir.Compiler, args []ExpNode, fReg ir.Register) {
 			case *FunctionCall:
 				x.CompileCall(c, false)
 				argReg = c.GetFreeRegister()
-				c.Emit(ir.ReceiveEtc{Etc: argReg})
-				c.Emit(ir.Push{Cont: fReg, Item: argReg, Etc: true})
+				EmitInstr(c, arg, ir.ReceiveEtc{Etc: argReg})
+				EmitInstr(c, arg, ir.Push{Cont: contReg, Item: argReg, Etc: true})
 				continue
 			case EtcType:
 				argReg, ok := c.GetRegister("...")
 				if !ok {
 					panic("etc not defined")
 				}
-				c.Emit(ir.Push{Cont: fReg, Item: argReg, Etc: true})
+				EmitInstr(c, arg, ir.Push{Cont: contReg, Item: argReg, Etc: true})
 				continue
 			}
 		}
 		argReg = CompileExp(c, arg)
-		c.Emit(ir.Push{Cont: fReg, Item: argReg})
+		EmitInstr(c, arg, ir.Push{Cont: contReg, Item: argReg})
 	}
-	c.Emit(ir.Call{Cont: fReg})
-	c.ReleaseRegister(fReg)
+	c.EmitNoLine(ir.Call{Cont: contReg})
+	c.ReleaseRegister(contReg)
 }
 
 func (f FunctionCall) CompileCall(c *ir.Compiler, tail bool) {
@@ -88,24 +88,24 @@ func (f FunctionCall) CompileCall(c *ir.Compiler, tail bool) {
 		c.TakeRegister(self)
 		fReg = c.GetFreeRegister()
 		mReg := c.GetFreeRegister()
-		ir.EmitConstant(c, ir.String(f.method.string), mReg)
-		c.Emit(ir.Lookup{
+		EmitLoadConst(c, f.method, ir.String(f.method.string), mReg)
+		EmitInstr(c, f.target, ir.Lookup{
 			Dst:   fReg,
 			Table: self,
 			Index: mReg,
 		})
 		contReg = c.GetFreeRegister()
-		c.Emit(ir.MkCont{Dst: contReg, Closure: fReg, Tail: tail})
-		c.Emit(ir.Push{Cont: fReg, Item: self})
+		EmitInstr(c, f, ir.MkCont{Dst: contReg, Closure: fReg, Tail: tail})
+		EmitInstr(c, f, ir.Push{Cont: fReg, Item: self})
 		c.ReleaseRegister(self)
 	} else {
 		contReg = c.GetFreeRegister()
-		c.Emit(ir.MkCont{Dst: contReg, Closure: fReg, Tail: tail})
+		EmitInstr(c, f, ir.MkCont{Dst: contReg, Closure: fReg, Tail: tail})
 	}
 	CallWithArgs(c, f.args, contReg)
 }
 
 func (f FunctionCall) CompileStat(c *ir.Compiler) {
 	f.CompileCall(c, false)
-	c.Emit(ir.Receive{})
+	EmitInstr(c, f, ir.Receive{})
 }

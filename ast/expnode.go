@@ -29,7 +29,7 @@ func CompileExpList(c *ir.Compiler, exps []ExpNode, dstRegs []ir.Register) {
 	for i, exp := range exps[:commonCount] {
 		dst := c.GetFreeRegister()
 		reg := exp.CompileExp(c, dst)
-		ir.EmitMove(c, dst, reg)
+		EmitMove(c, exp, dst, reg)
 		c.TakeRegister(dst)
 		dstRegs[i] = dst
 	}
@@ -40,11 +40,11 @@ func CompileExpList(c *ir.Compiler, exps []ExpNode, dstRegs []ir.Register) {
 	}
 	if doFCall {
 		fCall.CompileCall(c, false)
-		c.Emit(ir.Receive{Dst: dstRegs[commonCount:]})
+		EmitInstr(c, fCall, ir.Receive{Dst: dstRegs[commonCount:]})
 	} else if len(dstRegs) > len(exps) {
 		nilK := ir.NilType{}
 		for _, dst := range dstRegs[len(exps):] {
-			ir.EmitConstant(c, nilK, dst)
+			EmitLoadConst(c, nil, nilK, dst)
 		}
 	}
 }
