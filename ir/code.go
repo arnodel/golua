@@ -61,6 +61,7 @@ type Code struct {
 	RegCount     int
 	UpvalueCount int
 	LabelPos     map[int][]Label
+	Name         string
 }
 
 func (c *Code) Compile(kc *ConstantCompiler) code.Constant {
@@ -73,6 +74,7 @@ func (c *Code) Compile(kc *ConstantCompiler) code.Constant {
 	}
 	end := kc.Offset()
 	return code.Code{
+		Name:         c.Name,
 		StartOffset:  start,
 		EndOffset:    end,
 		UpvalueCount: c.UpvalueCount,

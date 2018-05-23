@@ -11,7 +11,10 @@ func NewFunctionStat(name FunctionName, fx Function) (AssignStat, error) {
 			fx.body,
 		)
 		fx.Location = loc
+		fx.name = name.method.FunctionName()
 		fName, _ = NewIndexExp(name.name, String{val: []byte(name.method.string)})
+	} else {
+		fx.name = fName.FunctionName()
 	}
 	return NewAssignStat([]Var{fName}, []ExpNode{fx})
 }

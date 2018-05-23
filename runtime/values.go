@@ -63,6 +63,7 @@ type Metatabler interface {
 
 type GoFunction struct {
 	f      func(*Thread, *GoCont) (Cont, *Error)
+	name   string
 	nArgs  int
 	hasEtc bool
 }

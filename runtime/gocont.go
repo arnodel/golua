@@ -3,6 +3,7 @@ package runtime
 // GoCont implements Cont for functions written in Go.
 type GoCont struct {
 	f     func(*Thread, *GoCont) (Cont, *Error)
+	name  string
 	next  Cont
 	args  []Value
 	etc   *[]Value
@@ -20,6 +21,7 @@ func NewGoCont(f *GoFunction, next Cont) *GoCont {
 	}
 	return &GoCont{
 		f:    f.f,
+		name: f.name,
 		args: args,
 		etc:  etc,
 		next: next,
@@ -74,9 +76,14 @@ func (c *GoCont) Next() Cont {
 }
 
 func (c *GoCont) DebugInfo() *DebugInfo {
+	name := c.name
+	if name == "" {
+		name = "<go function>"
+	}
 	return &DebugInfo{
-		Source:      "[C]",
+		Source:      "[Go]",
 		CurrentLine: 0,
+		Name:        name,
 	}
 }
 

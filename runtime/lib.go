@@ -238,6 +238,7 @@ func SetEnv(t *Table, name string, v Value) {
 func SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, *Error), nArgs int, hasEtc bool) {
 	t.Set(String(name), &GoFunction{
 		f:      f,
+		name:   name,
 		nArgs:  nArgs,
 		hasEtc: hasEtc,
 	})

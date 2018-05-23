@@ -46,6 +46,10 @@ func (n Name) CompileAssign(c *ir.Compiler, src ir.Register) {
 	}.CompileAssign(c, src)
 }
 
+func (n Name) FunctionName() string {
+	return n.string
+}
+
 func (n Name) AstString() String {
 	return String{Location: n.Location, val: []byte(n.string)}
 }
