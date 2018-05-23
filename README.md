@@ -71,6 +71,34 @@ $ golua myfile.lua
 5	8	11	14
 ```
 
+Errors produce useful tracebacks, e.g. if the file `err.lua` contains:
+
+```lua
+function foo(x)
+    print(x)
+    error("do not do this")
+end
+
+function bar(x)
+    print(x)
+    foo(x*x)
+end
+
+bar(2)
+```
+
+Then:
+
+```sh
+$ golua err.lua
+2
+4
+!!! error: do not do this
+in function foo (file err.lua:3)
+in function bar (file err.lua:8)
+in function <main chunk> (file err.lua:11)
+```
+
 ## Aim
 
 To implememt the Lua programming language in Go, easily embeddable in

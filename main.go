@@ -65,7 +65,7 @@ func main() {
 	clos := runtime.LoadLuaUnit(unit, r.GlobalEnv())
 	cerr := runtime.Call(r.MainThread(), clos, nil, runtime.NewTerminationWith(0, false))
 	if cerr != nil {
-		fatal("Error running %s: %s", chunkName, cerr.Traceback())
+		fatal("!!! %s", cerr.Traceback())
 	}
 }
 
