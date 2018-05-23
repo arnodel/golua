@@ -116,7 +116,7 @@ RunLoop:
 				panic("unsupported")
 			}
 			if err != nil {
-				return c, err
+				return nil, err.AddContext(c)
 			}
 			c.setReg(dst, res)
 			pc++
@@ -140,13 +140,13 @@ RunLoop:
 			if !opcode.GetF() {
 				val, err := Index(t, coll, idx)
 				if err != nil {
-					return c, err
+					return nil, err.AddContext(c)
 				}
 				c.setReg(reg, val)
 			} else {
 				err := setindex(t, coll, idx, c.getReg(reg))
 				if err != nil {
-					return c, err
+					return nil, err.AddContext(c)
 				}
 			}
 			pc++
