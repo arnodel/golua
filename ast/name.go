@@ -27,6 +27,7 @@ func (n Name) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 		return reg
 	}
 	return IndexExp{
+		Location:   n.Location,
 		collection: Name{Location: n.Location, string: "_ENV"},
 		index:      n.AstString(),
 	}.CompileExp(c, dst)
@@ -39,6 +40,7 @@ func (n Name) CompileAssign(c *ir.Compiler, src ir.Register) {
 		return
 	}
 	IndexExp{
+		Location:   n.Location,
 		collection: Name{Location: n.Location, string: "_ENV"},
 		index:      n.AstString(),
 	}.CompileAssign(c, src)

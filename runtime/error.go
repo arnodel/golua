@@ -1,6 +1,9 @@
 package runtime
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type Error struct {
 	message Value
@@ -35,4 +38,18 @@ func (e *Error) Value() Value {
 func (e *Error) Error() string {
 	// TODO
 	return fmt.Sprintf("error: %+v", e.message)
+}
+
+func (e *Error) Traceback() string {
+	var tb []*DebugInfo
+	for _, c := range e.context {
+		tb = appendTraceback(tb, c)
+	}
+	sb := strings.Builder{}
+	sb.WriteString(e.Error())
+	sb.WriteByte('\n')
+	for _, info := range tb {
+		sb.WriteString(fmt.Sprintf("at line %d in %s\n", info.CurrentLine, info.Source))
+	}
+	return sb.String()
 }

@@ -128,5 +128,5 @@ func (kc *ConstantCompiler) CompileQueue() *code.Unit {
 			kc.compiled = append(kc.compiled, ck)
 		}
 	}
-	return code.NewUnit(kc.Code(), kc.Lines(), kc.compiled)
+	return code.NewUnit(kc.Source(), kc.Code(), kc.Lines(), kc.compiled)
 }

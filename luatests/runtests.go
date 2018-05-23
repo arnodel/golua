@@ -20,7 +20,7 @@ func RunSource(source []byte, output io.Writer) {
 	stringlib.Load(r)
 	t := r.MainThread()
 	// TODO: use the file name
-	clos, err := runtime.CompileLuaChunk("luatest", source, r.GlobalEnv())
+	clos, err := runtime.CompileAndLoadLuaChunk("luatest", source, r.GlobalEnv())
 	if err != nil {
 		fmt.Fprintf(output, "!!! parsing: %s", err)
 		return
