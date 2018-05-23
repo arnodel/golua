@@ -89,7 +89,7 @@ bar(2)
 
 Then:
 
-```sh
+```
 $ golua err.lua
 2
 4
