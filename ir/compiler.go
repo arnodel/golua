@@ -280,7 +280,7 @@ func (c *Compiler) GetConstant(k Constant) uint {
 	return c.constantPool.GetConstant(k)
 }
 
-func (c *Compiler) GetCode() *Code {
+func (c *Compiler) GetCode(name string) *Code {
 	return &Code{
 		Instructions: c.code,
 		Lines:        c.lines,
@@ -288,6 +288,7 @@ func (c *Compiler) GetCode() *Code {
 		RegCount:     len(c.registers),
 		UpvalueCount: len(c.upvalues),
 		LabelPos:     c.labelPos,
+		Name:         name,
 	}
 }
 
@@ -308,7 +309,7 @@ func EmitMove(c *Compiler, dst Register, src Register, line int) {
 }
 
 func (c *Compiler) NewConstantCompiler() *ConstantCompiler {
-	ki := c.GetConstant(c.GetCode())
+	ki := c.GetConstant(c.GetCode("<main chunk>"))
 	kc := &ConstantCompiler{
 		Compiler:    code.NewCompiler(c.source),
 		constants:   c.constantPool.Constants(),

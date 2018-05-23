@@ -49,7 +49,11 @@ func (e *Error) Traceback() string {
 	sb.WriteString(e.Error())
 	sb.WriteByte('\n')
 	for _, info := range tb {
-		sb.WriteString(fmt.Sprintf("at line %d in %s\n", info.CurrentLine, info.Source))
+		sourceInfo := info.Source
+		if info.CurrentLine > 0 {
+			sourceInfo = fmt.Sprintf("%s:%d", sourceInfo, info.CurrentLine)
+		}
+		sb.WriteString(fmt.Sprintf("in function %s (file %s)\n", info.Name, sourceInfo))
 	}
 	return sb.String()
 }

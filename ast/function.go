@@ -9,6 +9,7 @@ type Function struct {
 	Location
 	ParList
 	body BlockStat
+	name string
 }
 
 func NewFunction(startTok, endTok *token.Token, parList ParList, body BlockStat) (Function, error) {
@@ -70,7 +71,7 @@ func (f Function) CompileBody(c *ir.Compiler) {
 func (f Function) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	fc := c.NewChild()
 	f.CompileBody(fc)
-	kidx := c.GetConstant(fc.GetCode())
+	kidx := c.GetConstant(fc.GetCode(f.name))
 	EmitInstr(c, f, ir.MkClosure{
 		Dst:      dst,
 		Code:     kidx,

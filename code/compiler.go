@@ -13,6 +13,7 @@ type Constant interface {
 }
 
 type Code struct {
+	Name                   string
 	StartOffset, EndOffset uint
 	UpvalueCount           int
 	RegCount               int

@@ -5,7 +5,7 @@ import (
 )
 
 type Code struct {
-	source       string
+	source, name string
 	code         []code.Opcode
 	lines        []int
 	consts       []Value
@@ -30,6 +30,7 @@ func LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 		case code.Code:
 			constants[i] = &Code{
 				source:       unit.Source,
+				name:         k.Name,
 				code:         unit.Code[k.StartOffset:k.EndOffset],
 				lines:        unit.Lines[k.StartOffset:k.EndOffset],
 				consts:       constants,

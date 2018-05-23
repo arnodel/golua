@@ -272,8 +272,13 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 	if !c.running {
 		pc--
 	}
+	name := c.name
+	if name == "" {
+		name = "<lua function>"
+	}
 	return &DebugInfo{
 		Source:      c.source,
+		Name:        c.name,
 		CurrentLine: c.lines[pc],
 	}
 }

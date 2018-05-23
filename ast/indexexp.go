@@ -43,6 +43,13 @@ func (e IndexExp) CompileAssign(c *ir.Compiler, src ir.Register) {
 	})
 }
 
+func (e IndexExp) FunctionName() string {
+	if s, ok := e.index.(String); ok {
+		return string(s.val)
+	}
+	return ""
+}
+
 func (e IndexExp) HWrite(w HWriter) {
 	w.Writef("idx")
 	w.Indent()

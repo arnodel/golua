@@ -123,4 +123,5 @@ type ExpNode interface {
 type Var interface {
 	ExpNode
 	CompileAssign(*ir.Compiler, ir.Register)
+	FunctionName() string
 }
