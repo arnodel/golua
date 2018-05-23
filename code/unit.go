@@ -6,17 +6,23 @@ import (
 )
 
 type Unit struct {
+	Source    string
 	Code      []Opcode
 	Lines     []int
 	Constants []Constant
 }
 
-func NewUnit(code []Opcode, lines []int, constants []Constant) *Unit {
+func NewUnit(source string, code []Opcode, lines []int, constants []Constant) *Unit {
 	return &Unit{
+		Source:    source,
 		Code:      code,
 		Lines:     lines,
 		Constants: constants,
 	}
+}
+
+func (u *Unit) Disassemble(w io.Writer) {
+	NewUnitDisassembler(u).Disassemble(w)
 }
 
 type UnitDisassembler struct {

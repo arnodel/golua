@@ -45,6 +45,10 @@ func (c *Termination) Next() Cont {
 	return nil
 }
 
+func (c *Termination) DebugInfo() *DebugInfo {
+	return nil
+}
+
 func (c *Termination) Get(n int) Value {
 	return c.args[n]
 }

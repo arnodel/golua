@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/arnodel/golua/ast"
+	"github.com/arnodel/golua/code"
 	"github.com/arnodel/golua/parser"
 	"github.com/arnodel/golua/scanner"
 )
@@ -242,7 +243,7 @@ func SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, *Error)
 	})
 }
 
-func CompileLuaChunk(name string, source []byte, env *Table) (*Closure, error) {
+func CompileLuaChunk(name string, source []byte) (*code.Unit, error) {
 	p := parser.NewParser()
 	s := scanner.New(name, source)
 	tree, err := p.Parse(s)
@@ -256,6 +257,14 @@ func CompileLuaChunk(name string, source []byte, env *Table) (*Closure, error) {
 	}
 	c := tree.(ast.BlockStat).CompileChunk(name)
 	kc := c.NewConstantCompiler()
-	unit := kc.CompileQueue()
+	return kc.CompileQueue(), nil
+
+}
+
+func CompileAndLoadLuaChunk(name string, source []byte, env *Table) (*Closure, error) {
+	unit, err := CompileLuaChunk(name, source)
+	if err != nil {
+		return nil, err
+	}
 	return LoadLuaUnit(unit, env), nil
 }

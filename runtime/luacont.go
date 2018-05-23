@@ -9,6 +9,7 @@ type LuaCont struct {
 	registers []Value
 	pc        int16
 	acc       []Value
+	running   bool
 }
 
 func NewLuaCont(clos *Closure, next Cont) *LuaCont {
@@ -37,48 +38,6 @@ func (c *LuaCont) Push(val Value) {
 	}
 }
 
-func (c *LuaCont) setReg(reg code.Reg, val Value) {
-	// if val == nil {
-	// 	val = NilType{}
-	// }
-	switch reg.Tp() {
-	case code.Register:
-		c.registers[reg.Idx()] = val
-	default:
-		c.upvalues[reg.Idx()] = asCell(val)
-	}
-}
-
-func (c *LuaCont) getReg(reg code.Reg) Value {
-	switch reg.Tp() {
-	case code.Register:
-		return asValue(c.registers[reg.Idx()])
-	default:
-		return *c.upvalues[reg.Idx()].ref
-	}
-}
-
-func (c *LuaCont) getRegCell(reg code.Reg) Cell {
-	switch reg.Tp() {
-	case code.Register:
-		v := c.registers[reg.Idx()]
-		cell, ok := v.(Cell)
-		if !ok {
-			cell = Cell{&v}
-			c.registers[reg.Idx()] = cell
-		}
-		return cell
-	default:
-		return c.upvalues[reg.Idx()]
-	}
-}
-
-func (c *LuaCont) clearReg(reg code.Reg) {
-	if reg.Tp() == code.Register {
-		c.registers[reg.Idx()] = nil
-	}
-}
-
 func (c *LuaCont) Next() Cont {
 	next, ok := c.registers[0].(Cont)
 	if !ok {
@@ -90,6 +49,7 @@ func (c *LuaCont) Next() Cont {
 func (c *LuaCont) RunInThread(t *Thread) (Cont, *Error) {
 	pc := c.pc
 	consts := c.consts
+	c.running = true
 	// fmt.Println("START", c)
 RunLoop:
 	for {
@@ -299,9 +259,63 @@ RunLoop:
 				pc++
 				c.pc = pc
 				c.acc = nil
+				c.running = false
 				return c.getReg(opcode.GetA()).(Cont), nil
 			}
 		}
 	}
 	// return nil, errors.New("Invalid PC")
+}
+
+func (c *LuaCont) DebugInfo() *DebugInfo {
+	pc := c.pc
+	if !c.running {
+		pc--
+	}
+	return &DebugInfo{
+		Source:      c.source,
+		CurrentLine: c.lines[pc],
+	}
+}
+
+func (c *LuaCont) setReg(reg code.Reg, val Value) {
+	// if val == nil {
+	// 	val = NilType{}
+	// }
+	switch reg.Tp() {
+	case code.Register:
+		c.registers[reg.Idx()] = val
+	default:
+		c.upvalues[reg.Idx()] = asCell(val)
+	}
+}
+
+func (c *LuaCont) getReg(reg code.Reg) Value {
+	switch reg.Tp() {
+	case code.Register:
+		return asValue(c.registers[reg.Idx()])
+	default:
+		return *c.upvalues[reg.Idx()].ref
+	}
+}
+
+func (c *LuaCont) getRegCell(reg code.Reg) Cell {
+	switch reg.Tp() {
+	case code.Register:
+		v := c.registers[reg.Idx()]
+		cell, ok := v.(Cell)
+		if !ok {
+			cell = Cell{&v}
+			c.registers[reg.Idx()] = cell
+		}
+		return cell
+	default:
+		return c.upvalues[reg.Idx()]
+	}
+}
+
+func (c *LuaCont) clearReg(reg code.Reg) {
+	if reg.Tp() == code.Register {
+		c.registers[reg.Idx()] = nil
+	}
 }

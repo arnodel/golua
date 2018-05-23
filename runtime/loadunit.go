@@ -1,9 +1,13 @@
 package runtime
 
-import "github.com/arnodel/golua/code"
+import (
+	"github.com/arnodel/golua/code"
+)
 
 type Code struct {
+	source       string
 	code         []code.Opcode
+	lines        []int
 	consts       []Value
 	UpvalueCount int
 	RegCount     int
@@ -25,7 +29,9 @@ func LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 			// constants[i] = NilType{}
 		case code.Code:
 			constants[i] = &Code{
+				source:       unit.Source,
 				code:         unit.Code[k.StartOffset:k.EndOffset],
+				lines:        unit.Lines[k.StartOffset:k.EndOffset],
 				consts:       constants,
 				UpvalueCount: k.UpvalueCount,
 				RegCount:     k.RegCount,

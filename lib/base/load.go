@@ -46,7 +46,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	// TODO: use chunkMode
 	_ = chunkMode
-	clos, err := rt.CompileLuaChunk(chunkName, chunk, chunkEnv)
+	clos, err := rt.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv)
 	if err != nil {
 		return nil, rt.NewErrorE(err).AddContext(c)
 	}

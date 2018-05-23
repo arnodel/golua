@@ -52,7 +52,7 @@ func (f FunctionCall) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 }
 
 // TODO: move this to somewhere better
-func CallWithArgs(c *ir.Compiler, args []ExpNode, contReg ir.Register) {
+func compilePushArgs(c *ir.Compiler, args []ExpNode, contReg ir.Register) {
 	c.TakeRegister(contReg)
 	for i, arg := range args {
 		var argReg ir.Register
@@ -76,7 +76,6 @@ func CallWithArgs(c *ir.Compiler, args []ExpNode, contReg ir.Register) {
 		argReg = CompileExp(c, arg)
 		EmitInstr(c, arg, ir.Push{Cont: contReg, Item: argReg})
 	}
-	c.EmitNoLine(ir.Call{Cont: contReg})
 	c.ReleaseRegister(contReg)
 }
 
@@ -102,7 +101,8 @@ func (f FunctionCall) CompileCall(c *ir.Compiler, tail bool) {
 		contReg = c.GetFreeRegister()
 		EmitInstr(c, f, ir.MkCont{Dst: contReg, Closure: fReg, Tail: tail})
 	}
-	CallWithArgs(c, f.args, contReg)
+	compilePushArgs(c, f.args, contReg)
+	EmitInstr(c, f, ir.Call{Cont: contReg})
 }
 
 func (f FunctionCall) CompileStat(c *ir.Compiler) {

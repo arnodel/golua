@@ -113,3 +113,7 @@ func (c *Compiler) Code() []Opcode {
 func (c *Compiler) Lines() []int {
 	return c.lines
 }
+
+func (c *Compiler) Source() string {
+	return c.source
+}

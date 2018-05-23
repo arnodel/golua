@@ -73,6 +73,13 @@ func (c *GoCont) Next() Cont {
 	return c.next
 }
 
+func (c *GoCont) DebugInfo() *DebugInfo {
+	return &DebugInfo{
+		Source:      "[C]",
+		CurrentLine: 0,
+	}
+}
+
 func (c *GoCont) NArgs() int {
 	return c.nArgs
 }

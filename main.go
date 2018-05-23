@@ -3,13 +3,14 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 
-	"github.com/arnodel/golua/errors"
+	ccerrors "github.com/arnodel/golua/errors"
 	"github.com/arnodel/golua/lib/base"
 	"github.com/arnodel/golua/lib/coroutine"
 	"github.com/arnodel/golua/lib/packagelib"
@@ -19,6 +20,7 @@ import (
 )
 
 func main() {
+	disFlag := flag.Bool("dis", false, "Disassemble source instead of running it")
 	flag.Parse()
 	var chunkName string
 	var chunk []byte
@@ -50,14 +52,20 @@ func main() {
 	default:
 		fatal("At most 1 argument (lua file name)")
 	}
-	t := r.MainThread()
-	clos, err := runtime.CompileLuaChunk(chunkName, chunk, r.GlobalEnv())
+	unit, err := runtime.CompileLuaChunk(chunkName, chunk)
 	if err != nil {
 		fatal("Error parsing %s: %s", chunkName, err)
 	}
-	cerr := runtime.Call(t, clos, nil, runtime.NewTerminationWith(0, false))
+
+	if *disFlag {
+		unit.Disassemble(os.Stdout)
+		return
+	}
+
+	clos := runtime.LoadLuaUnit(unit, r.GlobalEnv())
+	cerr := runtime.Call(r.MainThread(), clos, nil, runtime.NewTerminationWith(0, false))
 	if cerr != nil {
-		fatal("Error running %s: %s", chunkName, cerr)
+		fatal("Error running %s: %s", chunkName, cerr.Traceback())
 	}
 }
 
@@ -98,16 +106,16 @@ func repl(rt *runtime.Runtime) {
 		if !more {
 			w = new(bytes.Buffer)
 			if err != nil {
-				fmt.Printf("!!! %#v\n", err)
+				fmt.Printf("!!! %s\n", err)
 			}
 		}
 	}
 }
 
 func runChunk(r *runtime.Runtime, source []byte) (bool, error) {
-	clos, err := runtime.CompileLuaChunk("<stdin>", source, r.GlobalEnv())
+	clos, err := runtime.CompileAndLoadLuaChunk("<stdin>", source, r.GlobalEnv())
 	if err != nil {
-		pErr, ok := err.(*errors.Error)
+		pErr, ok := err.(*ccerrors.Error)
 		if !ok {
 			return false, err
 		}
@@ -120,10 +128,10 @@ func runChunk(r *runtime.Runtime, source []byte) (bool, error) {
 		if len(term.Etc()) > 0 {
 			cerr = base.Print(t, term.Etc())
 			if cerr != nil {
-				return false, cerr
+				return false, errors.New(cerr.Traceback())
 			}
 		}
 		return false, nil
 	}
-	return false, cerr
+	return false, errors.New(cerr.Traceback())
 }
