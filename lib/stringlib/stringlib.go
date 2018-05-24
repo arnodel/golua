@@ -14,6 +14,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
 	rt.SetEnvGoFunc(pkg, "len", lenf, 1, false)
 	rt.SetEnvGoFunc(pkg, "lower", lower, 1, false)
+	rt.SetEnvGoFunc(pkg, "rep", rep, 3, false)
 
 	stringMeta := rt.NewTable()
 	rt.SetEnv(stringMeta, "__index", pkg)
@@ -101,4 +102,52 @@ func lower(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	s = rt.String(strings.ToLower(string(s)))
 	return c.PushingNext(s), nil
+}
+
+func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err.AddContext(c)
+	}
+	ls, err := c.StringArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	ln, err := c.IntArg(1)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	n := int(ln)
+	if n < 0 {
+		return nil, rt.NewErrorS("#2 out of range").AddContext(c)
+	}
+	var sep []byte
+	if c.NArgs() >= 3 {
+		lsep, err := c.StringArg(2)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+		sep = []byte(lsep)
+	}
+	if n == 0 {
+		return c.PushingNext(rt.String("")), nil
+	}
+	if n == 1 {
+		return c.PushingNext(ls), nil
+	}
+	if sep == nil {
+		return c.PushingNext(rt.String(strings.Repeat(string(ls), n))), nil
+	}
+	s := []byte(ls)
+	builder := strings.Builder{}
+	builder.Grow(n*len(s) + (n-1)*len(sep))
+	builder.Write(s)
+	for {
+		n--
+		if n == 0 {
+			break
+		}
+		builder.Write(sep)
+		builder.Write(s)
+	}
+	return c.PushingNext(rt.String(builder.String())), nil
 }

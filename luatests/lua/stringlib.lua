@@ -40,3 +40,22 @@ do
     print(string.lower("ABCdef123"))
     --> =abcdef123
 end
+
+do
+    local s = "xy"
+    for i = 0, 3 do
+        print(s:rep(i))
+    end
+    --> =
+    --> =xy
+    --> =xyxy
+    --> =xyxyxy
+
+    for i = 0, 3 do
+        print(s:rep(i, "--"))
+    end
+    --> =
+    --> =xy
+    --> =xy--xy
+    --> =xy--xy--xy
+end
