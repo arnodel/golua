@@ -14,6 +14,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
 	rt.SetEnvGoFunc(pkg, "len", lenf, 1, false)
 	rt.SetEnvGoFunc(pkg, "lower", lower, 1, false)
+	rt.SetEnvGoFunc(pkg, "upper", upper, 1, false)
 	rt.SetEnvGoFunc(pkg, "rep", rep, 3, false)
 
 	stringMeta := rt.NewTable()
@@ -101,6 +102,18 @@ func lower(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	s = rt.String(strings.ToLower(string(s)))
+	return c.PushingNext(s), nil
+}
+
+func upper(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	s, err := c.StringArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	s = rt.String(strings.ToUpper(string(s)))
 	return c.PushingNext(s), nil
 }
 

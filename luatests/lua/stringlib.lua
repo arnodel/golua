@@ -37,8 +37,12 @@ do
 end
 
 do
-    print(string.lower("ABCdef123"))
+    local s = "ABCdef123"
+    print(s:lower())
     --> =abcdef123
+
+    print(s:upper())
+    --> =ABCDEF123
 end
 
 do
