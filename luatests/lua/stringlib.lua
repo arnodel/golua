@@ -72,3 +72,19 @@ do
     print(string.reverse("12345"))
     --> =54321
 end
+
+do
+    local s = "abc"
+    for i = -4, 4 do
+        print(s:sub(i))
+    end
+    --> =abc
+    --> =abc
+    --> =bc
+    --> =c
+    --> =abc
+    --> =abc
+    --> =bc
+    --> =c
+    --> =
+end

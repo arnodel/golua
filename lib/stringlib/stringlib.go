@@ -17,10 +17,33 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "upper", upper, 1, false)
 	rt.SetEnvGoFunc(pkg, "rep", rep, 3, false)
 	rt.SetEnvGoFunc(pkg, "reverse", reverse, 1, false)
+	rt.SetEnvGoFunc(pkg, "sub", sub, 3, false)
 
 	stringMeta := rt.NewTable()
 	rt.SetEnv(stringMeta, "__index", pkg)
 	r.SetStringMeta(stringMeta)
+}
+
+func pos(s rt.String, n rt.Int) int {
+	p := int(n)
+	if p < 0 {
+		p = len(s) + 1 + p
+	}
+	return p
+}
+
+func maxpos(i, j int) int {
+	if i > j {
+		return i
+	}
+	return j
+}
+
+func minpos(i, j int) int {
+	if i < j {
+		return i
+	}
+	return j
 }
 
 func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -31,35 +54,25 @@ func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	var i rt.Int = 1
-	var j rt.Int = 1
+	i, j := 1, 1
 	if c.NArgs() >= 2 {
-		var err *rt.Error
-		i, err = c.IntArg(1)
+		ii, err := c.IntArg(1)
 		if err != nil {
 			return nil, err.AddContext(c)
 		}
+		i = pos(s, ii)
 		j = i
 	}
 	if c.NArgs() >= 3 {
-		var err *rt.Error
-		j, err = c.IntArg(2)
+		jj, err := c.IntArg(2)
 		if err != nil {
 			return nil, err.AddContext(c)
 		}
-	}
-	if j < 0 {
-		j = rt.Int(len(s)+1) + j
-	} else if j > rt.Int(len(s)) {
-		j = rt.Int(len(s))
-	}
-	if i < 0 {
-		i = rt.Int(len(s)+1) + i
-	}
-	if i <= 0 {
-		i = rt.Int(1)
+		j = pos(s, jj)
 	}
 	next := c.Next()
+	i = maxpos(1, i)
+	j = minpos(len(s), j)
 	for i <= j {
 		next.Push(rt.Int(s[i-1]))
 		i++
@@ -180,4 +193,34 @@ func reverse(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		sb[i], sb[l-i] = sb[l-i], sb[i]
 	}
 	return c.PushingNext(rt.String(sb)), nil
+}
+
+func sub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err.AddContext(c)
+	}
+	s, err := c.StringArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	ii, err := c.IntArg(1)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	i := pos(s, ii)
+	j := len(s)
+	if c.NArgs() >= 3 {
+		jj, err := c.IntArg(2)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+		j = pos(s, jj)
+	}
+	var slice rt.String
+	i = maxpos(1, i)
+	j = minpos(len(s), j)
+	if i <= len(s) && i <= j {
+		slice = s[i-1 : j]
+	}
+	return c.PushingNext(slice), nil
 }
