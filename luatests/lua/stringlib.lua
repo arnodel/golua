@@ -35,3 +35,8 @@ do
     print(string.len("abc"), string.len(""))
     --> =3	0
 end
+
+do
+    print(string.lower("ABCdef123"))
+    --> =abcdef123
+end
