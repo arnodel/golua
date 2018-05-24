@@ -63,3 +63,12 @@ do
     --> =xy--xy
     --> =xy--xy--xy
 end
+
+do
+    local s = "EGASSEM TERCES"
+    print(s:reverse())
+    --> =SECRET MESSAGE
+
+    print(string.reverse("12345"))
+    --> =54321
+end

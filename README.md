@@ -179,7 +179,7 @@ TODO: write a lot more tests
 * package library: loading lua modules done - think about loading go
   modules, perhaps using the plugin mechanism
   (https://golang.org/pkg/plugin/)
-* string library: `byte`, `char`, `len`, `lower` done
+* string library: `byte`, `char`, `len`, `lower`, `upper`, `reverse` done
 * utf8 library: TODO
 * table library: TODO
 * math library: TODO

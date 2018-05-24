@@ -16,6 +16,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "lower", lower, 1, false)
 	rt.SetEnvGoFunc(pkg, "upper", upper, 1, false)
 	rt.SetEnvGoFunc(pkg, "rep", rep, 3, false)
+	rt.SetEnvGoFunc(pkg, "reverse", reverse, 1, false)
 
 	stringMeta := rt.NewTable()
 	rt.SetEnv(stringMeta, "__index", pkg)
@@ -163,4 +164,20 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		builder.Write(s)
 	}
 	return c.PushingNext(rt.String(builder.String())), nil
+}
+
+func reverse(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	s, err := c.StringArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	sb := []byte(s)
+	l := len(s) - 1
+	for i := 0; 2*i <= l; i++ {
+		sb[i], sb[l-i] = sb[l-i], sb[i]
+	}
+	return c.PushingNext(rt.String(sb)), nil
 }
