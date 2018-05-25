@@ -205,6 +205,7 @@ const (
 	OpLen
 	OpClosure
 	OpCont
+	OpTailCont
 	OpId
 	OpTruth // Turn operand to boolean
 	OpCell  // ?

@@ -190,6 +190,8 @@ RunLoop:
 					panic("unimplemented")
 				case code.OpCont:
 					res, err = Continue(t, val, c)
+				case code.OpTailCont:
+					res, err = Continue(t, val, c.Next())
 				case code.OpId:
 					res = val
 				case code.OpEtcId:

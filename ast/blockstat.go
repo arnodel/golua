@@ -1,6 +1,8 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
+import (
+	"github.com/arnodel/golua/ir"
+)
 
 type BlockStat struct {
 	Location
@@ -36,6 +38,17 @@ func (s BlockStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
+func tailCall(rtn []ExpNode) *FunctionCall {
+	if len(rtn) != 1 {
+		return nil
+	}
+	fc, ok := rtn[0].(*FunctionCall)
+	if !ok {
+		return nil
+	}
+	return fc
+}
+
 func (s BlockStat) CompileBlock(c *ir.Compiler) {
 	totalDepth := 0
 	getLabels(c, s.statements)
@@ -50,16 +63,20 @@ func (s BlockStat) CompileBlock(c *ir.Compiler) {
 		stat.CompileStat(c)
 	}
 	if s.returnValues != nil {
-		contReg, ok := c.GetRegister(ir.Name("<caller>"))
-		if !ok {
-			panic("Cannot return: no caller")
+		if fc := tailCall(s.returnValues); fc != nil {
+			fc.CompileCall(c, true)
+		} else {
+			contReg, ok := c.GetRegister(ir.Name("<caller>"))
+			if !ok {
+				panic("Cannot return: no caller")
+			}
+			compilePushArgs(c, s.returnValues, contReg)
+			var loc Locator
+			if len(s.returnValues) > 0 {
+				loc = s.returnValues[0]
+			}
+			EmitInstr(c, loc, ir.Call{Cont: contReg})
 		}
-		compilePushArgs(c, s.returnValues, contReg)
-		var loc Locator
-		if len(s.returnValues) > 0 {
-			loc = s.returnValues[0]
-		}
-		EmitInstr(c, loc, ir.Call{Cont: contReg})
 	}
 	for ; totalDepth > 0; totalDepth-- {
 		c.PopContext()

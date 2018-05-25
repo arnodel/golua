@@ -228,7 +228,11 @@ type MkCont struct {
 }
 
 func (m MkCont) Compile(kc InstrCompiler) {
-	opcode := code.MkType4a(code.Off, code.OpCont, codeReg(m.Dst), codeReg(m.Closure))
+	op := code.OpCont
+	if m.Tail {
+		op = code.OpTailCont
+	}
+	opcode := code.MkType4a(code.Off, op, codeReg(m.Dst), codeReg(m.Closure))
 	kc.Emit(opcode)
 }
 

@@ -1,6 +1,7 @@
 package stringlib
 
 import (
+	"fmt"
 	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
@@ -18,6 +19,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "rep", rep, 3, false)
 	rt.SetEnvGoFunc(pkg, "reverse", reverse, 1, false)
 	rt.SetEnvGoFunc(pkg, "sub", sub, 3, false)
+	rt.SetEnvGoFunc(pkg, "format", format, 1, true)
 
 	stringMeta := rt.NewTable()
 	rt.SetEnv(stringMeta, "__index", pkg)
@@ -223,4 +225,20 @@ func sub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		slice = s[i-1 : j]
 	}
 	return c.PushingNext(slice), nil
+}
+
+func format(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	s, err := c.StringArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	etc := make([]interface{}, len(c.Etc()))
+	for i, v := range c.Etc() {
+		etc[i] = v
+	}
+	res := fmt.Sprintf(string(s), etc...)
+	return c.PushingNext(rt.String(res)), nil
 }

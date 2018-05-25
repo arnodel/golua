@@ -88,3 +88,8 @@ do
     --> =c
     --> =
 end
+
+do
+    print(string.format("%s=%f", "pi", 3.14))
+    --> =pi=3.140000
+end
