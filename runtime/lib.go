@@ -170,7 +170,7 @@ func AsString(x Value) (String, bool) {
 	return String(""), false
 }
 
-func concat(t *Thread, x, y Value) (Value, *Error) {
+func Concat(t *Thread, x, y Value) (Value, *Error) {
 	if sx, ok := AsString(x); ok {
 		if sy, ok := AsString(y); ok {
 			return sx + sy, nil

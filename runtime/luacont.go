@@ -111,7 +111,7 @@ RunLoop:
 			// Concatenation
 
 			case code.OpConcat:
-				res, err = concat(t, x, y)
+				res, err = Concat(t, x, y)
 			default:
 				panic("unsupported")
 			}
