@@ -110,3 +110,17 @@ do
     print(table.concat(t, " "))
     --> =ball bar bat four fur
 end
+
+do
+    print(table.unpack({3, 4, 1, 5}))
+    --> =3	4	1	5
+
+    print(table.unpack({1, 2, 3, 4, 5, 6}, 3, 5))
+    --> =3	4	5
+
+    print(table.unpack({3, 2, 1}, 3, 5))
+    --> =1	nil	nil
+
+    print(table.unpack({4, 3, 2}, -1, 1))
+    --> =nil	nil	4
+end

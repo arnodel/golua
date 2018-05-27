@@ -15,6 +15,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "pack", pack, 0, true)
 	rt.SetEnvGoFunc(pkg, "remove", remove, 2, false)
 	rt.SetEnvGoFunc(pkg, "sort", sortf, 2, false)
+	rt.SetEnvGoFunc(pkg, "unpack", unpack, 3, false)
 }
 
 func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -322,4 +323,40 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 	sorter := &tableSorter{len, less, swap}
 	sort.Sort(sorter)
 	return c.Next(), nil
+}
+
+func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	tbl, err := c.TableArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	var i rt.Int = 1
+	var j rt.Int
+	nargs := c.NArgs()
+	if nargs >= 2 {
+		i, err = c.IntArg(1)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+	}
+	if nargs >= 3 {
+		j, err = c.IntArg(2)
+	} else {
+		j, err = rt.Len(t, tbl)
+	}
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	next := c.Next()
+	for ; i <= j; i++ {
+		val, err := rt.Index(t, tbl, i)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+		next.Push(val)
+	}
+	return next, nil
 }
