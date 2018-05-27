@@ -7,6 +7,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnv(r.GlobalEnv(), "table", pkg)
 	rt.SetEnvGoFunc(pkg, "concat", concat, 4, false)
 	rt.SetEnvGoFunc(pkg, "insert", insert, 3, false)
+	rt.SetEnvGoFunc(pkg, "move", move, 5, false)
 }
 
 func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -116,4 +117,66 @@ func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	return c.Next(), nil
+}
+
+func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(4); err != nil {
+		return nil, err.AddContext(c)
+	}
+	src, err := c.TableArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	srcStart, err := c.IntArg(1)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	srcEnd, err := c.IntArg(2)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	dstStart, err := c.IntArg(3)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	dst := src
+	if c.NArgs() >= 5 {
+		dst, err = c.TableArg(4)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+	}
+	if srcStart > srcEnd {
+		// Nothing to do apparently!
+	} else if dstStart >= srcStart {
+		// Move in descending order to avoid writing at a position
+		// before moving it
+		dstStart += srcEnd - srcStart
+		for srcEnd >= srcStart {
+			v, err := rt.Index(t, src, srcEnd)
+			if err == nil {
+				err = rt.SetIndex(t, dst, dstStart, v)
+			}
+			if err != nil {
+				return nil, err.AddContext(c)
+			}
+			srcEnd--
+			dstStart--
+		}
+	} else {
+		// Move in ascending order to avoid writing at a position
+		// before moving it
+		for srcStart <= srcEnd {
+			v, err := rt.Index(t, src, srcStart)
+			if err == nil {
+				err = rt.SetIndex(t, dst, dstStart, v)
+			}
+			if err != nil {
+				return nil, err.AddContext(c)
+			}
+			srcStart++
+			dstStart++
+		}
+	}
+	return c.PushingNext(dst), nil
 }

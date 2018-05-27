@@ -43,3 +43,18 @@ do
     print(pcall(table.insert, t, -1, 1))
     --> ~^false\t.*
 end
+
+do
+    local t = {1, 2, 3, 4}
+    table.move(t, 2, 4, 3)
+    print(table.concat(t))
+    --> =12234
+
+    table.move(t, 3, 5, 2)
+    print(table.concat(t))
+    --> =12344
+
+    local u = {}
+    print(table.concat(table.move(t, 1, 4, 1, u)))
+    --> =1234
+end
