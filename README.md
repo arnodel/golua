@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/arnodel/golua.svg?branch=master)](https://travis-ci.com/arnodel/golua)
+
 # GoLua
 
 Implementation of Lua in Go.
