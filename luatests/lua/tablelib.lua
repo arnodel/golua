@@ -66,3 +66,31 @@ do
     print(table.concat(t))
     --> =32145
 end
+
+do
+    local t = {1, 2, 3, 4, 5}
+    print(table.remove(t))
+    --> =5
+
+    print(table.remove(t))
+    --> =4
+
+    print(table.remove(t, 2))
+    --> =2
+
+    print(table.concat(t))
+    --> =13
+
+    print(table.remove({}))
+    --> =nil
+
+    print(table.remove({}, 0))
+    --> =nil
+
+    print(table.remove({}, 1))
+    --> =nil
+
+    print(table.remove(t, 3))
+    --> =nil
+          
+end

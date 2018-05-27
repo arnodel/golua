@@ -9,6 +9,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "insert", insert, 3, false)
 	rt.SetEnvGoFunc(pkg, "move", move, 5, false)
 	rt.SetEnvGoFunc(pkg, "pack", pack, 0, true)
+	rt.SetEnvGoFunc(pkg, "remove", remove, 2, false)
 }
 
 func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -190,4 +191,47 @@ func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	tbl.Set(rt.String("n"), rt.Int(len(c.Etc())))
 	return c.PushingNext(tbl), nil
+}
+
+func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	tbl, err := c.TableArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	tblLen, err := rt.Len(t, tbl)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	pos := tblLen
+	if c.NArgs() >= 2 {
+		pos, err = c.IntArg(1)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+	}
+	var val rt.Value
+	switch {
+	case pos == tblLen || pos == tblLen+1:
+		val, err = rt.Index(t, tbl, pos)
+		if err == nil {
+			err = rt.SetIndex(t, tbl, pos, nil)
+		}
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+	case pos <= 0 || pos > tblLen:
+		return nil, rt.NewErrorS("#2 out of range").AddContext(c)
+	default:
+		var newVal rt.Value = nil
+		for pos <= tblLen {
+			val, err = rt.Index(t, tbl, tblLen)
+			rt.SetIndex(t, tbl, tblLen, newVal)
+			tblLen--
+			newVal = val
+		}
+	}
+	return c.PushingNext(val), nil
 }
