@@ -29,3 +29,17 @@ do
     print(pcall(table.concat(t, "", 2, 5)))
     --> ~^false\t.*
 end
+
+do
+    local t = {1, 2, 3}
+    table.insert(t, "foo")
+    print(t[4])
+    --> =foo
+
+    table.insert(t, 2, 42)
+    print(t[2], t[3], #t)
+    --> =42	2	5
+
+    print(pcall(table.insert, t, -1, 1))
+    --> ~^false\t.*
+end

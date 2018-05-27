@@ -43,7 +43,7 @@ func Index(t *Thread, coll Value, idx Value) (Value, *Error) {
 	}
 }
 
-func setindex(t *Thread, coll Value, idx Value, val Value) *Error {
+func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
 	tbl, ok := coll.(*Table)
 	if ok {
 		if tbl.Get(idx) != nil {
@@ -60,7 +60,7 @@ func setindex(t *Thread, coll Value, idx Value, val Value) *Error {
 	}
 	switch metaNewIndex.(type) {
 	case *Table:
-		return setindex(t, metaNewIndex, idx, val)
+		return SetIndex(t, metaNewIndex, idx, val)
 	default:
 		return Call(t, metaNewIndex, []Value{coll, idx, val}, NewTermination(nil, nil))
 	}
@@ -183,19 +183,26 @@ func Concat(t *Thread, x, y Value) (Value, *Error) {
 	return nil, NewErrorS("concat expects concatable values")
 }
 
-func Len(t *Thread, v Value) (Value, *Error) {
+func Len(t *Thread, v Value) (Int, *Error) {
 	if s, ok := v.(String); ok {
 		return Int(len(s)), nil
 	}
 	res := NewTerminationWith(1, false)
 	err, ok := Metacall(t, v, "__len", []Value{v}, res)
 	if ok {
-		return res.Get(0), err
+		if err != nil {
+			return Int(0), err
+		}
+		l, tp := ToInt(res.Get(0))
+		if tp != IsInt {
+			err = NewErrorS("len should return an integer")
+		}
+		return l, err
 	}
 	if tbl, ok := v.(*Table); ok {
 		return tbl.Len(), nil
 	}
-	return nil, NewErrorS("Cannot compute len")
+	return Int(0), NewErrorS("Cannot compute len")
 }
 
 func Type(v Value) String {

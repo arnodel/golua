@@ -144,7 +144,7 @@ RunLoop:
 				}
 				c.setReg(reg, val)
 			} else {
-				err := setindex(t, coll, idx, c.getReg(reg))
+				err := SetIndex(t, coll, idx, c.getReg(reg))
 				if err != nil {
 					return nil, err.AddContext(c)
 				}

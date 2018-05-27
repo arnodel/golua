@@ -11,16 +11,12 @@ func ipairsIteratorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	lv, err := rt.Len(t, coll)
+	l, err := rt.Len(t, coll)
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	li, tp := rt.ToInt(lv)
-	if tp != rt.IsInt {
-		return nil, rt.NewErrorS("length of #1 not an integer").AddContext(c)
-	}
 	next := c.Next()
-	if n < li {
+	if n < l {
 		n += 1
 		v, err := rt.Index(t, c.Arg(0), n)
 		if err != nil {

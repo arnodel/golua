@@ -6,6 +6,7 @@ func Load(r *rt.Runtime) {
 	pkg := rt.NewTable()
 	rt.SetEnv(r.GlobalEnv(), "table", pkg)
 	rt.SetEnvGoFunc(pkg, "concat", concat, 4, false)
+	rt.SetEnvGoFunc(pkg, "insert", insert, 3, false)
 }
 
 func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -18,13 +19,9 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	var sep rt.String
 	i := rt.Int(1)
-	jj, err := rt.Len(t, tbl)
+	j, err := rt.Len(t, tbl)
 	if err != nil {
 		return nil, err.AddContext(c)
-	}
-	j, tp := rt.ToInt(jj)
-	if tp != rt.IsInt {
-		return nil, rt.NewErrorS("table length not an integer").AddContext(c)
 	}
 Switch:
 	switch nargs := c.NArgs(); {
@@ -72,4 +69,51 @@ Switch:
 		return c.PushingNext(res), nil
 	}
 	return nil, err.AddContext(c)
+}
+
+func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err.AddContext(c)
+	}
+	tbl, err := c.TableArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	var val rt.Value
+	var pos rt.Int
+	tblLen, err := rt.Len(t, tbl)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	if c.NArgs() >= 3 {
+		pos, err = c.IntArg(1)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+		if pos <= 0 {
+			return nil, rt.NewErrorS("#2 out of range").AddContext(c)
+		}
+		val = c.Arg(2)
+	} else {
+		pos = tblLen + 1
+		val = c.Arg(1)
+	}
+	var oldVal rt.Value
+	for pos <= tblLen {
+		oldVal, err = rt.Index(t, tbl, pos)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+		err = rt.SetIndex(t, tbl, pos, val)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+		val = oldVal
+		pos++
+	}
+	err = rt.SetIndex(t, tbl, pos, val)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	return c.Next(), nil
 }
