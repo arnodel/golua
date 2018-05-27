@@ -8,6 +8,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "concat", concat, 4, false)
 	rt.SetEnvGoFunc(pkg, "insert", insert, 3, false)
 	rt.SetEnvGoFunc(pkg, "move", move, 5, false)
+	rt.SetEnvGoFunc(pkg, "pack", pack, 0, true)
 }
 
 func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -179,4 +180,14 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 	}
 	return c.PushingNext(dst), nil
+}
+
+func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	tbl := rt.NewTable()
+	// We can use tbl.Set() because tbl has no metatable
+	for i, v := range c.Etc() {
+		tbl.Set(rt.Int(i+1), v)
+	}
+	tbl.Set(rt.String("n"), rt.Int(len(c.Etc())))
+	return c.PushingNext(tbl), nil
 }

@@ -181,7 +181,7 @@ TODO: write a lot more tests
   (https://golang.org/pkg/plugin/)
 * string library: `byte`, `char`, `len`, `lower`, `upper`, `reverse`, `sub` done
 * utf8 library: TODO
-* table library: `concat`, `insert`, `move` done
+* table library: `concat`, `insert`, `move`, `pack` done
 * math library: TODO
 * io library: TODO
 * os library: TODO

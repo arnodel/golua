@@ -58,3 +58,11 @@ do
     print(table.concat(table.move(t, 1, 4, 1, u)))
     --> =1234
 end
+
+do
+    local t = table.pack(3, 2, 1, 4, 5)
+    print(t.n, #t)
+    --> =5	5
+    print(table.concat(t))
+    --> =32145
+end
