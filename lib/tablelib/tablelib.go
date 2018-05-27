@@ -1,6 +1,10 @@
 package tablelib
 
-import rt "github.com/arnodel/golua/runtime"
+import (
+	"sort"
+
+	rt "github.com/arnodel/golua/runtime"
+)
 
 func Load(r *rt.Runtime) {
 	pkg := rt.NewTable()
@@ -10,6 +14,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "move", move, 5, false)
 	rt.SetEnvGoFunc(pkg, "pack", pack, 0, true)
 	rt.SetEnvGoFunc(pkg, "remove", remove, 2, false)
+	rt.SetEnvGoFunc(pkg, "sort", sortf, 2, false)
 }
 
 func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -234,4 +239,87 @@ func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 	}
 	return c.PushingNext(val), nil
+}
+
+type tableSorter struct {
+	len  func() int
+	less func(i, j int) bool
+	swap func(i, j int)
+}
+
+func (s *tableSorter) Less(i, j int) bool {
+	return s.less(i, j)
+}
+
+func (s *tableSorter) Swap(i, j int) {
+	s.swap(i, j)
+}
+
+func (s *tableSorter) Len() int {
+	return s.len()
+}
+
+func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	tbl, err := c.TableArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	get := func(i int) rt.Value {
+		x, err := rt.Index(t, tbl, rt.Int(i+1))
+		if err != nil {
+			panic(err)
+		}
+		return x
+	}
+	set := func(i int, x rt.Value) {
+		err := rt.SetIndex(t, tbl, rt.Int(i+1), x)
+		if err != nil {
+			panic(err)
+		}
+	}
+	swap := func(i, j int) {
+		x, y := get(i), get(j)
+		set(i, y)
+		set(j, x)
+	}
+	len := func() int {
+		l, err := rt.Len(t, tbl)
+		if err != nil {
+			panic(err)
+		}
+		return int(l)
+	}
+	var less func(i, j int) bool
+	if c.NArgs() >= 2 {
+		comp := c.Arg(1)
+		term := rt.NewTerminationWith(1, false)
+		less = func(i, j int) bool {
+			term.Reset()
+			err := rt.Call(t, comp, []rt.Value{get(i), get(j)}, term)
+			if err != nil {
+				panic(err)
+			}
+			return rt.Truth(term.Get(0))
+		}
+	} else {
+		less = func(i, j int) bool {
+			res, err := rt.Lt(t, get(i), get(j))
+			if err != nil {
+				panic(err)
+			}
+			return res
+		}
+	}
+	defer func() {
+		if err := recover(); err != nil {
+			next = nil
+			resErr = err.(*rt.Error).AddContext(c)
+		}
+	}()
+	sorter := &tableSorter{len, less, swap}
+	sort.Sort(sorter)
+	return c.Next(), nil
 }

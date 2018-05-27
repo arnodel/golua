@@ -50,6 +50,9 @@ func (c *Termination) DebugInfo() *DebugInfo {
 }
 
 func (c *Termination) Get(n int) Value {
+	if n >= c.pushIndex {
+		return nil
+	}
 	return c.args[n]
 }
 
@@ -58,4 +61,11 @@ func (c *Termination) Etc() []Value {
 		return nil
 	}
 	return *c.etc
+}
+
+func (c *Termination) Reset() {
+	c.pushIndex = 0
+	if c.etc != nil {
+		c.etc = new([]Value)
+	}
 }

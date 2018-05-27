@@ -94,3 +94,19 @@ do
     --> =nil
           
 end
+
+do
+    local t = {3, 2, 4, 1, 5}
+    table.sort(t)
+    print(table.concat(t))
+    --> =12345
+
+    table.sort(t, function(x, y) return x > y end)
+    print(table.concat(t))
+    --> =54321
+
+    local t = {"bar", "bat", "fur", "ball", "four"}
+    table.sort(t)
+    print(table.concat(t, " "))
+    --> =ball bar bat four fur
+end

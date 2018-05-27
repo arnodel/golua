@@ -38,7 +38,7 @@ func eq(t *Thread, x, y Value) (bool, *Error) {
 	return false, NewErrorS("eq expects eqable values")
 }
 
-func lt(t *Thread, x, y Value) (bool, *Error) {
+func Lt(t *Thread, x, y Value) (bool, *Error) {
 	switch xx := x.(type) {
 	case Int:
 		switch yy := y.(type) {

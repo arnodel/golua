@@ -101,7 +101,7 @@ RunLoop:
 				res = Bool(r)
 			case code.OpLt:
 				var r bool
-				r, err = lt(t, x, y)
+				r, err = Lt(t, x, y)
 				res = Bool(r)
 			case code.OpLeq:
 				var r bool
