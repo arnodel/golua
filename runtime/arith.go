@@ -45,6 +45,36 @@ func add(t *Thread, x Value, y Value) (Value, *Error) {
 	return nil, NewErrorS("add expects addable values")
 }
 
+// func add(t *Thread, x Value, y Value) (Value, *Error) {
+// 	switch xx := x.(type) {
+// 	case Int:
+// 		switch yy := y.(type) {
+// 		case Int:
+// 			return xx + yy, nil
+// 		case Float:
+// 			return Float(xx) + yy, nil
+// 		case String:
+// 			return xx, nil
+// 		}
+// 	case Float:
+// 		switch yy := y.(type) {
+// 		case Int:
+// 			return xx + Float(yy), nil
+// 		case Float:
+// 			return xx + yy, nil
+// 		case String:
+// 			return xx, nil
+// 		}
+// 	case String:
+// 		return xx, nil
+// 	}
+// 	res, err, ok := metabin(t, "__add", x, y)
+// 	if ok {
+// 		return res, err
+// 	}
+// 	return nil, NewErrorS("add expects addable values")
+// }
+
 func sub(t *Thread, x Value, y Value) (Value, *Error) {
 	x, kx := ToNumber(x)
 	y, ky := ToNumber(y)
@@ -179,7 +209,7 @@ func modFloat(x, y Float) Float {
 	return r
 }
 
-func mod(t *Thread, x Value, y Value) (Value, *Error) {
+func Mod(t *Thread, x Value, y Value) (Value, *Error) {
 	x, kx := ToNumber(x)
 	y, ky := ToNumber(y)
 	switch kx {

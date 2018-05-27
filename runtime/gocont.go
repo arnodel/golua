@@ -152,6 +152,14 @@ func (c *GoCont) IntArg(n int) (Int, *Error) {
 	return i, nil
 }
 
+func (c *GoCont) FloatArg(n int) (Float, *Error) {
+	x, ok := ToFloat(c.Arg(n))
+	if !ok {
+		return 0, NewErrorF("#%d must be a number", n+1)
+	}
+	return x, nil
+}
+
 func (c *GoCont) TableArg(n int) (*Table, *Error) {
 	t, ok := c.Arg(n).(*Table)
 	if !ok {

@@ -33,3 +33,21 @@ func ToInt(v Value) (Int, NumberType) {
 	}
 	return 0, NaN
 }
+
+func ToFloat(v Value) (Float, bool) {
+	switch x := v.(type) {
+	case Int:
+		return Float(x), true
+	case Float:
+		return x, true
+	case String:
+		vv, tp := x.ToNumber()
+		switch tp {
+		case IsInt:
+			return Float(vv.(Int)), true
+		case IsFloat:
+			return vv.(Float), true
+		}
+	}
+	return 0, false
+}

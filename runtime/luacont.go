@@ -76,7 +76,7 @@ RunLoop:
 			case code.OpFloorDiv:
 				res, err = idiv(t, x, y)
 			case code.OpMod:
-				res, err = mod(t, x, y)
+				res, err = Mod(t, x, y)
 			case code.OpPow:
 				res, err = pow(t, x, y)
 
