@@ -185,9 +185,7 @@ TODO: write a lot more tests
   `sub` done
 * utf8 library: TODO
 * table library: done
-* math library: `abs`, `acos`, `asin`, `atan`, `ceil`, `cos`, `deg`,
-  `exp`, `floor`, `fmod`, `huge`, `log`, `max`, `maxinteger`, `min`,
-  `mininteger`, `modf`, `pi`, `rad` done
+* math library: done
 * io library: TODO
 * os library: TODO
 * debug library (I don't know how much of this can reasonably be

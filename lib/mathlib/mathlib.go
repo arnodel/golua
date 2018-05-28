@@ -2,6 +2,7 @@ package mathlib
 
 import (
 	"math"
+	"math/rand"
 
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -28,6 +29,14 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "modf", modf, 1, false)
 	rt.SetEnv(pkg, "pi", rt.Float(math.Pi))
 	rt.SetEnvGoFunc(pkg, "rad", rad, 1, false)
+	rt.SetEnvGoFunc(pkg, "random", random, 2, false)
+	rt.SetEnvGoFunc(pkg, "randomseed", randomseed, 1, false)
+	rt.SetEnvGoFunc(pkg, "sin", sin, 1, false)
+	rt.SetEnvGoFunc(pkg, "sqrt", sqrt, 1, false)
+	rt.SetEnvGoFunc(pkg, "tan", tan, 1, false)
+	rt.SetEnvGoFunc(pkg, "tointeger", tointeger, 1, false)
+	rt.SetEnvGoFunc(pkg, "type", typef, 1, false)
+	rt.SetEnvGoFunc(pkg, "ult", ult, 2, false)
 }
 
 func abs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -256,4 +265,119 @@ func rad(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	y := x * math.Pi / 180
 	return c.PushingNext(y), nil
+}
+
+// TODO: have a per runtime random generator
+func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	var err *rt.Error
+	var m rt.Int = 1
+	var n rt.Int
+	if c.NArgs() >= 2 {
+		m, err = c.IntArg(0)
+		if err == nil {
+			n, err = c.IntArg(1)
+		}
+	} else {
+		n, err = c.IntArg(0)
+	}
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	if m > n {
+		return nil, rt.NewErrorS("#2 must be >= #1").AddContext(c)
+	}
+	r := m + rt.Int(rand.Intn(int(n-m)))
+	return c.PushingNext(r), nil
+}
+
+func randomseed(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	seed, err := c.IntArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	rand.Seed(int64(seed))
+	return c.Next(), nil
+}
+
+func sin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	x, err := c.FloatArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	y := rt.Float(math.Sin(float64(x)))
+	return c.PushingNext(y), nil
+}
+
+func sqrt(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	x, err := c.FloatArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	y := rt.Float(math.Sqrt(float64(x)))
+	return c.PushingNext(y), nil
+}
+
+func tan(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	x, err := c.FloatArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	y := rt.Float(math.Tan(float64(x)))
+	return c.PushingNext(y), nil
+}
+
+func tointeger(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	n, err := c.IntArg(0)
+	if err != nil {
+		return c.PushingNext(nil), nil
+	}
+	return c.PushingNext(n), nil
+}
+
+func typef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	var tp rt.Value
+	switch c.Arg(0).(type) {
+	case rt.Int:
+		tp = rt.String("integer")
+	case rt.Float:
+		tp = rt.String("float")
+	}
+	return c.PushingNext(tp), nil
+}
+
+func ult(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err.AddContext(c)
+	}
+	x, err := c.IntArg(0)
+	var y rt.Int
+	if err == nil {
+		y, err = c.IntArg(1)
+	}
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	lt := rt.Bool(uint64(x) < uint64(y))
+	return c.PushingNext(lt), nil
 }
