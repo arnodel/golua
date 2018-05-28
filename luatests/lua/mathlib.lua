@@ -50,3 +50,27 @@ do
     print(math.log(1))
     --> =0
 end
+
+do
+    print(math.max(3, 5, 2, 1))
+    --> =5
+
+    print(math.min(3, 5, 2, 1))
+    --> =1
+end
+
+do
+    print(math.modf(1.5))
+    --> =1	0.5
+
+    print(math.modf(-1.5))
+    --> =-1	-0.5
+end
+
+do
+    print(math.rad(90) == math.pi / 2)
+    --> =true
+
+    print(math.deg(math.pi) == 180)
+    --> =true
+end

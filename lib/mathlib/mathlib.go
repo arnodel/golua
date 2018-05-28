@@ -21,7 +21,13 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "fmod", fmod, 2, false)
 	rt.SetEnv(pkg, "huge", rt.Float(math.Inf(1)))
 	rt.SetEnvGoFunc(pkg, "log", log, 2, false)
-
+	rt.SetEnvGoFunc(pkg, "max", max, 1, true)
+	rt.SetEnv(pkg, "maxinteger", rt.Int(math.MaxInt64))
+	rt.SetEnvGoFunc(pkg, "min", min, 1, true)
+	rt.SetEnv(pkg, "mininteger", rt.Int(math.MinInt64))
+	rt.SetEnvGoFunc(pkg, "modf", modf, 1, false)
+	rt.SetEnv(pkg, "pi", rt.Float(math.Pi))
+	rt.SetEnvGoFunc(pkg, "rad", rad, 1, false)
 }
 
 func abs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -189,4 +195,65 @@ func log(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		y = y / math.Log(float64(b))
 	}
 	return c.PushingNext(rt.Float(y)), nil
+}
+
+func max(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	x := c.Arg(0)
+	for _, y := range c.Etc() {
+		lt, err := rt.Lt(t, x, y)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+		if lt {
+			x = y
+		}
+	}
+	return c.PushingNext(x), nil
+}
+
+func min(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	x := c.Arg(0)
+	for _, y := range c.Etc() {
+		lt, err := rt.Lt(t, y, x)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+		if lt {
+			x = y
+		}
+	}
+	return c.PushingNext(x), nil
+}
+
+func modf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	x, err := c.FloatArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	i, f := math.Modf(float64(x))
+	next := c.Next()
+	next.Push(rt.Float(i))
+	next.Push(rt.Float(f))
+	return next, nil
+}
+
+func rad(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	x, err := c.FloatArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	y := x * math.Pi / 180
+	return c.PushingNext(y), nil
 }
