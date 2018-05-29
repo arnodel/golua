@@ -228,16 +228,6 @@ func Type(v Value) String {
 	return String(fmt.Sprintf("unknown(%+v)", v))
 }
 
-func SetEnvFunc(t *Table, name string, f func(*Thread, []Value, Cont) (Cont, *Error)) {
-	t.Set(String(name), &GoFunction{
-		nArgs:  0,
-		hasEtc: true,
-		f: func(t *Thread, c *GoCont) (Cont, *Error) {
-			return f(t, *c.etc, c.next)
-		},
-	})
-}
-
 func SetEnv(t *Table, name string, v Value) {
 	t.Set(String(name), v)
 }
