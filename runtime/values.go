@@ -68,9 +68,10 @@ type GoFunction struct {
 	hasEtc bool
 }
 
-func NewGoFunction(f func(*Thread, *GoCont) (Cont, *Error), nArgs int, hasEtc bool) *GoFunction {
+func NewGoFunction(f func(*Thread, *GoCont) (Cont, *Error), name string, nArgs int, hasEtc bool) *GoFunction {
 	return &GoFunction{
 		f:      f,
+		name:   name,
 		nArgs:  nArgs,
 		hasEtc: hasEtc,
 	}
