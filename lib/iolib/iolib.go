@@ -366,7 +366,7 @@ func typef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func iowrite(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	f := 
+	return nil, nil // TODO: implmement me
 }
 
 func write(f *File, values []rt.Value) *rt.Error {
