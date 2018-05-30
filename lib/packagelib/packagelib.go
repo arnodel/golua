@@ -178,9 +178,9 @@ func searchLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
-var loadLuaGoFunc = rt.NewGoFunction(loadLua, 2, false)
-var searchLuaGoFunc = rt.NewGoFunction(searchLua, 1, false)
-var searchPreloadGoFunc = rt.NewGoFunction(searchPreload, 1, false)
+var loadLuaGoFunc = rt.NewGoFunction(loadLua, "loadlua", 2, false)
+var searchLuaGoFunc = rt.NewGoFunction(searchLua, "searchlua", 1, false)
+var searchPreloadGoFunc = rt.NewGoFunction(searchPreload, "searchpreload", 1, false)
 
 func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {

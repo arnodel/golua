@@ -21,4 +21,4 @@ func next(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
-var nextGoFunc = rt.NewGoFunction(next, 2, false)
+var nextGoFunc = rt.NewGoFunction(next, "next", 2, false)

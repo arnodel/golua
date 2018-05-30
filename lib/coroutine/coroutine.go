@@ -120,7 +120,7 @@ func wrap(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		rt.Push(c.Next(), res...)
 		return c.Next(), nil
-	}, 0, true)
+	}, "wrap", 0, true)
 	next := c.Next()
 	next.Push(w)
 	return next, nil

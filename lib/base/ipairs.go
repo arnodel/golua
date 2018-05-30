@@ -28,7 +28,7 @@ func ipairsIteratorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
-var ipairsIterator = rt.NewGoFunction(ipairsIteratorF, 2, false)
+var ipairsIterator = rt.NewGoFunction(ipairsIteratorF, "ipairsiterator", 2, false)
 
 func ipairs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
