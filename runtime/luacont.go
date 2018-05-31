@@ -280,7 +280,7 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 	}
 	return &DebugInfo{
 		Source:      c.source,
-		Name:        c.name,
+		Name:        name,
 		CurrentLine: c.lines[pc],
 	}
 }
