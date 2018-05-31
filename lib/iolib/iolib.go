@@ -19,7 +19,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(methods, "lines", filelines, 1, true)
 	rt.SetEnvGoFunc(methods, "close", fileclose, 1, false)
 	rt.SetEnvGoFunc(methods, "flush", fileflush, 1, false)
-	// TODO: seek
+	rt.SetEnvGoFunc(methods, "seek", fileseek, 3, false)
 	// TODO: setvbuf
 	rt.SetEnvGoFunc(methods, "write", filewrite, 1, true)
 
@@ -326,6 +326,51 @@ func write(vf rt.Value, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next.Push(rt.String(err.Error()))
 	} else {
 		next.Push(vf)
+	}
+	return next, nil
+}
+
+func fileseek(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	f, err := FileArg(c, 0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	whence := io.SeekCurrent
+	offset := int64(0)
+	nargs := c.NArgs()
+	if nargs >= 2 {
+		whenceName, err := c.StringArg(1)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+		switch whenceName {
+		case "cur":
+			whence = io.SeekCurrent
+		case "set":
+			whence = io.SeekStart
+		case "end":
+			whence = io.SeekEnd
+		default:
+			return nil, rt.NewErrorS(`#1 must be "cur", "set" or "end"`).AddContext(c)
+		}
+	}
+	if nargs >= 3 {
+		offsetI, err := c.IntArg(2)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+		offset = int64(offsetI)
+	}
+	pos, ioErr := f.Seek(offset, whence)
+	next := c.Next()
+	if ioErr != nil {
+		next.Push(nil)
+		next.Push(rt.String(err.Error()))
+	} else {
+		next.Push(rt.Int(pos))
 	}
 	return next, nil
 }
