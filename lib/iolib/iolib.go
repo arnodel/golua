@@ -13,19 +13,22 @@ var ioKey = ioKeyType{}
 
 // Load io library
 func Load(r *rt.Runtime) {
-	meta := rt.NewTable()
-	rt.SetEnvGoFunc(meta, "read", fileread, 1, true)
-	rt.SetEnvGoFunc(meta, "lines", filelines, 1, true)
-	rt.SetEnvGoFunc(meta, "close", closef, 1, false)
-	rt.SetEnvGoFunc(meta, "flush", flush, 1, false)
+	methods := rt.NewTable()
+	rt.SetEnvGoFunc(methods, "read", fileread, 1, true)
+	rt.SetEnvGoFunc(methods, "lines", filelines, 1, true)
+	rt.SetEnvGoFunc(methods, "close", closef, 1, false)
+	rt.SetEnvGoFunc(methods, "flush", flush, 1, false)
 	// TODO: seek
 	// TODO: setvbuf
-	rt.SetEnvGoFunc(meta, "write", filewrite, 1, true)
+	rt.SetEnvGoFunc(methods, "write", filewrite, 1, true)
+
+	meta := rt.NewTable()
+	rt.SetEnv(meta, "__index", methods)
 
 	r.SetRegistry(ioKey, &ioData{
 		defaultOutput: rt.NewUserData(&File{file: os.Stdout}, meta),
 		defaultInput:  rt.NewUserData(&File{file: os.Stdin}, meta),
-		metatable:     meta,
+		metatable:     methods,
 	})
 	pkg := rt.NewTable()
 	rt.SetEnv(r.GlobalEnv(), "io", pkg)
