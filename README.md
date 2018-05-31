@@ -187,8 +187,8 @@ TODO: write a lot more tests
 * utf8 library: TODO
 * table library: done
 * math library: done
-* io library: TODO: `popen`, `tmpfile`, `file:setvbuf`, `read("n")`
-  (reading a number), the rest is done
+* io library: done apart from `popen`, `file:setvbuf`, `read("n")`
+  (reading a number)
 * os library: TODO
 * debug library (I don't know how much of this can reasonably be
   implemented as I didn't want to be constrained by it when designing
