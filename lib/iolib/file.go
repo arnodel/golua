@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
@@ -30,6 +31,22 @@ func ValueToFile(v rt.Value) (*File, bool) {
 		return u.Value().(*File), true
 	}
 	return nil, false
+}
+
+func TempFile() (*File, error) {
+	f, err := ioutil.TempFile("", "golua")
+	if err != nil {
+		return nil, err
+	}
+	ff := &File{file: f}
+
+	// FIXME: This is meant to remove the file when it becomes
+	// unreachable, but it doesn't appear to work.
+	runtime.SetFinalizer(ff, func(ff *File) {
+		_ = ff.file.Close()
+		_ = os.Remove(ff.Name())
+	})
+	return ff, nil
 }
 
 func (f *File) IsClosed() bool {

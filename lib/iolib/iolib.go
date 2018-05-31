@@ -49,7 +49,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "output", output, 1, false)
 	// TODO: popen
 	rt.SetEnvGoFunc(pkg, "read", ioread, 0, true)
-	// TODO: tmpfile
+	rt.SetEnvGoFunc(pkg, "tmpfile", tmpfile, 0, false)
 	rt.SetEnvGoFunc(pkg, "type", typef, 1, false)
 	rt.SetEnvGoFunc(pkg, "write", iowrite, 0, true)
 }
@@ -373,6 +373,15 @@ func fileseek(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next.Push(rt.Int(pos))
 	}
 	return next, nil
+}
+
+func tmpfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	f, err := TempFile()
+	if err != nil {
+		return nil, rt.NewErrorE(err).AddContext(c)
+	}
+	fv := rt.NewUserData(f, getIoData(t).metatable)
+	return c.PushingNext(fv), nil
 }
 
 func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
