@@ -11,7 +11,7 @@ import (
 )
 
 func IsNil(v Value) bool {
-	return v == nil || v == NilType{}
+	return v == nil
 }
 
 func RawGet(t *Table, k Value) Value {
@@ -70,14 +70,8 @@ func Truth(v Value) bool {
 	if v == nil {
 		return false
 	}
-	switch x := v.(type) {
-	case NilType:
-		return false
-	case Bool:
-		return bool(x)
-	default:
-		return true
-	}
+	b, ok := v.(Bool)
+	return !ok || bool(b)
 }
 
 func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (*Error, bool) {
@@ -164,8 +158,6 @@ func AsString(x Value) (String, bool) {
 			return String("true"), true
 		}
 		return String("false"), true
-	case NilType:
-		return String("nil"), true
 	}
 	return String(""), false
 }
@@ -216,8 +208,6 @@ func Type(v Value) String {
 		return String("number")
 	case *Table:
 		return String("table")
-	case NilType:
-		return String("nil")
 	case Bool:
 		return String("bool")
 	case *Closure:

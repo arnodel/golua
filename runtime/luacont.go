@@ -286,9 +286,6 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 }
 
 func (c *LuaCont) setReg(reg code.Reg, val Value) {
-	// if val == nil {
-	// 	val = NilType{}
-	// }
 	switch reg.Tp() {
 	case code.Register:
 		c.registers[reg.Idx()] = val

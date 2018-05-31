@@ -11,7 +11,6 @@ type Value interface{}
 type Bool bool
 type Int int64
 type Float float64
-type NilType struct{}
 type String string
 
 func (f Float) ToInt() (Int, NumberType) {
