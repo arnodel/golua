@@ -53,15 +53,14 @@ func toString(t *rt.Thread, v rt.Value) (rt.String, *rt.Error) {
 }
 
 func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() == 0 {
-		return nil, rt.NewErrorS("1 argument required")
+	if err := c.Check1Arg(); err != nil {
+		return nil, err
 	}
 	s, err := toString(t, c.Arg(0))
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	c.Next().Push(s)
-	return c.Next(), nil
+	return c.PushingNext(s), nil
 }
 
 func loadChunk(args []rt.Value) (chunk []byte, chunkName string, err error) {
