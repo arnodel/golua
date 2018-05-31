@@ -12,7 +12,7 @@ func ioread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if fmtErr != nil {
 		return nil, rt.NewErrorE(fmtErr).AddContext(c)
 	}
-	err := read(getIoData(t).defaultInput, readers, next)
+	err := read(getIoData(t).defaultInputFile(), readers, next)
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
@@ -90,4 +90,10 @@ func read(f *File, readers []formatReader, next rt.Cont) *rt.Error {
 		}
 	}
 	return nil
+}
+
+func lineReader(withEnd bool) formatReader {
+	return func(f *File) (rt.Value, error) {
+		return f.ReadLine(withEnd)
+	}
 }
