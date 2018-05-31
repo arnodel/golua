@@ -186,7 +186,8 @@ TODO: write a lot more tests
 * utf8 library: TODO
 * table library: done
 * math library: done
-* io library: TODO
+* io library: TODO: `popen`, `tmpfile`, `file:seek`, `file:setvbuf`,
+  rest done.
 * os library: TODO
 * debug library (I don't know how much of this can reasonably be
   implemented as I didn't want to be constrained by it when designing
