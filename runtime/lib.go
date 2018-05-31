@@ -224,6 +224,8 @@ func Type(v Value) String {
 		return String("function")
 	case *Thread:
 		return String("thread")
+	case *UserData:
+		return String("userdata")
 	}
 	return String(fmt.Sprintf("unknown(%+v)", v))
 }

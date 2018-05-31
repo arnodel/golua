@@ -54,7 +54,8 @@ func (r *Runtime) RawMetatable(v Value) *Table {
 		return r.boolMeta
 	case *Table:
 		return x.Metatable()
-		// case userdata:
+	case *UserData:
+		return x.Metatable()
 	default:
 		return nil
 	}
