@@ -38,7 +38,8 @@ func (f *File) IsClosed() bool {
 
 func (f *File) Close() error {
 	f.closed = true
-	return f.file.Close()
+	err := f.file.Close()
+	return err
 }
 
 func (f *File) Flush() error {
@@ -82,10 +83,11 @@ func (f *File) ReadLine(withEnd bool) (rt.Value, error) {
 			}
 			break
 		}
-		if b[0] == '\n' {
-			if withEnd {
-				buf.Write(b)
-			}
+		end := b[0] == '\n'
+		if withEnd || !end {
+			buf.Write(b)
+		}
+		if end {
 			break
 		}
 	}
@@ -116,4 +118,8 @@ func (f *File) ReadNumber() (rt.Value, error) {
 func (f *File) WriteString(s string) error {
 	_, err := f.file.Write([]byte(s))
 	return err
+}
+
+func (f *File) Name() string {
+	return f.file.Name()
 }
