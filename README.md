@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.com/arnodel/golua.svg?branch=master)](https://travis-ci.com/arnodel/golua)
+[![Go Report Card](https://goreportcard.com/badge/github.com/arnodel/golua)](https://goreportcard.com/report/github.com/arnodel/golua)
 
 # GoLua
 
