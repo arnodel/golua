@@ -116,7 +116,7 @@ Go applications.  It should be able to run any pure Lua code
 * register based VM
 * no call stack (continuation passing)
 
-## Componentes
+## Components
 
 ### Lexer / Parser
 
