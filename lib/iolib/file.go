@@ -98,7 +98,7 @@ func (f *File) Read(n int) (rt.Value, error) {
 	b := make([]byte, n)
 	n, err := f.file.Read(b)
 	if err == nil || err == io.EOF && n > 0 {
-		return rt.String(b), nil
+		return rt.String(b[:n]), nil
 	}
 	return nil, err
 }
@@ -118,6 +118,11 @@ func (f *File) ReadNumber() (rt.Value, error) {
 func (f *File) WriteString(s string) error {
 	_, err := f.file.Write([]byte(s))
 	return err
+}
+
+func (f *File) Seek(offset int64, whence int) (int64, error) {
+	return f.file.Seek(offset, whence)
+
 }
 
 func (f *File) Name() string {

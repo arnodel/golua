@@ -15,3 +15,5 @@
 
 # Emacs recovery files
 *~
+
+writetest*.txt
