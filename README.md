@@ -116,16 +116,9 @@ Go applications.  It should be able to run any pure Lua code
 * register based VM
 * no call stack (continuation passing)
 
-## Known unsolved issues
-
-* `collectgarbage()`. Probably a noop?
-
-## Roadmap
+## Componentes
 
 ### Lexer / Parser
-
-Done. Note a custom lexer is required to tokenise long strings and
-long comments.
 
 * The lexer is implemented in the package `scanner`.
 * The parser is generated from `lua.bnf` using gocc
@@ -134,34 +127,32 @@ long comments.
 
 ### AST -> IR Compilation
 
-Done
+The `ast` package defines all the AST nodes. Each node in the AST
+knows how to compile itself using an `ir.Compiler` instance.
 
-* Each node in the AST (package `ast`) knows how to compile itself
-  using an `ir.Compiler` instance.
-* IR instructions and compiler are defined in the `ir` package.
+The `ir` package defines all the IR instructions and the IR compiler.
 
 ### IR -> Code Compilation
 
-Done
-
-* Each IR instruction (package `ir`) know how to compiler itself using
-  an `ir.ConstantCompiler` instance (TODO: rename this type).
-* Runtime bytecode is defined in the `code` package
+The runtime bytecode is defined in the `code` package.  Each IR
+instruction (see package `ir`) know how to compile itself using an
+`ir.InstrCompiler` instance.
 
 ### Runtime
 
-Mostly done.  To do
-* tables: deleting entries with nil values
-* implementing weak tables (can it even be done?)
-* nil: decide between NilType{} and nil (currently both work)
-
-* The runtime is implemented in the `runtime` package.
+The runtime is implemented in the `runtime` package.  This defines a
+`Runtime` type which contains the global state of a runtime, a
+`Thread` type which can run a continuation, can yield and can be
+resumed, the various runtime data types (e.g. `String`, `Int`...). The
+bytecode interpreter is implemented in the `RunInThread` method of the
+`LuaCont` data type.
 
 ### Test Suite
 
-Framework done. In the directory `luatest/lua`, each `.lua` file is a
-test. Expected output is specified in the file as comments of a
-special form, starting with `-->`:
+There is a framework for running lua tests in the package `luatests`.
+In the directory `luatests/lua`, each `.lua` file is a test. Expected
+output is specified in the file as comments of a special form,
+starting with `-->`:
 
 ```lua
 print(1 + 2)
@@ -173,23 +164,32 @@ print("ababab")
 -- "~" means match with a regexp (syntax is go regexp)
 ```
 
-TODO: write a lot more tests
+There is good coverage of the standard library but more tests need to
+be written for the core language.
 
 ### Standard Library
 
-* basic library: done apart from `xpcall`
-* coroutine library: done
-* package library: loading lua modules done - think about loading go
-  modules, perhaps using the plugin mechanism
-  (https://golang.org/pkg/plugin/)
-* string library: `byte`, `char`, `len`, `lower`, `upper`, `reverse`,
-  `sub` done
-* utf8 library: TODO
-* table library: done
-* math library: done
-* io library: done apart from `popen`, `file:setvbuf`, `read("n")`
-  (reading a number)
-* os library: TODO
+The `lib` directory contains a number of package, each implementing a
+lua library.
+
+* `base`: basic library. It is done apart from `xpcall` and
+  `collectgarbage`.
+* `coroutine`: the coroutine library, which is done.
+* `packagelib`: the package library.  It is able to load lua modules
+  but not "native" modules, which would be written in Go. Obviously
+  this is not part of the official Lua specification. Perhaps using
+  the plugin mechanism (https://golang.org/pkg/plugin/) would be a way
+  of doing it.  I have no plan to support Lua C modules!
+* `stringlib`: the string library.  It is partially implemented:
+  `byte`, `char`, `len`, `lower`, `upper`, `reverse`, `sub` are done.
+* `mathlib`: the math library,  It is complete.
+* `tablelib`: the table library.  It is complete.
+* `iolib`: the io library.  It is implemented apart from `popen`,
+  `file:setvbuf`, `read("n")` (reading a number)
+  
+The following libraries do not exist at all:
+* utf8 library
+* os library
 * debug library (I don't know how much of this can reasonably be
   implemented as I didn't want to be constrained by it when designing
   golua)
