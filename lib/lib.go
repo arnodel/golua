@@ -3,6 +3,7 @@ package lib
 import (
 	"github.com/arnodel/golua/lib/base"
 	"github.com/arnodel/golua/lib/coroutine"
+	"github.com/arnodel/golua/lib/iolib"
 	"github.com/arnodel/golua/lib/mathlib"
 	"github.com/arnodel/golua/lib/packagelib"
 	"github.com/arnodel/golua/lib/stringlib"
@@ -17,4 +18,5 @@ func Load(r *rt.Runtime) {
 	stringlib.Load(r)
 	tablelib.Load(r)
 	mathlib.Load(r)
+	iolib.Load(r)
 }

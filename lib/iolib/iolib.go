@@ -1,12 +1,8 @@
 package iolib
 
 import (
-	"bytes"
-	"errors"
 	"io"
-	"io/ioutil"
 	"os"
-	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -15,6 +11,7 @@ type ioKeyType struct{}
 
 var ioKey = ioKeyType{}
 
+// Load io library
 func Load(r *rt.Runtime) {
 	meta := rt.NewTable()
 	rt.SetEnvGoFunc(meta, "read", fileread, 1, true)
@@ -23,11 +20,11 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(meta, "flush", flush, 1, false)
 	// TODO: seek
 	// TODO: setvbuf
-	// TODO: write
+	rt.SetEnvGoFunc(meta, "write", filewrite, 1, true)
 
 	r.SetRegistry(ioKey, &ioData{
-		defaultOutput: &File{file: os.Stdout},
-		defaultInput:  &File{file: os.Stdin},
+		defaultOutput: rt.NewUserData(&File{file: os.Stdout}, meta),
+		defaultInput:  rt.NewUserData(&File{file: os.Stdin}, meta),
 		metatable:     meta,
 	})
 	pkg := rt.NewTable()
@@ -42,124 +39,27 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "read", ioread, 0, true)
 	// TODO: tmpfile
 	rt.SetEnvGoFunc(pkg, "type", typef, 1, false)
-	// TODO: write
+	rt.SetEnvGoFunc(pkg, "write", iowrite, 0, true)
 }
 
 type ioData struct {
-	defaultOutput *File
-	defaultInput  *File
+	defaultOutput rt.Value
+	defaultInput  rt.Value
 	metatable     *rt.Table
-}
-
-type File struct {
-	file   *os.File
-	closed bool
-}
-
-func (f *File) IsClosed() bool {
-	return f.closed
-}
-
-func (f *File) Close() error {
-	f.closed = true
-	return f.file.Close()
-}
-
-func (f *File) Flush() error {
-	return f.file.Sync()
-}
-
-func OpenFile(name, mode string) (*File, error) {
-	var flag int
-	switch strings.TrimSuffix(mode, "b") {
-	case "r":
-		flag = os.O_RDONLY
-	case "w":
-		flag = os.O_WRONLY | os.O_CREATE | os.O_TRUNC
-	case "a":
-		flag = os.O_WRONLY | os.O_CREATE | os.O_APPEND
-	case "r+":
-		flag = os.O_RDWR
-	case "w+":
-		flag = os.O_RDWR | os.O_CREATE | os.O_TRUNC
-	case "a+":
-		flag = os.O_RDWR | os.O_CREATE | os.O_APPEND
-	default:
-		return nil, errors.New("invalid mode")
-	}
-	f, err := os.OpenFile(name, flag, 0666)
-	if err != nil {
-		return nil, err
-	}
-	return &File{file: f}, nil
-}
-
-func (f *File) ReadLine(withEnd bool) (rt.Value, error) {
-	file := f.file
-	var buf bytes.Buffer
-	b := []byte{0}
-	for {
-		_, err := file.Read(b)
-		if err != nil {
-			if err != io.EOF || buf.Len() == 0 {
-				return nil, err
-			}
-			break
-		}
-		if b[0] == '\n' {
-			if withEnd {
-				buf.Write(b)
-			}
-			break
-		}
-	}
-	return rt.String(buf.String()), nil
-}
-
-func lineReader(withEnd bool) formatReader {
-	return func(f *File) (rt.Value, error) {
-		return f.ReadLine(withEnd)
-	}
-}
-
-func (f *File) Read(n int) (rt.Value, error) {
-	b := make([]byte, n)
-	n, err := f.file.Read(b)
-	if err == nil || err == io.EOF && n > 0 {
-		return rt.String(b), nil
-	}
-	return nil, err
-}
-
-func (f *File) ReadAll() (rt.Value, error) {
-	b, err := ioutil.ReadAll(f.file)
-	if err != nil {
-		return nil, err
-	}
-	return rt.String(b), nil
-}
-
-func (f *File) ReadNumber() (rt.Value, error) {
-	return nil, errors.New("readNumber unimplemented")
-}
-
-func (f *File) WriteString(s string) error {
-	_, err := f.file.Write([]byte(s))
-	return err
-}
-
-func FileArg(c *rt.GoCont, n int) (*File, *rt.Error) {
-	u, ok := c.Arg(n).(*rt.UserData)
-	if ok {
-		if f, ok := u.Value().(*File); ok {
-			return f, nil
-		}
-	}
-	return nil, rt.NewErrorF("#%d must be a file")
 }
 
 func getIoData(t *rt.Thread) *ioData {
 	return t.Registry(ioKey).(*ioData)
+}
+
+func (d *ioData) defaultOutputFile() *File {
+	f, _ := ValueToFile(d.defaultOutput)
+	return f
+}
+
+func (d *ioData) defaultInputFile() *File {
+	f, _ := ValueToFile(d.defaultInput)
+	return f
 }
 
 func ioError(err error) *rt.Error {
@@ -187,7 +87,7 @@ func pushingNextIoResult(c *rt.GoCont, ioErr error) rt.Cont {
 func closef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	var f *File
 	if c.NArgs() == 0 {
-		f = getIoData(t).defaultOutput
+		f = getIoData(t).defaultOutputFile()
 	} else {
 		var err *rt.Error
 		f, err = FileArg(c, 0)
@@ -201,7 +101,7 @@ func closef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 func flush(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	var f *File
 	if c.NArgs() == 0 {
-		f = getIoData(t).defaultOutput
+		f = getIoData(t).defaultOutputFile()
 	} else {
 		var err *rt.Error
 		f, err = FileArg(c, 0)
@@ -215,61 +115,61 @@ func flush(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 var errFileOrFilename = rt.NewErrorS("#1 must be a file or a filename")
 
 func input(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var f *File
+	ioData := getIoData(t)
 	if c.NArgs() == 0 {
-		f = getIoData(t).defaultInput
-		return c.PushingNext(f), nil
+		return c.PushingNext(ioData.defaultInput), nil
 	}
+	var fv rt.Value
 	switch x := c.Arg(0).(type) {
 	case rt.String:
-		var ioErr error
-		f, ioErr = OpenFile(string(x), "r")
+		f, ioErr := OpenFile(string(x), "r")
 		if ioErr != nil {
 			return nil, rt.NewErrorE(ioErr).AddContext(c)
 		}
+		fv = rt.NewUserData(f, ioData.metatable)
 	case *rt.UserData:
-		var err *rt.Error
-		f, err = FileArg(c, 0)
+		_, err := FileArg(c, 0)
 		if err != nil {
 			return nil, errFileOrFilename.AddContext(c)
 		}
+		fv = x
 	default:
 		return nil, errFileOrFilename.AddContext(c)
 	}
-	getIoData(t).defaultInput = f
+	ioData.defaultInput = fv
 	return c.Next(), nil
 }
 
 func output(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var f *File
+	ioData := getIoData(t)
 	if c.NArgs() == 0 {
-		f = getIoData(t).defaultOutput
-		return c.PushingNext(f), nil
+		return c.PushingNext(ioData.defaultOutput), nil
 	}
+	var fv rt.Value
 	switch x := c.Arg(0).(type) {
 	case rt.String:
-		var ioErr error
-		f, ioErr = OpenFile(string(x), "w")
+		f, ioErr := OpenFile(string(x), "w")
 		if ioErr != nil {
 			return nil, rt.NewErrorE(ioErr).AddContext(c)
 		}
+		fv = rt.NewUserData(f, ioData.metatable)
 	case *rt.UserData:
-		var err *rt.Error
-		f, err = FileArg(c, 0)
+		_, err := FileArg(c, 0)
 		if err != nil {
 			return nil, errFileOrFilename.AddContext(c)
 		}
+		fv = x
 	default:
 		return nil, errFileOrFilename.AddContext(c)
 	}
-	getIoData(t).defaultOutput = f
+	getIoData(t).defaultOutput = fv
 	return c.Next(), nil
 }
 
 func iolines(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	var f *File
 	if c.NArgs() == 0 {
-		f = getIoData(t).defaultInput
+		f = getIoData(t).defaultInputFile()
 	} else {
 		fname, err := c.StringArg(0)
 		if err != nil {
@@ -366,22 +266,40 @@ func typef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func iowrite(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	return nil, nil // TODO: implmement me
+	return write(getIoData(t).defaultOutput, c)
 }
 
-func write(f *File, values []rt.Value) *rt.Error {
-	for _, val := range values {
+func filewrite(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	return write(c.Arg(0), c)
+}
+
+func write(vf rt.Value, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	f, ok := ValueToFile(vf)
+	if !ok {
+		return nil, rt.NewErrorS("#1 must be a file").AddContext(c)
+	}
+	var err error
+	for _, val := range c.Etc() {
 		switch val.(type) {
 		case rt.String:
 		case rt.Int:
 		case rt.Float:
 		default:
-			return rt.NewErrorS("argument must be a string or a number")
+			return nil, rt.NewErrorS("argument must be a string or a number").AddContext(c)
 		}
 		s, _ := rt.AsString(val)
-		if err := f.WriteString(string(s)); err != nil {
-			return rt.NewErrorE(err)
+		if err = f.WriteString(string(s)); err != nil {
+			break
 		}
 	}
-	return nil
+	next := c.Next()
+	if err != nil {
+		next.Push(rt.String(err.Error()))
+	} else {
+		next.Push(vf)
+	}
+	return next, nil
 }
