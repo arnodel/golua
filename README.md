@@ -172,8 +172,7 @@ be written for the core language.
 The `lib` directory contains a number of package, each implementing a
 lua library.
 
-* `base`: basic library. It is done apart from `xpcall` and
-  `collectgarbage`.
+* `base`: basic library. It is done apart from `xpcall`.
 * `coroutine`: the coroutine library, which is done.
 * `packagelib`: the package library.  It is able to load lua modules
   but not "native" modules, which would be written in Go. Obviously
