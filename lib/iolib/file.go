@@ -40,8 +40,8 @@ func TempFile() (*File, error) {
 	}
 	ff := &File{file: f}
 
-	// FIXME: This is meant to remove the file when it becomes
-	// unreachable, but it doesn't appear to work.
+	// This is meant to remove the file when it becomes unreachable.
+	// In fact that is done when it is garbage collected.
 	runtime.SetFinalizer(ff, func(ff *File) {
 		_ = ff.file.Close()
 		_ = os.Remove(ff.Name())

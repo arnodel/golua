@@ -9,11 +9,12 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"runtime"
 
 	ccerrors "github.com/arnodel/golua/errors"
 	"github.com/arnodel/golua/lib"
 	"github.com/arnodel/golua/lib/base"
-	"github.com/arnodel/golua/runtime"
+	rt "github.com/arnodel/golua/runtime"
 	"github.com/arnodel/golua/token"
 )
 
@@ -24,8 +25,11 @@ func main() {
 	var chunk []byte
 	var err error
 
-	r := runtime.New(os.Stdout)
+	r := rt.New(os.Stdout)
 	lib.Load(r)
+
+	// Run finalizers before we exit
+	defer runtime.GC()
 
 	switch flag.NArg() {
 	case 0:
@@ -47,7 +51,7 @@ func main() {
 	default:
 		fatal("At most 1 argument (lua file name)")
 	}
-	unit, err := runtime.CompileLuaChunk(chunkName, chunk)
+	unit, err := rt.CompileLuaChunk(chunkName, chunk)
 	if err != nil {
 		fatal("Error parsing %s: %s", chunkName, err)
 	}
@@ -57,8 +61,8 @@ func main() {
 		return
 	}
 
-	clos := runtime.LoadLuaUnit(unit, r.GlobalEnv())
-	cerr := runtime.Call(r.MainThread(), clos, nil, runtime.NewTerminationWith(0, false))
+	clos := rt.LoadLuaUnit(unit, r.GlobalEnv())
+	cerr := rt.Call(r.MainThread(), clos, nil, rt.NewTerminationWith(0, false))
 	if cerr != nil {
 		fatal("!!! %s", cerr.Traceback())
 	}
@@ -74,8 +78,8 @@ func isaTTY(f *os.File) bool {
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
-func repl(rt *runtime.Runtime) {
-	r := bufio.NewReader(os.Stdin)
+func repl(r *rt.Runtime) {
+	reader := bufio.NewReader(os.Stdin)
 	w := new(bytes.Buffer)
 	for {
 		if len(w.Bytes()) == 0 {
@@ -83,7 +87,7 @@ func repl(rt *runtime.Runtime) {
 		} else {
 			fmt.Print("| ")
 		}
-		line, err := r.ReadBytes('\n')
+		line, err := reader.ReadBytes('\n')
 		if err == io.EOF {
 			w.WriteTo(os.Stdout)
 			fmt.Print(string(line))
@@ -94,9 +98,9 @@ func repl(rt *runtime.Runtime) {
 			return
 		}
 		// This is a trick to be able to evaluate lua expressions in the repl
-		more, err := runChunk(rt, append([]byte("return "), w.Bytes()...))
+		more, err := runChunk(r, append([]byte("return "), w.Bytes()...))
 		if err != nil {
-			more, err = runChunk(rt, w.Bytes())
+			more, err = runChunk(r, w.Bytes())
 		}
 		if !more {
 			w = new(bytes.Buffer)
@@ -107,8 +111,8 @@ func repl(rt *runtime.Runtime) {
 	}
 }
 
-func runChunk(r *runtime.Runtime, source []byte) (bool, error) {
-	clos, err := runtime.CompileAndLoadLuaChunk("<stdin>", source, r.GlobalEnv())
+func runChunk(r *rt.Runtime, source []byte) (bool, error) {
+	clos, err := rt.CompileAndLoadLuaChunk("<stdin>", source, r.GlobalEnv())
 	if err != nil {
 		pErr, ok := err.(*ccerrors.Error)
 		if !ok {
@@ -117,8 +121,8 @@ func runChunk(r *runtime.Runtime, source []byte) (bool, error) {
 		return pErr.ErrorToken.Type == token.EOF, err
 	}
 	t := r.MainThread()
-	term := runtime.NewTerminationWith(0, true)
-	cerr := runtime.Call(t, clos, nil, term)
+	term := rt.NewTerminationWith(0, true)
+	cerr := rt.Call(t, clos, nil, term)
 	if cerr == nil {
 		if len(term.Etc()) > 0 {
 			cerr = base.Print(t, term.Etc())
