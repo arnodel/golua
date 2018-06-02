@@ -231,7 +231,7 @@ func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case pos <= 0 || pos > tblLen:
 		return nil, rt.NewErrorS("#2 out of range").AddContext(c)
 	default:
-		var newVal rt.Value = nil
+		var newVal rt.Value
 		for pos <= tblLen {
 			val, err = rt.Index(t, tbl, tblLen)
 			rt.SetIndex(t, tbl, tblLen, newVal)

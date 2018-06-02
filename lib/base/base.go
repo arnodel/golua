@@ -37,7 +37,7 @@ func Load(r *rt.Runtime) {
 	// TODO: xpcall
 }
 
-func toString(t *rt.Thread, v rt.Value) (rt.String, *rt.Error) {
+func ToString(t *rt.Thread, v rt.Value) (rt.String, *rt.Error) {
 	next := rt.NewTerminationWith(1, false)
 	err, ok := rt.Metacall(t, v, "__tostring", []rt.Value{v}, next)
 	if err != nil {
@@ -57,7 +57,7 @@ func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
-	s, err := toString(t, c.Arg(0))
+	s, err := ToString(t, c.Arg(0))
 	if err != nil {
 		return nil, err.AddContext(c)
 	}

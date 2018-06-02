@@ -15,7 +15,7 @@ func Print(t *rt.Thread, args []rt.Value) *rt.Error {
 		if i > 0 {
 			t.Stdout.Write([]byte{'\t'})
 		}
-		s, err := toString(t, v)
+		s, err := ToString(t, v)
 		if err != nil {
 			return err
 		}
