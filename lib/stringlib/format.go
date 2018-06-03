@@ -22,6 +22,8 @@ func format(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext(s), nil
 }
 
+var errNotEnoughValues = rt.NewErrorS("not enough values for format string")
+
 // Format is the base for the implementation of lua string.format()
 //
 // It works by scanning the verbs in the format string and converting
@@ -41,6 +43,9 @@ OuterLoop:
 					continue OuterLoop
 				case 'b', 'c', 'd', 'o', 'x', 'X', 'U':
 					// integer verbs
+					if len(args) <= j {
+						return rt.String(""), errNotEnoughValues
+					}
 					n, tp := rt.ToInt(values[j])
 					if tp != rt.IsInt {
 						return rt.String(""), rt.NewErrorS("invalid value for integer format")
@@ -49,6 +54,9 @@ OuterLoop:
 					break ArgLoop
 				case 'e', 'E', 'f', 'F', 'g', 'G':
 					// float verbs
+					if len(args) <= j {
+						return rt.String(""), errNotEnoughValues
+					}
 					f, ok := rt.ToFloat(values[j])
 					if !ok {
 						return rt.String(""), rt.NewErrorS("invalid value for float format")
@@ -57,6 +65,9 @@ OuterLoop:
 					break ArgLoop
 				case 's', 'q':
 					// string verbs
+					if len(args) <= j {
+						return rt.String(""), errNotEnoughValues
+					}
 					s, err := base.ToString(t, values[j])
 					if err != nil {
 						return rt.String(""), err
@@ -65,6 +76,9 @@ OuterLoop:
 					break ArgLoop
 				case 't':
 					// boolean verb
+					if len(args) <= j {
+						return rt.String(""), errNotEnoughValues
+					}
 					b, ok := values[j].(rt.Bool)
 					if !ok {
 						return rt.String(""), rt.NewErrorS("invalid value for boolean format")
@@ -79,15 +93,12 @@ OuterLoop:
 					return rt.String(""), rt.NewErrorS("invalid format string")
 				}
 			}
-			if len(args) <= j {
-				return rt.String(""), rt.NewErrorS("not enough values for format string")
-			}
 			args[j] = arg
 			j++
 		}
 	}
 	if j < len(args) {
-		return rt.String(""), rt.NewErrorS("too many values for format string")
+		args = args[:j]
 	}
 	return rt.String(fmt.Sprintf(string(format), args...)), nil
 }

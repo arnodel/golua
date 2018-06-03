@@ -90,6 +90,31 @@ do
 end
 
 do
-    print(string.format("%s=%f", "pi", 3.14))
+    local function pf(...)
+        print(string.format(...))
+    end
+    
+    pf("%s=%f", "pi", 3.14)
     --> =pi=3.140000
+
+    pf("-%s-%s-%s", nil, true, false)
+    --> =-nil-true-false
+
+    pf("%% %q %%", [["hello"	123]])
+    --> =% "\"hello\"\t123" %
+
+    pf("%d//%5d//%-5d//%+d//%05d", 10.0, "10", 10, 10, 10)
+    --> =10//   10//10   //+10//00010
+
+    pf("%.2f~~%5.2f~~%-5.2f~~%+.2f~~%05.2f", 3.14, "3.14", 3.14, 3.14, 3.14)
+    --> =3.14~~ 3.14~~3.14 ~~+3.14~~03.14
+
+    -- To many values is OK
+    pf("%s", 1, 2, 3)
+    --> =1
+
+    -- Not enough values is not OK
+    print(pcall(pf, "%s %d", 1))
+    --> ~^false\t.*$
+    
 end
