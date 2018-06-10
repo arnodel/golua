@@ -12,8 +12,10 @@ func Load(r *rt.Runtime) {
 
 	rt.SetEnvGoFunc(pkg, "byte", bytef, 3, false)
 	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
+	rt.SetEnvGoFunc(pkg, "find", find, 4, false)
 	rt.SetEnvGoFunc(pkg, "len", lenf, 1, false)
 	rt.SetEnvGoFunc(pkg, "lower", lower, 1, false)
+	rt.SetEnvGoFunc(pkg, "match", match, 3, false)
 	rt.SetEnvGoFunc(pkg, "upper", upper, 1, false)
 	rt.SetEnvGoFunc(pkg, "rep", rep, 3, false)
 	rt.SetEnvGoFunc(pkg, "reverse", reverse, 1, false)

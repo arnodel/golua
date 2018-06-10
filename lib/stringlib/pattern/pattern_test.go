@@ -87,7 +87,7 @@ func TestPattern(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		captures := ptn.Match(test.s)
+		captures := ptn.Match(test.s, 0)
 		if !sameCaptures(test.captures, captures) {
 			t.Error("exp:", test.captures, "act:", captures)
 			t.Fail()

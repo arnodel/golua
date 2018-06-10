@@ -13,16 +13,25 @@ func New(ptn string) (*Pattern, error) {
 	return pb.getPattern()
 }
 
-func (p *Pattern) Match(s string) []Capture {
+func (p *Pattern) Match(s string, init int) []Capture {
 	matcher := patternMatcher{
 		Pattern: *p,
 		s:       s,
+		si:      init,
 	}
 	return matcher.find()
 }
 
 type Capture struct {
 	start, end int
+}
+
+func (c Capture) Start() int {
+	return c.start
+}
+
+func (c Capture) End() int {
+	return c.end
 }
 
 type patternItemType byte

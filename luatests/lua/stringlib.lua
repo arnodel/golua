@@ -118,3 +118,51 @@ do
     --> ~^false\t.*$
     
 end
+
+do
+    local function pf(...)
+        print(string.find(...))
+    end
+    
+    pf("a", "a", 1, true)
+    --> =1	1
+
+    pf("hello world!", "o w", 1, true)
+    --> =5	7
+
+    pf("xyzt", "yt", 1, true)
+    --> =nil
+
+    pf("1234 abc453", "%l+")
+    --> =6	8
+
+    pf("  foo=[a [lovely] day];", "(%w+)=(%b[])")
+    --> =3	22	foo	[a [lovely] day]
+end
+
+do
+    local function pm(...)
+        print(string.match(...))
+    end
+
+    pm("Let me *stress* that I *am*", "%*.-%*")
+    --> =*stress*
+
+    pm("Let me *stress* that I *am*", "%*.-%*", 17)
+    --> =*am*
+
+    pm("Let me *stress* that I *am*", "%*(.-)%*")
+    --> =stress
+
+    pm("Let me *stress* that I *am*", "%*(.-)%*", 17)
+    --> =am
+
+    pm("A *bold* and an _underline_", "([*~_])(.-)%1")
+    --> =*	bold
+
+    pm("A *b_o_l_d* and an _under~line_", "([*~_])(.-)%1")
+    --> =*	b_o_l_d
+
+    pm("A *b_o_l_d* and an _under~line_", "([*~_])(.-)%1", 10)
+    --> =_	under~line
+end
