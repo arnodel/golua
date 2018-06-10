@@ -13,6 +13,11 @@ func New(ptn string) (*Pattern, error) {
 	return pb.getPattern()
 }
 
+func (p *Pattern) ClearAnchors() {
+	p.startAnchor = false
+	p.endAnchor = false
+}
+
 func (p *Pattern) Match(s string, init int) []Capture {
 	matcher := patternMatcher{
 		Pattern: *p,

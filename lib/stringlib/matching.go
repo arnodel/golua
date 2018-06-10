@@ -80,7 +80,11 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if ptnErr != nil {
 		return nil, rt.NewErrorE(ptnErr).AddContext(c)
 	}
-	captures := pat.Match(string(s), si)
+	pushCaptures(pat.Match(string(s), si), s, next)
+	return next, nil
+}
+
+func pushCaptures(captures []pattern.Capture, s rt.String, next rt.Cont) {
 	if len(captures) == 0 {
 		next.Push(nil)
 	} else if len(captures) == 1 {
@@ -91,5 +95,34 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			next.Push(s[c.Start():c.End()])
 		}
 	}
-	return next, nil
+}
+
+func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	var s, ptn rt.String
+	err := c.CheckNArgs(2)
+	if err == nil {
+		s, err = c.StringArg(0)
+	}
+	if err == nil {
+		ptn, err = c.StringArg(1)
+	}
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	pat, ptnErr := pattern.New(string(ptn))
+	if ptnErr != nil {
+		return nil, rt.NewErrorE(ptnErr).AddContext(c)
+	}
+	pat.ClearAnchors() // What the spec says
+	si := 0
+	var iterator = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+		next := c.Next()
+		captures := pat.Match(string(s), si)
+		if len(captures) > 0 {
+			si = captures[0].End()
+		}
+		pushCaptures(captures, s, next)
+		return next, nil
+	}
+	return c.PushingNext(rt.NewGoFunction(iterator, "gmatchiterator", 0, false)), nil
 }

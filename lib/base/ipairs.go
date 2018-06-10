@@ -17,7 +17,7 @@ func ipairsIteratorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	next := c.Next()
 	if n < l {
-		n += 1
+		n++
 		v, err := rt.Index(t, c.Arg(0), n)
 		if err != nil {
 			return nil, err.AddContext(c)

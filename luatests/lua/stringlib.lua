@@ -166,3 +166,23 @@ do
     pm("A *b_o_l_d* and an _under~line_", "([*~_])(.-)%1", 10)
     --> =_	under~line
 end
+
+do
+    local s = "hello world from Lua"
+    for w in string.gmatch(s, "%a+") do
+        print(w)
+    end
+    --> =hello
+    --> =world
+    --> =from
+    --> =Lua
+
+    local t = {}
+    local s = "from=world, to=Lua"
+    for k, v in string.gmatch(s, "(%w+)=(%w+)") do
+        t[k] = v
+    end
+    print(t.from, t.to)
+    --> =world	Lua
+
+end
