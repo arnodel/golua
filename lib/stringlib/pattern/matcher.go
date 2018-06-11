@@ -23,16 +23,36 @@ func (m *patternMatcher) reset(si int) {
 func (m *patternMatcher) find() []Capture {
 	for si := m.si; si < len(m.s); si++ {
 		m.reset(si)
-		captures := m.match()
-		if captures != nil {
+		if captures := m.matchToEnd(); captures != nil {
 			return captures
 		}
 	}
 	return nil
 }
 
-func (m *patternMatcher) match() []Capture {
+func (m *patternMatcher) findFromStart() []Capture {
+	if m.startAnchor {
+		return m.matchToEnd()
+	}
+	return m.find()
+}
+
+func (m *patternMatcher) matchToEnd() []Capture {
 	m.captures[0].start = m.si
+	for {
+		m.match()
+		if m.si == -1 {
+			return nil
+		}
+		if !m.endAnchor || m.si == len(m.s) {
+			m.captures[0].end = m.si
+			return m.captures[:m.captureCount+1]
+		}
+		m.trackback()
+	}
+}
+
+func (m *patternMatcher) match() {
 	for m.pi < len(m.items) {
 		switch item := m.items[m.pi]; item.ptnType {
 		case ptnOnce:
@@ -132,11 +152,6 @@ func (m *patternMatcher) match() []Capture {
 			panic("???")
 		}
 	}
-	if m.si == -1 {
-		return nil
-	}
-	m.captures[0].end = m.si
-	return m.captures[:m.captureCount+1]
 }
 
 func (m *patternMatcher) matchNext(s byteSet) bool {

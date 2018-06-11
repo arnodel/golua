@@ -43,7 +43,7 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil {
 			return nil, rt.NewErrorE(err).AddContext(c)
 		}
-		captures := pat.Match(string(s), si)
+		captures := pat.MatchFromStart(string(s), si)
 		if len(captures) == 0 {
 			next.Push(nil)
 		} else {
@@ -80,7 +80,7 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if ptnErr != nil {
 		return nil, rt.NewErrorE(ptnErr).AddContext(c)
 	}
-	pushCaptures(pat.Match(string(s), si), s, next)
+	pushCaptures(pat.MatchFromStart(string(s), si), s, next)
 	return next, nil
 }
 
@@ -113,7 +113,6 @@ func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if ptnErr != nil {
 		return nil, rt.NewErrorE(ptnErr).AddContext(c)
 	}
-	pat.ClearAnchors() // What the spec says
 	si := 0
 	var iterator = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next := c.Next()

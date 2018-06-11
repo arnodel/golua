@@ -1,6 +1,7 @@
 package pattern
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -81,16 +82,29 @@ func TestPattern(t *testing.T) {
 			s:        "456123123",
 			captures: []Capture{{0, 9}},
 		},
+		{
+			ptn:      "^abc",
+			s:        "123abc",
+			captures: nil,
+		},
+		{
+			ptn:      "^a-$",
+			s:        "aaaaa",
+			captures: []Capture{{0, 5}},
+		},
 	}
-	for _, test := range tests {
-		ptn, err := New(test.ptn)
-		if err != nil {
-			t.Fatal(err)
-		}
-		captures := ptn.Match(test.s, 0)
-		if !sameCaptures(test.captures, captures) {
-			t.Error("exp:", test.captures, "act:", captures)
-			t.Fail()
-		}
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("ptn_%d", i), func(t *testing.T) {
+			ptn, err := New(test.ptn)
+			if err != nil {
+				t.Fatal(err)
+			}
+			captures := ptn.MatchFromStart(test.s, 0)
+			if !sameCaptures(test.captures, captures) {
+				t.Error("exp:", test.captures, "act:", captures)
+				t.Log(ptn)
+				t.Fail()
+			}
+		})
 	}
 }

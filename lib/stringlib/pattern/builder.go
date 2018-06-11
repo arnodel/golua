@@ -9,6 +9,15 @@ type patternBuilder struct {
 }
 
 func (pb *patternBuilder) getPattern() (*Pattern, error) {
+	var anchorLeft, anchorRight bool
+	if len(pb.ptn) > 0 && pb.ptn[0] == '^' {
+		anchorLeft = true
+		pb.ptn = pb.ptn[1:]
+	}
+	if last := len(pb.ptn) - 1; last >= 0 && pb.ptn[last] == '$' {
+		anchorRight = true
+		pb.ptn = pb.ptn[:last]
+	}
 	for pb.i < len(pb.ptn) {
 		err := pb.getPatternItem()
 		if err != nil {
@@ -21,6 +30,8 @@ func (pb *patternBuilder) getPattern() (*Pattern, error) {
 	return &Pattern{
 		items:        pb.items,
 		captureCount: int(pb.ciMax),
+		startAnchor:  anchorLeft,
+		endAnchor:    anchorRight,
 	}, nil
 }
 
