@@ -138,6 +138,9 @@ do
 
     pf("  foo=[a [lovely] day];", "(%w+)=(%b[])")
     --> =3	22	foo	[a [lovely] day]
+
+    print(pcall(string.find, "abc", "(xx%1)"))
+    --> ~false\t.*
 end
 
 do

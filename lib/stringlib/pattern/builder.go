@@ -103,6 +103,9 @@ func (pb *patternBuilder) getPatternItem() error {
 			return nil
 		case c >= '1' && c <= '9':
 			ci := uint64(c - '0')
+			if !pb.checkCapture(ci) {
+				return errInvalidPattern
+			}
 			pb.emit(patternItem{[4]uint64{ci}, ptnCapture})
 			return nil
 		default:
@@ -133,6 +136,18 @@ func (pb *patternBuilder) getPatternItem() error {
 	}
 	pb.emit(patternItem{s, ptnType})
 	return nil
+}
+
+func (pb *patternBuilder) checkCapture(ci uint64) bool {
+	if ci > pb.ciMax {
+		return false
+	}
+	for _, sci := range pb.cStack {
+		if sci == ci {
+			return false
+		}
+	}
+	return true
 }
 
 func (pb *patternBuilder) getCharClass() (byteSet, error) {

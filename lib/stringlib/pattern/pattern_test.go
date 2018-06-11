@@ -21,6 +21,7 @@ func TestPattern(t *testing.T) {
 	tests := []struct {
 		ptn, s   string
 		captures []Capture
+		invalid  bool
 	}{
 		{
 			ptn:      "a*",
@@ -92,17 +93,26 @@ func TestPattern(t *testing.T) {
 			s:        "aaaaa",
 			captures: []Capture{{0, 5}},
 		},
+		{
+			ptn:     "(xx%1)",
+			invalid: true,
+		},
 	}
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("ptn_%d", i), func(t *testing.T) {
 			ptn, err := New(test.ptn)
 			if err != nil {
+				if test.invalid {
+					return
+				}
 				t.Fatal(err)
+			}
+			if test.invalid {
+				t.Fatal("Expected to be invalid")
 			}
 			captures := ptn.MatchFromStart(test.s, 0)
 			if !sameCaptures(test.captures, captures) {
 				t.Error("exp:", test.captures, "act:", captures)
-				t.Log(ptn)
 				t.Fail()
 			}
 		})
