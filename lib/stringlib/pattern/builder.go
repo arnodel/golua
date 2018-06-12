@@ -1,23 +1,24 @@
 package pattern
 
 type patternBuilder struct {
-	items  []patternItem
-	ciMax  uint64
-	cStack []uint64
-	ptn    string
-	i      int
+	items                   []patternItem
+	ciMax                   uint64
+	cStack                  []uint64
+	ptn                     string
+	i                       int
+	anchorLeft, anchorRight bool
 }
 
 func (pb *patternBuilder) getPattern() (*Pattern, error) {
-	var anchorLeft, anchorRight bool
-	if len(pb.ptn) > 0 && pb.ptn[0] == '^' {
-		anchorLeft = true
-		pb.ptn = pb.ptn[1:]
-	}
-	if last := len(pb.ptn) - 1; last >= 0 && pb.ptn[last] == '$' {
-		anchorRight = true
-		pb.ptn = pb.ptn[:last]
-	}
+	// var anchorLeft, anchorRight bool
+	// if len(pb.ptn) > 0 && pb.ptn[0] == '^' {
+	// 	anchorLeft = true
+	// 	pb.ptn = pb.ptn[1:]
+	// }
+	// if last := len(pb.ptn) - 1; last >= 0 && pb.ptn[last] == '$' {
+	// 	anchorRight = true
+	// 	pb.ptn = pb.ptn[:last]
+	// }
 	for pb.i < len(pb.ptn) {
 		err := pb.getPatternItem()
 		if err != nil {
@@ -30,8 +31,8 @@ func (pb *patternBuilder) getPattern() (*Pattern, error) {
 	return &Pattern{
 		items:        pb.items,
 		captureCount: int(pb.ciMax),
-		startAnchor:  anchorLeft,
-		endAnchor:    anchorRight,
+		startAnchor:  pb.anchorLeft,
+		endAnchor:    pb.anchorRight,
 	}, nil
 }
 
@@ -59,6 +60,16 @@ func (pb *patternBuilder) getPatternItem() error {
 	}
 	var s byteSet
 	switch b {
+	case '^':
+		if pb.i == 1 {
+			pb.anchorLeft = true
+			return nil
+		}
+	case '$':
+		if pb.i == len(pb.ptn) {
+			pb.anchorRight = true
+			return nil
+		}
 	case '(':
 		pb.ciMax++
 		pb.cStack = append(pb.cStack, pb.ciMax)

@@ -189,3 +189,36 @@ do
     --> =world	Lua
 
 end
+
+do
+    print(string.gsub("hello world", "(%w+)", "%1 %1"))
+    --> =hello hello world world
+
+    print(string.gsub("hello world", "%w+", "%0 %0", 1))
+    --> =hello hello world
+
+    print(string.gsub("hello world from Lua", "(%w+)%s*(%w+)", "%2 %1"))
+    --> =world hello Lua from
+
+    local function getenv(v)
+        if v == "HOME" then
+            return "/home/roberto"
+        elseif v == "USER" then
+            return "roberto"
+        end
+    end
+
+    print(string.gsub("home = $HOME, user = $USER", "%$(%w+)", getenv))
+    --> =home = /home/roberto, user = roberto
+
+    print(string.gsub("4+5 = $return 4+5$", "%$(.-)%$",
+                      function (s)
+                          return load(s)()
+                      end
+    ))
+    --> =4+5 = 9
+
+    local t = {name="lua", version="5.3"}
+    print(string.gsub("$name-$version.tar.gz", "%$(%w+)", t))
+    --> =lua-5.3.tar.gz
+end

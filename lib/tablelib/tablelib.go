@@ -234,7 +234,12 @@ func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		var newVal rt.Value
 		for pos <= tblLen {
 			val, err = rt.Index(t, tbl, tblLen)
-			rt.SetIndex(t, tbl, tblLen, newVal)
+			if err == nil {
+				err = rt.SetIndex(t, tbl, tblLen, newVal)
+			}
+			if err != nil {
+				return nil, err.AddContext(c)
+			}
 			tblLen--
 			newVal = val
 		}

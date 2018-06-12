@@ -14,6 +14,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
 	rt.SetEnvGoFunc(pkg, "find", find, 4, false)
 	rt.SetEnvGoFunc(pkg, "gmatch", gmatch, 2, false)
+	rt.SetEnvGoFunc(pkg, "gsub", gsub, 4, false)
 	rt.SetEnvGoFunc(pkg, "len", lenf, 1, false)
 	rt.SetEnvGoFunc(pkg, "lower", lower, 1, false)
 	rt.SetEnvGoFunc(pkg, "match", match, 3, false)

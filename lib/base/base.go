@@ -47,7 +47,8 @@ func ToString(t *rt.Thread, v rt.Value) (rt.String, *rt.Error) {
 		v = next.Get(0)
 	}
 	s, ok := rt.AsString(v)
-	if !ok {
+	// TODO: fix this hack
+	if s == "" && !ok {
 		s = rt.String(fmt.Sprintf("%s: <addr>", rt.Type(v)))
 	}
 	return s, nil

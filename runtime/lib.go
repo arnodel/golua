@@ -155,9 +155,9 @@ func AsString(x Value) (String, bool) {
 		return String(strconv.FormatFloat(float64(xx), 'g', -1, 64)), true
 	case Bool:
 		if xx {
-			return String("true"), true
+			return String("true"), false
 		}
-		return String("false"), true
+		return String("false"), false
 	}
 	return String(""), false
 }

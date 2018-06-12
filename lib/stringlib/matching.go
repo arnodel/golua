@@ -1,6 +1,7 @@
 package stringlib
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/arnodel/golua/lib/stringlib/pattern"
@@ -124,4 +125,112 @@ func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return next, nil
 	}
 	return c.PushingNext(rt.NewGoFunction(iterator, "gmatchiterator", 0, false)), nil
+}
+
+func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	var s, ptn rt.String
+	var n rt.Int = -1
+	var repl rt.Value
+	err := c.CheckNArgs(3)
+	if err == nil {
+		s, err = c.StringArg(0)
+	}
+	if err == nil {
+		ptn, err = c.StringArg(1)
+	}
+	if err == nil && c.NArgs() >= 4 {
+		n, err = c.IntArg(3)
+	}
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	repl = c.Arg(2)
+	pat, ptnErr := pattern.New(string(ptn))
+	if ptnErr != nil {
+		return nil, rt.NewErrorE(ptnErr).AddContext(c)
+	}
+	var replF func([]pattern.Capture) (string, *rt.Error)
+
+	if replString, ok := repl.(rt.String); ok {
+		replF = func(captures []pattern.Capture) (string, *rt.Error) {
+			cStrings := [10]string{}
+			for i, c := range captures {
+				cStrings[i] = string(s)[c.Start():c.End()]
+			}
+			return gsubPtn.ReplaceAllStringFunc(string(replString), func(x string) string {
+				b := x[1]
+				if '0' <= b && b <= '9' {
+					return cStrings[b-'0']
+				}
+				return x[1:]
+			}), nil
+		}
+	} else if replTable, ok := repl.(*rt.Table); ok {
+		replF = func(captures []pattern.Capture) (string, *rt.Error) {
+			gc := captures[0]
+			i := 0
+			if len(captures) >= 2 {
+				i = 1
+			}
+			c := captures[i]
+			key := s[c.Start():c.End()]
+			val, err := rt.Index(t, replTable, key)
+			if err != nil {
+				return "", err
+			}
+			return subToString(s[gc.Start():gc.End()], val)
+
+		}
+	} else if replC, ok := repl.(rt.Callable); ok {
+		replF = func(captures []pattern.Capture) (string, *rt.Error) {
+			term := rt.NewTerminationWith(1, false)
+			cont := replC.Continuation(term)
+			gc := captures[0]
+			i := 0
+			if len(captures) >= 2 {
+				i = 1
+			}
+			for _, c := range captures[i:] {
+				cont.Push(s[c.Start():c.End()])
+			}
+			err := t.RunContinuation(cont)
+			if err != nil {
+				return "", err
+			}
+			return subToString(s[gc.Start():gc.End()], term.Get(0))
+		}
+	} else {
+		return nil, rt.NewErrorS("#3 must be a string, table or function").AddContext(c)
+	}
+	si := 0
+	var sb strings.Builder
+	for ; n != 0; n-- {
+		captures := pat.Match(string(s), si)
+		if len(captures) == 0 {
+			break
+		}
+		sub, err := replF(captures)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+		gc := captures[0]
+		_, _ = sb.WriteString(string(s)[si:gc.Start()])
+		_, _ = sb.WriteString(sub)
+		si = gc.End()
+	}
+	_, _ = sb.WriteString(string(s)[si:])
+	return c.PushingNext(rt.String(sb.String())), nil
+}
+
+var gsubPtn = regexp.MustCompile("%.")
+
+func subToString(key rt.String, val rt.Value) (string, *rt.Error) {
+	res, ok := rt.AsString(val)
+	if ok {
+		return string(res), nil
+	}
+	if !rt.Truth(val) {
+		return string(key), nil
+	}
+	return "", rt.NewErrorF("invalid replacement value (%s)", rt.Type(res))
 }
