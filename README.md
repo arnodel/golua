@@ -181,7 +181,8 @@ lua library.
   of doing it.  I have no plan to support Lua C modules!
 * `stringlib`: the string library.  It is partially implemented:
   `byte`, `char`, `len`, `lower`, `upper`, `reverse`, `sub` are done,
-  as well as `find`, `match`, `gmatch`.
+  as well as `find`, `match`, `gmatch`, `gsub`.  The packing functions
+  remain to be implemented.
 * `mathlib`: the math library,  It is complete.
 * `tablelib`: the table library.  It is complete.
 * `iolib`: the io library.  It is implemented apart from `popen`,
