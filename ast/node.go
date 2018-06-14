@@ -123,6 +123,7 @@ type ExpNode interface {
 type TailExpNode interface {
 	Node
 	CompileTailExp(*ir.Compiler, []ir.Register)
+	CompileEtcExp(*ir.Compiler, ir.Register) ir.Register
 }
 
 // Var is an l-value

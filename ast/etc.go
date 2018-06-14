@@ -26,6 +26,14 @@ func (e EtcType) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	return dst
 }
 
+func (e EtcType) CompileEtcExp(c *ir.Compiler, dst ir.Register) ir.Register {
+	reg, ok := c.GetRegister(ir.Name("..."))
+	if !ok {
+		panic("... not defined")
+	}
+	return reg
+}
+
 func (e EtcType) CompileTailExp(c *ir.Compiler, dstRegs []ir.Register) {
 	reg, ok := c.GetRegister(ir.Name("..."))
 	if !ok {

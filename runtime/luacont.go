@@ -269,13 +269,16 @@ RunLoop:
 		case code.Type6Pfx:
 			dst := opcode.GetA()
 			etc := c.getReg(opcode.GetB()).([]Value)
-			idx := opcode.GetM()
+			idx := int(opcode.GetM())
 			var val Value
-			if int(idx) < len(etc) {
+			if idx < len(etc) {
 				val = etc[idx]
 			}
 			if opcode.GetF() {
-				c.getReg(dst).(Cont).Push(val)
+				tbl := c.getReg(dst).(*Table)
+				for i, v := range etc {
+					tbl.Set(Int(i+idx), v)
+				}
 			} else {
 				c.setReg(dst, val)
 			}

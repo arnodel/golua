@@ -357,6 +357,23 @@ func (l EtcLookup) Compile(kc InstrCompiler) {
 	kc.Emit(code.MkType6(code.Off, codeReg(l.Dst), codeReg(l.Etc), uint8(l.Idx)))
 }
 
+type FillTable struct {
+	Etc Register
+	Dst Register
+	Idx int
+}
+
+func (f FillTable) String() string {
+	return fmt.Sprintf("fill %s with %s from %d", f.Dst, f.Etc, f.Idx)
+}
+
+func (f FillTable) Compile(kc InstrCompiler) {
+	if f.Idx < 0 || f.Idx >= 256 {
+		panic("Fill table index out of range")
+	}
+	kc.Emit(code.MkType6(code.On, codeReg(f.Dst), codeReg(f.Etc), uint8(f.Idx)))
+}
+
 type JumpIfForLoopDone struct {
 	Label Label
 	Var   Register

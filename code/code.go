@@ -420,7 +420,7 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 		f := c.GetF()
 		m := c.GetM()
 		if f {
-			return fmt.Sprintf("push %s, %s[%d]", rA, rB, m)
+			return fmt.Sprintf("fill %s, %d, %s", rA, m, rB)
 		}
 		return fmt.Sprintf("%s <- %s[%d]", rA, rB, m)
 	default:

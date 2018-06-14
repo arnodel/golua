@@ -38,13 +38,26 @@ func (c TableConstructor) HWrite(w HWriter) {
 func (t TableConstructor) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	EmitInstr(c, t, ir.MkTable{Dst: dst})
 	c.TakeRegister(dst)
-	currImplicitKey := int64(1)
-	for _, field := range t.fields {
+	currImplicitKey := 1
+	for i, field := range t.fields {
+		keyExp := field.key
+		_, noKey := keyExp.(NoTableKey)
+		if i == len(t.fields)-1 && noKey {
+			tailExp, ok := field.value.(TailExpNode)
+			if ok {
+				etc := tailExp.CompileEtcExp(c, c.GetFreeRegister())
+				EmitInstr(c, field.value, ir.FillTable{
+					Dst: dst,
+					Idx: currImplicitKey,
+					Etc: etc,
+				})
+				break
+			}
+		}
 		valReg := CompileExp(c, field.value)
 		c.TakeRegister(valReg)
-		keyExp := field.key
 		if _, ok := keyExp.(NoTableKey); ok {
-			keyExp = Int{val: currImplicitKey}
+			keyExp = Int{val: int64(currImplicitKey)}
 			currImplicitKey++
 		}
 		keyReg := CompileExp(c, keyExp)
