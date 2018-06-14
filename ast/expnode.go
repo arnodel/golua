@@ -18,11 +18,11 @@ func CompileExpList(c *ir.Compiler, exps []ExpNode, dstRegs []ir.Register) {
 	if commonCount > len(dstRegs) {
 		commonCount = len(dstRegs)
 	}
-	var fCall *FunctionCall
-	doFCall := false
+	var tailExp TailExpNode
+	doTailExp := false
 	if len(dstRegs) > len(exps) && len(exps) > 0 {
-		fCall, doFCall = exps[len(exps)-1].(*FunctionCall)
-		if doFCall {
+		tailExp, doTailExp = exps[len(exps)-1].(TailExpNode)
+		if doTailExp {
 			commonCount--
 		}
 	}
@@ -38,9 +38,8 @@ func CompileExpList(c *ir.Compiler, exps []ExpNode, dstRegs []ir.Register) {
 		c.TakeRegister(dst)
 		dstRegs[i] = dst
 	}
-	if doFCall {
-		fCall.CompileCall(c, false)
-		EmitInstr(c, fCall, ir.Receive{Dst: dstRegs[commonCount:]})
+	if doTailExp {
+		tailExp.CompileTailExp(c, dstRegs[commonCount:])
 	} else if len(dstRegs) > len(exps) {
 		nilK := ir.NilType{}
 		for _, dst := range dstRegs[len(exps):] {

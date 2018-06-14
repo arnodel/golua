@@ -19,8 +19,23 @@ func (e EtcType) HWrite(w HWriter) {
 
 func (e EtcType) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	reg, ok := c.GetRegister(ir.Name("..."))
-	if ok {
-		return reg
+	if !ok {
+		panic("... not defined")
 	}
-	panic("... not defined")
+	EmitInstr(c, e, ir.EtcLookup{Dst: dst, Etc: reg})
+	return dst
+}
+
+func (e EtcType) CompileTailExp(c *ir.Compiler, dstRegs []ir.Register) {
+	reg, ok := c.GetRegister(ir.Name("..."))
+	if !ok {
+		panic("... not defined")
+	}
+	for i, dst := range dstRegs {
+		EmitInstr(c, e, ir.EtcLookup{
+			Dst: dst,
+			Etc: reg,
+			Idx: i,
+		})
+	}
 }

@@ -263,7 +263,24 @@ RunLoop:
 				c.acc = nil
 				c.running = false
 				return c.getReg(opcode.GetA()).(Cont), nil
+			default:
+				panic("unsupported")
 			}
+		case code.Type6Pfx:
+			dst := opcode.GetA()
+			etc := c.getReg(opcode.GetB()).([]Value)
+			idx := opcode.GetM()
+			var val Value
+			if int(idx) < len(etc) {
+				val = etc[idx]
+			}
+			if opcode.GetF() {
+				c.getReg(dst).(Cont).Push(val)
+			} else {
+				c.setReg(dst, val)
+			}
+			pc++
+			continue RunLoop
 		}
 	}
 	// return nil, errors.New("Invalid PC")

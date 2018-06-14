@@ -119,6 +119,12 @@ type ExpNode interface {
 	CompileExp(*ir.Compiler, ir.Register) ir.Register
 }
 
+// TailExpNode is an expression which can be the tail of an exp list
+type TailExpNode interface {
+	Node
+	CompileTailExp(*ir.Compiler, []ir.Register)
+}
+
 // Var is an l-value
 type Var interface {
 	ExpNode

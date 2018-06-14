@@ -51,6 +51,11 @@ func (f FunctionCall) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	return dst
 }
 
+func (f FunctionCall) CompileTailExp(c *ir.Compiler, dstRegs []ir.Register) {
+	f.CompileCall(c, false)
+	EmitInstr(c, f, ir.Receive{Dst: dstRegs})
+}
+
 // TODO: move this to somewhere better
 func compilePushArgs(c *ir.Compiler, args []ExpNode, contReg ir.Register) {
 	c.TakeRegister(contReg)

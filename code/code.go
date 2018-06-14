@@ -26,6 +26,10 @@ import "fmt"
 //
 // Jump / call
 
+// Type6:  0011Fab0 AAAAAAAA BBBBBBBB MMMMMMMM
+//
+// Load from etc
+
 // Type0:  0000Fabc AAAAAAAA BBBBBBBB CCCCCCCC
 //
 // Receiving args
@@ -39,6 +43,7 @@ const (
 	Type3Pfx uint32 = 6 << 28
 	Type4Pfx uint32 = 5 << 28
 	Type5Pfx uint32 = 4 << 28
+	Type6Pfx uint32 = 3 << 28
 	Type0Pfx uint32 = 0
 )
 
@@ -66,8 +71,8 @@ func MkType5(f Flag, op JumpOp, rA Reg, k Lit16) Opcode {
 	return Opcode(Type5Pfx | f.ToF() | op.ToY() | rA.ToA() | k.ToN())
 }
 
-func MkType6(f Flag, n uint8, rA, rB, rC Reg) Opcode {
-	return Opcode(f.ToF() | uint32(n)<<28 | rA.ToA() | rB.ToB() | rC.ToC())
+func MkType6(f Flag, rA, rB Reg, m uint8) Opcode {
+	return Opcode(Type6Pfx | f.ToF() | rA.ToA() | rB.ToB() | uint32(m))
 }
 
 func MkType0(f Flag, rA Reg) Opcode {
@@ -92,6 +97,10 @@ func (c Opcode) GetZ() UnOp {
 
 func (c Opcode) GetN() uint16 {
 	return uint16(c)
+}
+
+func (c Opcode) GetM() uint8 {
+	return uint8(c)
 }
 
 func (c Opcode) GetX() BinOp {
@@ -405,6 +414,15 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 		default:
 			return "???"
 		}
+	case Type6Pfx:
+		rA := c.GetA()
+		rB := c.GetB()
+		f := c.GetF()
+		m := c.GetM()
+		if f {
+			return fmt.Sprintf("push %s, %s[%d]", rA, rB, m)
+		}
+		return fmt.Sprintf("%s <- %s[%d]", rA, rB, m)
 	default:
 		return "???"
 	}

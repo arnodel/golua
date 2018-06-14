@@ -340,6 +340,23 @@ func (r ReceiveEtc) Compile(kc InstrCompiler) {
 	kc.Emit(code.MkType0(code.On, codeReg(r.Etc)))
 }
 
+type EtcLookup struct {
+	Etc Register
+	Dst Register
+	Idx int
+}
+
+func (l EtcLookup) String() string {
+	return fmt.Sprintf("%s := %s[%d]", l.Dst, l.Etc, l.Idx)
+}
+
+func (l EtcLookup) Compile(kc InstrCompiler) {
+	if l.Idx < 0 || l.Idx >= 256 {
+		panic("Etc lookup index out of range")
+	}
+	kc.Emit(code.MkType6(code.Off, codeReg(l.Dst), codeReg(l.Etc), uint8(l.Idx)))
+}
+
 type JumpIfForLoopDone struct {
 	Label Label
 	Var   Register
