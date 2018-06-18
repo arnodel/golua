@@ -38,15 +38,12 @@ func (s BlockStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func tailCall(rtn []ExpNode) *FunctionCall {
+func tailCall(rtn []ExpNode) (FunctionCall, bool) {
 	if len(rtn) != 1 {
-		return nil
+		return FunctionCall{}, false
 	}
-	fc, ok := rtn[0].(*FunctionCall)
-	if !ok {
-		return nil
-	}
-	return fc
+	fc, ok := rtn[0].(FunctionCall)
+	return fc, ok
 }
 
 func (s BlockStat) CompileBlock(c *ir.Compiler) {
@@ -63,7 +60,7 @@ func (s BlockStat) CompileBlock(c *ir.Compiler) {
 		stat.CompileStat(c)
 	}
 	if s.returnValues != nil {
-		if fc := tailCall(s.returnValues); fc != nil {
+		if fc, ok := tailCall(s.returnValues); ok {
 			fc.CompileCall(c, true)
 		} else {
 			contReg, ok := c.GetRegister(ir.Name("<caller>"))

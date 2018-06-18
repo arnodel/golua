@@ -60,14 +60,14 @@ func (s ForInStat) CompileStat(c *ir.Compiler) {
 
 	LocalStat{
 		names: s.itervars,
-		values: []ExpNode{&FunctionCall{
+		values: []ExpNode{FunctionCall{&BFunctionCall{
 			Location: s.Location,
 			target:   Name{Location: s.Location, string: "<f>"},
 			args: []ExpNode{
 				Name{Location: s.Location, string: "<s>"},
 				Name{Location: s.Location, string: "<var>"},
 			},
-		}},
+		}}},
 	}.CompileStat(c)
 	var1, _ := c.GetRegister(ir.Name(s.itervars[0].string))
 

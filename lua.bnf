@@ -24,7 +24,8 @@ StatList
 PrefixExp
     : Var
     | FunctionCall
-    | "(" Exp ")" << $1, nil >>
+    | "(" FunctionCall ")" << $1.(ast.FunctionCall).InBrackets(), nil >>
+    | "(" Exp ")"          << $1, nil >>
     ;
 
 Stat

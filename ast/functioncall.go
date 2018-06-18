@@ -2,14 +2,18 @@ package ast
 
 import "github.com/arnodel/golua/ir"
 
-type FunctionCall struct {
+type BFunctionCall struct {
 	Location
 	target ExpNode
 	method Name
 	args   []ExpNode
 }
 
-func NewFunctionCall(target ExpNode, method Name, args []ExpNode) (*FunctionCall, error) {
+type FunctionCall struct {
+	*BFunctionCall
+}
+
+func NewFunctionCall(target ExpNode, method Name, args []ExpNode) (FunctionCall, error) {
 	// TODO: fix this by creating an Args node
 	loc := target.Locate()
 	if len(args) > 0 {
@@ -17,15 +21,19 @@ func NewFunctionCall(target ExpNode, method Name, args []ExpNode) (*FunctionCall
 	} else if method.string != "" {
 		loc = MergeLocations(loc, method)
 	}
-	return &FunctionCall{
+	return FunctionCall{&BFunctionCall{
 		Location: loc,
 		target:   target,
 		method:   method,
 		args:     args,
-	}, nil
+	}}, nil
 }
 
-func (f FunctionCall) HWrite(w HWriter) {
+func (f FunctionCall) InBrackets() *BFunctionCall {
+	return f.BFunctionCall
+}
+
+func (f BFunctionCall) HWrite(w HWriter) {
 	w.Writef("call")
 	w.Indent()
 	w.Next()
@@ -45,7 +53,7 @@ func (f FunctionCall) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (f FunctionCall) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
+func (f BFunctionCall) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	f.CompileCall(c, false)
 	EmitInstr(c, f, ir.Receive{Dst: []ir.Register{dst}})
 	return dst
@@ -69,7 +77,7 @@ func compilePushArgs(c *ir.Compiler, args []ExpNode, contReg ir.Register) {
 		var argReg ir.Register
 		if i == len(args)-1 {
 			switch x := arg.(type) {
-			case *FunctionCall:
+			case FunctionCall:
 				x.CompileCall(c, false)
 				argReg = c.GetFreeRegister()
 				EmitInstr(c, arg, ir.ReceiveEtc{Etc: argReg})
@@ -90,7 +98,7 @@ func compilePushArgs(c *ir.Compiler, args []ExpNode, contReg ir.Register) {
 	c.ReleaseRegister(contReg)
 }
 
-func (f FunctionCall) CompileCall(c *ir.Compiler, tail bool) {
+func (f BFunctionCall) CompileCall(c *ir.Compiler, tail bool) {
 	fReg := CompileExp(c, f.target)
 	var contReg ir.Register
 	if f.method.string != "" {

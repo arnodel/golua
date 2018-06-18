@@ -44,3 +44,27 @@ do
     c({g(), g()})
     --> =3-3-2-1
 end
+
+do
+    local function f()
+        return 1, 2
+    end
+
+    print(f())
+    --> =1	2
+
+    print((f()))
+    --> =1
+
+    local a, b = (f())
+    print(b)
+    --> =nil
+
+    local t = {f()}
+    print(#t)
+    --> =2
+
+    t = {(f())}
+    print(#t)
+    --> =1
+end
