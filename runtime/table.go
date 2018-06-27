@@ -82,11 +82,10 @@ func (t *Table) Len() Int {
 
 func (t *Table) set(k Value, v Value) {
 	tv, ok := t.content[k]
-	if IsNil(v) {
-		tv.value = nil
-	} else {
-		tv.value = v
+	if v == nil && !ok {
+		return
 	}
+	tv.value = v
 	if !ok {
 		tv.next = t.first
 		t.first = k
