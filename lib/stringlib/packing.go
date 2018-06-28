@@ -197,8 +197,17 @@ func pack(format string, values []rt.Value) ([]byte, error) {
 		err = binary.Write(&w, byteOrder, x)
 		return err == nil
 	}
-	var align = func(n uint) bool {
-
+	var align = func(alignment uint) bool {
+		if alignment > maxAlignment {
+			alignment = maxAlignment
+		}
+		if alignment == 0 || alignment-1&alignment != 0 {
+			err = errBadAlignment
+			return false
+		}
+		for j := w.Len() % int(alignment); j > 0; j-- {
+			w.WriteByte(0)
+		}
 		if alignOnly {
 			alignOnly = false
 			return false
@@ -216,7 +225,7 @@ func pack(format string, values []rt.Value) ([]byte, error) {
 			byteOrder = nativeEndian
 		case '!':
 			if !optOptionArg() {
-				return nil, err
+				break
 			}
 			if n > 0 {
 				maxAlignment = n
@@ -243,7 +252,7 @@ func pack(format string, values []rt.Value) ([]byte, error) {
 			ok = ok && align(8) && checkBounds(n, 0, math.MaxInt64) && write(uint16(n))
 		case 'i':
 			if !optOptionArg() {
-				return nil, err
+				break
 			}
 			m, ok := nextIntValue()
 			if n == 0 {
@@ -286,7 +295,7 @@ func pack(format string, values []rt.Value) ([]byte, error) {
 			}
 		case 'I':
 			if !optOptionArg() {
-				return nil, err
+				break
 			}
 			m, ok := nextIntValue()
 			if n == 0 {
@@ -381,3 +390,5 @@ var errBadType = errors.New("bad value type")          // TODO: better error
 var errOutOfBounds = errors.New("Value out of bounds") // TODO: better error
 var errBadFormatString = errors.New("Bad syntax in format string")
 var errExpectedOption = errors.New("Expected option after 'X'")
+var errBadAlignment = errors.New("Alignment should be a power of 2")
+var errNotEnoughValues = errors.New("Not enough values")
