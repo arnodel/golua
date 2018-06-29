@@ -34,7 +34,7 @@ func NewPacker(format string, values []rt.Value) *Packer {
 	}
 }
 
-func (p *Packer) Pack(values []rt.Value) (string, error) {
+func (p *Packer) Pack() (string, error) {
 	for p.err == nil && p.hasNext() {
 		switch p.nextOption() {
 		case '<':
@@ -49,9 +49,9 @@ func (p *Packer) Pack(values []rt.Value) (string, error) {
 			}
 			p.maxAlignment = p.optSize
 		case 'b':
-			_ = p.nextIntValue() && p.checkBounds(0, math.MaxUint8) && p.write(uint8(p.intVal))
-		case 'B':
 			_ = p.nextIntValue() && p.checkBounds(math.MinInt8, math.MaxInt8) && p.write(int8(p.intVal))
+		case 'B':
+			_ = p.nextIntValue() && p.checkBounds(0, math.MaxUint8) && p.write(uint8(p.intVal))
 		case 'h':
 			if !p.align(2) {
 				break
@@ -101,7 +101,7 @@ func (p *Packer) Pack(values []rt.Value) (string, error) {
 			p.w.Write([]byte(p.strVal))
 			p.w.WriteByte(0)
 		case 's':
-			if !(p.smallOptSize(4) && p.align(p.optSize) && p.nextStringValue()) {
+			if !(p.smallOptSize(8) && p.align(p.optSize) && p.nextStringValue()) {
 				break
 			}
 			p.intVal = int64(len(p.strVal))
@@ -122,6 +122,9 @@ func (p *Packer) Pack(values []rt.Value) (string, error) {
 			return "", p.err
 		}
 	}
+	if p.alignOnly {
+		return "", errExpectedOption
+	}
 	return p.w.String(), nil
 }
 
@@ -130,7 +133,9 @@ func (p *Packer) hasNext() bool {
 }
 
 func (p *Packer) nextOption() byte {
-	return p.format[p.i]
+	opt := p.format[p.i]
+	p.i++
+	return opt
 }
 
 func (p *Packer) smallOptSize(defaultSize uint) bool {
@@ -242,7 +247,9 @@ func (p *Packer) align(n uint) bool {
 		p.err = errBadAlignment
 		return false
 	}
-	p.fill(uint(p.w.Len())%n, 0)
+	if r := uint(p.w.Len()) % n; r != 0 {
+		p.fill(n-r, 0)
+	}
 	if p.alignOnly {
 		p.alignOnly = false
 		return false
@@ -260,7 +267,10 @@ func (p *Packer) packInt() bool {
 	switch n := p.optSize; {
 	case n == 4:
 		// It's an int32
-		return p.checkBounds(math.MinInt32, math.MaxInt32) && p.write(int32(n))
+		return p.checkBounds(math.MinInt32, math.MaxInt32) && p.write(int32(p.intVal))
+	case n == 8:
+		// It's an int64
+		return p.write(p.intVal)
 	case n >= 8:
 		// Pad to make up the length
 		var fill byte
@@ -270,7 +280,7 @@ func (p *Packer) packInt() bool {
 		if p.byteOrder == binary.BigEndian {
 			p.fill(n-8, fill)
 		}
-		if !p.write(int64(n)) {
+		if !p.write(p.intVal) {
 			return false
 		}
 		if p.byteOrder == binary.LittleEndian {
@@ -301,13 +311,16 @@ func (p *Packer) packUint() bool {
 	switch n := p.optSize; {
 	case n == 4:
 		// It's an uint32
-		return p.checkBounds(0, math.MaxUint32) && p.write(int32(n))
-	case n >= 8:
+		return p.checkBounds(0, math.MaxUint32) && p.write(uint32(p.intVal))
+	case n == 8:
+		// It's an uint64
+		return p.checkBounds(0, math.MaxInt64) && p.write(uint64(p.intVal))
+	case n > 8:
 		// Pad to make up the length
 		if p.byteOrder == binary.BigEndian {
 			p.fill(n-8, 0)
 		}
-		if !p.write(uint64(n)) {
+		if !p.write(uint64(p.intVal)) {
 			return false
 		}
 		if p.byteOrder == binary.LittleEndian {
