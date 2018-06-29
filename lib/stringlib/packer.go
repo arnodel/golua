@@ -8,25 +8,25 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-type Packer struct {
-	format       string
-	i            int
-	byteOrder    binary.ByteOrder
-	maxAlignment uint
-	err          error
-	optSize      uint
-	values       []rt.Value
-	j            int
-	val          rt.Value
-	intVal       int64
-	floatVal     float64
-	strVal       string
-	w            bytes.Buffer
-	alignOnly    bool
+type packer struct {
+	format       string           // Specifies the packing format
+	i            int              // Current index in the format string
+	byteOrder    binary.ByteOrder // Current byteOrder of outputting numbers
+	maxAlignment uint             // Current max alignment (used in pack.align())
+	err          error            // if non-nil, the error encountered while packing
+	optSize      uint             // Value of current option size
+	values       []rt.Value       // Lua values to be packed
+	j            int              // Current index in the values above
+	val          rt.Value         // Current value
+	intVal       int64            // Current integral value (if applicable)
+	floatVal     float64          // Current floating point value (if applicable)
+	strVal       string           // Current string value (if applicable)
+	w            bytes.Buffer     // Where the output is written
+	alignOnly    bool             // true after "X" option is parsed
 }
 
 func PackValues(format string, values []rt.Value) (string, error) {
-	p := &Packer{
+	p := &packer{
 		format:       format,
 		byteOrder:    nativeEndian,
 		maxAlignment: defaultMaxAlignement,
@@ -125,17 +125,17 @@ func PackValues(format string, values []rt.Value) (string, error) {
 	return p.w.String(), nil
 }
 
-func (p *Packer) hasNext() bool {
+func (p *packer) hasNext() bool {
 	return p.i < len(p.format)
 }
 
-func (p *Packer) nextOption() byte {
+func (p *packer) nextOption() byte {
 	opt := p.format[p.i]
 	p.i++
 	return opt
 }
 
-func (p *Packer) smallOptSize(defaultSize uint) bool {
+func (p *packer) smallOptSize(defaultSize uint) bool {
 	p.getOptSize()
 	if p.optSize > 16 {
 		p.err = errBadOptionArg
@@ -150,7 +150,7 @@ func (p *Packer) smallOptSize(defaultSize uint) bool {
 	return true
 }
 
-func (p *Packer) getOptSize() bool {
+func (p *packer) getOptSize() bool {
 	var n uint
 	ok := false
 	for ; p.i < len(p.format); p.i++ {
@@ -166,7 +166,7 @@ func (p *Packer) getOptSize() bool {
 	return ok
 }
 
-func (p *Packer) nextValue() bool {
+func (p *packer) nextValue() bool {
 	if len(p.values) > p.j {
 		p.val = p.values[p.j]
 		p.j++
@@ -176,7 +176,7 @@ func (p *Packer) nextValue() bool {
 	return false
 }
 
-func (p *Packer) nextIntValue() bool {
+func (p *packer) nextIntValue() bool {
 	if !p.nextValue() {
 		return false
 	}
@@ -189,7 +189,7 @@ func (p *Packer) nextIntValue() bool {
 	return true
 }
 
-func (p *Packer) nextFloatValue() bool {
+func (p *packer) nextFloatValue() bool {
 	if !p.nextValue() {
 		return false
 	}
@@ -202,7 +202,7 @@ func (p *Packer) nextFloatValue() bool {
 	return true
 }
 
-func (p *Packer) nextStringValue() bool {
+func (p *packer) nextStringValue() bool {
 	if !p.nextValue() {
 		return false
 	}
@@ -215,7 +215,7 @@ func (p *Packer) nextStringValue() bool {
 	return true
 }
 
-func (p *Packer) checkBounds(min, max int64) bool {
+func (p *packer) checkBounds(min, max int64) bool {
 	ok := p.intVal >= min && p.intVal <= max
 	if !ok {
 		p.err = errOutOfBounds
@@ -223,7 +223,7 @@ func (p *Packer) checkBounds(min, max int64) bool {
 	return ok
 }
 
-func (p *Packer) checkFloatSize(max float64) bool {
+func (p *packer) checkFloatSize(max float64) bool {
 	ok := p.floatVal >= -max && p.floatVal <= max
 	if !ok {
 		p.err = errOutOfBounds
@@ -231,12 +231,12 @@ func (p *Packer) checkFloatSize(max float64) bool {
 	return ok
 }
 
-func (p *Packer) write(x interface{}) bool {
+func (p *packer) write(x interface{}) bool {
 	p.err = binary.Write(&p.w, p.byteOrder, x)
 	return p.err == nil
 }
 
-func (p *Packer) align(n uint) bool {
+func (p *packer) align(n uint) bool {
 	if n > p.maxAlignment {
 		n = p.maxAlignment
 	}
@@ -254,13 +254,13 @@ func (p *Packer) align(n uint) bool {
 	return true
 }
 
-func (p *Packer) fill(n uint, c byte) {
+func (p *packer) fill(n uint, c byte) {
 	for ; n > 0; n-- {
 		p.w.WriteByte(c)
 	}
 }
 
-func (p *Packer) packInt() bool {
+func (p *packer) packInt() bool {
 	switch n := p.optSize; {
 	case n == 4:
 		// It's an int32
@@ -304,7 +304,7 @@ func (p *Packer) packInt() bool {
 	return true
 }
 
-func (p *Packer) packUint() bool {
+func (p *packer) packUint() bool {
 	switch n := p.optSize; {
 	case n == 4:
 		// It's an uint32
