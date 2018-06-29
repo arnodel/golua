@@ -269,4 +269,21 @@ do
 
     pack("f", 1e-3)
     --> =111	18	131	58
+
+    local function packError(...)
+        if pcall(string.pack, ...) then
+            print("NO ERROR")
+        end
+    end
+
+    packError("d") -- missing value
+    packError("i", "abc") -- bad value type
+    packError("!17") -- size out of bounds
+    packError("b", 128) -- value out of bounds
+    packError("B", -1) -- value out of bounds
+    packError("cxx", "abc") -- missing string length
+    packError("c2", "abc") -- string too long
+    packError("dy", 1) -- invalid option "y"
+    packError("bbX", 1, 1) -- "X" must be followed by option
+    packError("!3bi", 1, 1) -- alignment not a power of 2
 end

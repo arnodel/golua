@@ -88,8 +88,7 @@ func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	packer := NewPacker(string(format), c.Etc())
-	res, perr := packer.Pack()
+	res, perr := PackValues(string(format), c.Etc())
 	if perr != nil {
 		return nil, rt.NewErrorE(perr).AddContext(c)
 	}
