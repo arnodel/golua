@@ -46,38 +46,57 @@ func PackValues(format string, values []rt.Value) (string, error) {
 			}
 			p.maxAlignment = p.optSize
 		case 'b':
-			_ = p.nextIntValue() && p.checkBounds(math.MinInt8, math.MaxInt8) && p.write(int8(p.intVal))
+			_ = p.align(0) &&
+				p.nextIntValue() &&
+				p.checkBounds(math.MinInt8, math.MaxInt8) &&
+				p.write(int8(p.intVal))
 		case 'B':
-			_ = p.nextIntValue() && p.checkBounds(0, math.MaxUint8) && p.write(uint8(p.intVal))
+			_ = p.align(0) &&
+				p.nextIntValue() &&
+				p.checkBounds(0, math.MaxUint8) &&
+				p.write(uint8(p.intVal))
 		case 'h':
-			if !p.align(2) {
-				break
-			}
-			_ = p.nextIntValue() && p.checkBounds(math.MinInt16, math.MaxInt16) && p.write(int16(p.intVal))
+			_ = p.align(2) &&
+				p.nextIntValue() &&
+				p.checkBounds(math.MinInt16, math.MaxInt16) &&
+				p.write(int16(p.intVal))
 		case 'H':
-			if !p.align(2) {
-				break
-			}
-			_ = p.nextIntValue() && p.checkBounds(0, math.MaxUint16) && p.write(uint16(p.intVal))
+			_ = p.align(2) &&
+				p.nextIntValue() &&
+				p.checkBounds(0, math.MaxUint16) &&
+				p.write(uint16(p.intVal))
 		case 'l', 'j':
-			if !p.align(8) {
-				break
-			}
-			_ = p.nextIntValue() && p.write(p.intVal)
+			_ = p.align(8) &&
+				p.nextIntValue() &&
+				p.write(p.intVal)
 		case 'L', 'J', 'T':
-			if !p.align(8) {
+			_ = p.align(8) &&
+				p.nextIntValue() &&
+				p.checkBounds(0, math.MaxInt64) &&
+				p.write(uint64(p.intVal))
+		case 'i':
+			_ = p.smallOptSize(4) &&
+				p.align(p.optSize) &&
+				p.nextIntValue() &&
+				p.packInt()
+		case 'I':
+			_ = p.smallOptSize(4) &&
+				p.align(p.optSize) &&
+				p.nextIntValue() &&
+				p.packUint()
+		case 'f':
+			_ = p.align(4) &&
+				p.nextFloatValue() &&
+				p.checkFloatSize(math.MaxFloat32) &&
+				p.write(float32(p.floatVal))
+		case 'd', 'n':
+			_ = p.align(8) &&
+				p.nextFloatValue() &&
+				p.write(p.floatVal)
+		case 'c':
+			if !p.align(0) {
 				break
 			}
-			_ = p.nextIntValue() && p.checkBounds(0, math.MaxInt64) && p.write(uint64(p.intVal))
-		case 'i':
-			_ = p.smallOptSize(4) && p.align(p.optSize) && p.nextIntValue() && p.packInt()
-		case 'I':
-			_ = p.smallOptSize(4) && p.align(p.optSize) && p.nextIntValue() && p.packUint()
-		case 'f':
-			_ = p.align(4) && p.nextFloatValue() && p.checkFloatSize(math.MaxFloat32) && p.write(float32(p.floatVal))
-		case 'd', 'n':
-			_ = p.align(8) && p.nextFloatValue() && p.write(p.floatVal)
-		case 'c':
 			if !p.getOptSize() {
 				p.err = errMissingSize
 				break
@@ -92,11 +111,10 @@ func PackValues(format string, values []rt.Value) (string, error) {
 			p.w.Write([]byte(p.strVal))
 			p.fill(p.optSize-uint(len(p.strVal)), 0)
 		case 'z':
-			if !p.nextStringValue() {
-				break
+			if p.align(0) && p.nextStringValue() {
+				p.w.Write([]byte(p.strVal))
+				p.w.WriteByte(0)
 			}
-			p.w.Write([]byte(p.strVal))
-			p.w.WriteByte(0)
 		case 's':
 			if !(p.smallOptSize(8) && p.align(p.optSize) && p.nextStringValue()) {
 				break
@@ -107,7 +125,9 @@ func PackValues(format string, values []rt.Value) (string, error) {
 			}
 			p.w.Write([]byte(p.strVal))
 		case 'x':
-			p.w.WriteByte(0)
+			if p.align(0) {
+				p.w.WriteByte(0)
+			}
 		case 'X':
 			p.alignOnly = true
 		case ' ':
@@ -237,15 +257,17 @@ func (p *packer) write(x interface{}) bool {
 }
 
 func (p *packer) align(n uint) bool {
-	if n > p.maxAlignment {
-		n = p.maxAlignment
-	}
-	if n == 0 || (n-1)&n != 0 { // (n-1)&n == 0 iff n is a power of 2 (or 0)
-		p.err = errBadAlignment
-		return false
-	}
-	if r := uint(p.w.Len()) % n; r != 0 {
-		p.fill(n-r, 0)
+	if n != 0 {
+		if n > p.maxAlignment {
+			n = p.maxAlignment
+		}
+		if (n-1)&n != 0 { // (n-1)&n == 0 iff n is a power of 2 (or 0)
+			p.err = errBadAlignment
+			return false
+		}
+		if r := uint(p.w.Len()) % n; r != 0 {
+			p.fill(n-r, 0)
+		}
 	}
 	if p.alignOnly {
 		p.alignOnly = false
