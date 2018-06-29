@@ -25,16 +25,13 @@ type Packer struct {
 	alignOnly    bool
 }
 
-func NewPacker(format string, values []rt.Value) *Packer {
-	return &Packer{
+func PackValues(format string, values []rt.Value) (string, error) {
+	p := &Packer{
 		format:       format,
 		byteOrder:    nativeEndian,
 		maxAlignment: defaultMaxAlignement,
 		values:       values,
 	}
-}
-
-func (p *Packer) Pack() (string, error) {
 	for p.err == nil && p.hasNext() {
 		switch p.nextOption() {
 		case '<':
