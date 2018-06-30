@@ -41,10 +41,9 @@ func PackValues(format string, values []rt.Value) (string, error) {
 		case '=':
 			p.byteOrder = nativeEndian
 		case '!':
-			if !p.smallOptSize(defaultMaxAlignement) {
-				break
+			if p.smallOptSize(defaultMaxAlignement) {
+				p.maxAlignment = p.optSize
 			}
-			p.maxAlignment = p.optSize
 		case 'b':
 			_ = p.align(0) &&
 				p.nextIntValue() &&
@@ -94,40 +93,24 @@ func PackValues(format string, values []rt.Value) (string, error) {
 				p.nextFloatValue() &&
 				p.write(p.floatVal)
 		case 'c':
-			if !p.align(0) {
-				break
-			}
-			if !p.getOptSize() {
-				p.err = errMissingSize
-				break
-			}
-			if !p.nextStringValue() {
-				break
-			}
-			if len(p.strVal) > int(p.optSize) {
-				p.err = errOutOfBounds
-				break
-			}
-			p.w.Write([]byte(p.strVal))
-			p.fill(p.optSize-uint(len(p.strVal)), 0)
+			_ = p.align(0) &&
+				p.mustGetOptSize() &&
+				p.nextStringValue() &&
+				p.writeStr(p.optSize)
 		case 'z':
-			if p.align(0) && p.nextStringValue() {
-				p.w.Write([]byte(p.strVal))
-				p.w.WriteByte(0)
-			}
+			_ = p.align(0) &&
+				p.nextStringValue() &&
+				p.writeStr(0) &&
+				p.writeByte(0)
 		case 's':
-			if !(p.smallOptSize(8) && p.align(p.optSize) && p.nextStringValue()) {
-				break
-			}
-			p.intVal = int64(len(p.strVal))
-			if !p.packUint() {
-				break
-			}
-			p.w.Write([]byte(p.strVal))
+			_ = p.smallOptSize(8) &&
+				p.align(p.optSize) &&
+				p.nextStringValue() &&
+				p.packUint() &&
+				p.writeStr(0)
 		case 'x':
-			if p.align(0) {
-				p.w.WriteByte(0)
-			}
+			_ = p.align(0) &&
+				p.writeByte(0)
 		case 'X':
 			p.alignOnly = true
 		case ' ':
@@ -186,6 +169,14 @@ func (p *packer) getOptSize() bool {
 	return ok
 }
 
+func (p *packer) mustGetOptSize() bool {
+	ok := p.getOptSize()
+	if !ok {
+		p.err = errMissingSize
+	}
+	return ok
+}
+
 func (p *packer) nextValue() bool {
 	if len(p.values) > p.j {
 		p.val = p.values[p.j]
@@ -232,6 +223,7 @@ func (p *packer) nextStringValue() bool {
 		return false
 	}
 	p.strVal = string(s)
+	p.intVal = int64(len(s))
 	return true
 }
 
@@ -251,9 +243,30 @@ func (p *packer) checkFloatSize(max float64) bool {
 	return ok
 }
 
+func (p *packer) writeByte(b byte) bool {
+	p.w.WriteByte(b)
+	return true
+}
+
 func (p *packer) write(x interface{}) bool {
 	p.err = binary.Write(&p.w, p.byteOrder, x)
 	return p.err == nil
+}
+
+func (p *packer) writeStr(maxLen uint) bool {
+	diff := 0
+	if maxLen > 0 {
+		diff = int(maxLen) - len(p.strVal)
+	}
+	if diff < 0 {
+		p.err = errOutOfBounds
+		return false
+	}
+	p.w.Write([]byte(p.strVal))
+	if diff > 0 {
+		p.fill(uint(diff), 0)
+	}
+	return true
 }
 
 func (p *packer) align(n uint) bool {
