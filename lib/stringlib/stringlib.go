@@ -24,6 +24,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "sub", sub, 3, false)
 	rt.SetEnvGoFunc(pkg, "format", format, 1, true)
 	rt.SetEnvGoFunc(pkg, "pack", pack, 1, true)
+	rt.SetEnvGoFunc(pkg, "unpack", unpack, 3, false)
 
 	stringMeta := rt.NewTable()
 	rt.SetEnv(stringMeta, "__index", pkg)

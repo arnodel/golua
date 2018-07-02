@@ -8,29 +8,35 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-type packer struct {
+type packFormatReader struct {
 	format       string           // Specifies the packing format
 	i            int              // Current index in the format string
 	byteOrder    binary.ByteOrder // Current byteOrder of outputting numbers
 	maxAlignment uint             // Current max alignment (used in pack.align())
 	err          error            // if non-nil, the error encountered while packing
 	optSize      uint             // Value of current option size
-	values       []rt.Value       // Lua values to be packed
-	j            int              // Current index in the values above
-	val          rt.Value         // Current value
-	intVal       int64            // Current integral value (if applicable)
-	floatVal     float64          // Current floating point value (if applicable)
-	strVal       string           // Current string value (if applicable)
-	w            bytes.Buffer     // Where the output is written
 	alignOnly    bool             // true after "X" option is parsed
+}
+
+type packer struct {
+	packFormatReader
+	values   []rt.Value   // Lua values to be packed
+	j        int          // Current index in the values above
+	val      rt.Value     // Current value
+	intVal   int64        // Current integral value (if applicable)
+	floatVal float64      // Current floating point value (if applicable)
+	strVal   string       // Current string value (if applicable)
+	w        bytes.Buffer // Where the output is written
 }
 
 func PackValues(format string, values []rt.Value) (string, error) {
 	p := &packer{
-		format:       format,
-		byteOrder:    nativeEndian,
-		maxAlignment: defaultMaxAlignement,
-		values:       values,
+		packFormatReader: packFormatReader{
+			format:       format,
+			byteOrder:    nativeEndian,
+			maxAlignment: defaultMaxAlignement,
+		},
+		values: values,
 	}
 	for p.err == nil && p.hasNext() {
 		switch p.nextOption() {
@@ -128,17 +134,17 @@ func PackValues(format string, values []rt.Value) (string, error) {
 	return p.w.String(), nil
 }
 
-func (p *packer) hasNext() bool {
+func (p *packFormatReader) hasNext() bool {
 	return p.i < len(p.format)
 }
 
-func (p *packer) nextOption() byte {
+func (p *packFormatReader) nextOption() byte {
 	opt := p.format[p.i]
 	p.i++
 	return opt
 }
 
-func (p *packer) smallOptSize(defaultSize uint) bool {
+func (p *packFormatReader) smallOptSize(defaultSize uint) bool {
 	p.getOptSize()
 	if p.optSize > 16 {
 		p.err = errBadOptionArg
@@ -153,7 +159,7 @@ func (p *packer) smallOptSize(defaultSize uint) bool {
 	return true
 }
 
-func (p *packer) getOptSize() bool {
+func (p *packFormatReader) getOptSize() bool {
 	var n uint
 	ok := false
 	for ; p.i < len(p.format); p.i++ {
@@ -169,7 +175,7 @@ func (p *packer) getOptSize() bool {
 	return ok
 }
 
-func (p *packer) mustGetOptSize() bool {
+func (p *packFormatReader) mustGetOptSize() bool {
 	ok := p.getOptSize()
 	if !ok {
 		p.err = errMissingSize

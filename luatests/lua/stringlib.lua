@@ -287,3 +287,47 @@ do
     packError("bbX", 1, 1) -- "X" must be followed by option
     packError("!3bi", 1, 1) -- alignment not a power of 2
 end
+
+do
+    local function unpack(...)
+        print(string.unpack(...))
+    end
+
+    unpack("b", "A")
+    --> =65	2
+
+    unpack("<i", "abcd")
+    --> =1684234849	5
+
+    unpack(">i", "abcd")
+    --> =1633837924	5
+
+    unpack("<bc2H", "Bhi\x00\x04")
+    --> =66	hi	1024	6
+
+    unpack(">s1xb", "\x05hello*\x80")
+    --> =hello	128	9
+
+    unpack("B", "1234\xff678", 5)
+    --> =255	6
+
+    unpack("<!4zi", "hi\x00*\x00\x00\x01\x00")
+    --> =hi	65536	9
+
+    unpack("!4c1Xlc1", "A***B")
+    --> =A	B	6
+
+    local function unpackError(...)
+        if pcall(string.unpack, ...) then
+            print("NO ERROR")
+        end
+    end
+
+    unpackError("b", "")
+    unpackError("i", "123")
+    unpackError("bX", "2")
+    unpackError("z", "abc")
+    unpackError("c5", "abcd")
+    unpackError("By", "a")
+    unpackError("s1", "\x3ab")
+end
