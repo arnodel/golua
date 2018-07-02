@@ -10,11 +10,11 @@ import (
 
 type unpacker struct {
 	packFormatReader
-	pack   []byte
-	j      int
-	values []rt.Value
-	intVal rt.Int
-	strVal rt.String
+	pack   []byte     // The packed data
+	j      int        // Current index in the packed data
+	values []rt.Value // Values unpacked so far
+	intVal rt.Int     // Last unpacked integral value (for options 'i' and 'I')
+	strVal rt.String  // Last unpacked string value
 }
 
 func UnpackString(format, pack string) ([]rt.Value, int, error) {
