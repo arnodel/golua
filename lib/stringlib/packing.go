@@ -95,6 +95,37 @@ func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext(rt.String(res)), nil
 }
 
+func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err.AddContext(c)
+	}
+	var format, pack rt.String
+	var n rt.Int = 1
+	var err *rt.Error
+	format, err = c.StringArg(0)
+	if err == nil {
+		pack, err = c.StringArg(1)
+	}
+	if err == nil && c.NArgs() >= 3 {
+		n, err = c.IntArg(2)
+	}
+	i := int(n - 1)
+	if i < 0 || i > len(pack) {
+		err = rt.NewErrorS("#3 out of bounds")
+	}
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	vals, m, uerr := UnpackString(string(format), string(pack[i:]))
+	if uerr != nil {
+		return nil, rt.NewErrorE(uerr).AddContext(c)
+	}
+	next := c.Next()
+	rt.Push(next, vals...)
+	next.Push(n + rt.Int(m))
+	return next, nil
+}
+
 func isLittleEndian() bool {
 	var i int32 = 0x01020304
 	u := unsafe.Pointer(&i)
@@ -122,3 +153,4 @@ var errOutOfBounds = errors.New("Value out of bounds") // TODO: better error
 var errBadFormatString = errors.New("Bad syntax in format string")
 var errExpectedOption = errors.New("Expected option after 'X'")
 var errBadAlignment = errors.New("Alignment should be a power of 2")
+var errUnexpectedPackEnd = errors.New("Unexpected end for packed string")
