@@ -331,3 +331,35 @@ do
     unpackError("By", "a")
     unpackError("s1", "\x3ab")
 end
+
+do
+    local function ps(f)
+        print(string.packsize(f))
+    end
+
+    ps("bb")
+    --> =2
+
+    ps("c10i")
+    --> =14
+
+    ps("lx")
+    --> =9
+
+    ps("!4Bf")
+    --> =8
+
+    ps("!8hXi8")
+    --> =8
+
+    local function psError(f)
+        if pcall(string.packsize, f) then
+            print("NO ERROR")
+        end
+    end
+
+    psError("c")
+    psError("!20")
+    psError("z")
+    psError("s4")
+end
