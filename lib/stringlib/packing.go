@@ -126,6 +126,21 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
+func packsize(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	format, err := c.StringArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	size, serr := PackSize(string(format))
+	if serr != nil {
+		return nil, rt.NewErrorE(serr).AddContext(c)
+	}
+	return c.PushingNext(rt.Int(size)), nil
+}
+
 func isLittleEndian() bool {
 	var i int32 = 0x01020304
 	u := unsafe.Pointer(&i)
