@@ -136,6 +136,14 @@ func (c *GoCont) CallableArg(n int) (Callable, *Error) {
 	return f, nil
 }
 
+func (c *GoCont) ClosureArg(n int) (*Closure, *Error) {
+	f, ok := c.Arg(n).(*Closure)
+	if !ok {
+		return nil, NewErrorF("#%d must be a lua function", n+1)
+	}
+	return f, nil
+}
+
 func (c *GoCont) ThreadArg(n int) (*Thread, *Error) {
 	t, ok := c.Arg(n).(*Thread)
 	if !ok {

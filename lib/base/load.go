@@ -1,6 +1,9 @@
 package base
 
 import (
+	"bytes"
+	"strings"
+
 	rt "github.com/arnodel/golua/runtime"
 )
 
@@ -45,7 +48,31 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 	}
 	// TODO: use chunkMode
-	_ = chunkMode
+	canBeBinary := strings.IndexByte(chunkMode, 'b') >= 0
+	canBeText := strings.IndexByte(chunkMode, 't') >= 0
+	if len(chunk) > 0 && chunk[0] < rt.ConstTypeMaj {
+		// binary chunk
+		if !canBeBinary {
+			return nil, rt.NewErrorF("Did not expect binary chunk").AddContext(c)
+		}
+		r := bytes.NewBuffer(chunk)
+		k, err := rt.LoadConst(r)
+		if err != nil {
+			return nil, rt.NewErrorE(err).AddContext(c)
+		}
+		code, ok := k.(*rt.Code)
+		if !ok {
+			return nil, rt.NewErrorF("Expected function to load").AddContext(c)
+		}
+		clos := rt.NewClosure(code)
+		if code.UpvalueCount > 0 {
+			var envVal rt.Value = chunkEnv
+			clos.AddUpvalue(rt.NewCell(envVal))
+		}
+		return c.PushingNext(clos), nil
+	} else if !canBeText {
+		return nil, rt.NewErrorF("Did not expect text chunk").AddContext(c)
+	}
 	clos, err := rt.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv)
 	if err != nil {
 		return nil, rt.NewErrorE(err).AddContext(c)

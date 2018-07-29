@@ -8,11 +8,11 @@ import (
 type Unit struct {
 	Source    string
 	Code      []Opcode
-	Lines     []int
+	Lines     []int32
 	Constants []Constant
 }
 
-func NewUnit(source string, code []Opcode, lines []int, constants []Constant) *Unit {
+func NewUnit(source string, code []Opcode, lines []int32, constants []Constant) *Unit {
 	return &Unit{
 		Source:    source,
 		Code:      code,

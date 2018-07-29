@@ -4,6 +4,10 @@ type Cell struct {
 	ref *Value
 }
 
+func NewCell(v Value) Cell {
+	return Cell{&v}
+}
+
 func (c Cell) Get() Value {
 	return *c.ref
 }

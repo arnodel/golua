@@ -99,6 +99,10 @@ func (c Opcode) GetN() uint16 {
 	return uint16(c)
 }
 
+func (c Opcode) SetN(n uint16) Opcode {
+	return Opcode(uint32(c)&0xffff0000 | uint32(n))
+}
+
 func (c Opcode) GetM() uint8 {
 	return uint8(c)
 }
