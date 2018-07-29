@@ -12,6 +12,7 @@ func Load(r *rt.Runtime) {
 
 	rt.SetEnvGoFunc(pkg, "byte", bytef, 3, false)
 	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
+	rt.SetEnvGoFunc(pkg, "dump", dump, 2, false)
 	rt.SetEnvGoFunc(pkg, "find", find, 4, false)
 	rt.SetEnvGoFunc(pkg, "gmatch", gmatch, 2, false)
 	rt.SetEnvGoFunc(pkg, "gsub", gsub, 4, false)

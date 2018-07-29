@@ -285,8 +285,8 @@ func (c *Compiler) GetCode(name string) *Code {
 		Instructions: c.code,
 		Lines:        c.lines,
 		Constants:    c.constantPool.Constants(),
-		RegCount:     len(c.registers),
-		UpvalueCount: len(c.upvalues),
+		RegCount:     int16(len(c.registers)),
+		UpvalueCount: int16(len(c.upvalues)),
 		LabelPos:     c.labelPos,
 		Name:         name,
 	}

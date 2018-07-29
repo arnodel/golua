@@ -15,8 +15,8 @@ type Constant interface {
 type Code struct {
 	Name                   string
 	StartOffset, EndOffset uint
-	UpvalueCount           int
-	RegCount               int
+	UpvalueCount           int16
+	RegCount               int16
 }
 
 func (c Code) ShortString() string {
@@ -55,7 +55,7 @@ func (n NilType) ShortString() string {
 
 type Compiler struct {
 	source   string
-	lines    []int
+	lines    []int32
 	code     []Opcode
 	jumpTo   map[Label]int
 	jumpFrom map[Label][]int
@@ -71,7 +71,7 @@ func NewCompiler(source string) *Compiler {
 
 func (c *Compiler) Emit(opcode Opcode, line int) {
 	c.code = append(c.code, opcode)
-	c.lines = append(c.lines, line)
+	c.lines = append(c.lines, int32(line))
 }
 
 func (c *Compiler) EmitJump(opcode Opcode, lbl Label, line int) {
@@ -111,7 +111,7 @@ func (c *Compiler) Code() []Opcode {
 	return c.code
 }
 
-func (c *Compiler) Lines() []int {
+func (c *Compiler) Lines() []int32 {
 	return c.lines
 }
 
