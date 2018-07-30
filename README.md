@@ -172,15 +172,15 @@ be written for the core language.
 The `lib` directory contains a number of package, each implementing a
 lua library.
 
-* `base`: basic library. It is done apart from `xpcall`.
+* `base`: basic library. It is done apart from `xpcall` (and the
+  implementation of `load` is not complete).
 * `coroutine`: the coroutine library, which is done.
 * `packagelib`: the package library.  It is able to load lua modules
   but not "native" modules, which would be written in Go. Obviously
   this is not part of the official Lua specification. Perhaps using
   the plugin mechanism (https://golang.org/pkg/plugin/) would be a way
   of doing it.  I have no plan to support Lua C modules!
-* `stringlib`: the string library.  It is implemented apart from
-  `string.dump`.
+* `stringlib`: the string library.  It is complete.
 * `mathlib`: the math library,  It is complete.
 * `tablelib`: the table library.  It is complete.
 * `iolib`: the io library.  It is implemented apart from `popen`,
