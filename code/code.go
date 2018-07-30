@@ -1,6 +1,8 @@
 package code
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Type1:  1XXXXabc AAAAAAAA BBBBBBBB CCCCCCCC
 //

@@ -25,7 +25,7 @@ func (c *Code) RefactorConsts() *Code {
 			n := op.GetN()
 			m, ok := constMap[n]
 			if !ok {
-				m := uint16(len(consts))
+				m = uint16(len(consts))
 				constMap[n] = m
 				newConst := c.consts[n]
 				if code.UnOpK16(op.GetY()) == code.OpClosureK {
