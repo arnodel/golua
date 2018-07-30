@@ -363,3 +363,33 @@ do
     psError("z")
     psError("s4")
 end
+
+do
+    local function dl(f)
+        return load(string.dump(f))
+    end
+    
+    local function f(x)
+        print(string.format("%s squared is %s", x, x*x))
+    end
+
+    print(type(string.dump(f)))
+    --> =string
+
+    dl(f)(2)
+    --> =2 squared is 4
+
+    dl(f)(10)
+    --> =10 squared is 100
+
+    local function g(x)
+        return function(y)
+            print("Working...")
+            return x + y + 2
+        end
+    end
+
+    print(dl(g)(3)(5))
+    --> =Working...
+    --> =10
+end
