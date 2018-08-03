@@ -125,14 +125,14 @@ Go applications.  It should be able to run any pure Lua code
   (https://github.com/goccmack/gocc). The command used is:
   `gocc -no_lexer lua.bnf`.
 
-### AST -> IR Compilation
+### AST → IR Compilation
 
 The `ast` package defines all the AST nodes. Each node in the AST
 knows how to compile itself using an `ir.Compiler` instance.
 
 The `ir` package defines all the IR instructions and the IR compiler.
 
-### IR -> Code Compilation
+### IR → Code Compilation
 
 The runtime bytecode is defined in the `code` package.  Each IR
 instruction (see package `ir`) know how to compile itself using an
