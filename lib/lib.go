@@ -8,6 +8,7 @@ import (
 	"github.com/arnodel/golua/lib/packagelib"
 	"github.com/arnodel/golua/lib/stringlib"
 	"github.com/arnodel/golua/lib/tablelib"
+	"github.com/arnodel/golua/lib/utf8lib"
 	rt "github.com/arnodel/golua/runtime"
 )
 
@@ -19,4 +20,5 @@ func Load(r *rt.Runtime) {
 	tablelib.Load(r)
 	mathlib.Load(r)
 	iolib.Load(r)
+	utf8lib.Load(r)
 }
