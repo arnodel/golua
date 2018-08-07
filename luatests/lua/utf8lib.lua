@@ -4,5 +4,7 @@ do
 
     print(utf8.char(0x0394, 0x1000))
     --> =Δက
-end
 
+    print(utf8.char(0x65e5, 0x672c, 0x8a92))
+    --> =日本誒
+end

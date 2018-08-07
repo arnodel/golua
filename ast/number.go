@@ -1,17 +1,28 @@
 package ast
 
 import (
+	"bytes"
 	"strconv"
-	"strings"
 
 	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/token"
 )
 
+func isFloatToken(tok *token.Token) bool {
+	switch tok.Type {
+	case token.TokMap.Type("numdec"):
+		return bytes.ContainsAny(tok.Lit, ".eE")
+	case token.TokMap.Type("numhex"):
+		return bytes.ContainsAny(tok.Lit, ".pP")
+	default:
+		return false
+	}
+}
+
 func NewNumber(id *token.Token) (ExpNode, error) {
 	loc := LocFromToken(id)
 	nstring := string(id.Lit)
-	if strings.ContainsAny(nstring, ".eE") {
+	if isFloatToken(id) {
 		f, err := strconv.ParseFloat(nstring, 64)
 		if err != nil {
 			return nil, err
