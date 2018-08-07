@@ -12,12 +12,12 @@ func Load(r *rt.Runtime) {
 
 	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
 	rt.SetEnv(pkg, "charpattern", `[\0-\x7F\xC2-\xF4][\x80-\xBF]*`)
-
+	rt.SetEnvGoFunc(pkg, "codes", codes, 1, false)
 }
 
 func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	runes := c.Etc()
-	buf := make([]byte, len(runes)*4) // Max 4 bytes per utf8-encoded code point
+	buf := make([]byte, len(runes)*utf8.UTFMax)
 	cur := buf
 	bufLen := 0
 	for i, r := range runes {
@@ -30,4 +30,36 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		bufLen += sz
 	}
 	return c.PushingNext(rt.String(buf[:bufLen])), nil
+}
+
+func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	ss, err := c.StringArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	s := []byte(ss)
+	p := 0
+	var iterF = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+		next := c.Next()
+		if p < len(s) {
+			r, n := utf8.DecodeRune(s[p:])
+			if r == utf8.RuneError {
+				switch n {
+				case 0:
+					return next, nil
+				case 1:
+					return nil, rt.NewErrorS("Invalid utf8 encoding").AddContext(c)
+				}
+			}
+			next.Push(rt.Int(p + 1))
+			next.Push(rt.Int(r))
+			p += n
+		}
+		return next, nil
+	}
+	var iter = rt.NewGoFunction(iterF, "codesiterator", 0, false)
+	return c.PushingNext(iter), nil
 }
