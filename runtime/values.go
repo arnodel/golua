@@ -8,11 +8,38 @@ import (
 // Value is a runtime value.
 type Value interface{}
 
-type Bool bool
-type Int int64
-type Float float64
-type String string
+// Callable is the interface for callable values.
+type Callable interface {
+	Continuation(Cont) Cont
+}
 
+// ContWithArgs is a convenience function that returns a new
+// continuation from a callable, some arguments and a next
+// continuation.
+func ContWithArgs(c Callable, args []Value, next Cont) Cont {
+	cont := c.Continuation(next)
+	Push(cont, args...)
+	return cont
+}
+
+//
+// Bool
+//
+
+// Bool is a runtime boolean value.
+type Bool bool
+
+// Int is a runtime integral numeric value.
+type Int int64
+
+//
+// Float
+//
+
+// Float is a runtime floating point numeric value.
+type Float float64
+
+// ToInt turns a Float into an Int if possible.
 func (f Float) ToInt() (Int, NumberType) {
 	n := Int(f)
 	if Float(n) == f {
@@ -21,6 +48,14 @@ func (f Float) ToInt() (Int, NumberType) {
 	return 0, NaI
 }
 
+//
+// String
+//
+
+// String is a runtime string value.
+type String string
+
+// ToInt turns a String into and Int if possible.
 func (s String) ToInt() (Int, NumberType) {
 	v, tp := s.ToNumber()
 	switch tp {
@@ -32,6 +67,8 @@ func (s String) ToInt() (Int, NumberType) {
 	return 0, NaN
 }
 
+// ToNumber turns a Strign into a numeric value (Int or Float) if
+// possible.
 func (s String) ToNumber() (Value, NumberType) {
 	nstring := string(s)
 	if strings.ContainsAny(nstring, ".eE") {
@@ -48,18 +85,11 @@ func (s String) ToNumber() (Value, NumberType) {
 	return Int(n), IsInt
 }
 
-type Callable interface {
-	Continuation(Cont) Cont
-}
+//
+// GoFunction
+//
 
-type ToStringable interface {
-	ToString() string
-}
-
-type Metatabler interface {
-	Metatable() *Table
-}
-
+// GoFunction is a callable value implemented by a native Go function.
 type GoFunction struct {
 	f      func(*Thread, *GoCont) (Cont, *Error)
 	name   string
@@ -67,6 +97,7 @@ type GoFunction struct {
 	hasEtc bool
 }
 
+// NewGoFunction returns a new GoFunction.
 func NewGoFunction(f func(*Thread, *GoCont) (Cont, *Error), name string, nArgs int, hasEtc bool) *GoFunction {
 	return &GoFunction{
 		f:      f,
@@ -76,32 +107,7 @@ func NewGoFunction(f func(*Thread, *GoCont) (Cont, *Error), name string, nArgs i
 	}
 }
 
+// Continuation implements Callable.Continuation.
 func (f *GoFunction) Continuation(next Cont) Cont {
 	return NewGoCont(f, next)
-}
-
-func ContWithArgs(c Callable, args []Value, next Cont) Cont {
-	cont := c.Continuation(next)
-	Push(cont, args...)
-	return cont
-}
-
-type ValueError struct {
-	value Value
-}
-
-func (err ValueError) Error() string {
-	s, _ := AsString(err.value)
-	return string(s)
-}
-
-func ValueFromError(err error) Value {
-	if v, ok := err.(ValueError); ok {
-		return v.value
-	}
-	return String(err.Error())
-}
-
-func ErrorFromValue(v Value) error {
-	return ValueError{value: v}
 }
