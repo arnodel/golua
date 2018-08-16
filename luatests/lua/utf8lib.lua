@@ -18,3 +18,14 @@ do
     --> =3	233
     --> =5	67
 end
+
+do
+    print(utf8.codepoint("ABC"))
+    --> =65
+
+    print(utf8.codepoint("ABC", 2))
+    --> =66
+
+    print(utf8.codepoint("日本誒", 1, -1))
+    --> =26085	26412	35474
+end
