@@ -14,6 +14,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnv(pkg, "charpattern", `[\0-\x7F\xC2-\xF4][\x80-\xBF]*`)
 	rt.SetEnvGoFunc(pkg, "codes", codes, 1, false)
 	rt.SetEnvGoFunc(pkg, "codepoint", codepoint, 3, false)
+	rt.SetEnvGoFunc(pkg, "len", lenf, 3, false)
 }
 
 func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -93,5 +94,40 @@ func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next.Push(rt.Int(r))
 		k += sz
 	}
+	return next, nil
+}
+
+func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	ii := rt.Int(1)
+	ss, err := c.StringArg(0)
+	if err == nil && c.NArgs() >= 2 {
+		ii, err = c.IntArg(1)
+	}
+	jj := rt.Int(-1)
+	if err == nil && c.NArgs() >= 3 {
+		jj, err = c.IntArg(2)
+	}
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	next := c.Next()
+	i := ss.NormPos(ii)
+	j := ss.NormPos(jj)
+	s := string(ss)
+	slen := 0
+	for k := i - 1; k < j; {
+		r, sz := utf8.DecodeRuneInString(s[k:])
+		if r == utf8.RuneError {
+			next.Push(nil)
+			next.Push(rt.Int(k + 1))
+			return next, nil
+		}
+		k += sz
+		slen++
+	}
+	next.Push(rt.Int(slen))
 	return next, nil
 }
