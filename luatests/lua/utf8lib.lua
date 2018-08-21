@@ -46,3 +46,49 @@ do
     print(utf8.len("日本誒", 2))
     --> =nil	2
 end
+
+do
+    local s = "abé日本誒"
+    local function test(...)
+        local ok, offset = pcall(utf8.offset, s, ...)
+        if ok then
+            print(offset)
+        else
+            print("ERROR")
+        end
+    end
+
+    test(1)
+    --> =1
+
+    test(2, 3)
+    --> =5
+
+    test(5)
+    --> =8
+
+    test(1, 4)
+    --> =ERROR
+
+    test(10)
+    --> =nil
+    
+    test(0, 4)
+    --> =3
+
+    test(0, 7)
+    --> =5
+
+    test(-2)
+    --> =8
+
+    test(-3, 8)
+    --> =2
+
+    test(-10)
+    --> =nil
+
+    test(-1, 7)
+    --> =ERROR
+    
+end

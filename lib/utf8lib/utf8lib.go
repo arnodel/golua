@@ -15,6 +15,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "codes", codes, 1, false)
 	rt.SetEnvGoFunc(pkg, "codepoint", codepoint, 3, false)
 	rt.SetEnvGoFunc(pkg, "len", lenf, 3, false)
+	rt.SetEnvGoFunc(pkg, "offset", offset, 3, false)
 }
 
 func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -130,4 +131,66 @@ func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	next.Push(rt.Int(slen))
 	return next, nil
+}
+
+func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err.AddContext(c)
+	}
+	var nn rt.Int
+	ss, err := c.StringArg(0)
+	if err == nil {
+		nn, err = c.IntArg(1)
+	}
+	ii := rt.Int(1)
+	if nn < 0 {
+		ii = rt.Int(len(ss) + 1)
+	}
+	if err == nil && c.NArgs() >= 3 {
+		ii, err = c.IntArg(2)
+	}
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	i := ss.NormPos(ii) - 1
+	s := string(ss)
+	if i < 0 || i > len(s) {
+		return c.PushingNext(nil), nil
+	}
+	if nn == 0 {
+		// Special case: locate the starting position of the current
+		// code point.
+		for i >= 0 && i < len(s) && !utf8.RuneStart(s[i]) {
+			i--
+		}
+	} else {
+		if i < len(s) && !utf8.RuneStart(s[i]) {
+			return nil, rt.NewErrorS("initial position is a continuation byte").AddContext(c)
+		}
+		if nn > 0 {
+			nn--
+			// Go forward
+			for nn > 0 {
+				i++
+				if i >= len(s) {
+					break
+				}
+				if utf8.RuneStart(s[i]) {
+					nn--
+				}
+			}
+		} else {
+			// Go backward
+			for nn < 0 && i > 0 {
+				i--
+				if utf8.RuneStart(s[i]) {
+					nn++
+				}
+			}
+		}
+	}
+	if nn == 0 {
+		return c.PushingNext(rt.Int(i + 1)), nil
+	}
+	return c.PushingNext(nil), nil
 }
