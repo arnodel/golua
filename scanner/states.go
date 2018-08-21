@@ -223,6 +223,7 @@ var isKeyword = map[string]bool{
 	"repeat":   true,
 	"until":    true,
 	"then":     true,
+	"else":     true,
 	"elseif":   true,
 	"if":       true,
 	"for":      true,
