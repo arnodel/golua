@@ -1,4 +1,4 @@
-package luatests
+package luatesting
 
 import "testing"
 
