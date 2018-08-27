@@ -192,13 +192,13 @@ end
 
 do
     print(string.gsub("hello world", "(%w+)", "%1 %1"))
-    --> =hello hello world world
+    --> =hello hello world world	2
 
     print(string.gsub("hello world", "%w+", "%0 %0", 1))
-    --> =hello hello world
+    --> =hello hello world	1
 
     print(string.gsub("hello world from Lua", "(%w+)%s*(%w+)", "%2 %1"))
-    --> =world hello Lua from
+    --> =world hello Lua from	2
 
     local function getenv(v)
         if v == "HOME" then
@@ -209,18 +209,18 @@ do
     end
 
     print(string.gsub("home = $HOME, user = $USER", "%$(%w+)", getenv))
-    --> =home = /home/roberto, user = roberto
+    --> =home = /home/roberto, user = roberto	2
 
     print(string.gsub("4+5 = $return 4+5$", "%$(.-)%$",
                       function (s)
                           return load(s)()
                       end
     ))
-    --> =4+5 = 9
+    --> =4+5 = 9	1
 
     local t = {name="lua", version="5.3"}
     print(string.gsub("$name-$version.tar.gz", "%$(%w+)", t))
-    --> =lua-5.3.tar.gz
+    --> =lua-5.3.tar.gz	2
 end
 
 do

@@ -22,9 +22,12 @@ func collectgarbage(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	next := c.Next()
 	switch opt {
-	case "collect", "step":
+	case "collect":
+		runtime.GC()
+	case "step":
 		// The Go runtime doesn't offer the ability to go gc steps.
 		runtime.GC()
+		next.Push(rt.Bool(true))
 	case "stop":
 		debug.SetGCPercent(-1)
 		gcRunning = false

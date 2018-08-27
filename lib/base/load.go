@@ -74,9 +74,12 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, rt.NewErrorF("Did not expect text chunk").AddContext(c)
 	}
 	clos, err := rt.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv)
+	next := c.Next()
 	if err != nil {
-		return nil, rt.NewErrorE(err).AddContext(c)
+		next.Push(nil)
+		next.Push(rt.String(err.Error()))
+	} else {
+		next.Push(clos)
 	}
-	c.Next().Push(clos)
-	return c.Next(), nil
+	return next, nil
 }

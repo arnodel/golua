@@ -204,7 +204,8 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	si := 0
 	var sb strings.Builder
-	for ; n != 0; n-- {
+	var matchCount rt.Int
+	for ; matchCount != n; matchCount++ {
 		captures := pat.Match(string(s), si)
 		if len(captures) == 0 {
 			break
@@ -219,7 +220,10 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		si = gc.End()
 	}
 	_, _ = sb.WriteString(string(s)[si:])
-	return c.PushingNext(rt.String(sb.String())), nil
+	next := c.Next()
+	next.Push(rt.String(sb.String()))
+	next.Push(matchCount)
+	return next, nil
 }
 
 var gsubPtn = regexp.MustCompile("%.")

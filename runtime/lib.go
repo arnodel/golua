@@ -109,6 +109,9 @@ func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
 }
 
 func Call(t *Thread, f Value, args []Value, next Cont) *Error {
+	if f == nil {
+		return NewErrorS("attempt to call a nil value")
+	}
 	callable, ok := f.(Callable)
 	if ok {
 		return t.Call(callable, args, next)
@@ -118,6 +121,14 @@ func Call(t *Thread, f Value, args []Value, next Cont) *Error {
 		return err
 	}
 	return NewErrorS("call expects a callable")
+}
+
+func Call1(t *Thread, f Value, args ...Value) (Value, *Error) {
+	term := NewTerminationWith(1, false)
+	if err := Call(t, f, args, term); err != nil {
+		return nil, err
+	}
+	return term.Get(0), nil
 }
 
 func metabin(t *Thread, f string, x Value, y Value) (Value, *Error, bool) {
@@ -209,8 +220,8 @@ func Type(v Value) String {
 	case *Table:
 		return String("table")
 	case Bool:
-		return String("bool")
-	case *Closure:
+		return String("boolean")
+	case *Closure, *GoFunction:
 		return String("function")
 	case *Thread:
 		return String("thread")

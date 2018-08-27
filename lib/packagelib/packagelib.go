@@ -1,6 +1,7 @@
 package packagelib
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -205,4 +206,16 @@ func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func pkgTable(t *rt.Thread) *rt.Table {
 	return t.Registry(pkgKey).(*rt.Table)
+}
+
+func SavePackage(t *rt.Thread, name rt.String, val rt.Value) error {
+	pkg := pkgTable(t)
+
+	// First check is the module is already loaded
+	loaded, ok := pkg.Get(loadedKey).(*rt.Table)
+	if !ok {
+		return errors.New("package.loaded must be a table")
+	}
+	loaded.Set(name, val)
+	return nil
 }

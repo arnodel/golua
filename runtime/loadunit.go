@@ -59,7 +59,7 @@ func (c *Code) WriteConst(w io.Writer) (err error) {
 	bwrite(w, c.lines)
 	bwrite(w, int64(len(c.consts)))
 	for _, k := range c.consts {
-		k.WriteConst(w)
+		WriteConst(w, k)
 	}
 	bwrite(w, c.UpvalueCount)
 	bwrite(w, c.RegCount)

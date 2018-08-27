@@ -167,6 +167,8 @@ func scanShortString(q rune) stateFn {
 					if l.next() != '}' {
 						return l.errorf("Missing '}'")
 					}
+				case c == 'z':
+					accept(l, isSpace, -1)
 				default:
 					switch c {
 					case 'a', 'b', 'f', 'n', 'r', 't', 'v', 'z', '"', '\'', '\n':
@@ -259,6 +261,10 @@ func isAlnum(x rune) bool {
 
 func isHex(x rune) bool {
 	return isDec(x) || 'a' <= x && x <= 'f' || 'A' <= x && x <= 'F'
+}
+
+func isSpace(x rune) bool {
+	return x == ' ' || x == '\n' || x == '\r' || x == '\t'
 }
 
 type runePredicate func(rune) bool

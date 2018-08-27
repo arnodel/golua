@@ -71,7 +71,7 @@ func replaceEscapeSeq(e []byte) []byte {
 		}
 		return []byte{byte(b)}
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		b, err := strconv.ParseInt(string(e[2:]), 10, 64)
+		b, err := strconv.ParseInt(string(e[1:]), 10, 64)
 		if err != nil {
 			panic(err)
 		}

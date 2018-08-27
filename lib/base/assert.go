@@ -6,7 +6,8 @@ func assert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err.AddContext(c)
 	}
-	if !rt.Truth(c.Arg(0)) {
+	arg := c.Arg(0)
+	if !rt.Truth(arg) {
 		var msg rt.Value
 		if c.NArgs() < 2 {
 			msg = rt.String("assertion failed!")
@@ -15,5 +16,5 @@ func assert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		return nil, rt.NewError(msg).AddContext(c)
 	}
-	return c.Next(), nil
+	return c.PushingNext(arg), nil
 }
