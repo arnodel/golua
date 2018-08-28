@@ -306,11 +306,17 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 }
 
 func (c *LuaCont) setReg(reg code.Reg, val Value) {
+	idx := reg.Idx()
 	switch reg.Tp() {
 	case code.Register:
-		c.registers[reg.Idx()] = val
+		cell, ok := c.registers[idx].(Cell)
+		if ok {
+			cell.Set(val)
+		} else {
+			c.registers[idx] = val
+		}
 	default:
-		c.upvalues[reg.Idx()] = asCell(val)
+		c.upvalues[idx].Set(val)
 	}
 }
 
