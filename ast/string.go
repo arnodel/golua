@@ -44,7 +44,7 @@ func (s String) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	return dst
 }
 
-var escapeSeqs = regexp.MustCompile(`\\\d{1,3}|\\[xX][0-9a-fA-F]{2}|\\[abtnvfr]|\\z\w*|\[uU]\{[0-9a-fA-F]+\}|\\.`)
+var escapeSeqs = regexp.MustCompile(`(?s)\\\d{1,3}|\\[xX][0-9a-fA-F]{2}|\\[abtnvfr]|\\z\w*|\[uU]\{[0-9a-fA-F]+\}|\\.`)
 
 func replaceEscapeSeq(e []byte) []byte {
 	switch e[1] {
