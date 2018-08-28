@@ -42,12 +42,30 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		switch x := c.Arg(0).(type) {
 		case rt.String:
 			chunk = []byte(x)
-			// TODO: function case
+		case rt.Callable:
+			var buf bytes.Buffer
+			for {
+				bit, err := rt.Call1(t, x)
+				if err != nil {
+					return nil, err.AddContext(c)
+				}
+				if bit == nil {
+					break
+				}
+				bitString, ok := bit.(rt.String)
+				if !ok {
+					return nil, rt.NewErrorS("#1 must return strings").AddContext(c)
+				}
+				if len(bitString) == 0 {
+					break
+				}
+				buf.WriteString(string(bitString))
+			}
+			chunk = buf.Bytes()
 		default:
 			return nil, rt.NewErrorS("#1 must be a string or function").AddContext(c)
 		}
 	}
-	// TODO: use chunkMode
 	canBeBinary := strings.IndexByte(chunkMode, 'b') >= 0
 	canBeText := strings.IndexByte(chunkMode, 't') >= 0
 	if len(chunk) > 0 && chunk[0] < rt.ConstTypeMaj {
