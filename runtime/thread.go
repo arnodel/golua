@@ -32,10 +32,15 @@ type valuesError struct {
 //
 type Thread struct {
 	*Runtime
-	mux      sync.Mutex
-	status   ThreadStatus
-	resumeCh chan valuesError
-	caller   *Thread
+	mux         sync.Mutex
+	status      ThreadStatus
+	currentCont Cont
+	resumeCh    chan valuesError
+	caller      *Thread
+}
+
+func (t *Thread) CurrentCont() Cont {
+	return t.currentCont
 }
 
 func (t *Thread) IsMain() bool {
@@ -63,6 +68,7 @@ func NewThread(rt *Runtime) *Thread {
 
 func (t *Thread) RunContinuation(c Cont) (err *Error) {
 	for c != nil && err == nil {
+		t.currentCont = c
 		c, err = c.RunInThread(t)
 	}
 	return

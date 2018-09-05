@@ -294,6 +294,10 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 	if !c.running {
 		pc--
 	}
+	var currentLine int32 = -1
+	if pc >= 0 && int(pc) < len(c.lines) {
+		currentLine = c.lines[pc]
+	}
 	name := c.name
 	if name == "" {
 		name = "<lua function>"
@@ -301,7 +305,7 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 	return &DebugInfo{
 		Source:      c.source,
 		Name:        name,
-		CurrentLine: c.lines[pc],
+		CurrentLine: currentLine,
 	}
 }
 

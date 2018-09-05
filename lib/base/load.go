@@ -15,6 +15,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	chunkName := "chunk"
 	chunkMode := "bt"
 	chunkEnv := t.GlobalEnv()
+	next := c.Next()
 
 	switch nargs := c.NArgs(); {
 	case nargs >= 4:
@@ -32,11 +33,13 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		chunkMode = string(mode)
 		fallthrough
 	case nargs >= 2:
-		name, err := c.StringArg(1)
-		if err != nil {
-			return nil, err.AddContext(c)
+		if c.Arg(1) != nil {
+			name, err := c.StringArg(1)
+			if err != nil {
+				return nil, err.AddContext(c)
+			}
+			chunkName = string(name)
 		}
-		chunkName = string(name)
 		fallthrough
 	case nargs >= 1:
 		switch x := c.Arg(0).(type) {
@@ -54,7 +57,8 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				}
 				bitString, ok := bit.(rt.String)
 				if !ok {
-					return nil, rt.NewErrorS("#1 must return strings").AddContext(c)
+					rt.Push(next, nil, rt.String("reader must return a string"))
+					return next, nil
 				}
 				if len(bitString) == 0 {
 					break
@@ -71,7 +75,8 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if len(chunk) > 0 && chunk[0] < rt.ConstTypeMaj {
 		// binary chunk
 		if !canBeBinary {
-			return nil, rt.NewErrorF("Did not expect binary chunk").AddContext(c)
+			rt.Push(next, nil, rt.String("attempt to load a binary chunk"))
+			return next, nil
 		}
 		r := bytes.NewBuffer(chunk)
 		k, err := rt.LoadConst(r)
@@ -89,13 +94,12 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		return c.PushingNext(clos), nil
 	} else if !canBeText {
-		return nil, rt.NewErrorF("Did not expect text chunk").AddContext(c)
+		rt.Push(next, nil, rt.String("attempt to load a text chunk"))
+		return next, nil
 	}
 	clos, err := rt.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv)
-	next := c.Next()
 	if err != nil {
-		next.Push(nil)
-		next.Push(rt.String(err.Error()))
+		rt.Push(next, nil, rt.String(err.Error()))
 	} else {
 		next.Push(clos)
 	}
