@@ -93,7 +93,7 @@ func (c *Code) LoadConst(r io.Reader) (err error) {
 	return
 }
 
-func LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
+func LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 	constants := make([]Const, len(unit.Constants))
 	for i, ck := range unit.Constants {
 		switch k := ck.(type) {
@@ -121,11 +121,10 @@ func LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 			panic("Unsupported constant type")
 		}
 	}
-	var envVal Value = env
 	mainCode := constants[0].(*Code) // It must be some code
 	clos := NewClosure(mainCode)
 	if mainCode.UpvalueCount > 0 {
-		clos.AddUpvalue(Cell{&envVal})
+		clos.AddUpvalue(Cell{&env})
 	}
 	return clos
 }

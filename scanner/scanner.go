@@ -20,6 +20,19 @@ type Scanner struct {
 	errorMsg         string
 }
 
+// New creates a new scanner for the input string.
+func New(name string, input []byte) *Scanner {
+	l := &Scanner{
+		name:  name,
+		input: input,
+		state: scanToken,
+		items: make(chan *token.Token, 2), // Two items sufficient.
+		pos:   token.Pos{Line: 1, Column: 1},
+		start: token.Pos{Line: 1, Column: 1},
+	}
+	return l
+}
+
 // stateFn represents the state of the scanner
 // as a function that returns the next state.
 type stateFn func(*Scanner) stateFn
@@ -119,19 +132,6 @@ func (l *Scanner) errorf(format string, args ...interface{}) stateFn {
 		Pos:  l.start,
 	}
 	return nil
-}
-
-// New creates a new scanner for the input string.
-func New(name string, input []byte) *Scanner {
-	l := &Scanner{
-		name:  name,
-		input: input,
-		state: scanToken,
-		items: make(chan *token.Token, 2), // Two items sufficient.
-		pos:   token.Pos{Line: 1, Column: 1},
-		start: token.Pos{Line: 1, Column: 1},
-	}
-	return l
 }
 
 // nextItem returns the next item from the input.

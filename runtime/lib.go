@@ -6,6 +6,7 @@ import (
 
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/code"
+	ccerrors "github.com/arnodel/golua/errors"
 	"github.com/arnodel/golua/parser"
 	"github.com/arnodel/golua/scanner"
 )
@@ -249,12 +250,11 @@ func CompileLuaChunk(name string, source []byte) (*code.Unit, error) {
 	s := scanner.New(name, source)
 	tree, err := p.Parse(s)
 	if err != nil {
-		// It would be better if the parser just forwarded the
-		// tokenising error but...
-		if s.Error() != nil {
-			return nil, s.Error()
+		parseErr, ok := err.(*ccerrors.Error)
+		if !ok {
+			return nil, err
 		}
-		return nil, err
+		return nil, NewSyntaxErrorFromCCError(name, parseErr)
 	}
 	c := tree.(ast.BlockStat).CompileChunk(name)
 	kc := c.NewConstantCompiler()
@@ -262,7 +262,7 @@ func CompileLuaChunk(name string, source []byte) (*code.Unit, error) {
 
 }
 
-func CompileAndLoadLuaChunk(name string, source []byte, env *Table) (*Closure, error) {
+func CompileAndLoadLuaChunk(name string, source []byte, env Value) (*Closure, error) {
 	unit, err := CompileLuaChunk(name, source)
 	if err != nil {
 		return nil, err

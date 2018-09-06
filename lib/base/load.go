@@ -14,23 +14,21 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	var chunk []byte
 	chunkName := "chunk"
 	chunkMode := "bt"
-	chunkEnv := t.GlobalEnv()
+	var chunkEnv rt.Value = t.GlobalEnv()
 	next := c.Next()
 
 	switch nargs := c.NArgs(); {
 	case nargs >= 4:
-		var err *rt.Error
-		chunkEnv, err = c.TableArg(3)
-		if err != nil {
-			return nil, err.AddContext(c)
-		}
+		chunkEnv = c.Arg(3)
 		fallthrough
 	case nargs >= 3:
-		mode, err := c.StringArg(2)
-		if err != nil {
-			return nil, err.AddContext(c)
+		if c.Arg(2) != nil {
+			mode, err := c.StringArg(2)
+			if err != nil {
+				return nil, err.AddContext(c)
+			}
+			chunkMode = string(mode)
 		}
-		chunkMode = string(mode)
 		fallthrough
 	case nargs >= 2:
 		if c.Arg(1) != nil {
@@ -50,7 +48,9 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			for {
 				bit, err := rt.Call1(t, x)
 				if err != nil {
-					return nil, err.AddContext(c)
+					next.Push(nil)
+					next.Push(rt.String(err.Error()))
+					return next, nil
 				}
 				if bit == nil {
 					break
