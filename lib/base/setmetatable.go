@@ -22,6 +22,5 @@ func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	} else {
 		return nil, err.AddContext(c)
 	}
-	c.Next().Push(c.Arg(1))
-	return c.Next(), nil
+	return c.PushingNext(c.Arg(0)), nil
 }

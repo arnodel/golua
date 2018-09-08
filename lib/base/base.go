@@ -44,7 +44,11 @@ func ToString(t *rt.Thread, v rt.Value) (rt.String, *rt.Error) {
 		return "", err
 	}
 	if ok {
-		v = next.Get(0)
+		s, ok := rt.AsString(next.Get(0))
+		if !ok {
+			return "", rt.NewErrorS("'__tostring' must return a string")
+		}
+		return s, nil
 	}
 	s, ok := rt.AsString(v)
 	// TODO: fix this hack
