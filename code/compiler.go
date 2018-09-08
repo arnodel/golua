@@ -17,6 +17,7 @@ type Code struct {
 	StartOffset, EndOffset uint
 	UpvalueCount           int16
 	RegCount               int16
+	UpNames                []string
 }
 
 func (c Code) ShortString() string {

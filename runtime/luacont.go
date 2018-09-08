@@ -13,7 +13,7 @@ type LuaCont struct {
 }
 
 func NewLuaCont(clos *Closure, next Cont) *LuaCont {
-	if clos.upvalueIndex < len(clos.upvalues) {
+	if clos.upvalueIndex < len(clos.Upvalues) {
 		panic("Closure not ready")
 	}
 	registers := make([]Value, clos.RegCount)
@@ -320,7 +320,7 @@ func (c *LuaCont) setReg(reg code.Reg, val Value) {
 			c.registers[idx] = val
 		}
 	default:
-		c.upvalues[idx].Set(val)
+		c.Upvalues[idx].Set(val)
 	}
 }
 
@@ -329,7 +329,7 @@ func (c *LuaCont) getReg(reg code.Reg) Value {
 	case code.Register:
 		return asValue(c.registers[reg.Idx()])
 	default:
-		return *c.upvalues[reg.Idx()].ref
+		return *c.Upvalues[reg.Idx()].ref
 	}
 }
 
@@ -344,7 +344,7 @@ func (c *LuaCont) getRegCell(reg code.Reg) Cell {
 		}
 		return cell
 	default:
-		return c.upvalues[reg.Idx()]
+		return c.Upvalues[reg.Idx()]
 	}
 }
 

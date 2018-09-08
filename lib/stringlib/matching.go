@@ -31,7 +31,10 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	si := pos(s, init) - 1
 	next := c.Next()
-	if plain {
+	switch {
+	case si < 0 || si > len(s):
+		next.Push(nil)
+	case plain || len(ptn) == 0:
 		i := strings.Index(string(s)[si:], string(ptn))
 		if i == -1 {
 			next.Push(nil)
@@ -39,7 +42,7 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			next.Push(rt.Int(i + 1))
 			next.Push(rt.Int(i + len(ptn)))
 		}
-	} else {
+	default:
 		pat, err := pattern.New(string(ptn))
 		if err != nil {
 			return nil, rt.NewErrorE(err).AddContext(c)

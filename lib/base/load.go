@@ -91,6 +91,9 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if code.UpvalueCount > 0 {
 			var envVal rt.Value = chunkEnv
 			clos.AddUpvalue(rt.NewCell(envVal))
+			for i := int16(1); i < code.UpvalueCount; i++ {
+				clos.AddUpvalue(rt.NewCell(nil))
+			}
 		}
 		return c.PushingNext(clos), nil
 	} else if !canBeText {

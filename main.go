@@ -11,11 +11,9 @@ import (
 	"os"
 	"runtime"
 
-	ccerrors "github.com/arnodel/golua/errors"
 	"github.com/arnodel/golua/lib"
 	"github.com/arnodel/golua/lib/base"
 	rt "github.com/arnodel/golua/runtime"
-	"github.com/arnodel/golua/token"
 )
 
 func main() {
@@ -114,11 +112,11 @@ func repl(r *rt.Runtime) {
 func runChunk(r *rt.Runtime, source []byte) (bool, error) {
 	clos, err := rt.CompileAndLoadLuaChunk("<stdin>", source, r.GlobalEnv())
 	if err != nil {
-		pErr, ok := err.(*ccerrors.Error)
+		snErr, ok := err.(*rt.SyntaxError)
 		if !ok {
 			return false, err
 		}
-		return pErr.ErrorToken.Type == token.EOF, err
+		return snErr.Type == rt.ErrSyntaxEOF, err
 	}
 	t := r.MainThread()
 	term := rt.NewTerminationWith(0, true)

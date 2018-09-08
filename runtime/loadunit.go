@@ -12,6 +12,7 @@ type Code struct {
 	lines        []int32
 	consts       []Const
 	UpvalueCount int16
+	UpNames      []string
 	RegCount     int16
 }
 
@@ -63,6 +64,10 @@ func (c *Code) WriteConst(w io.Writer) (err error) {
 	}
 	bwrite(w, c.UpvalueCount)
 	bwrite(w, c.RegCount)
+	bwrite(w, int64(len(c.UpNames)))
+	for _, n := range c.UpNames {
+		swrite(w, n)
+	}
 	return
 }
 
@@ -90,6 +95,11 @@ func (c *Code) LoadConst(r io.Reader) (err error) {
 	}
 	bread(r, &c.UpvalueCount)
 	bread(r, &c.RegCount)
+	bread(r, &sz)
+	c.UpNames = make([]string, sz)
+	for i := range c.UpNames {
+		sread(r, &c.UpNames[i])
+	}
 	return
 }
 
@@ -115,6 +125,7 @@ func LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 				lines:        unit.Lines[k.StartOffset:k.EndOffset],
 				consts:       constants,
 				UpvalueCount: k.UpvalueCount,
+				UpNames:      k.UpNames,
 				RegCount:     k.RegCount,
 			}
 		default:

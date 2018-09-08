@@ -110,6 +110,7 @@ type Compiler struct {
 	context      LexicalContext
 	parent       *Compiler
 	upvalues     []Register
+	upnames      []string
 	code         []Instruction
 	lines        []int
 	constantPool *ConstantPool
@@ -200,6 +201,7 @@ func (c *Compiler) getRegister(name Name, tags uint) (reg Register, ok bool) {
 	reg, ok = c.parent.getRegister(name, regHasUpvalue)
 	if ok {
 		c.upvalues = append(c.upvalues, reg)
+		c.upnames = append(c.upnames, string(name))
 		reg = Register(-len(c.upvalues))
 		c.context.AddToRoot(name, reg)
 	}
@@ -287,6 +289,7 @@ func (c *Compiler) GetCode(name string) *Code {
 		Constants:    c.constantPool.Constants(),
 		RegCount:     int16(len(c.registers)),
 		UpvalueCount: int16(len(c.upvalues)),
+		UpNames:      c.upnames,
 		LabelPos:     c.labelPos,
 		Name:         name,
 	}

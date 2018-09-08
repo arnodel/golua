@@ -171,11 +171,21 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return c.PushingNext(ls), nil
 	}
 	if sep == nil {
+		if len(ls)*n/n != len(ls) {
+			// Overflow
+			return nil, rt.NewErrorS("rep causes overflow").AddContext(c)
+		}
 		return c.PushingNext(rt.String(strings.Repeat(string(ls), n))), nil
 	}
 	s := []byte(ls)
 	builder := strings.Builder{}
-	builder.Grow(n*len(s) + (n-1)*len(sep))
+	sz1 := n * len(s)
+	sz2 := (n - 1) * len(sep)
+	sz := sz1 + sz2
+	if sz1/n != len(s) || sz2/(n-1) != len(sep) || sz < 0 {
+		return nil, rt.NewErrorS("rep causes overflow").AddContext(c)
+	}
+	builder.Grow(sz)
 	builder.Write(s)
 	for {
 		n--

@@ -9,6 +9,9 @@ func Load(r *rt.Runtime) {
 	pkg := rt.NewTable()
 	rt.SetEnv(r.GlobalEnv(), "debug", pkg)
 	rt.SetEnvGoFunc(pkg, "getinfo", getinfo, 3, false)
+	rt.SetEnvGoFunc(pkg, "getupvalue", getupvalue, 2, false)
+	rt.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false)
+	rt.SetEnvGoFunc(pkg, "upvaluejoin", upvaluejoin, 4, false)
 	_ = packagelib.SavePackage(r.MainThread(), rt.String("debug"), pkg)
 }
 
@@ -67,4 +70,78 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next.Push(res)
 	}
 	return next, nil
+}
+
+func getupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err.AddContext(c)
+	}
+	f, err := c.ClosureArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	upv, err := c.IntArg(1)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	up := int(upv) - 1
+	next := c.Next()
+	if up < 0 || up >= int(f.Code.UpvalueCount) {
+		next.Push(nil)
+	} else {
+		rt.Push(next, rt.String(f.Code.UpNames[up]), f.GetUpvalue(up))
+	}
+	return next, nil
+}
+
+func setupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(3); err != nil {
+		return nil, err.AddContext(c)
+	}
+	f, err := c.ClosureArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	upv, err := c.IntArg(1)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	up := int(upv) - 1
+	next := c.Next()
+	if up < 0 || up >= int(f.Code.UpvalueCount) {
+		next.Push(nil)
+	} else {
+		next.Push(rt.String(f.Code.UpNames[up]))
+		f.SetUpValue(up, c.Arg(2))
+	}
+	return next, nil
+}
+
+func upvaluejoin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(4); err != nil {
+		return nil, err.AddContext(c)
+	}
+	f1, err := c.ClosureArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	upv1, err := c.IntArg(1)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	f2, err := c.ClosureArg(2)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	upv2, err := c.IntArg(3)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	up1 := int(upv1) - 1
+	up2 := int(upv2) - 1
+	if up1 < 0 || up1 >= int(f1.Code.UpvalueCount) || up2 < 0 || up2 >= int(f2.Code.UpvalueCount) {
+		return nil, rt.NewErrorS("Invalid upvalue index").AddContext(c)
+	}
+	f1.Upvalues[up1] = f2.Upvalues[up2]
+	return c.Next(), nil
 }

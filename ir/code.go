@@ -1,6 +1,8 @@
 package ir
 
-import "github.com/arnodel/golua/code"
+import (
+	"github.com/arnodel/golua/code"
+)
 
 type Constant interface {
 	Compile(*ConstantCompiler) code.Constant
@@ -60,6 +62,7 @@ type Code struct {
 	Constants    []Constant
 	RegCount     int16
 	UpvalueCount int16
+	UpNames      []string
 	LabelPos     map[int][]Label
 	Name         string
 }
@@ -78,6 +81,7 @@ func (c *Code) Compile(kc *ConstantCompiler) code.Constant {
 		StartOffset:  start,
 		EndOffset:    end,
 		UpvalueCount: c.UpvalueCount,
+		UpNames:      c.UpNames,
 		RegCount:     c.RegCount,
 	}
 }

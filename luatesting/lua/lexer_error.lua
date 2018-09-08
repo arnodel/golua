@@ -1,2 +1,2 @@
 ?
---> ~^!!! parsing: .*Illegal character
+--> ~^!!! parsing: .*unexpected symbol

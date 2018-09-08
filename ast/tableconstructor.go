@@ -57,7 +57,7 @@ func (t TableConstructor) CompileExp(c *ir.Compiler, dst ir.Register) ir.Registe
 		valReg := CompileExp(c, field.value)
 		c.TakeRegister(valReg)
 		if _, ok := keyExp.(NoTableKey); ok {
-			keyExp = Int{val: int64(currImplicitKey)}
+			keyExp = Int{val: uint64(currImplicitKey)}
 			currImplicitKey++
 		}
 		keyReg := CompileExp(c, keyExp)

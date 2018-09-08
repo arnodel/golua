@@ -29,7 +29,7 @@ func NewNumber(id *token.Token) (ExpNode, error) {
 		}
 		return Float{Location: loc, val: f}, nil
 	}
-	n, err := strconv.ParseInt(nstring, 0, 64)
+	n, err := strconv.ParseUint(nstring, 0, 64)
 	if err != nil {
 		return nil, err
 	}
@@ -38,14 +38,14 @@ func NewNumber(id *token.Token) (ExpNode, error) {
 
 type Int struct {
 	Location
-	val int64
+	val uint64
 }
 
-func NewInt(val int64) Int {
+func NewInt(val uint64) Int {
 	return Int{val: val}
 }
 
-func (n Int) Val() int64 {
+func (n Int) Val() uint64 {
 	return n.val
 }
 
