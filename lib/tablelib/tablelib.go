@@ -1,6 +1,7 @@
 package tablelib
 
 import (
+	"math"
 	"sort"
 
 	rt "github.com/arnodel/golua/runtime"
@@ -55,18 +56,26 @@ Switch:
 	default:
 		var res rt.Value
 		if i > j {
-			return c.Next(), nil
+			return c.PushingNext(rt.String("")), nil
 		}
 		res, err = rt.Index(t, tbl, i)
 		if err != nil {
 			break
 		}
-		for i++; i <= j; i++ {
+		for {
+			if i == math.MaxInt64 {
+				break
+			}
+			i++
+			if i > j {
+				break
+			}
 			res, err = rt.Concat(t, res, sep)
 			if err != nil {
 				break Switch
 			}
-			v, err := rt.Index(t, tbl, i)
+			var v rt.Value
+			v, err = rt.Index(t, tbl, i)
 			if err != nil {
 				break Switch
 			}

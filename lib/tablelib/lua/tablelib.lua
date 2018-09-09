@@ -9,6 +9,9 @@ do
     print(table.concat({}))
     --> =
 
+    print(type(table.concat({})))
+    --> =string
+
     print(table.concat({"foo"}))
     --> =foo
 
