@@ -26,6 +26,7 @@ func NewLongString(id *token.Token) String {
 	s := id.Lit
 	idx := bytes.IndexByte(s[1:], '[') + 2
 	contents := s[idx : len(s)-idx]
+	contents = newLines.ReplaceAllLiteral(contents, []byte{'\n'})
 	if contents[0] == '\n' {
 		contents = contents[1:]
 	}
@@ -44,7 +45,8 @@ func (s String) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	return dst
 }
 
-var escapeSeqs = regexp.MustCompile(`(?s)\\\d{1,3}|\\[xX][0-9a-fA-F]{2}|\\[abtnvfr\\]|\\z\w*|\\[uU]{[0-9a-fA-F]+}|\\.`)
+var escapeSeqs = regexp.MustCompile(`(?s)\\\d{1,3}|\\[xX][0-9a-fA-F]{2}|\\[abtnvfr\\]|\\z[\s\v]*|\\[uU]{[0-9a-fA-F]+}|\\.`)
+var newLines = regexp.MustCompile(`(?s)\r\n|\n\r|\r|\n`)
 
 func replaceEscapeSeq(e []byte) []byte {
 	switch e[1] {

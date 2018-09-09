@@ -3,6 +3,7 @@ package ast
 import (
 	"bytes"
 	"strconv"
+	"strings"
 
 	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/token"
@@ -29,7 +30,13 @@ func NewNumber(id *token.Token) (ExpNode, error) {
 		}
 		return Float{Location: loc, val: f}, nil
 	}
-	n, err := strconv.ParseUint(nstring, 0, 64)
+	var n uint64
+	var err error
+	if strings.HasPrefix(nstring, "0x") || strings.HasPrefix(nstring, "0X") {
+		n, err = strconv.ParseUint(nstring[2:], 16, 64)
+	} else {
+		n, err = strconv.ParseUint(nstring, 10, 64)
+	}
 	if err != nil {
 		return nil, err
 	}

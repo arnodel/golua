@@ -32,7 +32,7 @@ func scanToken(l *Scanner) stateFn {
 			emitT(l)
 		case isAlpha(c):
 			return scanIdent
-		case c == ' ' || c == '\t' || c == '\n' || c == '\r':
+		case isSpace(c):
 			l.ignore()
 		default:
 			switch c {
@@ -42,6 +42,9 @@ func scanToken(l *Scanner) stateFn {
 			case ':':
 				l.accept(":")
 			case '.':
+				if accept(l, isDec, -1) > 0 {
+					return scanExp(l, isDec, "eE", token.TokMap.Type("numdec"))
+				}
 				if l.accept(".") {
 					l.accept(".")
 				}
@@ -99,7 +102,7 @@ func scanLong(comment bool) stateFn {
 		for {
 			switch c := l.next(); c {
 			case '=':
-				level += 1
+				level++
 			case '[':
 				break OpeningLoop
 			default:
@@ -117,18 +120,15 @@ func scanLong(comment bool) stateFn {
 		for {
 			switch c := l.next(); c {
 			case ']':
-				if closeLevel == -1 {
-					closeLevel = 0
-				} else if closeLevel == level {
+				if closeLevel == level {
 					if comment {
 						l.ignore()
 					} else {
 						l.emit(token.TokMap.Type("longstring"), false)
 					}
 					return scanToken
-				} else {
-					closeLevel = -1
 				}
+				closeLevel = 0
 			case '=':
 				if closeLevel >= 0 {
 					closeLevel++
@@ -199,6 +199,10 @@ func scanNumber(l *Scanner) stateFn {
 	if l.accept(".") {
 		accept(l, isDigit, -1)
 	}
+	return scanExp(l, isDigit, exp, tp)
+}
+
+func scanExp(l *Scanner, isDigit func(rune) bool, exp string, tp token.Type) stateFn {
 	if l.accept(exp) {
 		l.accept("+-")
 		if accept(l, isDigit, -1) == 0 {
@@ -264,7 +268,7 @@ func isHex(x rune) bool {
 }
 
 func isSpace(x rune) bool {
-	return x == ' ' || x == '\n' || x == '\r' || x == '\t'
+	return x == ' ' || x == '\n' || x == '\r' || x == '\t' || x == '\v' || x == '\f'
 }
 
 type runePredicate func(rune) bool
