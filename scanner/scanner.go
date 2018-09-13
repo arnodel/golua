@@ -3,7 +3,9 @@
 package scanner
 
 import (
+	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -24,7 +26,7 @@ type Scanner struct {
 func New(name string, input []byte) *Scanner {
 	l := &Scanner{
 		name:  name,
-		input: input,
+		input: normalizeNewLines(input),
 		state: scanToken,
 		items: make(chan *token.Token, 2), // Two items sufficient.
 		pos:   token.Pos{Line: 1, Column: 1},
@@ -99,15 +101,15 @@ func (l *Scanner) backup() {
 // peek returns but does not consume
 // the next rune in the input.
 func (l *Scanner) peek() rune {
-	rune := l.next()
+	next := l.next()
 	l.backup()
-	return rune
+	return next
 }
 
 // accept consumes the next rune
 // if it's from the valid set.
 func (l *Scanner) accept(valid string) bool {
-	if strings.IndexRune(valid, l.next()) >= 0 {
+	if strings.ContainsRune(valid, l.next()) {
 		return true
 	}
 	l.backup()
@@ -116,12 +118,12 @@ func (l *Scanner) accept(valid string) bool {
 
 // acceptRun consumes a run of runes from the valid set.
 func (l *Scanner) acceptRun(valid string) {
-	for strings.IndexRune(valid, l.next()) >= 0 {
+	for strings.ContainsRune(valid, l.next()) {
 	}
 	l.backup()
 }
 
-// error returns an error token and terminates the scan
+// errorf returns an error token and terminates the scan
 // by passing back a nil pointer that will be the next
 // state, terminating l.run.
 func (l *Scanner) errorf(format string, args ...interface{}) stateFn {
@@ -134,7 +136,7 @@ func (l *Scanner) errorf(format string, args ...interface{}) stateFn {
 	return nil
 }
 
-// nextItem returns the next item from the input.
+// Scan returns the next item from the input (or nil)
 func (l *Scanner) Scan() *token.Token {
 	for {
 		select {
@@ -149,13 +151,24 @@ func (l *Scanner) Scan() *token.Token {
 	}
 }
 
+// ErrorMsg returns the current error message or an empty string if there is none.
 func (l *Scanner) ErrorMsg() string {
 	return l.errorMsg
 }
 
+// Error return the current error or nil if none.
 func (l *Scanner) Error() error {
 	if l.errorMsg == "" {
 		return nil
 	}
 	return fmt.Errorf("%s:%d (col %d): %s", l.name, l.pos.Line, l.pos.Column, l.errorMsg)
+}
+
+var newLines = regexp.MustCompile(`(?s)\r\n|\n\r|\r`)
+
+func normalizeNewLines(b []byte) []byte {
+	if bytes.IndexByte(b, '\r') == -1 {
+		return b
+	}
+	return newLines.ReplaceAllLiteral(b, []byte{'\n'})
 }

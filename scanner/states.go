@@ -171,7 +171,17 @@ func scanShortString(q rune) stateFn {
 					accept(l, isSpace, -1)
 				default:
 					switch c {
-					case 'a', 'b', 'f', 'n', 'r', 't', 'v', 'z', '"', '\'', '\n', '\\':
+					case '\n':
+						// we accept "\r\n" as one newline
+						if l.next() != '\r' {
+							l.backup()
+						}
+					case '\r':
+						// we accept "\n\r" as one newline
+						if l.next() != '\n' {
+							l.backup()
+						}
+					case 'a', 'b', 'f', 'n', 'r', 't', 'v', 'z', '"', '\'', '\\':
 						break
 					default:
 						return l.errorf("Illegal escaped character")

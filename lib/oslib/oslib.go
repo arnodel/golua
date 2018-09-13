@@ -34,10 +34,13 @@ func setlocale(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err.AddContext(c)
 	}
-	// For now just pretend it worked
 	locale, err := c.StringArg(0)
 	if err != nil {
 		return nil, err.AddContext(c)
+	}
+	// Just pretend we can set the "C" locale and none other
+	if locale != "C" {
+		return c.PushingNext(nil), nil
 	}
 	return c.PushingNext(locale), nil
 }

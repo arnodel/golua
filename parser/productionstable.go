@@ -1133,13 +1133,13 @@ var productionsTable = ProdTab{
 		},
 	},
 	ProdTabEntry{
-		String: `Atom : string	<< ast.NewString(X[0].(*token.Token)), nil >>`,
+		String: `Atom : string	<< ast.NewString(X[0].(*token.Token)) >>`,
 		Id:         "Atom",
 		NTType:     44,
 		Index:      111,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
-			return ast.NewString(X[0].(*token.Token)), nil
+			return ast.NewString(X[0].(*token.Token))
 		},
 	},
 	ProdTabEntry{
@@ -1213,13 +1213,13 @@ var productionsTable = ProdTab{
 		},
 	},
 	ProdTabEntry{
-		String: `Args : string	<< []ast.ExpNode{ast.NewString(X[0].(*token.Token))}, nil >>`,
+		String: `Args : string	<< ast.NewStringArgs(X[0].(*token.Token)) >>`,
 		Id:         "Args",
 		NTType:     45,
 		Index:      119,
 		NumSymbols: 1,
 		ReduceFunc: func(X []Attrib) (Attrib, error) {
-			return []ast.ExpNode{ast.NewString(X[0].(*token.Token))}, nil
+			return ast.NewStringArgs(X[0].(*token.Token))
 		},
 	},
 	ProdTabEntry{

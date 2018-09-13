@@ -233,7 +233,7 @@ Atom
     | "..."    << ast.Etc($0.(*token.Token)), nil >>
     | numdec   << ast.NewNumber($0.(*token.Token)) >>
     | numhex   << ast.NewNumber($0.(*token.Token)) >>
-    | string   << ast.NewString($0.(*token.Token)), nil >>
+    | string   << ast.NewString($0.(*token.Token)) >>
     | longstring << ast.NewLongString($0.(*token.Token)), nil >>
     | FunctionDef
     | TableConstructor
@@ -244,7 +244,7 @@ Args
     : "(" ")"          << []ast.ExpNode{}, nil >>
     | "(" ExpList ")"  << $1.([]ast.ExpNode), nil >>
     | TableConstructor << []ast.ExpNode{$0.(ast.ExpNode)}, nil >>
-    | string           << []ast.ExpNode{ast.NewString($0.(*token.Token))}, nil >>
+    | string           << ast.NewStringArgs($0.(*token.Token)) >>
     | longstring       << []ast.ExpNode{ast.NewLongString($0.(*token.Token))}, nil >>
     ;
 

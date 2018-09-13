@@ -50,10 +50,10 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	if cont == nil {
 		cont = thread.CurrentCont()
-		for idx > 1 && cont != nil {
-			cont = cont.Next()
-			idx++
-		}
+	}
+	for idx > 0 && cont != nil {
+		cont = cont.Next()
+		idx--
 	}
 	// TODO: support what arg
 	_ = what

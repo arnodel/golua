@@ -2,6 +2,7 @@ package ast
 
 import (
 	"bytes"
+	"errors"
 	"regexp"
 	"strconv"
 
@@ -9,24 +10,42 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
+// String is a string literal.
 type String struct {
 	Location
 	val []byte
 }
 
-func NewString(id *token.Token) String {
+// NewString returns a String from a string token, or an error if it couln't.
+func NewString(id *token.Token) (ss String, err error) {
 	s := id.Lit
+	defer func() {
+		if r := recover(); r != nil {
+			err2, ok := r.(error)
+			if ok {
+				err = err2
+			}
+		}
+	}()
 	return String{
 		Location: LocFromToken(id),
 		val:      escapeSeqs.ReplaceAllFunc(s[1:len(s)-1], replaceEscapeSeq),
+	}, nil
+}
+
+func NewStringArgs(id *token.Token) ([]ExpNode, error) {
+	s, err := NewString(id)
+	if err != nil {
+		return nil, err
 	}
+	return []ExpNode{s}, nil
 }
 
 func NewLongString(id *token.Token) String {
 	s := id.Lit
 	idx := bytes.IndexByte(s[1:], '[') + 2
 	contents := s[idx : len(s)-idx]
-	contents = newLines.ReplaceAllLiteral(contents, []byte{'\n'})
+	// contents = newLines.ReplaceAllLiteral(contents, []byte{'\n'})
 	if contents[0] == '\n' {
 		contents = contents[1:]
 	}
@@ -46,7 +65,8 @@ func (s String) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 }
 
 var escapeSeqs = regexp.MustCompile(`(?s)\\\d{1,3}|\\[xX][0-9a-fA-F]{2}|\\[abtnvfr\\]|\\z[\s\v]*|\\[uU]{[0-9a-fA-F]+}|\\.`)
-var newLines = regexp.MustCompile(`(?s)\r\n|\n\r|\r|\n`)
+
+// var newLines = regexp.MustCompile(`(?s)\r\n|\n\r|\r|\n`)
 
 func replaceEscapeSeq(e []byte) []byte {
 	switch e[1] {
@@ -77,11 +97,17 @@ func replaceEscapeSeq(e []byte) []byte {
 		if err != nil {
 			panic(err)
 		}
+		if b >= 256 {
+			panic(errors.New("decimal escape sequence out of range"))
+		}
 		return []byte{byte(b)}
 	case 'u', 'U':
 		i, err := strconv.ParseInt(string(e[3:len(e)-1]), 16, 32)
 		if err != nil {
 			panic(err)
+		}
+		if i >= 0x110000 {
+			panic(errors.New("unicode escape sequence out of range"))
 		}
 		return []byte(string(i))
 	default:
