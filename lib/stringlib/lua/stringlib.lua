@@ -305,7 +305,7 @@ do
     unpack("<bc2H", "Bhi\x00\x04")
     --> =66	hi	1024	6
 
-    unpack(">s1xb", "\x05hello*\x80")
+    unpack(">s1xB", "\x05hello*\x80")
     --> =hello	128	9
 
     unpack("B", "1234\xff678", 5)

@@ -161,7 +161,7 @@ func init() {
 	}
 }
 
-var errBadOptionArg = errors.New("arg must be between 1 and 16")
+var errBadOptionArg = errors.New("arg out of limits: must be between 1 and 16")
 var errMissingSize = errors.New("missing string length")
 var errBadType = errors.New("bad value type")          // TODO: better error
 var errOutOfBounds = errors.New("Value out of bounds") // TODO: better error
@@ -169,3 +169,4 @@ var errBadFormatString = errors.New("Bad syntax in format string")
 var errExpectedOption = errors.New("Expected option after 'X'")
 var errBadAlignment = errors.New("Alignment should be a power of 2")
 var errUnexpectedPackEnd = errors.New("Unexpected end for packed string")
+var errDoesNotFit = errors.New("does not fit into Lua integer")

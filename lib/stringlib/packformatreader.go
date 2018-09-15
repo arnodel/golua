@@ -22,19 +22,18 @@ func (p *packFormatReader) nextOption() byte {
 	return opt
 }
 
-func (p *packFormatReader) smallOptSize(defaultSize uint) bool {
-	p.getOptSize()
-	if p.optSize > 16 {
-		p.err = errBadOptionArg
-		return false
-	} else if p.optSize == 0 {
-		if defaultSize == 0 {
-			p.err = errMissingSize
-			return false
+func (p *packFormatReader) smallOptSize(defaultSize uint) (ok bool) {
+	if p.getOptSize() {
+		if ok = p.optSize >= 1 && p.optSize <= 16; !ok {
+			p.err = errBadOptionArg
 		}
-		p.optSize = defaultSize
+		return
 	}
-	return true
+	p.optSize = defaultSize
+	if ok = defaultSize != 0; !ok {
+		p.err = errMissingSize
+	}
+	return
 }
 
 func (p *packFormatReader) getOptSize() bool {

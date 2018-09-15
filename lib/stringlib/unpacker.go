@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"math"
+	"unsafe"
 
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -39,7 +41,7 @@ func UnpackString(format, pack string) ([]rt.Value, int, error) {
 				u.maxAlignment = u.optSize
 			}
 		case 'b':
-			var x byte
+			var x int8
 			_ = u.align(0) &&
 				u.read(&x) &&
 				u.add(rt.Int(x))
@@ -115,6 +117,7 @@ func UnpackString(format, pack string) ([]rt.Value, int, error) {
 			_ = u.skip(1)
 		case 'X':
 			u.alignOnly = true
+		case ' ':
 		default:
 			u.err = errBadFormatString
 		}
@@ -185,10 +188,10 @@ func (u *unpacker) readVarUint() (ok bool) {
 			u.setIntVal(rt.Int(x))
 	case n > 8:
 		var x uint64
-		ok = (u.byteOrder == binary.LittleEndian || u.skip(n-8)) &&
+		ok = (u.byteOrder == binary.LittleEndian || u.skip0(n-8)) &&
 			u.read(&x) &&
 			u.setIntVal(rt.Int(x)) &&
-			(u.byteOrder == binary.BigEndian || u.skip(n-8))
+			(u.byteOrder == binary.BigEndian || u.skip0(n-8))
 	default:
 		// n < 8 so truncated
 		var b [8]byte
@@ -221,11 +224,31 @@ func (u *unpacker) readVarInt() (ok bool) {
 		ok = u.read(&x) &&
 			u.setIntVal(rt.Int(x))
 	case n > 8:
-		var x int64
-		ok = (u.byteOrder == binary.LittleEndian || u.skip(n-8)) &&
-			u.read(&x) &&
-			u.setIntVal(rt.Int(x)) &&
-			(u.byteOrder == binary.BigEndian || u.skip(n-8))
+		var x uint64
+		var signExt uint8
+		if u.byteOrder == binary.BigEndian {
+			ok = u.readSignExt(n-8, &signExt) && u.read(&x)
+		} else {
+			ok = u.read(&x) && u.readSignExt(n-8, &signExt)
+		}
+		if !ok {
+			return
+		}
+		if signExt == 0 {
+			ok = x <= math.MaxInt64
+			if !ok {
+				u.err = errDoesNotFit
+				return
+			}
+			u.intVal = rt.Int(x)
+		} else {
+			if ok = x > math.MaxInt64; ok {
+				xx := *(*int64)(unsafe.Pointer(&x))
+				u.intVal = rt.Int(xx)
+			} else {
+				u.err = errDoesNotFit
+			}
+		}
 	default:
 		// n < 8 so truncated
 		var b [8]byte
@@ -270,6 +293,41 @@ func (u *unpacker) skip(n uint) (ok bool) {
 	ok = u.j <= len(u.pack)
 	if !ok {
 		u.err = errUnexpectedPackEnd
+	}
+	return
+}
+
+func (u *unpacker) skip0(n uint) (ok bool) {
+	j := u.j
+	u.j += int(n)
+	ok = u.j <= len(u.pack)
+	if !ok {
+		u.err = errUnexpectedPackEnd
+	}
+	for j < u.j {
+		if ok = u.pack[j] == 0; !ok {
+			u.err = errDoesNotFit
+			return
+		}
+		j++
+	}
+	return
+}
+
+func (u *unpacker) readSignExt(n uint, sign *uint8) (ok bool) {
+	j := u.j
+	u.j += int(n)
+	ok = n > 0 && u.j <= len(u.pack)
+	if !ok {
+		u.err = errUnexpectedPackEnd
+	}
+	*sign = u.pack[j]
+	ok = *sign == 0 || *sign == 0xff
+	for j++; ok && j < u.j; j++ {
+		ok = u.pack[j] == *sign
+	}
+	if !ok {
+		u.err = errDoesNotFit
 	}
 	return
 }

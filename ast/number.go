@@ -33,7 +33,12 @@ func NewNumber(id *token.Token) (ExpNode, error) {
 	var n uint64
 	var err error
 	if strings.HasPrefix(nstring, "0x") || strings.HasPrefix(nstring, "0X") {
-		n, err = strconv.ParseUint(nstring[2:], 16, 64)
+		nstring = nstring[2:]
+		if len(nstring) > 16 {
+			// A hex integral constant is "truncated" if too long (more than 8 bytes)
+			nstring = nstring[len(nstring)-16:]
+		}
+		n, err = strconv.ParseUint(nstring, 16, 64)
 	} else {
 		n, err = strconv.ParseUint(nstring, 10, 64)
 	}
