@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 )
 
@@ -12,8 +13,13 @@ type ioKeyType struct{}
 
 var ioKey = ioKeyType{}
 
-// Load io library
-func Load(r *rt.Runtime) {
+// LibLoader can load the io lib.
+var LibLoader = packagelib.Loader{
+	Load: load,
+	Name: "io",
+}
+
+func load(r *rt.Runtime) rt.Value {
 	methods := rt.NewTable()
 	rt.SetEnvGoFunc(methods, "read", fileread, 1, true)
 	rt.SetEnvGoFunc(methods, "lines", filelines, 1, true)
@@ -37,7 +43,6 @@ func Load(r *rt.Runtime) {
 		metatable:     meta,
 	})
 	pkg := rt.NewTable()
-	rt.SetEnv(r.GlobalEnv(), "io", pkg)
 	rt.SetEnv(pkg, "stdin", stdin)
 	rt.SetEnv(pkg, "stdout", stdout)
 	rt.SetEnv(pkg, "stderr", stderr)
@@ -52,6 +57,8 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "tmpfile", tmpfile, 0, false)
 	rt.SetEnvGoFunc(pkg, "type", typef, 1, false)
 	rt.SetEnvGoFunc(pkg, "write", iowrite, 0, true)
+
+	return pkg
 }
 
 type ioData struct {

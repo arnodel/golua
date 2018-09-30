@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
+	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -29,7 +30,7 @@ func PackValues(format string, values []rt.Value) (string, error) {
 		values: values,
 	}
 	for p.hasNext() {
-		switch p.nextOption() {
+		switch c := p.nextOption(); c {
 		case '<':
 			p.byteOrder = binary.LittleEndian
 		case '>':
@@ -94,16 +95,24 @@ func PackValues(format string, values []rt.Value) (string, error) {
 				p.nextStringValue() &&
 				p.writeStr(p.optSize)
 		case 'z':
-			_ = p.align(0) &&
-				p.nextStringValue() &&
-				p.writeStr(0) &&
-				p.writeByte(0)
+			if p.align(0) && p.nextStringValue() {
+				if strings.IndexByte(p.strVal, 0) >= 0 {
+					p.err = errStringContainsZeros
+				} else {
+
+					_ = p.writeStr(0) &&
+						p.writeByte(0)
+				}
+			}
 		case 's':
 			_ = p.smallOptSize(8) &&
 				p.align(p.optSize) &&
 				p.nextStringValue() &&
 				p.packUint() &&
 				p.writeStr(0)
+			if p.err == errOutOfBounds {
+				p.err = errStringDoesNotFit
+			}
 		case 'x':
 			_ = p.align(0) &&
 				p.writeByte(0)
@@ -112,7 +121,7 @@ func PackValues(format string, values []rt.Value) (string, error) {
 		case ' ':
 			// ignored
 		default:
-			p.err = errBadFormatString
+			p.err = errBadFormatString(c)
 		}
 		if p.err != nil {
 			return "", p.err
@@ -183,7 +192,7 @@ func (p *packer) checkBounds(min, max int64) bool {
 }
 
 func (p *packer) checkFloatSize(max float64) bool {
-	ok := p.floatVal >= -max && p.floatVal <= max
+	ok := (p.floatVal >= -max && p.floatVal <= max) || math.IsInf(p.floatVal, 0)
 	if !ok {
 		p.err = errOutOfBounds
 	}
@@ -206,7 +215,7 @@ func (p *packer) writeStr(maxLen uint) bool {
 		diff = int(maxLen) - len(p.strVal)
 	}
 	if diff < 0 {
-		p.err = errOutOfBounds
+		p.err = errStringLongerThanFormat
 		return false
 	}
 	p.w.Write([]byte(p.strVal))

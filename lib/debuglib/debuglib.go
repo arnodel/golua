@@ -5,14 +5,20 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func Load(r *rt.Runtime) {
+// LibLoader can load the debug lib.
+var LibLoader = packagelib.Loader{
+	Load: load,
+	Name: "debug",
+}
+
+func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 	rt.SetEnv(r.GlobalEnv(), "debug", pkg)
 	rt.SetEnvGoFunc(pkg, "getinfo", getinfo, 3, false)
 	rt.SetEnvGoFunc(pkg, "getupvalue", getupvalue, 2, false)
 	rt.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false)
 	rt.SetEnvGoFunc(pkg, "upvaluejoin", upvaluejoin, 4, false)
-	_ = packagelib.SavePackage(r.MainThread(), rt.String("debug"), pkg)
+	return pkg
 }
 
 func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

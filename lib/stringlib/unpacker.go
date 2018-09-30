@@ -19,7 +19,7 @@ type unpacker struct {
 	strVal rt.String  // Last unpacked string value
 }
 
-func UnpackString(format, pack string) ([]rt.Value, int, error) {
+func UnpackString(format, pack string, j int) ([]rt.Value, int, error) {
 	u := &unpacker{
 		packFormatReader: packFormatReader{
 			format:       format,
@@ -27,9 +27,10 @@ func UnpackString(format, pack string) ([]rt.Value, int, error) {
 			maxAlignment: defaultMaxAlignement,
 		},
 		pack: []byte(pack),
+		j:    j,
 	}
 	for u.hasNext() {
-		switch u.nextOption() {
+		switch c := u.nextOption(); c {
 		case '<':
 			u.byteOrder = binary.LittleEndian
 		case '>':
@@ -106,7 +107,7 @@ func UnpackString(format, pack string) ([]rt.Value, int, error) {
 				zi++
 			}
 			b := make([]byte, zi-u.j)
-			_ = u.read(b) && u.add(rt.String(b))
+			_ = u.read(b) && u.add(rt.String(b)) && u.skip(1)
 		case 's':
 			_ = u.smallOptSize(8) &&
 				u.align(u.optSize) &&
@@ -116,10 +117,17 @@ func UnpackString(format, pack string) ([]rt.Value, int, error) {
 		case 'x':
 			_ = u.skip(1)
 		case 'X':
-			u.alignOnly = true
+			if u.alignOnly {
+				u.err = errExpectedOption
+			} else {
+				u.alignOnly = true
+			}
 		case ' ':
+			if u.alignOnly {
+				u.err = errExpectedOption
+			}
 		default:
-			u.err = errBadFormatString
+			u.err = errBadFormatString(c)
 		}
 		if u.err != nil {
 			return nil, 0, u.err
@@ -161,6 +169,9 @@ func (u *unpacker) align(n uint) bool {
 
 func (u *unpacker) read(x interface{}) bool {
 	if err := binary.Read(u, u.byteOrder, x); err != nil {
+		if err == io.ErrUnexpectedEOF {
+			err = errUnexpectedPackEnd
+		}
 		u.err = err
 		return false
 	}

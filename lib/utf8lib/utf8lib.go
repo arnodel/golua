@@ -3,19 +3,25 @@ package utf8lib
 import (
 	"unicode/utf8"
 
+	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func Load(r *rt.Runtime) {
-	pkg := rt.NewTable()
-	rt.SetEnv(r.GlobalEnv(), "utf8", pkg)
+// LibLoader can load the utf8 lib.
+var LibLoader = packagelib.Loader{
+	Load: load,
+	Name: "utf8",
+}
 
+func load(r *rt.Runtime) rt.Value {
+	pkg := rt.NewTable()
 	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
 	rt.SetEnv(pkg, "charpattern", `[\0-\x7F\xC2-\xF4][\x80-\xBF]*`)
 	rt.SetEnvGoFunc(pkg, "codes", codes, 1, false)
 	rt.SetEnvGoFunc(pkg, "codepoint", codepoint, 3, false)
 	rt.SetEnvGoFunc(pkg, "len", lenf, 3, false)
 	rt.SetEnvGoFunc(pkg, "offset", offset, 3, false)
+	return pkg
 }
 
 func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

@@ -4,12 +4,17 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func Load(r *rt.Runtime) {
+var LibLoader = packagelib.Loader{
+	Load: load,
+	Name: "math",
+}
+
+func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	rt.SetEnv(r.GlobalEnv(), "math", pkg)
 	rt.SetEnvGoFunc(pkg, "abs", abs, 1, false)
 	rt.SetEnvGoFunc(pkg, "acos", acos, 1, false)
 	rt.SetEnvGoFunc(pkg, "asin", asin, 1, false)
@@ -37,6 +42,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "tointeger", tointeger, 1, false)
 	rt.SetEnvGoFunc(pkg, "type", typef, 1, false)
 	rt.SetEnvGoFunc(pkg, "ult", ult, 2, false)
+	return pkg
 }
 
 func abs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

@@ -1,6 +1,9 @@
 package stringlib
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"math"
+)
 
 type packFormatReader struct {
 	format       string           // Specifies the packing format
@@ -36,6 +39,8 @@ func (p *packFormatReader) smallOptSize(defaultSize uint) (ok bool) {
 	return
 }
 
+const maxDecuplable = math.MaxUint64 / 10
+
 func (p *packFormatReader) getOptSize() bool {
 	var n uint
 	ok := false
@@ -43,7 +48,16 @@ func (p *packFormatReader) getOptSize() bool {
 		c := p.format[p.i]
 		if c >= '0' && c <= '9' {
 			ok = true
-			n = n*10 + uint(c-'0')
+			if n > maxDecuplable {
+				p.err = errOverflow
+				return false
+			}
+			cc := uint(c - '0')
+			n = n*10 + cc
+			if n < cc {
+				p.err = errOverflow
+				return false
+			}
 		} else {
 			break
 		}
@@ -54,7 +68,7 @@ func (p *packFormatReader) getOptSize() bool {
 
 func (p *packFormatReader) mustGetOptSize() bool {
 	ok := p.getOptSize()
-	if !ok {
+	if !ok && p.err == nil {
 		p.err = errMissingSize
 	}
 	return ok

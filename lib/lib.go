@@ -16,13 +16,13 @@ import (
 
 func Load(r *rt.Runtime) {
 	base.Load(r)
-	coroutine.Load(r)
-	packagelib.Load(r)
-	stringlib.Load(r)
-	tablelib.Load(r)
-	mathlib.Load(r)
-	iolib.Load(r)
-	utf8lib.Load(r)
-	oslib.Load(r)
-	debuglib.Load(r)
+	packagelib.LibLoader.Run(r)
+	coroutine.LibLoader.Run(r)
+	stringlib.Loader.Run(r)
+	tablelib.LibLoader.Run(r)
+	mathlib.LibLoader.Run(r)
+	iolib.LibLoader.Run(r)
+	utf8lib.LibLoader.Run(r)
+	oslib.LibLoader.Run(r)
+	debuglib.LibLoader.Run(r)
 }

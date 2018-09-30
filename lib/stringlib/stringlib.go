@@ -3,13 +3,12 @@ package stringlib
 import (
 	"strings"
 
+	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func Load(r *rt.Runtime) {
+func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	rt.SetEnv(r.GlobalEnv(), "string", pkg)
-
 	rt.SetEnvGoFunc(pkg, "byte", bytef, 3, false)
 	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
 	rt.SetEnvGoFunc(pkg, "dump", dump, 2, false)
@@ -31,6 +30,14 @@ func Load(r *rt.Runtime) {
 	stringMeta := rt.NewTable()
 	rt.SetEnv(stringMeta, "__index", pkg)
 	r.SetStringMeta(stringMeta)
+
+	return pkg
+}
+
+// Loader specifies how to load the string lib
+var Loader = packagelib.Loader{
+	Load: load,
+	Name: "string",
 }
 
 func pos(s rt.String, n rt.Int) int {

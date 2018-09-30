@@ -137,7 +137,7 @@ print(s)
 				dis.Disassemble(os.Stdout)
 				r := runtime.New(os.Stdout)
 				base.Load(r)
-				coroutine.Load(r)
+				coroutine.LibLoader.Run(r)
 				t := runtime.NewThread(r)
 				clos := runtime.LoadLuaUnit(unit, r.GlobalEnv())
 

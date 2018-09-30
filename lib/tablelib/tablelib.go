@@ -4,12 +4,19 @@ import (
 	"math"
 	"sort"
 
+	"github.com/arnodel/golua/lib/packagelib"
+
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func Load(r *rt.Runtime) {
+// LibLoader can load the table lib.
+var LibLoader = packagelib.Loader{
+	Load: load,
+	Name: "table",
+}
+
+func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	rt.SetEnv(r.GlobalEnv(), "table", pkg)
 	rt.SetEnvGoFunc(pkg, "concat", concat, 4, false)
 	rt.SetEnvGoFunc(pkg, "insert", insert, 3, false)
 	rt.SetEnvGoFunc(pkg, "move", move, 5, false)
@@ -17,6 +24,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "remove", remove, 2, false)
 	rt.SetEnvGoFunc(pkg, "sort", sortf, 2, false)
 	rt.SetEnvGoFunc(pkg, "unpack", unpack, 3, false)
+	return pkg
 }
 
 func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

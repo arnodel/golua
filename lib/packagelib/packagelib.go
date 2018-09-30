@@ -19,7 +19,36 @@ var searchersKey = rt.String("searchers")
 
 const defaultPath = `./?.lua;./?/init.lua`
 
-func Load(r *rt.Runtime) {
+// Loader is used to register libraries
+type Loader struct {
+	// Function that creates the package and returns it
+	Load func(r *rt.Runtime) rt.Value
+
+	// Name of the package
+	Name string
+}
+
+// Run will create the package, associate it with its name in the global env and
+// cache it.
+func (l Loader) Run(r *rt.Runtime) {
+	pkg := l.Load(r)
+	if l.Name == "" || pkg == nil {
+		return
+	}
+	rt.SetEnv(r.GlobalEnv(), l.Name, pkg)
+	err := SavePackage(r.MainThread(), rt.String(l.Name), pkg)
+	if err != nil {
+		panic("Unable to load " + l.Name)
+	}
+}
+
+// LibLoader allows loading the package lib.
+var LibLoader = Loader{
+	Load: load,
+	Name: "package",
+}
+
+func load(r *rt.Runtime) rt.Value {
 	env := r.GlobalEnv()
 	pkg := rt.NewTable()
 	r.SetRegistry(pkgKey, pkg)
@@ -30,8 +59,9 @@ func Load(r *rt.Runtime) {
 	searchers.Set(rt.Int(2), searchLuaGoFunc)
 	pkg.Set(searchersKey, searchers)
 	pkg.Set(pathKey, rt.String(defaultPath))
-	rt.SetEnv(env, "package", pkg)
+	pkg.Set(configKey, rt.String(defaultConfig.String()))
 	rt.SetEnvGoFunc(env, "require", require, 1, false)
+	return pkg
 }
 
 type config struct {
@@ -40,6 +70,12 @@ type config struct {
 	placeholder            string
 	windowsExecPlaceholder string
 	suffixSep              string
+}
+
+func (c *config) String() string {
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s",
+		c.dirSep, c.pathSep, c.placeholder,
+		c.windowsExecPlaceholder, c.suffixSep)
 }
 
 var defaultConfig = config{"/", ";", "?", "!", "-"}

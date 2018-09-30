@@ -12,8 +12,8 @@ func PackSize(format string) (uint, error) {
 		maxAlignment: defaultMaxAlignement,
 	}}
 	for s.hasNext() {
-		switch s.nextOption() {
-		case '<', '>', '=':
+		switch c := s.nextOption(); c {
+		case '<', '>', '=', ' ':
 			// Nothing to do
 		case '!':
 			if s.smallOptSize(defaultMaxAlignement) {
@@ -35,8 +35,10 @@ func PackSize(format string) (uint, error) {
 			_ = s.align(0) && s.inc(1)
 		case 'X':
 			s.alignOnly = true
+		case 's', 'z':
+			s.err = errVariableLength
 		default:
-			s.err = errBadFormatString
+			s.err = errBadFormatString(c)
 		}
 		if s.err != nil {
 			return 0, s.err

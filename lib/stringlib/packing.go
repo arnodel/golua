@@ -3,6 +3,7 @@ package stringlib
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"unsafe"
 
 	rt "github.com/arnodel/golua/runtime"
@@ -109,20 +110,20 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err == nil && c.NArgs() >= 3 {
 		n, err = c.IntArg(2)
 	}
-	i := int(n - 1)
+	i := pos(pack, n) - 1
 	if i < 0 || i > len(pack) {
-		err = rt.NewErrorS("#3 out of bounds")
+		err = rt.NewErrorS("#3 out of string")
 	}
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	vals, m, uerr := UnpackString(string(format), string(pack[i:]))
+	vals, m, uerr := UnpackString(string(format), string(pack), i)
 	if uerr != nil {
 		return nil, rt.NewErrorE(uerr).AddContext(c)
 	}
 	next := c.Next()
 	rt.Push(next, vals...)
-	next.Push(n + rt.Int(m))
+	next.Push(rt.Int(m) + 1)
 	return next, nil
 }
 
@@ -162,11 +163,19 @@ func init() {
 }
 
 var errBadOptionArg = errors.New("arg out of limits: must be between 1 and 16")
-var errMissingSize = errors.New("missing string length")
-var errBadType = errors.New("bad value type")          // TODO: better error
-var errOutOfBounds = errors.New("Value out of bounds") // TODO: better error
-var errBadFormatString = errors.New("Bad syntax in format string")
-var errExpectedOption = errors.New("Expected option after 'X'")
-var errBadAlignment = errors.New("Alignment should be a power of 2")
-var errUnexpectedPackEnd = errors.New("Unexpected end for packed string")
+var errMissingSize = errors.New("missing size")
+var errBadType = errors.New("bad value type") // TODO: better error
+var errOutOfBounds = errors.New("overflow")   // TODO: better error
+var errExpectedOption = errors.New("invalid next option after 'X'")
+var errBadAlignment = errors.New("alignment not power of 2")
+var errUnexpectedPackEnd = errors.New("packed string too short: unexpected end")
 var errDoesNotFit = errors.New("does not fit into Lua integer")
+var errStringLongerThanFormat = errors.New("string longer than format spec")
+var errStringDoesNotFit = errors.New("string does not fit")
+var errVariableLength = errors.New("variable-length format") // For packsize only
+var errOverflow = errors.New("invalid format: option size overflow")
+var errStringContainsZeros = errors.New("string contains zeros")
+
+func errBadFormatString(c byte) error {
+	return fmt.Errorf("invalid format option %q", c)
+}

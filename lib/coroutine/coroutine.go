@@ -1,13 +1,18 @@
 package coroutine
 
 import (
+	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func Load(r *rt.Runtime) {
-	env := r.GlobalEnv()
+// LibLoader allows loading the coroutine lib
+var LibLoader = packagelib.Loader{
+	Load: load,
+	Name: "coroutine",
+}
+
+func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	rt.SetEnv(env, "coroutine", pkg)
 	rt.SetEnvGoFunc(pkg, "create", create, 1, false)
 	rt.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 0, false)
 	rt.SetEnvGoFunc(pkg, "resume", resume, 1, true)
@@ -15,6 +20,7 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(pkg, "status", status, 1, false)
 	rt.SetEnvGoFunc(pkg, "wrap", wrap, 1, false)
 	rt.SetEnvGoFunc(pkg, "yield", yield, 0, true)
+	return pkg
 }
 
 func create(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

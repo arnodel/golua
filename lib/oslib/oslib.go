@@ -4,15 +4,22 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func Load(r *rt.Runtime) {
+// LibLoader can load the os lib.
+var LibLoader = packagelib.Loader{
+	Load: load,
+	Name: "os",
+}
+
+func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	rt.SetEnv(r.GlobalEnv(), "os", pkg)
 	rt.SetEnvGoFunc(pkg, "clock", clock, 0, false)
 	rt.SetEnvGoFunc(pkg, "time", timef, 1, false)
 	rt.SetEnvGoFunc(pkg, "setlocale", setlocale, 2, false)
+	return pkg
 }
 
 func clock(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
