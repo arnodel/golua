@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/arnodel/golua/lib/packagelib"
+
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/code"
 	"github.com/arnodel/golua/lib/base"
@@ -137,6 +139,7 @@ print(s)
 				dis.Disassemble(os.Stdout)
 				r := runtime.New(os.Stdout)
 				base.Load(r)
+				packagelib.LibLoader.Run(r)
 				coroutine.LibLoader.Run(r)
 				t := runtime.NewThread(r)
 				clos := runtime.LoadLuaUnit(unit, r.GlobalEnv())

@@ -162,7 +162,7 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return nil, err.AddContext(c)
 }
 
-func searchpath(name, path, dot string, conf *config) (string, []string) {
+func searchPath(name, path, dot string, conf *config) (string, []string) {
 	namePath := strings.Replace(name, dot, conf.dirSep, -1)
 	templates := strings.Split(path, conf.pathSep)
 	for i, template := range templates {
@@ -204,7 +204,7 @@ func searchLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, rt.NewErrorS("package.path must be a string").AddContext(c)
 	}
 	conf := getConfig(pkg)
-	found, templates := searchpath(string(s), string(path), ".", conf)
+	found, templates := searchPath(string(s), string(path), ".", conf)
 	next := c.Next()
 	if found == "" {
 		next.Push(rt.String(strings.Join(templates, "\n")))

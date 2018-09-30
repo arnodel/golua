@@ -34,8 +34,8 @@ func load(r *rt.Runtime) rt.Value {
 	return pkg
 }
 
-// Loader specifies how to load the string lib
-var Loader = packagelib.Loader{
+// LibLoader specifies how to load the string lib
+var LibLoader = packagelib.Loader{
 	Load: load,
 	Name: "string",
 }

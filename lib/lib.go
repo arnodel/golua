@@ -18,7 +18,7 @@ func Load(r *rt.Runtime) {
 	base.Load(r)
 	packagelib.LibLoader.Run(r)
 	coroutine.LibLoader.Run(r)
-	stringlib.Loader.Run(r)
+	stringlib.LibLoader.Run(r)
 	tablelib.LibLoader.Run(r)
 	mathlib.LibLoader.Run(r)
 	iolib.LibLoader.Run(r)
