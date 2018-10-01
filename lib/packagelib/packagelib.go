@@ -60,6 +60,7 @@ func load(r *rt.Runtime) rt.Value {
 	pkg.Set(searchersKey, searchers)
 	pkg.Set(pathKey, rt.String(defaultPath))
 	pkg.Set(configKey, rt.String(defaultConfig.String()))
+	rt.SetEnvGoFunc(pkg, "searchpath", searchpath, 4, false)
 	rt.SetEnvGoFunc(env, "require", require, 1, false)
 	return pkg
 }
@@ -160,6 +161,39 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 	}
 	return nil, err.AddContext(c)
+}
+
+func searchpath(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	var name, path rt.String
+	sep := rt.String(".")
+	conf := *getConfig(pkgTable(t))
+	rep := rt.String(conf.dirSep)
+
+	err := c.CheckNArgs(2)
+	if err == nil {
+		name, err = c.StringArg(0)
+	}
+	if err == nil {
+		path, err = c.StringArg(1)
+	}
+	if err == nil && c.NArgs() >= 3 {
+		sep, err = c.StringArg(2)
+	}
+	if err == nil && c.NArgs() >= 4 {
+		rep, err = c.StringArg(3)
+	}
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	conf.dirSep = string(rep)
+	found, templates := searchPath(string(name), string(path), string(sep), &conf)
+	next := c.Next()
+	if found != "" {
+		next.Push(rt.String(found))
+	} else {
+		rt.Push(next, nil, rt.String("tried: "+strings.Join(templates, ",")))
+	}
+	return next, nil
 }
 
 func searchPath(name, path, dot string, conf *config) (string, []string) {
