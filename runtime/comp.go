@@ -1,5 +1,7 @@
 package runtime
 
+// RawEqual returns two values.  The second one is true if raw equality makes
+// sense for x and y.  The first one returns whether x and y are raw equal.
 func RawEqual(x, y Value) (bool, bool) {
 	if x == y {
 		return true, true
@@ -35,9 +37,11 @@ func eq(t *Thread, x, y Value) (bool, *Error) {
 	if ok {
 		return Truth(res), err
 	}
-	return false, NewErrorS("eq expects eqable values")
+	return false, nil
 }
 
+// Lt returns whether x < y is true (and an error if it's not possible to
+// compare them).
 func Lt(t *Thread, x, y Value) (bool, *Error) {
 	switch xx := x.(type) {
 	case Int:

@@ -48,14 +48,18 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
 	tbl, ok := coll.(*Table)
 	if ok {
 		if tbl.Get(idx) != nil {
-			tbl.Set(idx, val)
+			if err := tbl.SetCheck(idx, val); err != nil {
+				return NewErrorE(err)
+			}
 			return nil
 		}
 	}
 	metaNewIndex := t.MetaGetS(coll, "__newindex")
 	if metaNewIndex == nil {
 		if ok {
-			tbl.Set(idx, val)
+			if err := tbl.SetCheck(idx, val); err != nil {
+				return NewErrorE(err)
+			}
 		}
 		return nil
 	}

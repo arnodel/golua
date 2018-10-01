@@ -16,7 +16,8 @@ func rawset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if rt.IsNil(key) {
 		return nil, rt.NewErrorS("#2 must not be nil").AddContext(c)
 	}
-	tbl.Set(key, c.Arg(2))
-	c.Next().Push(c.Arg(0))
-	return c.Next(), nil
+	if err := tbl.SetCheck(key, c.Arg(2)); err != nil {
+		return nil, rt.NewErrorE(err).AddContext(c)
+	}
+	return c.PushingNext(c.Arg(0)), nil
 }
