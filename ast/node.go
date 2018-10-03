@@ -29,6 +29,9 @@ func EmitLoadConst(c *ir.Compiler, l Locator, k ir.Constant, reg ir.Register) {
 }
 
 func EmitMove(c *ir.Compiler, l Locator, dst, src ir.Register) {
+	if src == dst {
+		return
+	}
 	line := 0
 	if l != nil {
 		loc := l.Locate()
@@ -129,6 +132,8 @@ type TailExpNode interface {
 // Var is an l-value
 type Var interface {
 	ExpNode
-	CompileAssign(*ir.Compiler, ir.Register)
+	CompileAssign(*ir.Compiler) Assign
 	FunctionName() string
 }
+
+type Assign func(ir.Register)

@@ -29,18 +29,22 @@ func (e IndexExp) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	return dst
 }
 
-func (e IndexExp) CompileAssign(c *ir.Compiler, src ir.Register) {
-	c.TakeRegister(src)
-	tReg := CompileExp(c, e.collection)
+func (e IndexExp) CompileAssign(c *ir.Compiler) Assign {
+	tReg := c.GetFreeRegister()
+	CompileExpInto(c, e.collection, tReg)
 	c.TakeRegister(tReg)
-	iReg := CompileExp(c, e.index)
-	c.ReleaseRegister(src)
-	c.ReleaseRegister(tReg)
-	EmitInstr(c, e, ir.SetIndex{
-		Table: tReg,
-		Index: iReg,
-		Src:   src,
-	})
+	iReg := c.GetFreeRegister()
+	CompileExpInto(c, e.index, iReg)
+	c.TakeRegister(iReg)
+	return func(src ir.Register) {
+		c.ReleaseRegister(tReg)
+		c.ReleaseRegister(iReg)
+		EmitInstr(c, e, ir.SetIndex{
+			Table: tReg,
+			Index: iReg,
+			Src:   src,
+		})
+	}
 }
 
 func (e IndexExp) FunctionName() string {

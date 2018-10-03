@@ -33,17 +33,18 @@ func (n Name) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	}.CompileExp(c, dst)
 }
 
-func (n Name) CompileAssign(c *ir.Compiler, src ir.Register) {
+func (n Name) CompileAssign(c *ir.Compiler) Assign {
 	reg, ok := c.GetRegister(ir.Name(n.string))
 	if ok {
-		EmitMove(c, n, reg, src)
-		return
+		return func(src ir.Register) {
+			EmitMove(c, n, reg, src)
+		}
 	}
-	IndexExp{
+	return IndexExp{
 		Location:   n.Location,
 		collection: Name{Location: n.Location, string: "_ENV"},
 		index:      n.AstString(),
-	}.CompileAssign(c, src)
+	}.CompileAssign(c)
 }
 
 func (n Name) FunctionName() string {

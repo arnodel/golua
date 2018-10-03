@@ -33,10 +33,20 @@ func (s AssignStat) HWrite(w HWriter) {
 }
 
 func (s AssignStat) CompileStat(c *ir.Compiler) {
+
+	// Evaluate the right hand side
 	resultRegs := make([]ir.Register, len(s.dst))
 	CompileExpList(c, s.src, resultRegs)
+
+	// Compile the lvalues
+	assigns := make([]Assign, len(s.dst))
+	for i, v := range s.dst {
+		assigns[i] = v.CompileAssign(c)
+	}
+
+	// Compile the assignments
 	for i, reg := range resultRegs {
 		c.ReleaseRegister(reg)
-		s.dst[i].CompileAssign(c, reg)
+		assigns[i](reg)
 	}
 }
