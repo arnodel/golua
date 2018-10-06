@@ -11,6 +11,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/lib"
 	"github.com/arnodel/golua/lib/base"
 	rt "github.com/arnodel/golua/runtime"
@@ -18,6 +19,7 @@ import (
 
 func main() {
 	disFlag := flag.Bool("dis", false, "Disassemble source instead of running it")
+	astFlag := flag.Bool("ast", false, "Print AST instead of running code")
 	flag.Parse()
 	var chunkName string
 	var chunk []byte
@@ -48,6 +50,15 @@ func main() {
 		}
 	default:
 		fatal("At most 1 argument (lua file name)")
+	}
+	if *astFlag {
+		stat, err := rt.ParseLuaChunk(chunkName, chunk)
+		if err != nil {
+			fatal("Error parsing %s: %s", chunkName, err)
+		}
+		w := ast.NewIndentWriter(os.Stdout)
+		stat.HWrite(w)
+		return
 	}
 	unit, err := rt.CompileLuaChunk(chunkName, chunk)
 	if err != nil {

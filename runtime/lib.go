@@ -249,7 +249,7 @@ func SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, *Error)
 	})
 }
 
-func CompileLuaChunk(name string, source []byte) (*code.Unit, error) {
+func ParseLuaChunk(name string, source []byte) (*ast.BlockStat, error) {
 	p := parser.NewParser()
 	s := scanner.New(name, source)
 	tree, err := p.Parse(s)
@@ -260,7 +260,16 @@ func CompileLuaChunk(name string, source []byte) (*code.Unit, error) {
 		}
 		return nil, NewSyntaxErrorFromCCError(name, parseErr)
 	}
-	c := tree.(ast.BlockStat).CompileChunk(name)
+	stat := tree.(ast.BlockStat)
+	return &stat, nil
+}
+
+func CompileLuaChunk(name string, source []byte) (*code.Unit, error) {
+	stat, err := ParseLuaChunk(name, source)
+	if err != nil {
+		return nil, err
+	}
+	c := stat.CompileChunk(name)
 	kc := c.NewConstantCompiler()
 	return kc.CompileQueue(), nil
 
