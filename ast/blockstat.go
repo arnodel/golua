@@ -47,6 +47,10 @@ func tailCall(rtn []ExpNode) (FunctionCall, bool) {
 }
 
 func (s BlockStat) CompileBlock(c *ir.Compiler) {
+	s.CompileBlockNoPop(c)()
+}
+
+func (s BlockStat) CompileBlockNoPop(c *ir.Compiler) func() {
 	totalDepth := 0
 	getLabels(c, s.statements)
 	truncLen := len(s.statements) - getBackLabels(c, s.statements)
@@ -75,8 +79,10 @@ func (s BlockStat) CompileBlock(c *ir.Compiler) {
 			EmitInstr(c, loc, ir.Call{Cont: contReg})
 		}
 	}
-	for ; totalDepth > 0; totalDepth-- {
-		c.PopContext()
+	return func() {
+		for ; totalDepth > 0; totalDepth-- {
+			c.PopContext()
+		}
 	}
 }
 
