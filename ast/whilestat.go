@@ -10,10 +10,11 @@ type WhileStat struct {
 	CondStat
 }
 
-func NewWhileStat(whileTok, endTok *token.Token, cond ExpNode, body BlockStat) (WhileStat, error) {
+func NewWhileStat(whileTok, endTok *token.Token, cond ExpNode, body BlockStat) WhileStat {
 	return WhileStat{
 		Location: LocFromTokens(whileTok, endTok),
-		CondStat: CondStat{cond: cond, body: body}}, nil
+		CondStat: CondStat{cond: cond, body: body},
+	}
 }
 
 func (s WhileStat) HWrite(w HWriter) {

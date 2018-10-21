@@ -13,7 +13,7 @@ type FunctionCall struct {
 	*BFunctionCall
 }
 
-func NewFunctionCall(target ExpNode, method Name, args []ExpNode) (FunctionCall, error) {
+func NewFunctionCall(target ExpNode, method Name, args []ExpNode) FunctionCall {
 	// TODO: fix this by creating an Args node
 	loc := target.Locate()
 	if len(args) > 0 {
@@ -26,7 +26,7 @@ func NewFunctionCall(target ExpNode, method Name, args []ExpNode) (FunctionCall,
 		target:   target,
 		method:   method,
 		args:     args,
-	}}, nil
+	}}
 }
 
 func (f FunctionCall) InBrackets() *BFunctionCall {

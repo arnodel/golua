@@ -12,7 +12,7 @@ type Function struct {
 	name string
 }
 
-func NewFunction(startTok, endTok *token.Token, parList ParList, body BlockStat) (Function, error) {
+func NewFunction(startTok, endTok *token.Token, parList ParList, body BlockStat) Function {
 	// Make sure we return at the end of the function
 	if body.returnValues == nil {
 		body.returnValues = []ExpNode{}
@@ -21,7 +21,7 @@ func NewFunction(startTok, endTok *token.Token, parList ParList, body BlockStat)
 		Location: LocFromTokens(startTok, endTok),
 		ParList:  parList,
 		body:     body,
-	}, nil
+	}
 }
 
 func (f Function) HWrite(w HWriter) {
@@ -85,9 +85,9 @@ type ParList struct {
 	hasDots bool
 }
 
-func NewParList(params []Name, hasDots bool) (ParList, error) {
+func NewParList(params []Name, hasDots bool) ParList {
 	return ParList{
 		params:  params,
 		hasDots: hasDots,
-	}, nil
+	}
 }

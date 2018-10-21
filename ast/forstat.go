@@ -15,7 +15,7 @@ type ForStat struct {
 	body    BlockStat
 }
 
-func NewForStat(startTok, endTok *token.Token, itervar Name, params []ExpNode, body BlockStat) (*ForStat, error) {
+func NewForStat(startTok, endTok *token.Token, itervar Name, params []ExpNode, body BlockStat) *ForStat {
 	return &ForStat{
 		Location: LocFromTokens(startTok, endTok),
 		itervar:  itervar,
@@ -23,7 +23,7 @@ func NewForStat(startTok, endTok *token.Token, itervar Name, params []ExpNode, b
 		stop:     params[1],
 		step:     params[2],
 		body:     body,
-	}, nil
+	}
 }
 
 func (s *ForStat) HWrite(w HWriter) {

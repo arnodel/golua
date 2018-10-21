@@ -11,11 +11,11 @@ type RepeatStat struct {
 	CondStat
 }
 
-func NewRepeatStat(repTok *token.Token, body BlockStat, cond ExpNode) (RepeatStat, error) {
+func NewRepeatStat(repTok *token.Token, body BlockStat, cond ExpNode) RepeatStat {
 	return RepeatStat{
 		Location: MergeLocations(LocFromToken(repTok), cond),
 		CondStat: CondStat{body: body, cond: cond},
-	}, nil
+	}
 }
 
 func (s RepeatStat) HWrite(w HWriter) {

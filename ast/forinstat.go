@@ -13,13 +13,13 @@ type ForInStat struct {
 	body     BlockStat
 }
 
-func NewForInStat(startTok, endTok *token.Token, itervars []Name, params []ExpNode, body BlockStat) (*ForInStat, error) {
+func NewForInStat(startTok, endTok *token.Token, itervars []Name, params []ExpNode, body BlockStat) *ForInStat {
 	return &ForInStat{
 		Location: LocFromTokens(startTok, endTok),
 		itervars: itervars,
 		params:   params,
 		body:     body,
-	}, nil
+	}
 }
 
 func (s *ForInStat) HWrite(w HWriter) {

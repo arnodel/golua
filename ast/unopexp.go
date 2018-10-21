@@ -12,12 +12,12 @@ type UnOp struct {
 	operand ExpNode
 }
 
-func NewUnOp(opTok *token.Token, op ops.Op, exp ExpNode) (*UnOp, error) {
+func NewUnOp(opTok *token.Token, op ops.Op, exp ExpNode) *UnOp {
 	return &UnOp{
 		Location: MergeLocations(LocFromToken(opTok), exp),
 		op:       op,
 		operand:  exp,
-	}, nil
+	}
 }
 
 func (u *UnOp) HWrite(w HWriter) {

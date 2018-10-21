@@ -8,12 +8,12 @@ type IndexExp struct {
 	index      ExpNode
 }
 
-func NewIndexExp(coll ExpNode, idx ExpNode) (IndexExp, error) {
+func NewIndexExp(coll ExpNode, idx ExpNode) IndexExp {
 	return IndexExp{
 		Location:   MergeLocations(coll, idx), // TODO: use the "]" for locaion end
 		collection: coll,
 		index:      idx,
-	}, nil
+	}
 }
 
 func (e IndexExp) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {

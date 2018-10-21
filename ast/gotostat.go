@@ -10,11 +10,11 @@ type GotoStat struct {
 	label Name
 }
 
-func NewGotoStat(gotoTok *token.Token, lbl Name) (GotoStat, error) {
+func NewGotoStat(gotoTok *token.Token, lbl Name) GotoStat {
 	return GotoStat{
 		Location: MergeLocations(LocFromToken(gotoTok), lbl),
 		label:    lbl,
-	}, nil
+	}
 }
 
 func (s GotoStat) HWrite(w HWriter) {

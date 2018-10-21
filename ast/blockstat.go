@@ -10,12 +10,12 @@ type BlockStat struct {
 	returnValues []ExpNode
 }
 
-func NewBlockStat(stats []Stat, rtn []ExpNode) (BlockStat, error) {
+func NewBlockStat(stats []Stat, rtn []ExpNode) BlockStat {
 	return BlockStat{
 		// TODO: set Location
 		statements:   stats,
 		returnValues: rtn,
-	}, nil
+	}
 }
 
 func (s BlockStat) HWrite(w HWriter) {

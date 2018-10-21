@@ -9,8 +9,8 @@ type EmptyStat struct {
 	Location
 }
 
-func NewEmptyStat(tok *token.Token) (EmptyStat, error) {
-	return EmptyStat{Location: LocFromToken(tok)}, nil
+func NewEmptyStat(tok *token.Token) EmptyStat {
+	return EmptyStat{Location: LocFromToken(tok)}
 }
 
 func (s EmptyStat) HWrite(w HWriter) {

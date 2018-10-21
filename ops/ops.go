@@ -42,3 +42,9 @@ const (
 )
 
 const OpPow Op = 11 + iota<<8
+
+// Precedence returns the precedence of an operator (higher means binds more
+// tightly).
+func (op Op) Precedence() int {
+	return int(op & 0xff)
+}
