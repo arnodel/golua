@@ -14,11 +14,11 @@ type TableConstructor struct {
 	fields []TableField
 }
 
-func NewTableConstructor(opTok, clTok *token.Token, fields []TableField) (TableConstructor, error) {
+func NewTableConstructor(opTok, clTok *token.Token, fields []TableField) TableConstructor {
 	return TableConstructor{
 		Location: LocFromTokens(opTok, clTok),
 		fields:   fields,
-	}, nil
+	}
 }
 
 func (c TableConstructor) HWrite(w HWriter) {
@@ -82,12 +82,12 @@ type TableField struct {
 	value ExpNode
 }
 
-func NewTableField(key ExpNode, value ExpNode) (TableField, error) {
+func NewTableField(key ExpNode, value ExpNode) TableField {
 	return TableField{
 		Location: MergeLocations(key, value),
 		key:      key,
 		value:    value,
-	}, nil
+	}
 }
 
 //

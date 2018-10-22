@@ -101,7 +101,25 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 	case token.KwFunction:
 		panic("Unimplemented")
 	case token.KwLocal:
-		panic("Unimplemented")
+		t = p.Scan()
+		if t.Type == token.KwFunction {
+			name, t := p.Name(p.Scan())
+			fx, t := p.FunctionDef(t)
+			return ast.NewLocalFunctionStat(name, fx), t
+		}
+		// local namelist ['=' explist]
+		name, t := p.Name(t)
+		names := []ast.Name{name}
+		for t.Type == token.SgComma {
+			name, t = p.Name(t)
+			names = append(names, name)
+		}
+		var values []ast.ExpNode
+		if t.Type == token.SgAssign {
+			values, t = p.ExpList(p.Scan())
+		}
+		return ast.NewLocalStat(names, values), t
+
 		// TODO: label case
 	default:
 		exp, t := p.PrefixExp(t)
@@ -230,7 +248,7 @@ func (p *Parser) ShortExp(t *token.Token) (ast.ExpNode, *token.Token) {
 	case token.SgEtc:
 		return ast.Etc(t), p.Scan()
 	case token.KwFunction:
-		return p.FunctionDef(t)
+		return p.FunctionDef(p.Scan())
 	case token.SgMinus, token.KwNot, token.SgHash, token.SgTilde:
 		// A unary operator!
 		exp, next := p.ShortExp(p.Scan())
@@ -280,7 +298,7 @@ var binopMap = map[token.Type]ops.Op{
 
 // FunctionDef parses a function definition expression.
 func (p *Parser) FunctionDef(startTok *token.Token) (ast.Function, *token.Token) {
-	expectType(p.Scan(), token.SgOpenBkt)
+	expectType(startTok, token.SgOpenBkt)
 	t := p.Scan()
 	var names []ast.Name
 	hasEtc := false
@@ -390,8 +408,47 @@ func (p *Parser) ExpList(t *token.Token) ([]ast.ExpNode, *token.Token) {
 	return exps, t
 }
 
-func (p *Parser) TableConstructor(t *token.Token) (ast.TableConstructor, *token.Token) {
-	panic("Unimplemented")
+// TableConstructor parses a table constructor.
+func (p *Parser) TableConstructor(opTok *token.Token) (ast.TableConstructor, *token.Token) {
+	t := p.Scan()
+	var fields []ast.TableField
+	if t.Type != token.SgCloseBrace {
+		var field ast.TableField
+		field, t = p.Field(t)
+		fields = []ast.TableField{field}
+		for t.Type == token.SgComma || t.Type == token.SgSemicolon {
+			t = p.Scan()
+			if t.Type == token.SgCloseBrace {
+				break
+			}
+			field, t = p.Field(t)
+			fields = append(fields, field)
+		}
+	}
+	expectType(t, token.SgCloseBrace)
+	return ast.NewTableConstructor(opTok, t, fields), p.Scan()
+}
+
+// Field parses a table constructor field.
+func (p *Parser) Field(t *token.Token) (ast.TableField, *token.Token) {
+	var key ast.ExpNode = ast.NoTableKey{}
+	var val ast.ExpNode
+	switch t.Type {
+	case token.SgOpenSquareBkt:
+		key, t = p.Exp(t)
+		expectType(t, token.SgCloseSquareBkt)
+		expectType(p.Scan(), token.SgAssign)
+		val, t = p.Exp(p.Scan())
+	case token.IDENT:
+		val, t = p.Name(t)
+		if t.Type == token.SgAssign {
+			key = val
+			val, t = p.Exp(p.Scan())
+		}
+	default:
+		val, t = p.Exp(t)
+	}
+	return ast.NewTableField(key, val), t
 }
 
 // Name parses a name.

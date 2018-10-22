@@ -8,12 +8,12 @@ type LocalStat struct {
 	values []ExpNode
 }
 
-func NewLocalStat(names []Name, values []ExpNode) (LocalStat, error) {
+func NewLocalStat(names []Name, values []ExpNode) LocalStat {
 	loc := MergeLocations(names[0], names[len(names)-1])
 	if len(values) > 0 {
 		loc = MergeLocations(loc, values[len(values)-1])
 	}
-	return LocalStat{Location: loc, names: names, values: values}, nil
+	return LocalStat{Location: loc, names: names, values: values}
 }
 
 func (s LocalStat) HWrite(w HWriter) {
