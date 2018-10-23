@@ -22,7 +22,7 @@ func (s GotoStat) HWrite(w HWriter) {
 }
 
 func (s GotoStat) CompileStat(c *ir.Compiler) {
-	lbl, ok := c.GetGotoLabel(ir.Name(s.label.string))
+	lbl, ok := c.GetGotoLabel(ir.Name(s.label.Val))
 	if !ok {
 		panic("Undefined label for goto")
 	}

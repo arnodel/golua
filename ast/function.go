@@ -27,7 +27,7 @@ func NewFunction(startTok, endTok *token.Token, parList ParList, body BlockStat)
 func (f Function) HWrite(w HWriter) {
 	w.Writef("(")
 	for i, param := range f.params {
-		w.Writef(param.string)
+		w.Writef(param.Val)
 		if i < len(f.params)-1 || f.hasDots {
 			w.Writef(", ")
 		}
@@ -48,7 +48,7 @@ func (f Function) CompileBody(c *ir.Compiler) {
 	c.DeclareLocal("<caller>", callerReg)
 	for i, p := range f.params {
 		reg := c.GetFreeRegister()
-		c.DeclareLocal(ir.Name(p.string), reg)
+		c.DeclareLocal(ir.Name(p.Val), reg)
 		recvRegs[i] = reg
 	}
 	if !f.hasDots {

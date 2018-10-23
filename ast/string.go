@@ -13,7 +13,7 @@ import (
 // String is a string literal.
 type String struct {
 	Location
-	val []byte
+	Val []byte
 }
 
 // NewString returns a String from a string token, or an error if it couln't.
@@ -29,7 +29,7 @@ func NewString(id *token.Token) (ss String, err error) {
 	}()
 	return String{
 		Location: LocFromToken(id),
-		val:      escapeSeqs.ReplaceAllFunc(s[1:len(s)-1], replaceEscapeSeq),
+		Val:      escapeSeqs.ReplaceAllFunc(s[1:len(s)-1], replaceEscapeSeq),
 	}, nil
 }
 
@@ -51,16 +51,16 @@ func NewLongString(id *token.Token) String {
 	}
 	return String{
 		Location: LocFromToken(id),
-		val:      contents,
+		Val:      contents,
 	}
 }
 
 func (s String) HWrite(w HWriter) {
-	w.Writef("%q", s.val)
+	w.Writef("%q", s.Val)
 }
 
 func (s String) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	EmitLoadConst(c, s, ir.String(s.val), dst)
+	EmitLoadConst(c, s, ir.String(s.Val), dst)
 	return dst
 }
 

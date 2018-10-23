@@ -390,7 +390,7 @@ func (p *Parser) Args(t *token.Token) ([]ast.ExpNode, *token.Token) {
 	case token.SgOpenBkt:
 		t = p.Scan()
 		if t.Type == token.SgCloseBkt {
-			return nil, p.Scan()
+			return []ast.ExpNode{}, p.Scan()
 		}
 		args, t := p.ExpList(t)
 		expectType(t, token.SgCloseBkt)

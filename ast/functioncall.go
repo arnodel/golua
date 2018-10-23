@@ -18,7 +18,7 @@ func NewFunctionCall(target ExpNode, method Name, args []ExpNode) FunctionCall {
 	loc := target.Locate()
 	if len(args) > 0 {
 		loc = MergeLocations(loc, args[len(args)-1])
-	} else if method.string != "" {
+	} else if method.Val != "" {
 		loc = MergeLocations(loc, method)
 	}
 	return FunctionCall{&BFunctionCall{
@@ -41,7 +41,7 @@ func (f BFunctionCall) HWrite(w HWriter) {
 	// w.Indent()
 	f.target.HWrite(w)
 	// w.Dedent()
-	if f.method.string != "" {
+	if f.method.Val != "" {
 		w.Next()
 		w.Writef("method: %s", f.method)
 	}
@@ -101,12 +101,12 @@ func compilePushArgs(c *ir.Compiler, args []ExpNode, contReg ir.Register) {
 func (f BFunctionCall) CompileCall(c *ir.Compiler, tail bool) {
 	fReg := CompileExp(c, f.target)
 	var contReg ir.Register
-	if f.method.string != "" {
+	if f.method.Val != "" {
 		self := fReg
 		c.TakeRegister(self)
 		fReg = c.GetFreeRegister()
 		mReg := c.GetFreeRegister()
-		EmitLoadConst(c, f.method, ir.String(f.method.string), mReg)
+		EmitLoadConst(c, f.method, ir.String(f.method.Val), mReg)
 		EmitInstr(c, f.target, ir.Lookup{
 			Dst:   fReg,
 			Table: self,

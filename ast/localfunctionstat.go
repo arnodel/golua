@@ -9,7 +9,7 @@ type LocalFunctionStat struct {
 }
 
 func NewLocalFunctionStat(name Name, fx Function) LocalFunctionStat {
-	fx.name = name.string
+	fx.name = name.Val
 	return LocalFunctionStat{
 		Location: MergeLocations(name, fx), // TODO: use "local" for location start
 		Function: fx,
@@ -25,7 +25,7 @@ func (s LocalFunctionStat) HWrite(w HWriter) {
 
 func (s LocalFunctionStat) CompileStat(c *ir.Compiler) {
 	fReg := c.GetFreeRegister()
-	c.DeclareLocal(ir.Name(s.name.string), fReg)
+	c.DeclareLocal(ir.Name(s.name.Val), fReg)
 	reg := s.Function.CompileExp(c, fReg)
 	EmitMove(c, s, fReg, reg)
 

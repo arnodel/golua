@@ -117,7 +117,7 @@ func (s ForStat) CompileStat(c *ir.Compiler) {
 
 	iterReg := c.GetFreeRegister()
 	ir.EmitMoveNoLine(c, iterReg, startReg)
-	c.DeclareLocal(ir.Name(s.itervar.string), iterReg)
+	c.DeclareLocal(ir.Name(s.itervar.Val), iterReg)
 	s.body.CompileBlock(c)
 
 	c.EmitNoLine(ir.Combine{

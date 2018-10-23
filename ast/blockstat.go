@@ -109,7 +109,7 @@ func getLabels(c *ir.Compiler, statements []Stat) {
 	for _, stat := range statements {
 		switch s := stat.(type) {
 		case LabelStat:
-			c.DeclareGotoLabel(ir.Name(s.Name.string))
+			c.DeclareGotoLabel(ir.Name(s.Name.Val))
 		case LocalStat, LocalFunctionStat:
 			return
 		}
@@ -121,7 +121,7 @@ func getBackLabels(c *ir.Compiler, statements []Stat) int {
 	for i := len(statements) - 1; i >= 0; i-- {
 		if lbl, ok := statements[i].(LabelStat); ok {
 			count++
-			c.DeclareGotoLabel(ir.Name(lbl.Name.string))
+			c.DeclareGotoLabel(ir.Name(lbl.Name.Val))
 		} else {
 			break
 		}

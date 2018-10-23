@@ -62,14 +62,14 @@ func (s ForInStat) CompileStat(c *ir.Compiler) {
 		names: s.itervars,
 		values: []ExpNode{FunctionCall{&BFunctionCall{
 			Location: s.Location,
-			target:   Name{Location: s.Location, string: "<f>"},
+			target:   Name{Location: s.Location, Val: "<f>"},
 			args: []ExpNode{
-				Name{Location: s.Location, string: "<s>"},
-				Name{Location: s.Location, string: "<var>"},
+				Name{Location: s.Location, Val: "<s>"},
+				Name{Location: s.Location, Val: "<var>"},
 			},
 		}}},
 	}.CompileStat(c)
-	var1, _ := c.GetRegister(ir.Name(s.itervars[0].string))
+	var1, _ := c.GetRegister(ir.Name(s.itervars[0].Val))
 
 	testReg := c.GetFreeRegister()
 	EmitLoadConst(c, s, ir.NilType{}, testReg)
