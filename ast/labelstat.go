@@ -7,8 +7,8 @@ type LabelStat struct {
 	Name
 }
 
-func NewLabelStat(label Name) (LabelStat, error) {
-	return LabelStat{Location: label.Location, Name: label}, nil
+func NewLabelStat(label Name) LabelStat {
+	return LabelStat{Location: label.Location, Name: label}
 }
 
 func (s LabelStat) HWrite(w HWriter) {

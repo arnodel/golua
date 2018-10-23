@@ -5,13 +5,14 @@ import (
 	"github.com/arnodel/golua/token"
 
 	"github.com/arnodel/golua/ast"
-	"github.com/arnodel/golua/scanner"
 )
 
-type Parser scanner.Scanner
+type Parser struct {
+	getToken func() *token.Token
+}
 
 func (p *Parser) Scan() *token.Token {
-	return (*scanner.Scanner)(p).Scan()
+	return p.getToken()
 }
 
 func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
@@ -99,7 +100,18 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 		forInStat := ast.NewForInStat(t, endTok, names, params, body)
 		return forInStat, p.Scan()
 	case token.KwFunction:
-		panic("Unimplemented")
+		name, t := p.Name(p.Scan())
+		var v ast.Var = name
+		var method ast.Name
+		for t.Type == token.SgDot {
+			name, t = p.Name(t)
+			v = ast.NewIndexExp(v, name.AstString())
+		}
+		if t.Type == token.SgColon {
+			method, t = p.Name(p.Scan())
+		}
+		fx, t := p.FunctionDef(t)
+		return ast.NewFunctionStat(name, method, fx), t
 	case token.KwLocal:
 		t = p.Scan()
 		if t.Type == token.KwFunction {
@@ -119,8 +131,10 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 			values, t = p.ExpList(p.Scan())
 		}
 		return ast.NewLocalStat(names, values), t
-
-		// TODO: label case
+	case token.SgDoubleColon:
+		name, t := p.Name(p.Scan())
+		expectType(t, token.SgDoubleColon)
+		return ast.NewLabelStat(name), p.Scan()
 	default:
 		exp, t := p.PrefixExp(t)
 		switch e := exp.(type) {

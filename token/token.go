@@ -10,6 +10,13 @@ type Token struct {
 	Pos
 }
 
+func (t *Token) String() string {
+	if t == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("Token(type=%d, lit=%s, pos=%s", t.Type, t.Lit, t.Pos)
+}
+
 type Type int
 
 const (

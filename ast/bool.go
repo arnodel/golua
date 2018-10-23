@@ -7,22 +7,22 @@ import (
 
 type Bool struct {
 	Location
-	val bool
+	Val bool
 }
 
 func (b Bool) HWrite(w HWriter) {
-	w.Writef("%t", b.val)
+	w.Writef("%t", b.Val)
 }
 
 func (b Bool) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	EmitLoadConst(c, b, ir.Bool(b.val), dst)
+	EmitLoadConst(c, b, ir.Bool(b.Val), dst)
 	return dst
 }
 
 func True(tok *token.Token) Bool {
-	return Bool{Location: LocFromToken(tok), val: true}
+	return Bool{Location: LocFromToken(tok), Val: true}
 }
 
 func False(tok *token.Token) Bool {
-	return Bool{Location: LocFromToken(tok), val: false}
+	return Bool{Location: LocFromToken(tok), Val: false}
 }

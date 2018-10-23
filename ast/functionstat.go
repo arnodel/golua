@@ -1,9 +1,8 @@
 package ast
 
-func NewFunctionStat(name FunctionName, fx Function) AssignStat {
+func NewFunctionStat(fName Var, method Name, fx Function) AssignStat {
 	// TODO: include the "function" keywork in the location calculation
-	fName := name.name
-	if name.method.string != "" {
+	if method.string != "" {
 		loc := fx.Locate()
 		fx = NewFunction(
 			nil, nil,
@@ -11,29 +10,10 @@ func NewFunctionStat(name FunctionName, fx Function) AssignStat {
 			fx.body,
 		)
 		fx.Location = loc
-		fx.name = name.method.FunctionName()
-		fName = NewIndexExp(name.name, String{val: []byte(name.method.string)})
+		fx.name = method.FunctionName()
+		fName = NewIndexExp(fName, String{val: []byte(method.string)})
 	} else {
 		fx.name = fName.FunctionName()
 	}
 	return NewAssignStat([]Var{fName}, []ExpNode{fx})
-}
-
-type FunctionName struct {
-	name   Var
-	method Name
-}
-
-func NewFunctionName(name Var, method Name) (FunctionName, error) {
-	return FunctionName{
-		name:   name,
-		method: method,
-	}, nil
-}
-
-func (n FunctionName) HWrite(w HWriter) {
-	n.name.HWrite(w)
-	if n.method.string != "" {
-		w.Writef(":%s", n.method)
-	}
 }
