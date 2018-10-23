@@ -384,7 +384,8 @@ func (p *Parser) PrefixExp(t *token.Token) (ast.ExpNode, *token.Token) {
 	}
 }
 
-// Args parses the arguments of a function call.
+// Args parses the arguments of a function call. It returns nil rather than
+// panicking if it couldn't parse arguments.
 func (p *Parser) Args(t *token.Token) ([]ast.ExpNode, *token.Token) {
 	switch t.Type {
 	case token.SgOpenBkt:
