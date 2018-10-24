@@ -75,6 +75,10 @@ type Float struct {
 	val float64
 }
 
+func NewFloat(x float64) Float {
+	return Float{val: x}
+}
+
 func (f Float) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	EmitLoadConst(c, f, ir.Float(f.val), dst)
 	return dst

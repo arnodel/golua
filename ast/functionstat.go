@@ -6,14 +6,14 @@ func NewFunctionStat(fName Var, method Name, fx Function) AssignStat {
 		loc := fx.Locate()
 		fx = NewFunction(
 			nil, nil,
-			ParList{append([]Name{{Val: "self"}}, fx.params...), fx.hasDots},
-			fx.body,
+			ParList{append([]Name{{Val: "self"}}, fx.Params...), fx.HasDots},
+			fx.Body,
 		)
 		fx.Location = loc
-		fx.name = method.FunctionName()
+		fx.Name = method.FunctionName()
 		fName = NewIndexExp(fName, String{Val: []byte(method.Val)})
 	} else {
-		fx.name = fName.FunctionName()
+		fx.Name = fName.FunctionName()
 	}
 	return NewAssignStat([]Var{fName}, []ExpNode{fx})
 }

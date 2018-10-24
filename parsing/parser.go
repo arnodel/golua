@@ -220,8 +220,12 @@ func (p *Parser) Exp(t *token.Token) (ast.ExpNode, *token.Token) {
 	last := item{exp, op}
 	for t.Type.IsBinOp() {
 		op = binopMap[t.Type]
-		exp, t = p.ShortExp(t)
-		for op != ops.OpPow && op.Precedence() <= last.op.Precedence() && len(stack) > 0 {
+		exp, t = p.ShortExp(p.Scan())
+		for len(stack) > 0 {
+			pdiff := op.Precedence() - last.op.Precedence()
+			if pdiff > 0 || (pdiff == 0 && op == ops.OpConcat) {
+				break
+			}
 			stack, last = mergepop(stack, last)
 		}
 		stack = append(stack, last)
@@ -234,42 +238,50 @@ func (p *Parser) Exp(t *token.Token) (ast.ExpNode, *token.Token) {
 	return last.exp, t
 }
 
-// ShortExp parses an expression which is either atomic, a unary operation, or a
-// prefix expression. In other words, any expression that doesn't contain a
-// binary operator.
+// ShortExp parses an expression which is either atomic, a unary operation, a
+// prefix expression or a power operation (right associatively composed). In
+// other words, any expression that doesn't contain a binary operator.
 func (p *Parser) ShortExp(t *token.Token) (ast.ExpNode, *token.Token) {
+	var exp ast.ExpNode
 	switch t.Type {
 	case token.KwNil:
-		return ast.Nil(t), p.Scan()
+		exp, t = ast.Nil(t), p.Scan()
 	case token.KwTrue:
-		return ast.True(t), p.Scan()
+		exp, t = ast.True(t), p.Scan()
 	case token.KwFalse:
-		return ast.False(t), p.Scan()
+		exp, t = ast.False(t), p.Scan()
 	case token.NUMDEC, token.NUMHEX:
 		n, err := ast.NewNumber(t)
 		if err != nil {
 			panic(err)
 		}
-		return n, p.Scan()
+		exp, t = n, p.Scan()
 	case token.STRING:
 		s, err := ast.NewString(t)
 		if err != nil {
 			panic(err)
 		}
-		return s, p.Scan()
+		exp, t = s, p.Scan()
 	case token.LONGSTRING:
-		return ast.NewLongString(t), p.Scan()
+		exp, t = ast.NewLongString(t), p.Scan()
 	case token.SgEtc:
-		return ast.Etc(t), p.Scan()
+		exp, t = ast.Etc(t), p.Scan()
 	case token.KwFunction:
-		return p.FunctionDef(p.Scan())
+		exp, t = p.FunctionDef(p.Scan())
 	case token.SgMinus, token.KwNot, token.SgHash, token.SgTilde:
 		// A unary operator!
-		exp, next := p.ShortExp(p.Scan())
-		return ast.NewUnOp(t, unopMap[t.Type], exp), next
+		opTok := t
+		exp, t = p.ShortExp(p.Scan())
+		exp = ast.NewUnOp(opTok, unopMap[opTok.Type], exp)
 	default:
-		return p.PrefixExp(t)
+		exp, t = p.PrefixExp(t)
 	}
+	if t.Type == token.SgHat {
+		var pow ast.ExpNode
+		pow, t = p.ShortExp(p.Scan())
+		exp = ast.NewBinOp(exp, ops.OpPow, pow)
+	}
+	return exp, t
 }
 
 var unopMap = map[token.Type]ops.Op{
@@ -325,14 +337,20 @@ ParamsLoop:
 			if t.Type != token.SgComma {
 				break ParamsLoop
 			}
+			t = p.Scan()
 		case token.SgEtc:
 			hasEtc = true
 			t = p.Scan()
 			break ParamsLoop
+		case token.SgCloseBkt:
+			break ParamsLoop
+		default:
+			panic("invalid param list")
 		}
 	}
 	expectType(t, token.SgCloseBkt)
-	body, endTok := p.Block(t)
+	body, endTok := p.Block(p.Scan())
+	expectType(endTok, token.KwEnd)
 	def := ast.NewFunction(startTok, endTok, ast.NewParList(names, hasEtc), body)
 	return def, p.Scan()
 }
@@ -450,12 +468,14 @@ func (p *Parser) Field(t *token.Token) (ast.TableField, *token.Token) {
 	var val ast.ExpNode
 	switch t.Type {
 	case token.SgOpenSquareBkt:
-		key, t = p.Exp(t)
+		key, t = p.Exp(p.Scan())
 		expectType(t, token.SgCloseSquareBkt)
 		expectType(p.Scan(), token.SgAssign)
 		val, t = p.Exp(p.Scan())
 	case token.IDENT:
-		val, t = p.Name(t)
+		var name ast.Name
+		name, t = p.Name(t)
+		val = name.AstString()
 		if t.Type == token.SgAssign {
 			key = val
 			val, t = p.Exp(p.Scan())

@@ -66,7 +66,9 @@ const (
 	SgHash
 	SgTilde
 
-	SgMinus = 0xf0 + iota
+	beforeBinOp
+
+	SgMinus
 	SgPlus
 	SgStar
 	SgSlash
@@ -86,10 +88,12 @@ const (
 	SgConcat
 	KwAnd
 	KwOr
+
+	afterBinOp
 )
 
 func (tp Type) IsBinOp() bool {
-	return tp >= SgMinus && tp <= SgGreaterEqual
+	return tp > beforeBinOp && tp < afterBinOp
 }
 
 type Pos struct {

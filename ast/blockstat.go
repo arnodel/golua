@@ -92,8 +92,8 @@ func (s BlockStat) CompileChunk(source string) *ir.Compiler {
 	c := pc.NewChild()
 
 	f := Function{
-		ParList: ParList{hasDots: true},
-		body:    s,
+		ParList: ParList{HasDots: true},
+		Body:    s,
 	}
 	f.CompileBody(c)
 	return c

@@ -11,26 +11,26 @@ import (
 
 type TableConstructor struct {
 	Location
-	fields []TableField
+	Fields []TableField
 }
 
 func NewTableConstructor(opTok, clTok *token.Token, fields []TableField) TableConstructor {
 	return TableConstructor{
 		Location: LocFromTokens(opTok, clTok),
-		fields:   fields,
+		Fields:   fields,
 	}
 }
 
 func (c TableConstructor) HWrite(w HWriter) {
 	w.Writef("table")
 	w.Indent()
-	for _, f := range c.fields {
+	for _, f := range c.Fields {
 		w.Next()
 		w.Writef("key: ")
-		f.key.HWrite(w)
+		f.Key.HWrite(w)
 		w.Next()
 		w.Writef("value: ")
-		f.value.HWrite(w)
+		f.Value.HWrite(w)
 	}
 	w.Dedent()
 }
@@ -39,14 +39,14 @@ func (t TableConstructor) CompileExp(c *ir.Compiler, dst ir.Register) ir.Registe
 	EmitInstr(c, t, ir.MkTable{Dst: dst})
 	c.TakeRegister(dst)
 	currImplicitKey := 1
-	for i, field := range t.fields {
-		keyExp := field.key
+	for i, field := range t.Fields {
+		keyExp := field.Key
 		_, noKey := keyExp.(NoTableKey)
-		if i == len(t.fields)-1 && noKey {
-			tailExp, ok := field.value.(TailExpNode)
+		if i == len(t.Fields)-1 && noKey {
+			tailExp, ok := field.Value.(TailExpNode)
 			if ok {
 				etc := tailExp.CompileEtcExp(c, c.GetFreeRegister())
-				EmitInstr(c, field.value, ir.FillTable{
+				EmitInstr(c, field.Value, ir.FillTable{
 					Dst: dst,
 					Idx: currImplicitKey,
 					Etc: etc,
@@ -54,14 +54,14 @@ func (t TableConstructor) CompileExp(c *ir.Compiler, dst ir.Register) ir.Registe
 				break
 			}
 		}
-		valReg := CompileExp(c, field.value)
+		valReg := CompileExp(c, field.Value)
 		c.TakeRegister(valReg)
 		if _, ok := keyExp.(NoTableKey); ok {
 			keyExp = Int{val: uint64(currImplicitKey)}
 			currImplicitKey++
 		}
 		keyReg := CompileExp(c, keyExp)
-		EmitInstr(c, field.value, ir.SetIndex{
+		EmitInstr(c, field.Value, ir.SetIndex{
 			Table: dst,
 			Index: keyReg,
 			Src:   valReg,
@@ -78,15 +78,15 @@ func (t TableConstructor) CompileExp(c *ir.Compiler, dst ir.Register) ir.Registe
 
 type TableField struct {
 	Location
-	key   ExpNode
-	value ExpNode
+	Key   ExpNode
+	Value ExpNode
 }
 
 func NewTableField(key ExpNode, value ExpNode) TableField {
 	return TableField{
 		Location: MergeLocations(key, value),
-		key:      key,
-		value:    value,
+		Key:      key,
+		Value:    value,
 	}
 }
 

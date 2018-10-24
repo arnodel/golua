@@ -9,7 +9,7 @@ type LocalFunctionStat struct {
 }
 
 func NewLocalFunctionStat(name Name, fx Function) LocalFunctionStat {
-	fx.name = name.Val
+	fx.Name = name.Val
 	return LocalFunctionStat{
 		Location: MergeLocations(name, fx), // TODO: use "local" for location start
 		Function: fx,
