@@ -676,3 +676,77 @@ func TestParser_Exp(t *testing.T) {
 		})
 	}
 }
+
+func TestParser_Block(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  ast.BlockStat
+		want1 *token.Token
+	}{
+		{
+			name:  "Empty block ending in 'end'",
+			input: "end",
+			want:  ast.NewBlockStat(nil, nil),
+			want1: tok(token.KwEnd, "end"),
+		},
+		{
+			name:  "Empty block ending in 'else'",
+			input: "else",
+			want:  ast.NewBlockStat(nil, nil),
+			want1: tok(token.KwElse, "else"),
+		},
+		{
+			name:  "Empty block ending in 'until'",
+			input: "until",
+			want:  ast.NewBlockStat(nil, nil),
+			want1: tok(token.KwUntil, "until"),
+		},
+		{
+			name:  "Empty block ending in EOF",
+			input: "",
+			want:  ast.NewBlockStat(nil, nil),
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "Block with return",
+			input: "break return 1",
+			want: ast.NewBlockStat(
+				[]ast.Stat{ast.BreakStat{}},
+				[]ast.ExpNode{ast.NewInt(1)},
+			),
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "Block with empty return",
+			input: "break return end",
+			want: ast.NewBlockStat(
+				[]ast.Stat{ast.BreakStat{}},
+				[]ast.ExpNode{},
+			),
+			want1: tok(token.KwEnd, "end"),
+		},
+		{
+			name:  "Block without return",
+			input: "break end",
+			want: ast.NewBlockStat(
+				[]ast.Stat{ast.BreakStat{}},
+				nil,
+			),
+			want1: tok(token.KwEnd, "end"),
+		},
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Parser{getToken: testScanner(tt.input)}
+			got, got1 := p.Block(p.Scan())
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Parser.Block() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("Parser.Block() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
