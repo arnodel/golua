@@ -8,60 +8,60 @@ import (
 
 type ForStat struct {
 	Location
-	itervar Name
-	start   ExpNode
-	stop    ExpNode
-	step    ExpNode
-	body    BlockStat
+	Var   Name
+	Start ExpNode
+	Stop  ExpNode
+	Step  ExpNode
+	Body  BlockStat
 }
 
 func NewForStat(startTok, endTok *token.Token, itervar Name, params []ExpNode, body BlockStat) *ForStat {
 	return &ForStat{
 		Location: LocFromTokens(startTok, endTok),
-		itervar:  itervar,
-		start:    params[0],
-		stop:     params[1],
-		step:     params[2],
-		body:     body,
+		Var:      itervar,
+		Start:    params[0],
+		Stop:     params[1],
+		Step:     params[2],
+		Body:     body,
 	}
 }
 
 func (s *ForStat) HWrite(w HWriter) {
-	w.Writef("for %s", s.itervar)
+	w.Writef("for %s", s.Var)
 	w.Indent()
-	if s.start != nil {
+	if s.Start != nil {
 		w.Next()
-		w.Writef("start: ")
-		s.start.HWrite(w)
+		w.Writef("Start: ")
+		s.Start.HWrite(w)
 	}
-	if s.stop != nil {
+	if s.Stop != nil {
 		w.Next()
-		w.Writef("stop: ")
-		s.stop.HWrite(w)
+		w.Writef("Stop: ")
+		s.Stop.HWrite(w)
 	}
-	if s.step != nil {
+	if s.Step != nil {
 		w.Next()
-		w.Writef("step: ")
-		s.step.HWrite(w)
+		w.Writef("Step: ")
+		s.Step.HWrite(w)
 	}
 	w.Next()
-	s.body.HWrite(w)
+	s.Body.HWrite(w)
 	w.Dedent()
 }
 
 func (s ForStat) CompileStat(c *ir.Compiler) {
 	startReg := c.GetFreeRegister()
-	r := s.start.CompileExp(c, startReg)
+	r := s.Start.CompileExp(c, startReg)
 	ir.EmitMoveNoLine(c, startReg, r)
 	c.TakeRegister(startReg)
 
 	stopReg := c.GetFreeRegister()
-	r = s.stop.CompileExp(c, stopReg)
+	r = s.Stop.CompileExp(c, stopReg)
 	ir.EmitMoveNoLine(c, stopReg, r)
 	c.TakeRegister(stopReg)
 
 	stepReg := c.GetFreeRegister()
-	r = s.step.CompileExp(c, stepReg)
+	r = s.Step.CompileExp(c, stepReg)
 	ir.EmitMoveNoLine(c, stepReg, r)
 	c.TakeRegister(stepReg)
 
@@ -117,8 +117,8 @@ func (s ForStat) CompileStat(c *ir.Compiler) {
 
 	iterReg := c.GetFreeRegister()
 	ir.EmitMoveNoLine(c, iterReg, startReg)
-	c.DeclareLocal(ir.Name(s.itervar.Val), iterReg)
-	s.body.CompileBlock(c)
+	c.DeclareLocal(ir.Name(s.Var.Val), iterReg)
+	s.Body.CompileBlock(c)
 
 	c.EmitNoLine(ir.Combine{
 		Op:   ops.OpAdd,

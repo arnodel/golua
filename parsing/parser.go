@@ -43,40 +43,7 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 	case token.KwIf:
 		return p.If(t)
 	case token.KwFor:
-		name, nextTok := p.Name(p.Scan())
-		if nextTok.Type == token.SgAssign {
-			// Parse for Name = ...
-			params := make([]ast.ExpNode, 3)
-			params[0], nextTok = p.Exp(p.Scan())
-			expectType(nextTok, token.SgComma)
-			params[1], nextTok = p.Exp(p.Scan())
-			if nextTok.Type == token.SgComma {
-				params[2], nextTok = p.Exp(p.Scan())
-			}
-			expectType(nextTok, token.KwDo)
-			body, endTok := p.Block(p.Scan())
-			expectType(endTok, token.KwEnd)
-			forStat := ast.NewForStat(t, endTok, name, params, body)
-			return forStat, p.Scan()
-		}
-		// Parse for namelist in explist ...
-		names := []ast.Name{name}
-		for nextTok.Type == token.SgComma {
-			name, nextTok = p.Name(p.Scan())
-			names = append(names, name)
-		}
-		expectType(nextTok, token.KwIn)
-		exp, nextTok := p.Exp(p.Scan())
-		params := []ast.ExpNode{exp}
-		for nextTok.Type == token.SgComma {
-			exp, nextTok = p.Exp(p.Scan())
-			params = append(params, exp)
-		}
-		expectType(nextTok, token.KwDo)
-		body, endTok := p.Block(p.Scan())
-		expectType(endTok, token.KwEnd)
-		forInStat := ast.NewForInStat(t, endTok, names, params, body)
-		return forInStat, p.Scan()
+		return p.For(t)
 	case token.KwFunction:
 		name, t := p.Name(p.Scan())
 		var v ast.Var = name
@@ -91,24 +58,7 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 		fx, t := p.FunctionDef(t)
 		return ast.NewFunctionStat(name, method, fx), t
 	case token.KwLocal:
-		t = p.Scan()
-		if t.Type == token.KwFunction {
-			name, t := p.Name(p.Scan())
-			fx, t := p.FunctionDef(t)
-			return ast.NewLocalFunctionStat(name, fx), t
-		}
-		// local namelist ['=' explist]
-		name, t := p.Name(t)
-		names := []ast.Name{name}
-		for t.Type == token.SgComma {
-			name, t = p.Name(t)
-			names = append(names, name)
-		}
-		var values []ast.ExpNode
-		if t.Type == token.SgAssign {
-			values, t = p.ExpList(p.Scan())
-		}
-		return ast.NewLocalStat(names, values), t
+		return p.Local(t)
 	case token.SgDoubleColon:
 		name, t := p.Name(p.Scan())
 		expectType(t, token.SgDoubleColon)
@@ -140,7 +90,8 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 	}
 }
 
-// If parses an if / then / else statement.
+// If parses an if / then / else statement.  It assumes that t is the "if"
+// token.
 func (p *Parser) If(t *token.Token) (ast.IfStat, *token.Token) {
 	ifStat := ast.NewIfStat(nil)
 	cond, thenTok := p.Exp(p.Scan())
@@ -165,6 +116,68 @@ func (p *Parser) If(t *token.Token) (ast.IfStat, *token.Token) {
 			panic("Expected elseif, end or else")
 		}
 	}
+}
+
+// For parses a for in / for = statement.  It assumes that t is the "for" token.
+func (p *Parser) For(t *token.Token) (ast.Stat, *token.Token) {
+	name, nextTok := p.Name(p.Scan())
+	if nextTok.Type == token.SgAssign {
+		// Parse for Name = ...
+		params := make([]ast.ExpNode, 3)
+		params[0], nextTok = p.Exp(p.Scan())
+		expectType(nextTok, token.SgComma)
+		params[1], nextTok = p.Exp(p.Scan())
+		if nextTok.Type == token.SgComma {
+			params[2], nextTok = p.Exp(p.Scan())
+		}
+		expectType(nextTok, token.KwDo)
+		body, endTok := p.Block(p.Scan())
+		expectType(endTok, token.KwEnd)
+		forStat := ast.NewForStat(t, endTok, name, params, body)
+		return forStat, p.Scan()
+	}
+	// Parse for namelist in explist ...
+	names := []ast.Name{name}
+	for nextTok.Type == token.SgComma {
+		name, nextTok = p.Name(p.Scan())
+		names = append(names, name)
+	}
+	expectType(nextTok, token.KwIn)
+	exp, nextTok := p.Exp(p.Scan())
+	params := []ast.ExpNode{exp}
+	for nextTok.Type == token.SgComma {
+		exp, nextTok = p.Exp(p.Scan())
+		params = append(params, exp)
+	}
+	expectType(nextTok, token.KwDo)
+	body, endTok := p.Block(p.Scan())
+	expectType(endTok, token.KwEnd)
+	forInStat := ast.NewForInStat(t, endTok, names, params, body)
+	return forInStat, p.Scan()
+
+}
+
+// Local parses a "local" statement (function definition of variable
+// declaration).  It assumes that t is the "local" token.
+func (p *Parser) Local(t *token.Token) (ast.Stat, *token.Token) {
+	t = p.Scan()
+	if t.Type == token.KwFunction {
+		name, t := p.Name(p.Scan())
+		fx, t := p.FunctionDef(t)
+		return ast.NewLocalFunctionStat(name, fx), t
+	}
+	// local namelist ['=' explist]
+	name, t := p.Name(t)
+	names := []ast.Name{name}
+	for t.Type == token.SgComma {
+		name, t = p.Name(p.Scan())
+		names = append(names, name)
+	}
+	var values []ast.ExpNode
+	if t.Type == token.SgAssign {
+		values, t = p.ExpList(p.Scan())
+	}
+	return ast.NewLocalStat(names, values), t
 }
 
 // Block parses a block whose starting token (e.g. "do") has already been

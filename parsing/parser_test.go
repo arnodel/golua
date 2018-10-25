@@ -853,3 +853,148 @@ func TestParser_If(t *testing.T) {
 		})
 	}
 }
+
+func TestParser_For(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  ast.Stat
+		want1 *token.Token
+	}{
+		{
+			name:  "for x = 1, 2 do ; end",
+			input: "for x = 1, 2 do ; end",
+			want: &ast.ForStat{
+				Var:   name("x"),
+				Start: ast.NewInt(1),
+				Stop:  ast.NewInt(2),
+				Body:  ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "for x = 1, 2, 3 do ; end",
+			input: "for x = 1, 2, 3 do ; end",
+			want: &ast.ForStat{
+				Var:   name("x"),
+				Start: ast.NewInt(1),
+				Stop:  ast.NewInt(2),
+				Step:  ast.NewInt(3),
+				Body:  ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "for in with one variable",
+			input: "for i in X do ; end",
+			want: &ast.ForInStat{
+				Vars:   []ast.Name{name("i")},
+				Params: []ast.ExpNode{name("X")},
+				Body:   ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "for in with 3 variables",
+			input: "for i, j, k in X do ; end",
+			want: &ast.ForInStat{
+				Vars:   []ast.Name{name("i"), name("j"), name("k")},
+				Params: []ast.ExpNode{name("X")},
+				Body:   ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "for in with 3 parameters",
+			input: "for i in X,Y,Z do ; end",
+			want: &ast.ForInStat{
+				Vars:   []ast.Name{name("i")},
+				Params: []ast.ExpNode{name("X"), name("Y"), name("Z")},
+				Body:   ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
+			},
+			want1: tok(token.EOF, ""),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Parser{getToken: testScanner(tt.input)}
+			got, got1 := p.For(p.Scan())
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Parser.For() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("Parser.For() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+func TestParser_Local(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  ast.Stat
+		want1 *token.Token
+	}{
+		{
+			name:  "local function definition",
+			input: "local function f(x) return x end",
+			want: ast.LocalFunctionStat{
+				Name: name("f"),
+				Function: ast.Function{
+					Name: "f",
+					ParList: ast.ParList{
+						Params: []ast.Name{name("x")},
+					},
+					Body: ast.BlockStat{
+						Return: []ast.ExpNode{name("x")},
+					},
+				},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "local single variable declaration with no value",
+			input: "local x z",
+			want:  ast.LocalStat{Names: []ast.Name{name("x")}},
+			want1: tok(token.IDENT, "z"),
+		},
+		{
+			name:  "local 3 variables declaration with no value",
+			input: "local x, y, z",
+			want:  ast.LocalStat{Names: []ast.Name{name("x"), name("y"), name("z")}},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "local 3 variables declaration with 1 value",
+			input: "local x, y, z = 123",
+			want: ast.LocalStat{
+				Names:  []ast.Name{name("x"), name("y"), name("z")},
+				Values: []ast.ExpNode{ast.NewInt(123)},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "local 2 variables declaration with 3 value",
+			input: `local x, y = 123, "a", 'b'`,
+			want: ast.LocalStat{
+				Names:  []ast.Name{name("x"), name("y")},
+				Values: []ast.ExpNode{ast.NewInt(123), str("a"), str("b")},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Parser{getToken: testScanner(tt.input)}
+			got, got1 := p.Local(p.Scan())
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Parser.Local() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("Parser.Local() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}

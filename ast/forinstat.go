@@ -8,42 +8,42 @@ import (
 
 type ForInStat struct {
 	Location
-	itervars []Name
-	params   []ExpNode
-	body     BlockStat
+	Vars   []Name
+	Params []ExpNode
+	Body   BlockStat
 }
 
 func NewForInStat(startTok, endTok *token.Token, itervars []Name, params []ExpNode, body BlockStat) *ForInStat {
 	return &ForInStat{
 		Location: LocFromTokens(startTok, endTok),
-		itervars: itervars,
-		params:   params,
-		body:     body,
+		Vars:     itervars,
+		Params:   params,
+		Body:     body,
 	}
 }
 
 func (s *ForInStat) HWrite(w HWriter) {
 	w.Writef("for in")
 	w.Indent()
-	for i, v := range s.itervars {
+	for i, v := range s.Vars {
 		w.Next()
 		w.Writef("var_%d: ", i)
 		v.HWrite(w)
 	}
-	for i, p := range s.params {
+	for i, p := range s.Params {
 		w.Next()
 		w.Writef("param_%d", i)
 		p.HWrite(w)
 	}
 	w.Next()
-	w.Writef("body: ")
-	s.body.HWrite(w)
+	w.Writef("Body: ")
+	s.Body.HWrite(w)
 	w.Dedent()
 }
 
 func (s ForInStat) CompileStat(c *ir.Compiler) {
 	initRegs := make([]ir.Register, 3)
-	CompileExpList(c, s.params, initRegs)
+	CompileExpList(c, s.Params, initRegs)
 	fReg := initRegs[0]
 	sReg := initRegs[1]
 	varReg := initRegs[2]
@@ -59,8 +59,8 @@ func (s ForInStat) CompileStat(c *ir.Compiler) {
 	// TODO: better locations
 
 	LocalStat{
-		names: s.itervars,
-		values: []ExpNode{FunctionCall{&BFunctionCall{
+		Names: s.Vars,
+		Values: []ExpNode{FunctionCall{&BFunctionCall{
 			Location: s.Location,
 			target:   Name{Location: s.Location, Val: "<f>"},
 			args: []ExpNode{
@@ -69,7 +69,7 @@ func (s ForInStat) CompileStat(c *ir.Compiler) {
 			},
 		}}},
 	}.CompileStat(c)
-	var1, _ := c.GetRegister(ir.Name(s.itervars[0].Val))
+	var1, _ := c.GetRegister(ir.Name(s.Vars[0].Val))
 
 	testReg := c.GetFreeRegister()
 	EmitLoadConst(c, s, ir.NilType{}, testReg)
@@ -82,7 +82,7 @@ func (s ForInStat) CompileStat(c *ir.Compiler) {
 	endLbl := c.DeclareGotoLabel(ir.Name("<break>"))
 	EmitInstr(c, s, ir.JumpIf{Cond: testReg, Label: endLbl})
 	EmitInstr(c, s, ir.Transform{Dst: varReg, Op: ops.OpId, Src: var1})
-	s.body.CompileBlock(c)
+	s.Body.CompileBlock(c)
 
 	EmitInstr(c, s, ir.Jump{Label: loopLbl})
 
