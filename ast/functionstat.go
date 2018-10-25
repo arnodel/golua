@@ -11,7 +11,7 @@ func NewFunctionStat(fName Var, method Name, fx Function) AssignStat {
 		)
 		fx.Location = loc
 		fx.Name = method.FunctionName()
-		fName = NewIndexExp(fName, String{Val: []byte(method.Val)})
+		fName = NewIndexExp(fName, method.AstString())
 	} else {
 		fx.Name = fName.FunctionName()
 	}

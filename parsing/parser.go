@@ -45,18 +45,7 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 	case token.KwFor:
 		return p.For(t)
 	case token.KwFunction:
-		name, t := p.Name(p.Scan())
-		var v ast.Var = name
-		var method ast.Name
-		for t.Type == token.SgDot {
-			name, t = p.Name(t)
-			v = ast.NewIndexExp(v, name.AstString())
-		}
-		if t.Type == token.SgColon {
-			method, t = p.Name(p.Scan())
-		}
-		fx, t := p.FunctionDef(t)
-		return ast.NewFunctionStat(name, method, fx), t
+		return p.FunctionStat(t)
 	case token.KwLocal:
 		return p.Local(t)
 	case token.SgDoubleColon:
@@ -178,6 +167,23 @@ func (p *Parser) Local(t *token.Token) (ast.Stat, *token.Token) {
 		values, t = p.ExpList(p.Scan())
 	}
 	return ast.NewLocalStat(names, values), t
+}
+
+// FunctionStat parses a function definition statement. It assumes that t is the
+// "function" token.
+func (p *Parser) FunctionStat(t *token.Token) (ast.Stat, *token.Token) {
+	name, t := p.Name(p.Scan())
+	var v ast.Var = name
+	var method ast.Name
+	for t.Type == token.SgDot {
+		name, t = p.Name(p.Scan())
+		v = ast.NewIndexExp(v, name.AstString())
+	}
+	if t.Type == token.SgColon {
+		method, t = p.Name(p.Scan())
+	}
+	fx, t := p.FunctionDef(t)
+	return ast.NewFunctionStat(v, method, fx), t
 }
 
 // Block parses a block whose starting token (e.g. "do") has already been

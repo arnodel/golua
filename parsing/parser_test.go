@@ -998,3 +998,74 @@ func TestParser_Local(t *testing.T) {
 		})
 	}
 }
+
+func TestParser_FunctionStat(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  ast.Stat
+		want1 *token.Token
+	}{
+		{
+			name:  "function with plain name",
+			input: "function foo() end",
+			want: ast.AssignStat{
+				Dest: []ast.Var{name("foo")},
+				Src: []ast.ExpNode{ast.Function{
+					Name: "foo",
+					Body: ast.BlockStat{Return: []ast.ExpNode{}},
+				}},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "function with dotted name",
+			input: "function foo.bar.baz() end",
+			want: ast.AssignStat{
+				Dest: []ast.Var{
+					ast.IndexExp{
+						Coll: ast.IndexExp{
+							Coll: name("foo"),
+							Idx:  str("bar"),
+						},
+						Idx: str("baz"),
+					}},
+				Src: []ast.ExpNode{ast.Function{
+					Name: "baz",
+					Body: ast.BlockStat{Return: []ast.ExpNode{}},
+				}},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "method",
+			input: "function dog:bark(at) end",
+			want: ast.AssignStat{
+				Dest: []ast.Var{
+					ast.IndexExp{
+						Coll: name("dog"),
+						Idx:  str("bark"),
+					}},
+				Src: []ast.ExpNode{ast.Function{
+					Name:    "bark",
+					ParList: ast.ParList{Params: []ast.Name{name("self"), name("at")}},
+					Body:    ast.BlockStat{Return: []ast.ExpNode{}},
+				}},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Parser{getToken: testScanner(tt.input)}
+			got, got1 := p.FunctionStat(p.Scan())
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Parser.FunctionStat() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("Parser.FunctionStat() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
