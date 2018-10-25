@@ -7,22 +7,22 @@ import (
 
 type GotoStat struct {
 	Location
-	label Name
+	Label Name
 }
 
 func NewGotoStat(gotoTok *token.Token, lbl Name) GotoStat {
 	return GotoStat{
 		Location: MergeLocations(LocFromToken(gotoTok), lbl),
-		label:    lbl,
+		Label:    lbl,
 	}
 }
 
 func (s GotoStat) HWrite(w HWriter) {
-	w.Writef("goto %s", s.label)
+	w.Writef("goto %s", s.Label)
 }
 
 func (s GotoStat) CompileStat(c *ir.Compiler) {
-	lbl, ok := c.GetGotoLabel(ir.Name(s.label.Val))
+	lbl, ok := c.GetGotoLabel(ir.Name(s.Label.Val))
 	if !ok {
 		panic("Undefined label for goto")
 	}

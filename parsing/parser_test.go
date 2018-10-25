@@ -983,7 +983,6 @@ func TestParser_Local(t *testing.T) {
 			},
 			want1: tok(token.EOF, ""),
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1054,7 +1053,6 @@ func TestParser_FunctionStat(t *testing.T) {
 			},
 			want1: tok(token.EOF, ""),
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1065,6 +1063,61 @@ func TestParser_FunctionStat(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got1, tt.want1) {
 				t.Errorf("Parser.FunctionStat() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+func TestParser_Stat(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  ast.Stat
+		want1 *token.Token
+	}{
+		{
+			name:  "empty statement",
+			input: ";",
+			want:  ast.EmptyStat{},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "break statement",
+			input: "break",
+			want:  ast.BreakStat{},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "goto statement",
+			input: "goto start",
+			want:  ast.GotoStat{Label: name("start")},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "do ... end block",
+			input: "do ; end bye",
+			want:  ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
+			want1: tok(token.IDENT, "bye"),
+		},
+		{
+			name:  "while block",
+			input: "while true do ; end",
+			want: ast.WhileStat{CondStat: ast.CondStat{
+				Cond: ast.Bool{Val: true},
+				Body: ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
+			}},
+			want1: tok(token.EOF, ""),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Parser{getToken: testScanner(tt.input)}
+			got, got1 := p.Stat(p.Scan())
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Parser.Stat() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("Parser.Stat() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}

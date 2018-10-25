@@ -7,14 +7,17 @@ import (
 	"github.com/arnodel/golua/ast"
 )
 
+// Parser can parse lua statements or expressions
 type Parser struct {
 	getToken func() *token.Token
 }
 
+// Scan returns the next token.
 func (p *Parser) Scan() *token.Token {
 	return p.getToken()
 }
 
+// Stat parses any statement.
 func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 	switch t.Type {
 	case token.SgSemicolon:
