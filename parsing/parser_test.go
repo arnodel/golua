@@ -697,6 +697,12 @@ func TestParser_Block(t *testing.T) {
 			want1: tok(token.KwElse, "else"),
 		},
 		{
+			name:  "Empty block ending in 'elsif'",
+			input: "elseif",
+			want:  ast.NewBlockStat(nil, nil),
+			want1: tok(token.KwElseIf, "elseif"),
+		},
+		{
 			name:  "Empty block ending in 'until'",
 			input: "until",
 			want:  ast.NewBlockStat(nil, nil),
@@ -746,6 +752,103 @@ func TestParser_Block(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got1, tt.want1) {
 				t.Errorf("Parser.Block() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+func TestParser_If(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  ast.IfStat
+		want1 *token.Token
+	}{
+		{
+			name:  "plain if ... then ... end",
+			input: "if true then ; end",
+			want: ast.IfStat{
+				If: ast.CondStat{
+					Cond: ast.Bool{Val: true},
+					Body: ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
+				},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "if ... then ... else ... end",
+			input: "if cond then ; else ; end",
+			want: ast.IfStat{
+				If: ast.CondStat{
+					Cond: name("cond"),
+					Body: ast.NewBlockStat([]ast.Stat{ast.EmptyStat{}}, nil),
+				},
+				Else: &ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "if ... then ... elseif ... then ... end",
+			input: "if a then ; elseif b then ; end",
+			want: ast.IfStat{
+				If: ast.CondStat{
+					Cond: name("a"),
+					Body: ast.NewBlockStat([]ast.Stat{ast.EmptyStat{}}, nil),
+				},
+				ElseIfs: []ast.CondStat{{
+					Cond: name("b"),
+					Body: ast.NewBlockStat([]ast.Stat{ast.EmptyStat{}}, nil),
+				}},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "if ... then ... elseif ... then ... else ... end",
+			input: "if a then ; elseif b then ; else ; end",
+			want: ast.IfStat{
+				If: ast.CondStat{
+					Cond: name("a"),
+					Body: ast.NewBlockStat([]ast.Stat{ast.EmptyStat{}}, nil),
+				},
+				ElseIfs: []ast.CondStat{{
+					Cond: name("b"),
+					Body: ast.NewBlockStat([]ast.Stat{ast.EmptyStat{}}, nil),
+				}},
+				Else: &ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "if ... then ... elseif ... then ... elseif ... then ... end",
+			input: "if a then ; elseif b then ; elseif c then ; end",
+			want: ast.IfStat{
+				If: ast.CondStat{
+					Cond: name("a"),
+					Body: ast.NewBlockStat([]ast.Stat{ast.EmptyStat{}}, nil),
+				},
+				ElseIfs: []ast.CondStat{
+					{
+						Cond: name("b"),
+						Body: ast.NewBlockStat([]ast.Stat{ast.EmptyStat{}}, nil),
+					},
+					{
+						Cond: name("c"),
+						Body: ast.NewBlockStat([]ast.Stat{ast.EmptyStat{}}, nil),
+					},
+				},
+			},
+			want1: tok(token.EOF, ""),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Parser{getToken: testScanner(tt.input)}
+			got, got1 := p.If(p.Scan())
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Parser.If() got = %+v, want %+v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("Parser.If() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}

@@ -14,8 +14,8 @@ type Function struct {
 
 func NewFunction(startTok, endTok *token.Token, parList ParList, body BlockStat) Function {
 	// Make sure we return at the end of the function
-	if body.returnValues == nil {
-		body.returnValues = []ExpNode{}
+	if body.Return == nil {
+		body.Return = []ExpNode{}
 	}
 	return Function{
 		Location: LocFromTokens(startTok, endTok),
@@ -62,8 +62,8 @@ func (f Function) CompileBody(c *ir.Compiler) {
 	// Need to make sure there is a return instruction emitted at the
 	// end.
 	body := f.Body
-	if body.returnValues == nil {
-		body.returnValues = []ExpNode{}
+	if body.Return == nil {
+		body.Return = []ExpNode{}
 	}
 	body.CompileBlock(c)
 }

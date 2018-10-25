@@ -6,6 +6,7 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
+// RepeatStat represents a repeat / until statement.
 type RepeatStat struct {
 	Location
 	CondStat
@@ -14,7 +15,7 @@ type RepeatStat struct {
 func NewRepeatStat(repTok *token.Token, body BlockStat, cond ExpNode) RepeatStat {
 	return RepeatStat{
 		Location: MergeLocations(LocFromToken(repTok), cond),
-		CondStat: CondStat{body: body, cond: cond},
+		CondStat: CondStat{Body: body, Cond: cond},
 	}
 }
 
@@ -23,17 +24,18 @@ func (s RepeatStat) HWrite(w HWriter) {
 	s.CondStat.HWrite(w)
 }
 
+// CompileStat implements Stat.CompileStat.
 func (s RepeatStat) CompileStat(c *ir.Compiler) {
 	c.PushContext()
 	c.DeclareGotoLabel(breakLblName)
 
 	loopLbl := c.GetNewLabel()
 	c.EmitLabel(loopLbl)
-	pop := s.body.CompileBlockNoPop(c)
-	condReg := CompileExp(c, s.cond)
+	pop := s.Body.CompileBlockNoPop(c)
+	condReg := CompileExp(c, s.Cond)
 	negReg := c.GetFreeRegister()
-	EmitInstr(c, s.cond, ir.Transform{Op: ops.OpNot, Dst: negReg, Src: condReg})
-	EmitInstr(c, s.cond, ir.JumpIf{Cond: negReg, Label: loopLbl})
+	EmitInstr(c, s.Cond, ir.Transform{Op: ops.OpNot, Dst: negReg, Src: condReg})
+	EmitInstr(c, s.Cond, ir.JumpIf{Cond: negReg, Label: loopLbl})
 	pop()
 
 	c.EmitGotoLabel(breakLblName)

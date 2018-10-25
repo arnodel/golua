@@ -6,30 +6,30 @@ import (
 
 type BlockStat struct {
 	Location
-	statements   []Stat
-	returnValues []ExpNode
+	Stats  []Stat
+	Return []ExpNode
 }
 
 func NewBlockStat(stats []Stat, rtn []ExpNode) BlockStat {
 	return BlockStat{
 		// TODO: set Location
-		statements:   stats,
-		returnValues: rtn,
+		Stats:  stats,
+		Return: rtn,
 	}
 }
 
 func (s BlockStat) HWrite(w HWriter) {
 	w.Writef("block")
 	w.Indent()
-	for _, stat := range s.statements {
+	for _, stat := range s.Stats {
 		w.Next()
 		stat.HWrite(w)
 	}
-	if s.returnValues != nil {
+	if s.Return != nil {
 		w.Next()
 		w.Writef("return")
 		w.Indent()
-		for _, val := range s.returnValues {
+		for _, val := range s.Return {
 			w.Next()
 			val.HWrite(w)
 		}
@@ -52,29 +52,29 @@ func (s BlockStat) CompileBlock(c *ir.Compiler) {
 
 func (s BlockStat) CompileBlockNoPop(c *ir.Compiler) func() {
 	totalDepth := 0
-	getLabels(c, s.statements)
-	truncLen := len(s.statements) - getBackLabels(c, s.statements)
-	for i, stat := range s.statements {
+	getLabels(c, s.Stats)
+	truncLen := len(s.Stats) - getBackLabels(c, s.Stats)
+	for i, stat := range s.Stats {
 		switch stat.(type) {
 		case LocalStat, LocalFunctionStat:
 			totalDepth++
 			c.PushContext()
-			getLabels(c, s.statements[i+1:truncLen])
+			getLabels(c, s.Stats[i+1:truncLen])
 		}
 		stat.CompileStat(c)
 	}
-	if s.returnValues != nil {
-		if fc, ok := tailCall(s.returnValues); ok {
+	if s.Return != nil {
+		if fc, ok := tailCall(s.Return); ok {
 			fc.CompileCall(c, true)
 		} else {
 			contReg, ok := c.GetRegister(ir.Name("<caller>"))
 			if !ok {
 				panic("Cannot return: no caller")
 			}
-			compilePushArgs(c, s.returnValues, contReg)
+			compilePushArgs(c, s.Return, contReg)
 			var loc Locator
-			if len(s.returnValues) > 0 {
-				loc = s.returnValues[0]
+			if len(s.Return) > 0 {
+				loc = s.Return[0]
 			}
 			EmitInstr(c, loc, ir.Call{Cont: contReg})
 		}

@@ -41,29 +41,7 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 		cond, next := p.Exp(p.Scan())
 		return ast.NewRepeatStat(t, body, cond), next
 	case token.KwIf:
-		ifStat := ast.NewIfStat(nil)
-		cond, thenTok := p.Exp(p.Scan())
-		expectType(thenTok, token.KwThen)
-		thenBlock, endTok := p.Block(p.Scan())
-		ifStat.AddIf(t, cond, thenBlock)
-		for {
-			switch endTok.Type {
-			case token.KwElseIf:
-				cond, thenTok = p.Exp(p.Scan())
-				expectType(thenTok, token.KwThen)
-				thenBlock, endTok = p.Block(p.Scan())
-				ifStat.AddElseIf(cond, thenBlock)
-			case token.KwEnd:
-				return ifStat, p.Scan()
-			case token.KwElse:
-				elseBlock, elseTok := p.Block(p.Scan())
-				expectType(elseTok, token.KwEnd)
-				ifStat.AddElse(endTok, elseBlock)
-				return ifStat, p.Scan()
-			default:
-				panic("Expected elseif, end or else")
-			}
-		}
+		return p.If(t)
 	case token.KwFor:
 		name, nextTok := p.Name(p.Scan())
 		if nextTok.Type == token.SgAssign {
@@ -162,6 +140,33 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 	}
 }
 
+// If parses an if / then / else statement.
+func (p *Parser) If(t *token.Token) (ast.IfStat, *token.Token) {
+	ifStat := ast.NewIfStat(nil)
+	cond, thenTok := p.Exp(p.Scan())
+	expectType(thenTok, token.KwThen)
+	thenBlock, endTok := p.Block(p.Scan())
+	ifStat = ifStat.AddIf(t, cond, thenBlock)
+	for {
+		switch endTok.Type {
+		case token.KwElseIf:
+			cond, thenTok = p.Exp(p.Scan())
+			expectType(thenTok, token.KwThen)
+			thenBlock, endTok = p.Block(p.Scan())
+			ifStat = ifStat.AddElseIf(cond, thenBlock)
+		case token.KwEnd:
+			return ifStat, p.Scan()
+		case token.KwElse:
+			elseBlock, elseTok := p.Block(p.Scan())
+			expectType(elseTok, token.KwEnd)
+			ifStat = ifStat.AddElse(endTok, elseBlock)
+			return ifStat, p.Scan()
+		default:
+			panic("Expected elseif, end or else")
+		}
+	}
+}
+
 // Block parses a block whose starting token (e.g. "do") has already been
 // consumed. Returns the token that closes the block (e.g. "end"). So the caller
 // should check that this is the right kind of closing token.
@@ -173,7 +178,7 @@ func (p *Parser) Block(t *token.Token) (ast.BlockStat, *token.Token) {
 		case token.KwReturn:
 			ret, t := p.Return(t)
 			return ast.NewBlockStat(stats, ret), t
-		case token.KwEnd, token.KwElse, token.KwUntil, token.EOF:
+		case token.KwEnd, token.KwElse, token.KwElseIf, token.KwUntil, token.EOF:
 			return ast.NewBlockStat(stats, nil), t
 		default:
 			next, t = p.Stat(t)
@@ -188,7 +193,7 @@ func (p *Parser) Return(t *token.Token) ([]ast.ExpNode, *token.Token) {
 	switch t.Type {
 	case token.SgSemicolon:
 		return []ast.ExpNode{}, p.Scan()
-	case token.KwEnd, token.KwElse, token.KwUntil, token.EOF:
+	case token.KwEnd, token.KwElse, token.KwElseIf, token.KwUntil, token.EOF:
 		return []ast.ExpNode{}, t
 	default:
 		exps, t := p.ExpList(t)
