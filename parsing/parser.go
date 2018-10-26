@@ -25,10 +25,12 @@ func (e Error) Error() string {
 
 func ParseExp(getToken func() *token.Token) (exp ast.ExpNode, err error) {
 	defer func() {
-		ok := false
-		err, ok = recover().(error)
-		if !ok {
-			err = errors.New("Unknown error")
+		if r := recover(); r != nil {
+			ok := false
+			err, ok = r.(error)
+			if !ok {
+				err = errors.New("Unknown error")
+			}
 		}
 	}()
 	parser := &Parser{getToken}
@@ -40,10 +42,12 @@ func ParseExp(getToken func() *token.Token) (exp ast.ExpNode, err error) {
 
 func ParseChunk(getToken func() *token.Token) (stat ast.BlockStat, err error) {
 	defer func() {
-		ok := false
-		err, ok = recover().(error)
-		if !ok {
-			err = errors.New("Unknown error")
+		if r := recover(); r != nil {
+			ok := false
+			err, ok = r.(error)
+			if !ok {
+				err = errors.New("Unknown error")
+			}
 		}
 	}()
 	parser := &Parser{getToken}

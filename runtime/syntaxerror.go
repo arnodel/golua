@@ -3,7 +3,7 @@ package runtime
 import (
 	"fmt"
 
-	ccerrors "github.com/arnodel/golua/errors"
+	"github.com/arnodel/golua/parsing"
 	"github.com/arnodel/golua/token"
 )
 
@@ -21,11 +21,11 @@ type SyntaxError struct {
 	Type         int
 }
 
-func NewSyntaxErrorFromCCError(file string, err *ccerrors.Error) *SyntaxError {
-	pos := err.ErrorToken.Pos
+func NewSyntaxErrorFromCCError(file string, err parsing.Error) *SyntaxError {
+	pos := err.Got.Pos
 	msg := "syntax error"
 	errType := ErrSyntaxError
-	switch err.ErrorToken.Type {
+	switch err.Got.Type {
 	case token.INVALID:
 		msg = "unexpected symbol"
 		errType = ErrSyntaxInvalidToken
@@ -33,14 +33,14 @@ func NewSyntaxErrorFromCCError(file string, err *ccerrors.Error) *SyntaxError {
 		msg = "unexpected EOF"
 		errType = ErrSyntaxEOF
 	}
-	if err.ErrorToken.Type == token.INVALID {
+	if err.Got.Type == token.INVALID {
 		msg = "unexpected symbol"
 	}
 	return &SyntaxError{
 		File:    file,
 		Line:    pos.Line,
 		Column:  pos.Column,
-		Token:   string(err.ErrorToken.Lit),
+		Token:   string(err.Got.Lit),
 		Type:    errType,
 		Message: msg,
 	}
