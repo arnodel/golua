@@ -1,6 +1,8 @@
 package parsing
 
 import (
+	"errors"
+
 	"github.com/arnodel/golua/ops"
 	"github.com/arnodel/golua/token"
 
@@ -10,6 +12,45 @@ import (
 // Parser can parse lua statements or expressions
 type Parser struct {
 	getToken func() *token.Token
+}
+
+type Error struct {
+	Got          *token.Token
+	ExpectedType token.Type
+}
+
+func (e Error) Error() string {
+	return "parsing error"
+}
+
+func ParseExp(getToken func() *token.Token) (exp ast.ExpNode, err error) {
+	defer func() {
+		ok := false
+		err, ok = recover().(error)
+		if !ok {
+			err = errors.New("Unknown error")
+		}
+	}()
+	parser := &Parser{getToken}
+	var t *token.Token
+	exp, t = parser.Exp(getToken())
+	expectType(t, token.EOF)
+	return
+}
+
+func ParseChunk(getToken func() *token.Token) (stat ast.BlockStat, err error) {
+	defer func() {
+		ok := false
+		err, ok = recover().(error)
+		if !ok {
+			err = errors.New("Unknown error")
+		}
+	}()
+	parser := &Parser{getToken}
+	var t *token.Token
+	stat, t = parser.Block(getToken())
+	expectType(t, token.EOF)
+	return
 }
 
 // Scan returns the next token.
@@ -521,13 +562,11 @@ func (p *Parser) Name(t *token.Token) (ast.Name, *token.Token) {
 }
 
 func expectIdent(t *token.Token) {
-	if t.Type != token.IDENT {
-		panic("Expected ident")
-	}
+	expectType(t, token.IDENT)
 }
 
 func expectType(t *token.Token, tp token.Type) {
 	if t.Type != tp {
-		panic("Expected other type")
+		panic(Error{Got: t, ExpectedType: tp})
 	}
 }
