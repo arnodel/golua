@@ -1108,6 +1108,64 @@ func TestParser_Stat(t *testing.T) {
 			}},
 			want1: tok(token.EOF, ""),
 		},
+		{
+			name:  "repeat block",
+			input: "repeat ; until z end",
+			want: ast.RepeatStat{CondStat: ast.CondStat{
+				Cond: name("z"),
+				Body: ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
+			}},
+			want1: tok(token.KwEnd, "end"),
+		},
+		{
+			name:  "if statement",
+			input: "if x then ; end",
+			want: ast.IfStat{
+				If: ast.CondStat{
+					Cond: name("x"),
+					Body: ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
+				},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "label statement",
+			input: "::here::",
+			want:  ast.LabelStat{Name: name("here")},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "function call",
+			input: "foo(1, 2) bar()",
+			want: ast.NewFunctionCall(
+				name("foo"),
+				ast.Name{},
+				[]ast.ExpNode{ast.NewInt(1), ast.NewInt(2)},
+			),
+			want1: tok(token.IDENT, "bar"),
+		},
+		{
+			name:  "assignement statement with one variable",
+			input: "a = 12 for",
+			want: ast.AssignStat{
+				Dest: []ast.Var{name("a")},
+				Src:  []ast.ExpNode{ast.NewInt(12)},
+			},
+			want1: tok(token.KwFor, "for"),
+		},
+		{
+			name:  "assignement statement with 3 variables",
+			input: "a, b, c.d = 12 if",
+			want: ast.AssignStat{
+				Dest: []ast.Var{
+					name("a"),
+					name("b"),
+					ast.IndexExp{Coll: name("c"), Idx: str("d")},
+				},
+				Src: []ast.ExpNode{ast.NewInt(12)},
+			},
+			want1: tok(token.KwIf, "if"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

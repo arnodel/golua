@@ -56,7 +56,8 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 		expectType(t, token.SgDoubleColon)
 		return ast.NewLabelStat(name), p.Scan()
 	default:
-		exp, t := p.PrefixExp(t)
+		var exp ast.ExpNode
+		exp, t = p.PrefixExp(t)
 		switch e := exp.(type) {
 		case ast.Stat:
 			// This is a function call
@@ -66,7 +67,7 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 			vars := []ast.Var{e}
 			var pexp ast.ExpNode
 			for t.Type == token.SgComma {
-				pexp, t = p.PrefixExp(t)
+				pexp, t = p.PrefixExp(p.Scan())
 				if v, ok := pexp.(ast.Var); ok {
 					vars = append(vars, v)
 				} else {
@@ -74,7 +75,7 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 				}
 			}
 			expectType(t, token.SgAssign)
-			exps, t := p.ExpList(t)
+			exps, t := p.ExpList(p.Scan())
 			return ast.NewAssignStat(vars, exps), t
 		default:
 			panic("Expected something else") // TODO
