@@ -191,7 +191,7 @@ func searchpath(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if found != "" {
 		next.Push(rt.String(found))
 	} else {
-		rt.Push(next, nil, rt.String("tried: "+strings.Join(templates, ",")))
+		rt.Push(next, nil, rt.String("tried: "+strings.Join(templates, "\n")))
 	}
 	return next, nil
 }
