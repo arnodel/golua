@@ -127,7 +127,7 @@ func runChunk(r *rt.Runtime, source []byte) (bool, error) {
 		if !ok {
 			return false, err
 		}
-		return snErr.Type == rt.ErrSyntaxEOF, err
+		return snErr.IsUnexpectedEOF(), err
 	}
 	t := r.MainThread()
 	term := rt.NewTerminationWith(0, true)

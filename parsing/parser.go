@@ -2,6 +2,7 @@ package parsing
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/arnodel/golua/ops"
 	"github.com/arnodel/golua/token"
@@ -15,12 +16,24 @@ type Parser struct {
 }
 
 type Error struct {
-	Got          *token.Token
-	ExpectedType token.Type
+	Got      *token.Token
+	Expected string
 }
 
 func (e Error) Error() string {
-	return "parsing error"
+	expected := e.Expected
+	if expected == "" {
+		expected = "unexpected symbol"
+	} else {
+		expected = "expected " + expected
+	}
+	var tok string
+	if e.Got.Type == token.EOF {
+		tok = "<eof>"
+	} else {
+		tok = "'" + string(e.Got.Lit) + "'"
+	}
+	return fmt.Sprintf("%d:%d: %s near %s", e.Got.Line, e.Got.Column, expected, tok)
 }
 
 func ParseExp(getToken func() *token.Token) (exp ast.ExpNode, err error) {
@@ -36,7 +49,7 @@ func ParseExp(getToken func() *token.Token) (exp ast.ExpNode, err error) {
 	parser := &Parser{getToken}
 	var t *token.Token
 	exp, t = parser.Exp(getToken())
-	expectType(t, token.EOF)
+	expectType(t, token.EOF, "<eof>")
 	return
 }
 
@@ -53,7 +66,7 @@ func ParseChunk(getToken func() *token.Token) (stat ast.BlockStat, err error) {
 	parser := &Parser{getToken}
 	var t *token.Token
 	stat, t = parser.Block(getToken())
-	expectType(t, token.EOF)
+	expectType(t, token.EOF, "<eof>")
 	return
 }
 
@@ -75,17 +88,17 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 		return ast.NewGotoStat(t, ast.NewName(dest)), p.Scan()
 	case token.KwDo:
 		stat, closer := p.Block(p.Scan())
-		expectType(closer, token.KwEnd)
+		expectType(closer, token.KwEnd, "'end'")
 		return stat, p.Scan()
 	case token.KwWhile:
 		cond, doTok := p.Exp(p.Scan())
-		expectType(doTok, token.KwDo)
+		expectType(doTok, token.KwDo, "'do'")
 		body, endTok := p.Block(p.Scan())
-		expectType(endTok, token.KwEnd)
+		expectType(endTok, token.KwEnd, "'end'")
 		return ast.NewWhileStat(t, endTok, cond, body), p.Scan()
 	case token.KwRepeat:
 		body, untilTok := p.Block(p.Scan())
-		expectType(untilTok, token.KwUntil)
+		expectType(untilTok, token.KwUntil, "'until'")
 		cond, next := p.Exp(p.Scan())
 		return ast.NewRepeatStat(t, body, cond), next
 	case token.KwIf:
@@ -98,7 +111,7 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 		return p.Local(t)
 	case token.SgDoubleColon:
 		name, t := p.Name(p.Scan())
-		expectType(t, token.SgDoubleColon)
+		expectType(t, token.SgDoubleColon, "'::'")
 		return ast.NewLabelStat(name), p.Scan()
 	default:
 		var exp ast.ExpNode
@@ -116,14 +129,14 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 				if v, ok := pexp.(ast.Var); ok {
 					vars = append(vars, v)
 				} else {
-					tokenError(t)
+					tokenError(t, "expected variable")
 				}
 			}
-			expectType(t, token.SgAssign)
+			expectType(t, token.SgAssign, "'='")
 			exps, t := p.ExpList(p.Scan())
 			return ast.NewAssignStat(vars, exps), t
 		default:
-			tokenError(t)
+			tokenError(t, "")
 		}
 	}
 	return nil, nil
@@ -134,25 +147,25 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 func (p *Parser) If(t *token.Token) (ast.IfStat, *token.Token) {
 	ifStat := ast.NewIfStat(nil)
 	cond, thenTok := p.Exp(p.Scan())
-	expectType(thenTok, token.KwThen)
+	expectType(thenTok, token.KwThen, "'then'")
 	thenBlock, endTok := p.Block(p.Scan())
 	ifStat = ifStat.AddIf(t, cond, thenBlock)
 	for {
 		switch endTok.Type {
 		case token.KwElseIf:
 			cond, thenTok = p.Exp(p.Scan())
-			expectType(thenTok, token.KwThen)
+			expectType(thenTok, token.KwThen, "'then'")
 			thenBlock, endTok = p.Block(p.Scan())
 			ifStat = ifStat.AddElseIf(cond, thenBlock)
 		case token.KwEnd:
 			return ifStat, p.Scan()
 		case token.KwElse:
 			elseBlock, elseTok := p.Block(p.Scan())
-			expectType(elseTok, token.KwEnd)
+			expectType(elseTok, token.KwEnd, "'end'")
 			ifStat = ifStat.AddElse(endTok, elseBlock)
 			return ifStat, p.Scan()
 		default:
-			tokenError(t)
+			tokenError(t, "'elseif' or 'end' or 'else'")
 		}
 	}
 }
@@ -164,16 +177,16 @@ func (p *Parser) For(t *token.Token) (ast.Stat, *token.Token) {
 		// Parse for Name = ...
 		params := make([]ast.ExpNode, 3)
 		params[0], nextTok = p.Exp(p.Scan())
-		expectType(nextTok, token.SgComma)
+		expectType(nextTok, token.SgComma, "','")
 		params[1], nextTok = p.Exp(p.Scan())
 		if nextTok.Type == token.SgComma {
 			params[2], nextTok = p.Exp(p.Scan())
 		} else {
 			params[2] = ast.NewInt(1)
 		}
-		expectType(nextTok, token.KwDo)
+		expectType(nextTok, token.KwDo, "'do'")
 		body, endTok := p.Block(p.Scan())
-		expectType(endTok, token.KwEnd)
+		expectType(endTok, token.KwEnd, "'end'")
 		forStat := ast.NewForStat(t, endTok, name, params, body)
 		return forStat, p.Scan()
 	}
@@ -183,16 +196,20 @@ func (p *Parser) For(t *token.Token) (ast.Stat, *token.Token) {
 		name, nextTok = p.Name(p.Scan())
 		names = append(names, name)
 	}
-	expectType(nextTok, token.KwIn)
+	expected := "'in'"
+	if len(names) == 1 {
+		expected = "'=' or 'in'"
+	}
+	expectType(nextTok, token.KwIn, expected)
 	exp, nextTok := p.Exp(p.Scan())
 	params := []ast.ExpNode{exp}
 	for nextTok.Type == token.SgComma {
 		exp, nextTok = p.Exp(p.Scan())
 		params = append(params, exp)
 	}
-	expectType(nextTok, token.KwDo)
+	expectType(nextTok, token.KwDo, "'do'")
 	body, endTok := p.Block(p.Scan())
-	expectType(endTok, token.KwEnd)
+	expectType(endTok, token.KwEnd, "'end'")
 	forInStat := ast.NewForInStat(t, endTok, names, params, body)
 	return forInStat, p.Scan()
 
@@ -402,7 +419,7 @@ var binopMap = map[token.Type]ops.Op{
 
 // FunctionDef parses a function definition expression.
 func (p *Parser) FunctionDef(startTok *token.Token) (ast.Function, *token.Token) {
-	expectType(startTok, token.SgOpenBkt)
+	expectType(startTok, token.SgOpenBkt, "'('")
 	t := p.Scan()
 	var names []ast.Name
 	hasEtc := false
@@ -423,12 +440,12 @@ ParamsLoop:
 		case token.SgCloseBkt:
 			break ParamsLoop
 		default:
-			tokenError(t)
+			tokenError(t, "")
 		}
 	}
-	expectType(t, token.SgCloseBkt)
+	expectType(t, token.SgCloseBkt, "')'")
 	body, endTok := p.Block(p.Scan())
-	expectType(endTok, token.KwEnd)
+	expectType(endTok, token.KwEnd, "'end'")
 	def := ast.NewFunction(startTok, endTok, ast.NewParList(names, hasEtc), body)
 	return def, p.Scan()
 }
@@ -443,11 +460,11 @@ func (p *Parser) PrefixExp(t *token.Token) (ast.ExpNode, *token.Token) {
 		if f, ok := exp.(ast.FunctionCall); ok {
 			exp = f.InBrackets()
 		}
-		expectType(t, token.SgCloseBkt)
+		expectType(t, token.SgCloseBkt, "')'")
 	case token.IDENT:
 		exp = ast.NewName(t)
 	default:
-		tokenError(t)
+		tokenError(t, "")
 	}
 	t = p.Scan()
 	for {
@@ -455,7 +472,7 @@ func (p *Parser) PrefixExp(t *token.Token) (ast.ExpNode, *token.Token) {
 		case token.SgOpenSquareBkt:
 			var idxExp ast.ExpNode
 			idxExp, t = p.Exp(p.Scan())
-			expectType(t, token.SgCloseSquareBkt)
+			expectType(t, token.SgCloseSquareBkt, "']'")
 			t = p.Scan()
 			exp = ast.NewIndexExp(exp, idxExp)
 		case token.SgDot:
@@ -468,7 +485,7 @@ func (p *Parser) PrefixExp(t *token.Token) (ast.ExpNode, *token.Token) {
 			name, t = p.Name(p.Scan())
 			args, t = p.Args(t)
 			if args == nil {
-				tokenError(t)
+				tokenError(t, "expected function arguments")
 			}
 			exp = ast.NewFunctionCall(exp, name, args)
 		default:
@@ -492,7 +509,7 @@ func (p *Parser) Args(t *token.Token) ([]ast.ExpNode, *token.Token) {
 			return []ast.ExpNode{}, p.Scan()
 		}
 		args, t := p.ExpList(t)
-		expectType(t, token.SgCloseBkt)
+		expectType(t, token.SgCloseBkt, "')'")
 		return args, p.Scan()
 	case token.SgOpenBrace:
 		arg, t := p.TableConstructor(t)
@@ -538,7 +555,7 @@ func (p *Parser) TableConstructor(opTok *token.Token) (ast.TableConstructor, *to
 			fields = append(fields, field)
 		}
 	}
-	expectType(t, token.SgCloseBrace)
+	expectType(t, token.SgCloseBrace, "'}'")
 	return ast.NewTableConstructor(opTok, t, fields), p.Scan()
 }
 
@@ -548,14 +565,14 @@ func (p *Parser) Field(t *token.Token) (ast.TableField, *token.Token) {
 	var val ast.ExpNode
 	if t.Type == token.SgOpenSquareBkt {
 		key, t = p.Exp(p.Scan())
-		expectType(t, token.SgCloseSquareBkt)
-		expectType(p.Scan(), token.SgAssign)
+		expectType(t, token.SgCloseSquareBkt, "']'")
+		expectType(p.Scan(), token.SgAssign, "'='")
 		val, t = p.Exp(p.Scan())
 	} else {
 		val, t = p.Exp(t)
 		if t.Type == token.SgAssign {
 			if name, ok := val.(ast.Name); !ok {
-				tokenError(t)
+				tokenError(t, "")
 			} else {
 				key = name.AstString()
 				val, t = p.Exp(p.Scan())
@@ -572,15 +589,15 @@ func (p *Parser) Name(t *token.Token) (ast.Name, *token.Token) {
 }
 
 func expectIdent(t *token.Token) {
-	expectType(t, token.IDENT)
+	expectType(t, token.IDENT, "name")
 }
 
-func expectType(t *token.Token, tp token.Type) {
+func expectType(t *token.Token, tp token.Type, expected string) {
 	if t.Type != tp {
-		panic(Error{Got: t, ExpectedType: tp})
+		panic(Error{Got: t, Expected: expected})
 	}
 }
 
-func tokenError(t *token.Token) {
-	panic(Error{Got: t})
+func tokenError(t *token.Token, expected string) {
+	panic(Error{Got: t, Expected: expected})
 }

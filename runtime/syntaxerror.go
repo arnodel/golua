@@ -14,38 +14,21 @@ const (
 )
 
 type SyntaxError struct {
-	File         string
-	Line, Column int
-	Message      string
-	Token        string
-	Type         int
+	File string
+	Err  parsing.Error
 }
 
 func NewSyntaxErrorFromCCError(file string, err parsing.Error) *SyntaxError {
-	pos := err.Got.Pos
-	msg := "syntax error"
-	errType := ErrSyntaxError
-	switch err.Got.Type {
-	case token.INVALID:
-		msg = "unexpected symbol"
-		errType = ErrSyntaxInvalidToken
-	case token.EOF:
-		msg = "unexpected EOF"
-		errType = ErrSyntaxEOF
-	}
-	if err.Got.Type == token.INVALID {
-		msg = "unexpected symbol"
-	}
 	return &SyntaxError{
-		File:    file,
-		Line:    pos.Line,
-		Column:  pos.Column,
-		Token:   string(err.Got.Lit),
-		Type:    errType,
-		Message: msg,
+		File: file,
+		Err:  err,
 	}
 }
 
 func (e *SyntaxError) Error() string {
-	return fmt.Sprintf("%s:%d:%d: %s near %q", e.File, e.Line, e.Column, e.Message, e.Token)
+	return fmt.Sprintf("%s:%s", e.File, e.Err)
+}
+
+func (e *SyntaxError) IsUnexpectedEOF() bool {
+	return e.Err.Got.Type == token.EOF
 }
