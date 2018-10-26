@@ -1,39 +1,19 @@
 package ast
 
-func NewFunctionStat(name FunctionName, fx Function) (AssignStat, error) {
+func NewFunctionStat(fName Var, method Name, fx Function) AssignStat {
 	// TODO: include the "function" keywork in the location calculation
-	fName := name.name
-	if name.method.string != "" {
+	if method.Val != "" {
 		loc := fx.Locate()
-		fx, _ = NewFunction(
+		fx = NewFunction(
 			nil, nil,
-			ParList{append([]Name{{string: "self"}}, fx.params...), fx.hasDots},
-			fx.body,
+			ParList{append([]Name{{Val: "self"}}, fx.Params...), fx.HasDots},
+			fx.Body,
 		)
 		fx.Location = loc
-		fx.name = name.method.FunctionName()
-		fName, _ = NewIndexExp(name.name, String{val: []byte(name.method.string)})
+		fx.Name = method.FunctionName()
+		fName = NewIndexExp(fName, method.AstString())
 	} else {
-		fx.name = fName.FunctionName()
+		fx.Name = fName.FunctionName()
 	}
 	return NewAssignStat([]Var{fName}, []ExpNode{fx})
-}
-
-type FunctionName struct {
-	name   Var
-	method Name
-}
-
-func NewFunctionName(name Var, method Name) (FunctionName, error) {
-	return FunctionName{
-		name:   name,
-		method: method,
-	}, nil
-}
-
-func (n FunctionName) HWrite(w HWriter) {
-	n.name.HWrite(w)
-	if n.method.string != "" {
-		w.Writef(":%s", n.method)
-	}
 }

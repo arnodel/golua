@@ -40,20 +40,12 @@ func New(name string, input []byte) *Scanner {
 type stateFn func(*Scanner) stateFn
 
 // emit passes an item back to the client.
-func (l *Scanner) emit(t token.Type, useMap bool) {
+func (l *Scanner) emit(tp token.Type) {
 	lit := l.lit()
-	tp := t
-	if useMap {
-		tp = token.TokMap.Type(string(lit))
-		if tp == token.INVALID {
-			tp = t
-		}
-	}
 	if tp == token.INVALID {
 		fmt.Println("Cannot emit", string(lit))
 		panic("emit bails out")
 	}
-	// fmt.Println("EMIT", t, useMap, string(lit), tp)
 	l.items <- &token.Token{
 		Type: tp,
 		Lit:  lit,

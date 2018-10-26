@@ -8,31 +8,31 @@ import (
 
 type UnOp struct {
 	Location
-	op      ops.Op
-	operand ExpNode
+	Op      ops.Op
+	Operand ExpNode
 }
 
-func NewUnOp(opTok *token.Token, op ops.Op, exp ExpNode) (*UnOp, error) {
+func NewUnOp(opTok *token.Token, op ops.Op, exp ExpNode) *UnOp {
 	return &UnOp{
 		Location: MergeLocations(LocFromToken(opTok), exp),
-		op:       op,
-		operand:  exp,
-	}, nil
+		Op:       op,
+		Operand:  exp,
+	}
 }
 
 func (u *UnOp) HWrite(w HWriter) {
-	w.Writef("unop: %s", u.op)
+	w.Writef("unop: %s", u.Op)
 	w.Indent()
 	w.Next()
-	u.operand.HWrite(w)
+	u.Operand.HWrite(w)
 	w.Dedent()
 }
 
 func (u *UnOp) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	EmitInstr(c, u, ir.Transform{
-		Op:  u.op,
+		Op:  u.Op,
 		Dst: dst,
-		Src: CompileExp(c, u.operand),
+		Src: CompileExp(c, u.Operand),
 	})
 	return dst
 }

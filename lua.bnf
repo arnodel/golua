@@ -192,8 +192,8 @@ Sum
 
 TermOp
     : "*"  << ops.OpMul, nil >>
-    | "/"  << ops.OpDiv, nil >>
     | "%"  << ops.OpMod, nil >>
+    | "/"  << ops.OpDiv, nil >>
     | "//" << ops.OpFloorDiv, nil >>
     ;
 

@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/arnodel/golua/lib/packagelib"
+	"github.com/arnodel/golua/parsing"
 
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/code"
 	"github.com/arnodel/golua/lib/base"
 	"github.com/arnodel/golua/lib/coroutine"
-	"github.com/arnodel/golua/parser"
 	"github.com/arnodel/golua/runtime"
 	"github.com/arnodel/golua/scanner"
 )
@@ -117,19 +117,18 @@ print(s)
 		// 		`::foo:: local x = 1; goto foo`,
 	}
 	w := ast.NewIndentWriter(os.Stdout)
-	p := parser.NewParser()
 	for i, src := range testData {
 		t.Run(fmt.Sprintf("t%d", i), func(t *testing.T) {
 			s := scanner.New("test", []byte(src))
-			tree, err := p.Parse(s)
+			tree, err := parsing.ParseChunk(s.Scan)
 			if err != nil {
 				t.Error(err)
 			} else {
 				fmt.Println("\n\n---------")
 				fmt.Printf("%s\n", src)
-				tree.(ast.Node).HWrite(w)
+				tree.HWrite(w)
 				w.Next()
-				c := tree.(ast.BlockStat).CompileChunk("test")
+				c := tree.CompileChunk("test")
 				fmt.Printf("%+v\n", c)
 				c.Dump()
 				kc := c.NewConstantCompiler()

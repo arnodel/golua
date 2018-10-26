@@ -12,7 +12,7 @@ type BinOp struct {
 	right  []operand
 }
 
-func NewBinOp(left ExpNode, op ops.Op, right ExpNode) (*BinOp, error) {
+func NewBinOp(left ExpNode, op ops.Op, right ExpNode) *BinOp {
 	loc := MergeLocations(left, right)
 	leftOp, ok := left.(*BinOp)
 	opType := op & 0xFF
@@ -22,14 +22,14 @@ func NewBinOp(left ExpNode, op ops.Op, right ExpNode) (*BinOp, error) {
 			left:     leftOp.left,
 			opType:   opType,
 			right:    append(leftOp.right, operand{op, right}),
-		}, nil
+		}
 	}
 	return &BinOp{
 		Location: loc,
 		left:     left.(ExpNode),
 		opType:   opType,
 		right:    []operand{{op, right}},
-	}, nil
+	}
 }
 
 func (b *BinOp) HWrite(w HWriter) {

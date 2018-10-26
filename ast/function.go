@@ -8,50 +8,50 @@ import (
 type Function struct {
 	Location
 	ParList
-	body BlockStat
-	name string
+	Body BlockStat
+	Name string
 }
 
-func NewFunction(startTok, endTok *token.Token, parList ParList, body BlockStat) (Function, error) {
+func NewFunction(startTok, endTok *token.Token, parList ParList, body BlockStat) Function {
 	// Make sure we return at the end of the function
-	if body.returnValues == nil {
-		body.returnValues = []ExpNode{}
+	if body.Return == nil {
+		body.Return = []ExpNode{}
 	}
 	return Function{
 		Location: LocFromTokens(startTok, endTok),
 		ParList:  parList,
-		body:     body,
-	}, nil
+		Body:     body,
+	}
 }
 
 func (f Function) HWrite(w HWriter) {
 	w.Writef("(")
-	for i, param := range f.params {
-		w.Writef(param.string)
-		if i < len(f.params)-1 || f.hasDots {
+	for i, param := range f.Params {
+		w.Writef(param.Val)
+		if i < len(f.Params)-1 || f.HasDots {
 			w.Writef(", ")
 		}
 	}
-	if f.hasDots {
+	if f.HasDots {
 		w.Writef("...")
 	}
 	w.Writef(")")
 	w.Indent()
 	w.Next()
-	f.body.HWrite(w)
+	f.Body.HWrite(w)
 	w.Dedent()
 }
 
 func (f Function) CompileBody(c *ir.Compiler) {
-	recvRegs := make([]ir.Register, len(f.params))
+	recvRegs := make([]ir.Register, len(f.Params))
 	callerReg := c.GetFreeRegister()
 	c.DeclareLocal("<caller>", callerReg)
-	for i, p := range f.params {
+	for i, p := range f.Params {
 		reg := c.GetFreeRegister()
-		c.DeclareLocal(ir.Name(p.string), reg)
+		c.DeclareLocal(ir.Name(p.Val), reg)
 		recvRegs[i] = reg
 	}
-	if !f.hasDots {
+	if !f.HasDots {
 		EmitInstr(c, f, ir.Receive{Dst: recvRegs})
 	} else {
 		reg := c.GetFreeRegister()
@@ -61,9 +61,9 @@ func (f Function) CompileBody(c *ir.Compiler) {
 
 	// Need to make sure there is a return instruction emitted at the
 	// end.
-	body := f.body
-	if body.returnValues == nil {
-		body.returnValues = []ExpNode{}
+	body := f.Body
+	if body.Return == nil {
+		body.Return = []ExpNode{}
 	}
 	body.CompileBlock(c)
 }
@@ -71,7 +71,7 @@ func (f Function) CompileBody(c *ir.Compiler) {
 func (f Function) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 	fc := c.NewChild()
 	f.CompileBody(fc)
-	kidx := c.GetConstant(fc.GetCode(f.name))
+	kidx := c.GetConstant(fc.GetCode(f.Name))
 	EmitInstr(c, f, ir.MkClosure{
 		Dst:      dst,
 		Code:     kidx,
@@ -81,13 +81,13 @@ func (f Function) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 }
 
 type ParList struct {
-	params  []Name
-	hasDots bool
+	Params  []Name
+	HasDots bool
 }
 
-func NewParList(params []Name, hasDots bool) (ParList, error) {
+func NewParList(params []Name, hasDots bool) ParList {
 	return ParList{
-		params:  params,
-		hasDots: hasDots,
-	}, nil
+		Params:  params,
+		HasDots: hasDots,
+	}
 }

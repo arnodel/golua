@@ -64,7 +64,7 @@ func (l Location) Locate() Location {
 }
 
 func LocFromToken(tok *token.Token) Location {
-	if tok == nil {
+	if tok == nil || tok.Pos.Offset < 0 {
 		return Location{}
 	}
 	pos := tok.Pos
@@ -73,11 +73,11 @@ func LocFromToken(tok *token.Token) Location {
 
 func LocFromTokens(t1, t2 *token.Token) Location {
 	var p1, p2 *token.Pos
-	if t1 != nil {
+	if t1 != nil && t1.Pos.Offset >= 0 {
 		p1 = new(token.Pos)
 		*p1 = t1.Pos
 	}
-	if t2 != nil {
+	if t2 != nil && t2.Pos.Offset >= 0 {
 		p2 = new(token.Pos)
 		*p2 = t2.Pos
 	}

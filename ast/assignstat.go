@@ -4,27 +4,27 @@ import "github.com/arnodel/golua/ir"
 
 type AssignStat struct {
 	Location
-	dst []Var
-	src []ExpNode
+	Dest []Var
+	Src  []ExpNode
 }
 
-func NewAssignStat(dst []Var, src []ExpNode) (AssignStat, error) {
+func NewAssignStat(dst []Var, src []ExpNode) AssignStat {
 	return AssignStat{
 		Location: MergeLocations(dst[0], src[len(src)-1]),
-		dst:      dst,
-		src:      src,
-	}, nil
+		Dest:     dst,
+		Src:      src,
+	}
 }
 
 func (s AssignStat) HWrite(w HWriter) {
 	w.Writef("assign")
 	w.Indent()
-	for i, v := range s.dst {
+	for i, v := range s.Dest {
 		w.Next()
 		w.Writef("dst_%d: ", i)
 		v.HWrite(w)
 	}
-	for i, n := range s.src {
+	for i, n := range s.Src {
 		w.Next()
 		w.Writef("src_%d: ", i)
 		n.HWrite(w)
@@ -35,12 +35,12 @@ func (s AssignStat) HWrite(w HWriter) {
 func (s AssignStat) CompileStat(c *ir.Compiler) {
 
 	// Evaluate the right hand side
-	resultRegs := make([]ir.Register, len(s.dst))
-	CompileExpList(c, s.src, resultRegs)
+	resultRegs := make([]ir.Register, len(s.Dest))
+	CompileExpList(c, s.Src, resultRegs)
 
 	// Compile the lvalues
-	assigns := make([]Assign, len(s.dst))
-	for i, v := range s.dst {
+	assigns := make([]Assign, len(s.Dest))
+	for i, v := range s.Dest {
 		assigns[i] = v.CompileAssign(c)
 	}
 

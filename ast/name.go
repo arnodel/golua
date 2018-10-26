@@ -7,50 +7,50 @@ import (
 
 type Name struct {
 	Location
-	string
+	Val string
 }
 
-func NewName(id *token.Token) (Name, error) {
+func NewName(id *token.Token) Name {
 	return Name{
 		Location: LocFromToken(id),
-		string:   string(id.Lit),
-	}, nil
+		Val:      string(id.Lit),
+	}
 }
 
 func (n Name) HWrite(w HWriter) {
-	w.Writef(n.string)
+	w.Writef(n.Val)
 }
 
 func (n Name) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	reg, ok := c.GetRegister(ir.Name(n.string))
+	reg, ok := c.GetRegister(ir.Name(n.Val))
 	if ok {
 		return reg
 	}
 	return IndexExp{
-		Location:   n.Location,
-		collection: Name{Location: n.Location, string: "_ENV"},
-		index:      n.AstString(),
+		Location: n.Location,
+		Coll:     Name{Location: n.Location, Val: "_ENV"},
+		Idx:      n.AstString(),
 	}.CompileExp(c, dst)
 }
 
 func (n Name) CompileAssign(c *ir.Compiler) Assign {
-	reg, ok := c.GetRegister(ir.Name(n.string))
+	reg, ok := c.GetRegister(ir.Name(n.Val))
 	if ok {
 		return func(src ir.Register) {
 			EmitMove(c, n, reg, src)
 		}
 	}
 	return IndexExp{
-		Location:   n.Location,
-		collection: Name{Location: n.Location, string: "_ENV"},
-		index:      n.AstString(),
+		Location: n.Location,
+		Coll:     Name{Location: n.Location, Val: "_ENV"},
+		Idx:      n.AstString(),
 	}.CompileAssign(c)
 }
 
 func (n Name) FunctionName() string {
-	return n.string
+	return n.Val
 }
 
 func (n Name) AstString() String {
-	return String{Location: n.Location, val: []byte(n.string)}
+	return String{Location: n.Location, Val: []byte(n.Val)}
 }

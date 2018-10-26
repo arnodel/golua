@@ -4,10 +4,6 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
-func emitT(l *Scanner) {
-	l.emit(token.INVALID, true)
-}
-
 func scanToken(l *Scanner) stateFn {
 	for {
 		switch c := l.next(); {
@@ -16,7 +12,7 @@ func scanToken(l *Scanner) stateFn {
 				return scanComment
 			}
 			l.backup()
-			emitT(l)
+			l.emit(token.SgMinus)
 		case c == '"' || c == '\'':
 			return scanShortString(c)
 		case isDec(c):
@@ -29,7 +25,7 @@ func scanToken(l *Scanner) stateFn {
 				return scanLongString
 			}
 			l.backup()
-			emitT(l)
+			l.emit(token.SgOpenSquareBkt)
 		case isAlpha(c):
 			return scanIdent
 		case isSpace(c):
@@ -43,7 +39,7 @@ func scanToken(l *Scanner) stateFn {
 				l.accept(":")
 			case '.':
 				if accept(l, isDec, -1) > 0 {
-					return scanExp(l, isDec, "eE", token.TokMap.Type("numdec"))
+					return scanExp(l, isDec, "eE", token.NUMDEC)
 				}
 				if l.accept(".") {
 					l.accept(".")
@@ -57,12 +53,12 @@ func scanToken(l *Scanner) stateFn {
 			case '/':
 				l.accept("/")
 			case -1:
-				l.emit(token.EOF, false)
+				l.emit(token.EOF)
 				return nil
 			default:
 				return l.errorf("Illegal character")
 			}
-			emitT(l)
+			l.emit(sgType[string(l.lit())])
 		}
 		return scanToken
 	}
@@ -85,7 +81,7 @@ func scanShortComment(l *Scanner) stateFn {
 			return scanToken
 		case -1:
 			l.ignore()
-			l.emit(token.EOF, false)
+			l.emit(token.EOF)
 			return nil
 		}
 	}
@@ -124,7 +120,7 @@ func scanLong(comment bool) stateFn {
 					if comment {
 						l.ignore()
 					} else {
-						l.emit(token.TokMap.Type("longstring"), false)
+						l.emit(token.LONGSTRING)
 					}
 					return scanToken
 				}
@@ -147,7 +143,7 @@ func scanShortString(q rune) stateFn {
 		for {
 			switch c := l.next(); c {
 			case q:
-				l.emit(token.TokMap.Type("string"), false)
+				l.emit(token.STRING)
 				return scanToken
 			case '\\':
 				switch c := l.next(); {
@@ -199,11 +195,11 @@ func scanShortString(q rune) stateFn {
 func scanNumber(l *Scanner) stateFn {
 	isDigit := isDec
 	exp := "eE"
-	tp := token.TokMap.Type("numdec")
+	tp := token.NUMDEC
 	if l.accept("0") && l.accept("xX") {
 		isDigit = isHex
 		exp = "pP"
-		tp = token.TokMap.Type("numhex")
+		tp = token.NUMHEX
 	}
 	accept(l, isDigit, -1)
 	if l.accept(".") {
@@ -222,7 +218,7 @@ func scanExp(l *Scanner, isDigit func(rune) bool, exp string, tp token.Type) sta
 	if isAlpha(l.peek()) {
 		return l.errorf("Illegal character following number")
 	}
-	l.emit(tp, false)
+	l.emit(tp)
 	return scanToken
 }
 
@@ -230,34 +226,77 @@ func scanLongString(l *Scanner) stateFn {
 	return scanLong(false)
 }
 
-var isKeyword = map[string]bool{
-	"break":    true,
-	"goto":     true,
-	"do":       true,
-	"while":    true,
-	"end":      true,
-	"repeat":   true,
-	"until":    true,
-	"then":     true,
-	"else":     true,
-	"elseif":   true,
-	"if":       true,
-	"for":      true,
-	"in":       true,
-	"function": true,
-	"local":    true,
-	"and":      true,
-	"or":       true,
-	"not":      true,
-	"nil":      true,
-	"true":     true,
-	"false":    true,
-	"return":   true,
+var kwType = map[string]token.Type{
+	"break":    token.KwBreak,
+	"goto":     token.KwGoto,
+	"do":       token.KwDo,
+	"while":    token.KwWhile,
+	"end":      token.KwEnd,
+	"repeat":   token.KwRepeat,
+	"until":    token.KwUntil,
+	"then":     token.KwThen,
+	"else":     token.KwElse,
+	"elseif":   token.KwElseIf,
+	"if":       token.KwIf,
+	"for":      token.KwFor,
+	"in":       token.KwIn,
+	"function": token.KwFunction,
+	"local":    token.KwLocal,
+	"and":      token.KwAnd,
+	"or":       token.KwOr,
+	"not":      token.KwNot,
+	"nil":      token.KwNil,
+	"true":     token.KwTrue,
+	"false":    token.KwFalse,
+	"return":   token.KwReturn,
+}
+
+var sgType = map[string]token.Type{
+	"-":  token.SgMinus,
+	"+":  token.SgPlus,
+	"*":  token.SgStar,
+	"/":  token.SgSlash,
+	"//": token.SgSlashSlash,
+	"%":  token.SgPct,
+	"|":  token.SgPipe,
+	"&":  token.SgAmpersand,
+	"^":  token.SgHat,
+	">>": token.SgShiftRight,
+	"<<": token.SgShiftLeft,
+	"..": token.SgConcat,
+
+	"==": token.SgEqual,
+	"~=": token.SgNotEqual,
+	"<":  token.SgLess,
+	"<=": token.SgLessEqual,
+	">":  token.SgGreater,
+	">=": token.SgGreaterEqual,
+
+	"...": token.SgEtc,
+
+	"[":  token.SgOpenSquareBkt,
+	"]":  token.SgCloseSquareBkt,
+	"(":  token.SgOpenBkt,
+	")":  token.SgCloseBkt,
+	"{":  token.SgOpenBrace,
+	"}":  token.SgCloseBrace,
+	";":  token.SgSemicolon,
+	",":  token.SgComma,
+	".":  token.SgDot,
+	":":  token.SgColon,
+	"::": token.SgDoubleColon,
+	"=":  token.SgAssign,
+	"#":  token.SgHash,
+	"~":  token.SgTilde,
 }
 
 func scanIdent(l *Scanner) stateFn {
 	accept(l, isAlnum, -1)
-	l.emit(token.TokMap.Type("ident"), isKeyword[string(l.lit())])
+	tp, ok := kwType[string(l.lit())]
+	if !ok {
+		tp = token.IDENT
+	}
+	l.emit(tp)
 	return scanToken
 }
 

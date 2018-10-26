@@ -6,8 +6,7 @@ import (
 
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/code"
-	ccerrors "github.com/arnodel/golua/errors"
-	"github.com/arnodel/golua/parser"
+	"github.com/arnodel/golua/parsing"
 	"github.com/arnodel/golua/scanner"
 )
 
@@ -250,17 +249,15 @@ func SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, *Error)
 }
 
 func ParseLuaChunk(name string, source []byte) (*ast.BlockStat, error) {
-	p := parser.NewParser()
 	s := scanner.New(name, source)
-	tree, err := p.Parse(s)
+	stat, err := parsing.ParseChunk(s.Scan)
 	if err != nil {
-		parseErr, ok := err.(*ccerrors.Error)
+		parseErr, ok := err.(parsing.Error)
 		if !ok {
 			return nil, err
 		}
 		return nil, NewSyntaxErrorFromCCError(name, parseErr)
 	}
-	stat := tree.(ast.BlockStat)
 	return &stat, nil
 }
 

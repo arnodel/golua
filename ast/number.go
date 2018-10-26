@@ -11,9 +11,9 @@ import (
 
 func isFloatToken(tok *token.Token) bool {
 	switch tok.Type {
-	case token.TokMap.Type("numdec"):
+	case token.NUMDEC:
 		return bytes.ContainsAny(tok.Lit, ".eE")
-	case token.TokMap.Type("numhex"):
+	case token.NUMHEX:
 		return bytes.ContainsAny(tok.Lit, ".pP")
 	default:
 		return false
@@ -73,6 +73,10 @@ func (n Int) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 type Float struct {
 	Location
 	val float64
+}
+
+func NewFloat(x float64) Float {
+	return Float{val: x}
 }
 
 func (f Float) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {

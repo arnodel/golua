@@ -9,8 +9,8 @@ type BreakStat struct {
 	Location
 }
 
-func NewBreakStat(tok *token.Token) (BreakStat, error) {
-	return BreakStat{Location: LocFromToken(tok)}, nil
+func NewBreakStat(tok *token.Token) BreakStat {
+	return BreakStat{Location: LocFromToken(tok)}
 }
 
 func (s BreakStat) HWrite(w HWriter) {
