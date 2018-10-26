@@ -86,7 +86,7 @@ func (b *BinOp) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
 				Op:   ops.OpLeq,
 				Dst:  dst,
 				Lsrc: rsrc,
-				Rsrc: rsrc,
+				Rsrc: lsrc,
 			})
 		default:
 			EmitInstr(c, b, ir.Combine{
