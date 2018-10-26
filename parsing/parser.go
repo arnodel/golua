@@ -116,16 +116,17 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 				if v, ok := pexp.(ast.Var); ok {
 					vars = append(vars, v)
 				} else {
-					panic("Expected var")
+					tokenError(t)
 				}
 			}
 			expectType(t, token.SgAssign)
 			exps, t := p.ExpList(p.Scan())
 			return ast.NewAssignStat(vars, exps), t
 		default:
-			panic("Expected something else") // TODO
+			tokenError(t)
 		}
 	}
+	return nil, nil
 }
 
 // If parses an if / then / else statement.  It assumes that t is the "if"
@@ -151,7 +152,7 @@ func (p *Parser) If(t *token.Token) (ast.IfStat, *token.Token) {
 			ifStat = ifStat.AddElse(endTok, elseBlock)
 			return ifStat, p.Scan()
 		default:
-			panic("Expected elseif, end or else")
+			tokenError(t)
 		}
 	}
 }
@@ -167,6 +168,8 @@ func (p *Parser) For(t *token.Token) (ast.Stat, *token.Token) {
 		params[1], nextTok = p.Exp(p.Scan())
 		if nextTok.Type == token.SgComma {
 			params[2], nextTok = p.Exp(p.Scan())
+		} else {
+			params[2] = ast.NewInt(1)
 		}
 		expectType(nextTok, token.KwDo)
 		body, endTok := p.Block(p.Scan())
@@ -337,6 +340,8 @@ func (p *Parser) ShortExp(t *token.Token) (ast.ExpNode, *token.Token) {
 		exp, t = s, p.Scan()
 	case token.LONGSTRING:
 		exp, t = ast.NewLongString(t), p.Scan()
+	case token.SgOpenBrace:
+		exp, t = p.TableConstructor(t)
 	case token.SgEtc:
 		exp, t = ast.Etc(t), p.Scan()
 	case token.KwFunction:
@@ -418,7 +423,7 @@ ParamsLoop:
 		case token.SgCloseBkt:
 			break ParamsLoop
 		default:
-			panic("invalid param list")
+			tokenError(t)
 		}
 	}
 	expectType(t, token.SgCloseBkt)
@@ -435,12 +440,14 @@ func (p *Parser) PrefixExp(t *token.Token) (ast.ExpNode, *token.Token) {
 	switch t.Type {
 	case token.SgOpenBkt:
 		exp, t = p.Exp(p.Scan())
-		// TODO: put function call in brackets
+		if f, ok := exp.(ast.FunctionCall); ok {
+			exp = f.InBrackets()
+		}
 		expectType(t, token.SgCloseBkt)
 	case token.IDENT:
 		exp = ast.NewName(t)
 	default:
-		panic("Expected '(' or name")
+		tokenError(t)
 	}
 	t = p.Scan()
 	for {
@@ -461,7 +468,7 @@ func (p *Parser) PrefixExp(t *token.Token) (ast.ExpNode, *token.Token) {
 			name, t = p.Name(p.Scan())
 			args, t = p.Args(t)
 			if args == nil {
-				panic("Expected arguments")
+				tokenError(t)
 			}
 			exp = ast.NewFunctionCall(exp, name, args)
 		default:
@@ -539,22 +546,21 @@ func (p *Parser) TableConstructor(opTok *token.Token) (ast.TableConstructor, *to
 func (p *Parser) Field(t *token.Token) (ast.TableField, *token.Token) {
 	var key ast.ExpNode = ast.NoTableKey{}
 	var val ast.ExpNode
-	switch t.Type {
-	case token.SgOpenSquareBkt:
+	if t.Type == token.SgOpenSquareBkt {
 		key, t = p.Exp(p.Scan())
 		expectType(t, token.SgCloseSquareBkt)
 		expectType(p.Scan(), token.SgAssign)
 		val, t = p.Exp(p.Scan())
-	case token.IDENT:
-		var name ast.Name
-		name, t = p.Name(t)
-		val = name.AstString()
-		if t.Type == token.SgAssign {
-			key = val
-			val, t = p.Exp(p.Scan())
-		}
-	default:
+	} else {
 		val, t = p.Exp(t)
+		if t.Type == token.SgAssign {
+			if name, ok := val.(ast.Name); !ok {
+				tokenError(t)
+			} else {
+				key = name.AstString()
+				val, t = p.Exp(p.Scan())
+			}
+		}
 	}
 	return ast.NewTableField(key, val), t
 }
@@ -573,4 +579,8 @@ func expectType(t *token.Token, tp token.Type) {
 	if t.Type != tp {
 		panic(Error{Got: t, ExpectedType: tp})
 	}
+}
+
+func tokenError(t *token.Token) {
+	panic(Error{Got: t})
 }

@@ -64,7 +64,6 @@ const (
 	SgDoubleColon
 	SgAssign
 	SgHash
-	SgTilde
 
 	beforeBinOp
 
@@ -75,6 +74,7 @@ const (
 	SgSlashSlash
 	SgPct
 	SgPipe
+	SgTilde
 	SgAmpersand
 	SgHat
 	SgShiftRight

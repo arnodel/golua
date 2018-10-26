@@ -507,8 +507,12 @@ func TestParser_Args(t *testing.T) {
 			want:  []ast.ExpNode{str("coucou")},
 			want1: tok(token.EOF, ""),
 		},
-
-		// TODO: Add test cases.
+		{
+			name:  "etc arg",
+			input: "(...)",
+			want:  []ast.ExpNode{ast.EtcType{}},
+			want1: tok(token.EOF, ""),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -547,6 +551,15 @@ func TestParser_Field(t *testing.T) {
 			name:  "exp",
 			input: `'bonjour'`,
 			want:  ast.TableField{Key: ast.NoTableKey{}, Value: str("bonjour")},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "exp starting with name",
+			input: "a.b",
+			want: ast.TableField{
+				Key:   ast.NoTableKey{},
+				Value: ast.IndexExp{Coll: name("a"), Idx: str("b")},
+			},
 			want1: tok(token.EOF, ""),
 		},
 		// TODO: Add test cases.
@@ -868,6 +881,7 @@ func TestParser_For(t *testing.T) {
 				Var:   name("x"),
 				Start: ast.NewInt(1),
 				Stop:  ast.NewInt(2),
+				Step:  ast.NewInt(1),
 				Body:  ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
 			},
 			want1: tok(token.EOF, ""),

@@ -22,7 +22,7 @@ func FileArg(c *rt.GoCont, n int) (*File, *rt.Error) {
 	if ok {
 		return f, nil
 	}
-	return nil, rt.NewErrorF("#%d must be a file")
+	return nil, rt.NewErrorF("#%d must be a file", n+1)
 }
 
 func ValueToFile(v rt.Value) (*File, bool) {
