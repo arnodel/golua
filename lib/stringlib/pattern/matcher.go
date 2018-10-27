@@ -21,7 +21,7 @@ func (m *patternMatcher) reset(si int) {
 }
 
 func (m *patternMatcher) find() []Capture {
-	for si := m.si; si < len(m.s); si++ {
+	for si := m.si; si <= len(m.s); si++ {
 		m.reset(si)
 		if captures := m.matchToEnd(); captures != nil {
 			return captures

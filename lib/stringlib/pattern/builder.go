@@ -65,11 +65,15 @@ func (pb *patternBuilder) getPatternItem() error {
 			pb.anchorLeft = true
 			return nil
 		}
+		pb.back()
+		s, err = pb.getCharClass()
 	case '$':
 		if pb.i == len(pb.ptn) {
 			pb.anchorRight = true
 			return nil
 		}
+		pb.back()
+		s, err = pb.getCharClass()
 	case '(':
 		pb.ciMax++
 		pb.cStack = append(pb.cStack, pb.ciMax)
@@ -125,9 +129,9 @@ func (pb *patternBuilder) getPatternItem() error {
 	default:
 		pb.back()
 		s, err = pb.getCharClass()
-		if err != nil {
-			return err
-		}
+	}
+	if err != nil {
+		return err
 	}
 	b, err = pb.next()
 	ptnType := ptnOnce
@@ -188,12 +192,13 @@ func (pb *patternBuilder) getUnion() (s byteSet, err error) {
 	var b byte
 	b, err = pb.next()
 	neg := false
-	switch b {
-	case ']':
-		s.add(b)
-		b, err = pb.next()
-	case '^':
+	// Note: no need to check err if b is not 0
+	if b == '^' {
 		neg = true
+		b, err = pb.next()
+	}
+	if b == ']' {
+		s.add(b)
 		b, err = pb.next()
 	}
 Loop:

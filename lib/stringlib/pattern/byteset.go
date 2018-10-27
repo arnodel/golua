@@ -44,7 +44,7 @@ const full64 uint64 = ^uint64(0)
 
 var (
 	letterSet    = byteSet{0x0, 0x7fffffe07fffffe, 0x0, 0x0}                 // r('a', 'z', 'A', 'Z')
-	controlSet   = byteSet{0x1ffffffff, 0x8000000000000000, 0x0, 0x0}        // r(0, 32, 127, 127)
+	controlSet   = byteSet{0xffffffff, 0x8000000000000000, 0x0, 0x0}         // r(0, 32, 127, 127)
 	digitSet     = byteSet{0x3ff000000000000, 0x0, 0x0, 0x0}                 // r('0', '9')
 	printableSet = byteSet{0xfffffffe00000000, 0x7fffffffffffffff, 0x0, 0x0} // r(33, 126)
 	lowerSet     = byteSet{0x0, 0x7fffffe00000000, 0x0, 0x0}                 // r('a', z')

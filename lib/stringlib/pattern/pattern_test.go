@@ -97,6 +97,16 @@ func TestPattern(t *testing.T) {
 			ptn:     "(xx%1)",
 			invalid: true,
 		},
+		{
+			ptn:      "$",
+			s:        "abc",
+			captures: []Capture{{3, 3}},
+		},
+		{
+			ptn:      "%C+",
+			s:        "abc123 xyz",
+			captures: []Capture{{0, 10}},
+		},
 	}
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("ptn_%d", i), func(t *testing.T) {
