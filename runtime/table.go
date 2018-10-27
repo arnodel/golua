@@ -120,10 +120,11 @@ type tableValue struct {
 }
 
 func (t *Table) setInt(n Int, v Value) {
-	if n > t.border {
+	switch {
+	case n > t.border && v != nil:
 		t.border = n
 		t.borderState = borderCheckUp
-	} else if IsNil(v) && t.border > 0 && n == t.border {
+	case v == nil && t.border > 0 && n == t.border:
 		t.border--
 		t.borderState = borderCheckDown
 	}
