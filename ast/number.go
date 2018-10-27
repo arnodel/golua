@@ -91,3 +91,12 @@ func (f Float) HWrite(w HWriter) {
 func (f Float) Val() float64 {
 	return f.val
 }
+
+type NumberOracle interface {
+	IsNumber() bool
+}
+
+func IsNumber(e ExpNode) bool {
+	n, ok := e.(NumberOracle)
+	return ok && n.IsNumber()
+}

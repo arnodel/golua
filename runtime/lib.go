@@ -256,7 +256,7 @@ func ParseLuaChunk(name string, source []byte) (*ast.BlockStat, error) {
 		if !ok {
 			return nil, err
 		}
-		return nil, NewSyntaxErrorFromCCError(name, parseErr)
+		return nil, NewSyntaxError(name, parseErr)
 	}
 	return &stat, nil
 }

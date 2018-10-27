@@ -55,11 +55,12 @@ var codeBinOp = map[ops.Op]code.BinOp{
 }
 
 var codeUnOp = map[ops.Op]code.UnOp{
-	ops.OpNeg:    code.OpNeg,
-	ops.OpNot:    code.OpNot,
-	ops.OpLen:    code.OpLen,
-	ops.OpBitNot: code.OpBitNot,
-	ops.OpId:     code.OpId,
+	ops.OpNeg:      code.OpNeg,
+	ops.OpNot:      code.OpNot,
+	ops.OpLen:      code.OpLen,
+	ops.OpBitNot:   code.OpBitNot,
+	ops.OpId:       code.OpId,
+	ops.OpToNumber: code.OpToNumber,
 }
 
 func (c Combine) Compile(kc InstrCompiler) {

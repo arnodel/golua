@@ -1,5 +1,7 @@
 package runtime
 
+import "strings"
+
 type NumberType uint16
 
 const (
@@ -11,13 +13,13 @@ const (
 )
 
 func ToNumber(x Value) (Value, NumberType) {
-	switch x.(type) {
+	switch xx := x.(type) {
 	case Int:
 		return x, IsInt
 	case Float:
 		return x, IsFloat
 	case String:
-		return x.(String).ToNumber()
+		return String(strings.Trim(string(xx), " ")).ToNumber()
 	}
 	return x, NaN
 }

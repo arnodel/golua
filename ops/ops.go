@@ -43,6 +43,9 @@ const (
 
 const OpPow Op = 11 + iota<<8
 
+// OpToNumber is used in e.g. for loops
+const OpToNumber Op = 0x10000
+
 // Precedence returns the precedence of an operator (higher means binds more
 // tightly).
 func (op Op) Precedence() int {

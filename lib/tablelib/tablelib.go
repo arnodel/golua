@@ -116,7 +116,7 @@ func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil {
 			return nil, err.AddContext(c)
 		}
-		if pos <= 0 {
+		if pos <= 0 || pos > tblLen+1 {
 			return nil, rt.NewErrorS("#2 out of range").AddContext(c)
 		}
 		val = c.Arg(2)

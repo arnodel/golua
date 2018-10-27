@@ -11,17 +11,13 @@ func ipairsIteratorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	l, err := rt.Len(t, coll)
+	next := c.Next()
+	n++
+	v, err := rt.Index(t, coll, n)
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	next := c.Next()
-	if n < l {
-		n++
-		v, err := rt.Index(t, c.Arg(0), n)
-		if err != nil {
-			return nil, err.AddContext(c)
-		}
+	if v != nil {
 		next.Push(n)
 		next.Push(v)
 	}

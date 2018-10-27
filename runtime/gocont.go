@@ -108,7 +108,7 @@ func (c *GoCont) Etc() []Value {
 
 func (c *GoCont) Check1Arg() *Error {
 	if c.nArgs == 0 {
-		return NewErrorS("1 argument needed")
+		return NewErrorS("bad argument #1 (value needed)")
 	}
 	return nil
 }

@@ -53,16 +53,37 @@ func (s ForStat) CompileStat(c *ir.Compiler) {
 	startReg := c.GetFreeRegister()
 	r := s.Start.CompileExp(c, startReg)
 	ir.EmitMoveNoLine(c, startReg, r)
+	if !IsNumber(s.Start) {
+		c.EmitNoLine(ir.Transform{
+			Dst: startReg,
+			Src: startReg,
+			Op:  ops.OpToNumber,
+		})
+	}
 	c.TakeRegister(startReg)
 
 	stopReg := c.GetFreeRegister()
 	r = s.Stop.CompileExp(c, stopReg)
 	ir.EmitMoveNoLine(c, stopReg, r)
+	if !IsNumber(s.Stop) {
+		c.EmitNoLine(ir.Transform{
+			Dst: stopReg,
+			Src: stopReg,
+			Op:  ops.OpToNumber,
+		})
+	}
 	c.TakeRegister(stopReg)
 
 	stepReg := c.GetFreeRegister()
 	r = s.Step.CompileExp(c, stepReg)
 	ir.EmitMoveNoLine(c, stepReg, r)
+	if !IsNumber(s.Step) {
+		c.EmitNoLine(ir.Transform{
+			Dst: stepReg,
+			Src: stepReg,
+			Op:  ops.OpToNumber,
+		})
+	}
 	c.TakeRegister(stepReg)
 
 	zReg := c.GetFreeRegister()

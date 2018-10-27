@@ -204,8 +204,14 @@ RunLoop:
 					continue RunLoop
 				case code.OpTruth:
 					res = Bool(Truth(val))
+				case code.OpToNumber:
+					var tp NumberType
+					res, tp = ToNumber(val)
+					if tp == NaN {
+						err = NewErrorS("expected numeric value")
+					}
 				case code.OpCell:
-					// TODO: decided whether we need that
+					// TODO: decide whether we need that
 					panic("unimplemented")
 				case code.OpNot:
 					res = Bool(!Truth(val))

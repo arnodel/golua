@@ -92,19 +92,35 @@ func (t *Table) Len() Int {
 	return t.border
 }
 
-// Next returns the key-value pair that comes after k in the table t.
-func (t *Table) Next(k Value) (next Value, val Value) {
-	if IsNil(k) {
-		next = t.first
-	} else {
-		next = t.content[k].next
+// HasKey returns true if k is a valid key in the table t.
+func (t *Table) HasKey(k Value) bool {
+	if k == nil {
+		return false
 	}
-	for next != nil {
-		ntv := t.content[next]
-		if val = ntv.value; val != nil {
+	return t.content[k].value != nil
+}
+
+// Next returns the key-value pair that comes after k in the table t.
+func (t *Table) Next(k Value) (next Value, val Value, ok bool) {
+	var tv tableValue
+	if k == nil {
+		next = t.first
+		ok = true
+	} else {
+		tv, ok = t.content[k]
+		if !ok {
 			return
 		}
-		next = ntv.next
+		next = tv.next
+	}
+	// Because we may have removed entries by setting values to nil, we loop
+	// until we find a non-nil value.
+	for next != nil {
+		tv = t.content[next]
+		if val = tv.value; val != nil {
+			return
+		}
+		next = tv.next
 	}
 	return
 }

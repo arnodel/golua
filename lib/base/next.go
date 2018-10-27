@@ -15,7 +15,10 @@ func next(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	next := c.Next()
-	nk, nv := tbl.Next(k)
+	nk, nv, ok := tbl.Next(k)
+	if !ok {
+		return nil, rt.NewErrorS("invalid key for 'next'").AddContext(c)
+	}
 	next.Push(nk)
 	next.Push(nv)
 	return next, nil

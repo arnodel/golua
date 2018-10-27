@@ -7,18 +7,12 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
-const (
-	ErrSyntaxError = iota
-	ErrSyntaxInvalidToken
-	ErrSyntaxEOF
-)
-
 type SyntaxError struct {
 	File string
 	Err  parsing.Error
 }
 
-func NewSyntaxErrorFromCCError(file string, err parsing.Error) *SyntaxError {
+func NewSyntaxError(file string, err parsing.Error) *SyntaxError {
 	return &SyntaxError{
 		File: file,
 		Err:  err,

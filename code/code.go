@@ -227,6 +227,7 @@ const (
 	OpNot   // Added afterwards - why did I not have it in the first place?
 	OpUpvalue
 	OpEtcId
+	OpToNumber
 )
 
 func (op UnOp) ToC() uint32 {
