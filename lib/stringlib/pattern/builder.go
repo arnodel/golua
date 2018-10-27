@@ -76,9 +76,19 @@ func (pb *patternBuilder) getPatternItem() error {
 		s, err = pb.getCharClass()
 	case '(':
 		pb.ciMax++
-		pb.cStack = append(pb.cStack, pb.ciMax)
 		if pb.ciMax >= 10 {
 			return errInvalidPattern
+		}
+		b, err = pb.next()
+		if err != nil {
+			return err
+		}
+		if b != ')' {
+			// Special case: empty capture will generate a position. So we only
+			// emit a ptnStartCapture and skip the ptnEndCapture.  The pattern
+			// matcher will then create a capture whose end is -1.
+			pb.back()
+			pb.cStack = append(pb.cStack, pb.ciMax)
 		}
 		pb.emit(patternItem{byteSet{pb.ciMax}, ptnStartCapture})
 		return nil
@@ -227,6 +237,7 @@ Loop:
 					return
 				}
 				if b == ']' {
+					s.add(c)
 					s.add('-')
 					continue Loop
 				}

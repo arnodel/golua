@@ -54,9 +54,7 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			first := captures[0]
 			next.Push(rt.Int(first.Start() + 1))
 			next.Push(rt.Int(first.End()))
-			for _, c := range captures[1:] {
-				next.Push(s[c.Start():c.End()])
-			}
+			pushExtraCaptures(captures, s, next)
 		}
 	}
 	return next, nil
@@ -95,7 +93,19 @@ func pushCaptures(captures []pattern.Capture, s rt.String, next rt.Cont) {
 		c := captures[0]
 		next.Push(s[c.Start():c.End()])
 	} else {
-		for _, c := range captures[1:] {
+		pushExtraCaptures(captures, s, next)
+	}
+}
+
+func pushExtraCaptures(captures []pattern.Capture, s rt.String, next rt.Cont) {
+	if len(captures) < 2 {
+		return
+	}
+	for _, c := range captures[1:] {
+		if c.IsEmpty() {
+			// This was an empty capture
+			next.Push(rt.Int(c.Start() + 1))
+		} else {
 			next.Push(s[c.Start():c.End()])
 		}
 	}

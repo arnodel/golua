@@ -143,7 +143,10 @@ func (m *patternMatcher) match() {
 				m.pi++
 			}
 		case ptnStartCapture:
-			m.captures[item.bytes[0]].start = m.si
+			// The end of the capture is set to -1.  If this is an empty
+			// capture, no ptnEndCapture item was emitted so the end will remain
+			// -1.
+			m.captures[item.bytes[0]] = Capture{m.si, -1}
 			m.pi++
 		case ptnEndCapture:
 			m.captures[item.bytes[0]].end = m.si

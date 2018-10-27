@@ -43,6 +43,10 @@ func (c Capture) End() int {
 	return c.end
 }
 
+func (c Capture) IsEmpty() bool {
+	return c.end == -1
+}
+
 type patternItemType byte
 
 const (
