@@ -121,9 +121,11 @@ func (pb *patternBuilder) getPatternItem() error {
 			if err != nil {
 				return err
 			}
-			if op == cl {
-				return errInvalidPattern
-			}
+			// The doc says op and cl must be different, but the 5.3.4
+			// implementation allows them to be equal.
+			// if op == cl {
+			// 	return errInvalidPattern
+			// }
 			pb.emit(patternItem{[4]uint64{uint64(op), uint64(cl)}, ptnBalanced})
 			return nil
 		case c >= '1' && c <= '9':

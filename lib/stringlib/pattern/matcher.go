@@ -2,9 +2,11 @@ package pattern
 
 type patternMatcher struct {
 	Pattern
-	s          string
+	s          string // string to match
 	captures   [10]Capture
-	si, ci, pi int
+	si         int // current index in s (string to match)
+	ci         int
+	pi         int // current index in pattern
 	trackbacks []trackback
 }
 
@@ -117,14 +119,14 @@ func (m *patternMatcher) match() {
 						break BLoop
 					}
 					switch b {
-					case op:
-						depth++
 					case cl:
 						depth--
 						if depth == 0 {
 							m.pi++
 							break BLoop
 						}
+					case op:
+						depth++
 					}
 				}
 			}

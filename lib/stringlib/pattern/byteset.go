@@ -26,12 +26,11 @@ func (s byteSet) contains(b byte) bool {
 
 // byte sets below are built with this function
 //
-func byteRange(limits ...byte) (s byteSet) {
-	for i := 0; i < len(limits)/2; i++ {
-		for j := limits[2*i]; j <= limits[2*i+1]; j++ {
-			s.add(j)
-		}
+func byteRange(a, b byte) (s byteSet) {
+	for i := a; i < b; i++ {
+		s.add(i)
 	}
+	s.add(b)
 	return
 }
 
@@ -52,7 +51,8 @@ var (
 	spaceSet     = byteSet{0x100003e00, 0x0, 0x0, 0x0}                       // r(9, 13, 32, 32)
 	upperSet     = byteSet{0x0, 0x7fffffe, 0x0, 0x0}                         // r('A', 'Z')
 	alphanumSet  = byteSet{0x3ff000000000000, 0x7fffffe07fffffe, 0x0, 0x0}   // r('A', 'Z', 'a', 'z', '0', '9')
-	hexSet       = byteSet{0x3ff000000000000, 0x7e0000007e, 0x0, 0x0}        // r('A', 'F', 'a', 'f', '0', '9')
+	hexSet       = byteSet{0x3ff000000000000, 0x7e0000007e, 0x0, 0x0}
+	zeroSet      = byteSet{0x1, 0x0, 0x0, 0x0}
 
 	fullSet = byteSet{full64, full64, full64, full64}
 )
@@ -68,6 +68,7 @@ var namedByteSet = map[byte]byteSet{
 	'u': upperSet,
 	'w': alphanumSet,
 	'x': hexSet,
+	'z': zeroSet,
 	'A': complement(letterSet),
 	'C': complement(controlSet),
 	'D': complement(digitSet),
@@ -78,4 +79,5 @@ var namedByteSet = map[byte]byteSet{
 	'U': complement(upperSet),
 	'W': complement(alphanumSet),
 	'X': complement(hexSet),
+	'Z': complement(zeroSet),
 }

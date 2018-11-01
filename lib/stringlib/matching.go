@@ -2,6 +2,7 @@ package stringlib
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/arnodel/golua/lib/stringlib/pattern"
@@ -102,13 +103,15 @@ func pushExtraCaptures(captures []pattern.Capture, s rt.String, next rt.Cont) {
 		return
 	}
 	for _, c := range captures[1:] {
-		if c.IsEmpty() {
-			// This was an empty capture
-			next.Push(rt.Int(c.Start() + 1))
-		} else {
-			next.Push(s[c.Start():c.End()])
-		}
+		next.Push(captureValue(c, s))
 	}
+}
+
+func captureValue(c pattern.Capture, s rt.String) rt.Value {
+	if c.IsEmpty() {
+		return rt.Int(c.Start() + 1)
+	}
+	return s[c.Start():c.End()]
 }
 
 func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -128,11 +131,28 @@ func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, rt.NewErrorE(ptnErr).AddContext(c)
 	}
 	si := 0
+	allowEmpty := true
 	var iterator = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next := c.Next()
-		captures := pat.Match(string(s), si)
-		if len(captures) > 0 {
-			si = captures[0].End()
+		var captures []pattern.Capture
+		for {
+			captures = pat.Match(string(s), si)
+			if len(captures) == 0 {
+				break
+			}
+			gc := captures[0]
+			start, end := gc.Start(), gc.End()
+			if allowEmpty || start != si || end != si {
+				allowEmpty = start >= end
+				if allowEmpty {
+					si = start + 1
+				} else {
+					si = end
+				}
+				break
+			}
+			si++
+			allowEmpty = true
 		}
 		pushCaptures(captures, s, next)
 		return next, nil
@@ -168,7 +188,16 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		replF = func(captures []pattern.Capture) (string, *rt.Error) {
 			cStrings := [10]string{}
 			for i, c := range captures {
-				cStrings[i] = string(s)[c.Start():c.End()]
+				v := captureValue(c, s)
+				switch vv := v.(type) {
+				case rt.String:
+					cStrings[i] = string(vv)
+				case rt.Int:
+					cStrings[i] = strconv.Itoa(int(vv))
+				}
+			}
+			if len(captures) == 1 {
+				cStrings[1] = cStrings[0]
 			}
 			return gsubPtn.ReplaceAllStringFunc(string(replString), func(x string) string {
 				b := x[1]
@@ -186,8 +215,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				i = 1
 			}
 			c := captures[i]
-			key := s[c.Start():c.End()]
-			val, err := rt.Index(t, replTable, key)
+			val, err := rt.Index(t, replTable, captureValue(c, s))
 			if err != nil {
 				return "", err
 			}
@@ -204,7 +232,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				i = 1
 			}
 			for _, c := range captures[i:] {
-				cont.Push(s[c.Start():c.End()])
+				cont.Push(captureValue(c, s))
 			}
 			err := t.RunContinuation(cont)
 			if err != nil {
@@ -218,21 +246,35 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	si := 0
 	var sb strings.Builder
 	var matchCount rt.Int
+	allowEmpty := true
 	for ; matchCount != n; matchCount++ {
 		captures := pat.Match(string(s), si)
 		if len(captures) == 0 {
 			break
 		}
-		sub, err := replF(captures)
-		if err != nil {
-			return nil, err.AddContext(c)
-		}
 		gc := captures[0]
-		_, _ = sb.WriteString(string(s)[si:gc.Start()])
-		_, _ = sb.WriteString(sub)
-		si = gc.End()
+		start, end := gc.Start(), gc.End()
+		if allowEmpty || start != si || end != si {
+			sub, err := replF(captures)
+			if err != nil {
+				return nil, err.AddContext(c)
+			}
+			_, _ = sb.WriteString(string(s)[si:start])
+			_, _ = sb.WriteString(sub)
+		}
+		allowEmpty = start >= end
+		if allowEmpty {
+			if start < len(s) {
+				_ = sb.WriteByte(s[start])
+			}
+			si = start + 1
+		} else {
+			si = end
+		}
 	}
-	_, _ = sb.WriteString(string(s)[si:])
+	if si < len(s) {
+		_, _ = sb.WriteString(string(s)[si:])
+	}
 	next := c.Next()
 	next.Push(rt.String(sb.String()))
 	next.Push(matchCount)
@@ -242,12 +284,12 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 var gsubPtn = regexp.MustCompile("%.")
 
 func subToString(key rt.String, val rt.Value) (string, *rt.Error) {
+	if !rt.Truth(val) {
+		return string(key), nil
+	}
 	res, ok := rt.AsString(val)
 	if ok {
 		return string(res), nil
-	}
-	if !rt.Truth(val) {
-		return string(key), nil
 	}
 	return "", rt.NewErrorF("invalid replacement value (%s)", rt.Type(res))
 }
