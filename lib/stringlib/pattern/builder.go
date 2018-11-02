@@ -31,7 +31,7 @@ func (pb *patternBuilder) getPattern() (*Pattern, error) {
 		}
 	}
 	if len(pb.cStack) != 0 {
-		return nil, errInvalidPattern
+		return nil, errUnfinishedCapture
 	}
 	return &Pattern{
 		items:        pb.items,
@@ -100,7 +100,7 @@ func (pb *patternBuilder) getPatternItem() error {
 	case ')':
 		i := len(pb.cStack) - 1
 		if i < 0 {
-			return errInvalidPattern
+			return errInvalidPatternCapture
 		}
 		pb.emit(patternItem{byteSet{pb.cStack[i]}, ptnEndCapture})
 		pb.cStack = pb.cStack[:i]

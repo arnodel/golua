@@ -67,4 +67,6 @@ type patternItem struct {
 	ptnType patternItemType
 }
 
-var errInvalidPattern = errors.New("Invalid pattern")
+var errInvalidPattern = errors.New("malformed pattern")
+var errUnfinishedCapture = errors.New("unfinished capture")
+var errInvalidPatternCapture = errors.New("invalid pattern capture")

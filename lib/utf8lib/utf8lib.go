@@ -16,7 +16,7 @@ var LibLoader = packagelib.Loader{
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
-	rt.SetEnv(pkg, "charpattern", `[\0-\x7F\xC2-\xF4][\x80-\xBF]*`)
+	rt.SetEnv(pkg, "charpattern", rt.String(`[\0-\x7F\xC2-\xF4][\x80-\xBF]*`))
 	rt.SetEnvGoFunc(pkg, "codes", codes, 1, false)
 	rt.SetEnvGoFunc(pkg, "codepoint", codepoint, 3, false)
 	rt.SetEnvGoFunc(pkg, "len", lenf, 3, false)
