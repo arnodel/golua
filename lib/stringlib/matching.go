@@ -187,6 +187,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if replString, ok := repl.(rt.String); ok {
 		replF = func(captures []pattern.Capture) (string, *rt.Error) {
 			cStrings := [10]string{}
+			maxIndex := len(captures) - 1
 			for i, c := range captures {
 				v := captureValue(c, s)
 				switch vv := v.(type) {
@@ -198,14 +199,29 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			}
 			if len(captures) == 1 {
 				cStrings[1] = cStrings[0]
+				maxIndex = 1
 			}
+			var err *rt.Error
 			return gsubPtn.ReplaceAllStringFunc(string(replString), func(x string) string {
+				if err != nil {
+					return ""
+				}
 				b := x[1]
-				if '0' <= b && b <= '9' {
+				switch {
+				case '0' <= b && b <= '9':
+					idx := int(b - '0')
+					if idx > maxIndex {
+						err = rt.NewErrorE(pattern.ErrInvalidCaptureIdx(idx)).AddContext(c)
+						return ""
+					}
 					return cStrings[b-'0']
+				case b == '%':
+					return x[1:]
+				default:
+					err = rt.NewErrorE(pattern.ErrInvalidPct).AddContext(c)
 				}
 				return x[1:]
-			}), nil
+			}), err
 		}
 	} else if replTable, ok := repl.(*rt.Table); ok {
 		replF = func(captures []pattern.Capture) (string, *rt.Error) {
@@ -291,5 +307,5 @@ func subToString(key rt.String, val rt.Value) (string, *rt.Error) {
 	if ok {
 		return string(res), nil
 	}
-	return "", rt.NewErrorF("invalid replacement value (%s)", rt.Type(res))
+	return "", rt.NewErrorF("invalid replacement value (a %s)", rt.Type(val))
 }

@@ -1,5 +1,10 @@
 package pattern
 
+import (
+	"errors"
+	"fmt"
+)
+
 type patternBuilder struct {
 	items                   []patternItem
 	ciMax                   uint64
@@ -131,12 +136,15 @@ func (pb *patternBuilder) getPatternItem() error {
 		case c >= '1' && c <= '9':
 			ci := uint64(c - '0')
 			if !pb.checkCapture(ci) {
-				return errInvalidPattern
+				return ErrInvalidCaptureIdx(int(ci))
 			}
 			pb.emit(patternItem{[4]uint64{ci}, ptnCapture})
 			return nil
 		default:
-			s = getCharRange(c)
+			s, err = getCharRange(c)
+			if err != nil {
+				return err
+			}
 		}
 	default:
 		pb.back()
@@ -190,7 +198,7 @@ func (pb *patternBuilder) getCharClass() (byteSet, error) {
 		if err != nil {
 			return byteSet{}, err
 		}
-		return getCharRange(b), nil
+		return getCharRange(b)
 	case '[':
 		return pb.getUnion()
 	default:
@@ -213,6 +221,7 @@ func (pb *patternBuilder) getUnion() (s byteSet, err error) {
 		s.add(b)
 		b, err = pb.next()
 	}
+	var r byteSet
 Loop:
 	for err == nil {
 		switch {
@@ -226,7 +235,11 @@ Loop:
 			if err != nil {
 				return
 			}
-			s.merge(getCharRange(b))
+			r, err = getCharRange(b)
+			if err != nil {
+				return
+			}
+			s.merge(r)
 		default:
 			c := b
 			b, err = pb.next()
@@ -254,10 +267,23 @@ Loop:
 	return
 }
 
-func getCharRange(c byte) byteSet {
+func getCharRange(c byte) (byteSet, error) {
 	s, ok := namedByteSet[c]
 	if !ok {
-		s.add(c)
+		switch {
+		case c == '0':
+			return s, ErrInvalidCaptureIdx(0)
+		case (c >= '1' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'):
+			return s, ErrInvalidPct
+		default:
+			s.add(c)
+		}
 	}
-	return s
+	return s, nil
+}
+
+var ErrInvalidPct = errors.New("invalid use of '%'")
+
+func ErrInvalidCaptureIdx(i int) error {
+	return fmt.Errorf("invalid capture index %%%d", i)
 }
