@@ -5,12 +5,12 @@ import (
 )
 
 func unm(t *Thread, x Value) (Value, *Error) {
-	x, kx := ToNumber(x)
+	nx, kx := ToNumber(x)
 	switch kx {
 	case IsInt:
-		return -x.(Int), nil
+		return -nx.(Int), nil
 	case IsFloat:
-		return -x.(Float), nil
+		return -nx.(Float), nil
 	}
 	res, err, ok := metaun(t, "__unm", x)
 	if ok {
@@ -20,22 +20,22 @@ func unm(t *Thread, x Value) (Value, *Error) {
 }
 
 func add(t *Thread, x Value, y Value) (Value, *Error) {
-	x, kx := ToNumber(x)
-	y, ky := ToNumber(y)
+	nx, kx := ToNumber(x)
+	ny, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return x.(Int) + y.(Int), nil
+			return nx.(Int) + ny.(Int), nil
 		case IsFloat:
-			return Float(x.(Int)) + y.(Float), nil
+			return Float(nx.(Int)) + ny.(Float), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return x.(Float) + Float(y.(Int)), nil
+			return nx.(Float) + Float(ny.(Int)), nil
 		case IsFloat:
-			return x.(Float) + y.(Float), nil
+			return nx.(Float) + ny.(Float), nil
 		}
 	}
 	res, err, ok := metabin(t, "__add", x, y)
@@ -45,53 +45,23 @@ func add(t *Thread, x Value, y Value) (Value, *Error) {
 	return nil, NewErrorS("add expects addable values")
 }
 
-// func add(t *Thread, x Value, y Value) (Value, *Error) {
-// 	switch xx := x.(type) {
-// 	case Int:
-// 		switch yy := y.(type) {
-// 		case Int:
-// 			return xx + yy, nil
-// 		case Float:
-// 			return Float(xx) + yy, nil
-// 		case String:
-// 			return xx, nil
-// 		}
-// 	case Float:
-// 		switch yy := y.(type) {
-// 		case Int:
-// 			return xx + Float(yy), nil
-// 		case Float:
-// 			return xx + yy, nil
-// 		case String:
-// 			return xx, nil
-// 		}
-// 	case String:
-// 		return xx, nil
-// 	}
-// 	res, err, ok := metabin(t, "__add", x, y)
-// 	if ok {
-// 		return res, err
-// 	}
-// 	return nil, NewErrorS("add expects addable values")
-// }
-
 func sub(t *Thread, x Value, y Value) (Value, *Error) {
-	x, kx := ToNumber(x)
-	y, ky := ToNumber(y)
+	nx, kx := ToNumber(x)
+	ny, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return x.(Int) - y.(Int), nil
+			return nx.(Int) - ny.(Int), nil
 		case IsFloat:
-			return Float(x.(Int)) - y.(Float), nil
+			return Float(nx.(Int)) - ny.(Float), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return x.(Float) - Float(y.(Int)), nil
+			return nx.(Float) - Float(ny.(Int)), nil
 		case IsFloat:
-			return x.(Float) - y.(Float), nil
+			return nx.(Float) - ny.(Float), nil
 		}
 	}
 	res, err, ok := metabin(t, "__sub", x, y)
@@ -102,22 +72,22 @@ func sub(t *Thread, x Value, y Value) (Value, *Error) {
 }
 
 func mul(t *Thread, x Value, y Value) (Value, *Error) {
-	x, kx := ToNumber(x)
-	y, ky := ToNumber(y)
+	nx, kx := ToNumber(x)
+	ny, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return x.(Int) * y.(Int), nil
+			return nx.(Int) * ny.(Int), nil
 		case IsFloat:
-			return Float(x.(Int)) * y.(Float), nil
+			return Float(nx.(Int)) * ny.(Float), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return x.(Float) * Float(y.(Int)), nil
+			return nx.(Float) * Float(ny.(Int)), nil
 		case IsFloat:
-			return x.(Float) * y.(Float), nil
+			return nx.(Float) * ny.(Float), nil
 		}
 	}
 	res, err, ok := metabin(t, "__mul", x, y)
@@ -128,22 +98,22 @@ func mul(t *Thread, x Value, y Value) (Value, *Error) {
 }
 
 func div(t *Thread, x Value, y Value) (Value, *Error) {
-	x, kx := ToNumber(x)
+	nx, kx := ToNumber(x)
 	y, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return Float(x.(Int)) / Float(y.(Int)), nil
+			return Float(nx.(Int)) / Float(y.(Int)), nil
 		case IsFloat:
-			return Float(x.(Int)) / y.(Float), nil
+			return Float(nx.(Int)) / y.(Float), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return x.(Float) / Float(y.(Int)), nil
+			return nx.(Float) / Float(y.(Int)), nil
 		case IsFloat:
-			return x.(Float) / y.(Float), nil
+			return nx.(Float) / y.(Float), nil
 		}
 	}
 	res, err, ok := metabin(t, "__div", x, y)
@@ -167,22 +137,22 @@ func floordivFloat(x, y Float) Float {
 }
 
 func idiv(t *Thread, x Value, y Value) (Value, *Error) {
-	x, kx := ToNumber(x)
-	y, ky := ToNumber(y)
+	nx, kx := ToNumber(x)
+	ny, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return floordivInt(x.(Int), y.(Int)), nil
+			return floordivInt(nx.(Int), ny.(Int)), nil
 		case IsFloat:
-			return floordivFloat(Float(x.(Int)), y.(Float)), nil
+			return floordivFloat(Float(nx.(Int)), ny.(Float)), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return floordivFloat(x.(Float), Float(y.(Int))), nil
+			return floordivFloat(nx.(Float), Float(ny.(Int))), nil
 		case IsFloat:
-			return floordivFloat(x.(Float), y.(Float)), nil
+			return floordivFloat(nx.(Float), ny.(Float)), nil
 		}
 	}
 	res, err, ok := metabin(t, "__idiv", x, y)
@@ -210,22 +180,22 @@ func modFloat(x, y Float) Float {
 }
 
 func Mod(t *Thread, x Value, y Value) (Value, *Error) {
-	x, kx := ToNumber(x)
-	y, ky := ToNumber(y)
+	nx, kx := ToNumber(x)
+	ny, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return modInt(x.(Int), y.(Int)), nil
+			return modInt(nx.(Int), ny.(Int)), nil
 		case IsFloat:
-			return modFloat(Float(x.(Int)), y.(Float)), nil
+			return modFloat(Float(nx.(Int)), ny.(Float)), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return modFloat(x.(Float), Float(y.(Int))), nil
+			return modFloat(nx.(Float), Float(ny.(Int))), nil
 		case IsFloat:
-			return modFloat(x.(Float), y.(Float)), nil
+			return modFloat(nx.(Float), ny.(Float)), nil
 		}
 	}
 	res, err, ok := metabin(t, "__mod", x, y)
@@ -240,22 +210,22 @@ func powFloat(x, y Float) Float {
 }
 
 func pow(t *Thread, x Value, y Value) (Value, *Error) {
-	x, kx := ToNumber(x)
-	y, ky := ToNumber(y)
+	nx, kx := ToNumber(x)
+	ny, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return powFloat(Float(x.(Int)), Float(y.(Int))), nil
+			return powFloat(Float(nx.(Int)), Float(ny.(Int))), nil
 		case IsFloat:
-			return powFloat(Float(x.(Int)), y.(Float)), nil
+			return powFloat(Float(nx.(Int)), ny.(Float)), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return powFloat(x.(Float), Float(y.(Int))), nil
+			return powFloat(nx.(Float), Float(ny.(Int))), nil
 		case IsFloat:
-			return powFloat(x.(Float), y.(Float)), nil
+			return powFloat(nx.(Float), ny.(Float)), nil
 		}
 	}
 	res, err, ok := metabin(t, "__pow", x, y)

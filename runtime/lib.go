@@ -190,7 +190,7 @@ func Concat(t *Thread, x, y Value) (Value, *Error) {
 	return nil, NewErrorS("concat expects concatable values")
 }
 
-func Len(t *Thread, v Value) (Int, *Error) {
+func IntLen(t *Thread, v Value) (Int, *Error) {
 	if s, ok := v.(String); ok {
 		return Int(len(s)), nil
 	}
@@ -212,6 +212,23 @@ func Len(t *Thread, v Value) (Int, *Error) {
 	return Int(0), NewErrorS("Cannot compute len")
 }
 
+func Len(t *Thread, v Value) (Value, *Error) {
+	if s, ok := v.(String); ok {
+		return Int(len(s)), nil
+	}
+	res := NewTerminationWith(1, false)
+	err, ok := Metacall(t, v, "__len", []Value{v}, res)
+	if ok {
+		if err != nil {
+			return nil, err
+		}
+		return res.Get(0), nil
+	}
+	if tbl, ok := v.(*Table); ok {
+		return tbl.Len(), nil
+	}
+	return nil, NewErrorS("Cannot compute len")
+}
 func Type(v Value) String {
 	if v == nil {
 		return String("nil")

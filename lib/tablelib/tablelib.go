@@ -37,7 +37,7 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	var sep rt.String
 	i := rt.Int(1)
-	j, err := rt.Len(t, tbl)
+	j, err := rt.IntLen(t, tbl)
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
@@ -107,7 +107,7 @@ func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	var val rt.Value
 	var pos rt.Int
-	tblLen, err := rt.Len(t, tbl)
+	tblLen, err := rt.IntLen(t, tbl)
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
@@ -224,7 +224,7 @@ func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	tblLen, err := rt.Len(t, tbl)
+	tblLen, err := rt.IntLen(t, tbl)
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
@@ -309,7 +309,7 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 		set(j, x)
 	}
 	len := func() int {
-		l, err := rt.Len(t, tbl)
+		l, err := rt.IntLen(t, tbl)
 		if err != nil {
 			panic(err)
 		}
@@ -367,7 +367,7 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if nargs >= 3 {
 		j, err = c.IntArg(2)
 	} else {
-		j, err = rt.Len(t, tbl)
+		j, err = rt.IntLen(t, tbl)
 	}
 	if err != nil {
 		return nil, err.AddContext(c)

@@ -61,20 +61,23 @@ func (r *Runtime) RawMetatable(v Value) *Table {
 	}
 }
 
-func (r *Runtime) Metatable(v Value) *Table {
+func (r *Runtime) Metatable(v Value) Value {
 	meta := r.RawMetatable(v)
-	metam := RawGet(meta, "__metatable")
+	if meta == nil {
+		return nil
+	}
+	metam := RawGet(meta, String("__metatable"))
 	if metam != nil {
-		// We assume a metatable must be a table...
-		return metam.(*Table)
+		return metam
 	}
 	return meta
 }
 
 func (r *Runtime) MetaGet(v Value, k Value) Value {
-	return RawGet(r.Metatable(v), k)
+	meta := r.RawMetatable(v)
+	return RawGet(meta, k)
 }
 
 func (r *Runtime) MetaGetS(v Value, k string) Value {
-	return RawGet(r.Metatable(v), String(k))
+	return r.MetaGet(v, String(k))
 }

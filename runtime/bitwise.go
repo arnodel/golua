@@ -9,7 +9,7 @@ func band(t *Thread, x, y Value) (Value, *Error) {
 	switch {
 	case k == IsInt:
 		return ix & iy, nil
-	case k&NaI != 0:
+	case k == NaI:
 		return nil, errNaI
 	}
 	res, err, ok := metabin(t, "__band", x, y)
@@ -26,7 +26,7 @@ func bor(t *Thread, x, y Value) (Value, *Error) {
 	switch {
 	case k == IsInt:
 		return ix | iy, nil
-	case k&NaI != 0:
+	case k == NaI:
 		return nil, errNaI
 	}
 	res, err, ok := metabin(t, "__bor", x, y)
@@ -43,7 +43,7 @@ func bxor(t *Thread, x, y Value) (Value, *Error) {
 	switch {
 	case k == IsInt:
 		return ix ^ iy, nil
-	case k&NaI != 0:
+	case k == NaI:
 		return nil, errNaI
 	}
 	res, err, ok := metabin(t, "__bxor", x, y)
@@ -63,7 +63,7 @@ func shl(t *Thread, x, y Value) (Value, *Error) {
 			return ix >> uint64(-iy), nil
 		}
 		return ix << uint64(iy), nil
-	case k&NaI != 0:
+	case k == NaI:
 		return nil, errNaI
 	}
 	res, err, ok := metabin(t, "__shl", x, y)
@@ -83,7 +83,7 @@ func shr(t *Thread, x, y Value) (Value, *Error) {
 			return ix << uint64(iy), nil
 		}
 		return ix >> uint64(iy), nil
-	case k&NaI != 0:
+	case k == NaI:
 		return nil, errNaI
 	}
 	res, err, ok := metabin(t, "__shr", x, y)
