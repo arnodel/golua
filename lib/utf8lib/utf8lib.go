@@ -1,6 +1,7 @@
 package utf8lib
 
 import (
+	"errors"
 	"unicode/utf8"
 
 	"github.com/arnodel/golua/lib/packagelib"
@@ -16,7 +17,7 @@ var LibLoader = packagelib.Loader{
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
-	rt.SetEnv(pkg, "charpattern", rt.String(`[\0-\x7F\xC2-\xF4][\x80-\xBF]*`))
+	rt.SetEnv(pkg, "charpattern", rt.String("[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"))
 	rt.SetEnvGoFunc(pkg, "codes", codes, 1, false)
 	rt.SetEnvGoFunc(pkg, "codepoint", codepoint, 3, false)
 	rt.SetEnvGoFunc(pkg, "len", lenf, 3, false)
@@ -32,7 +33,10 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	for i, r := range runes {
 		n, tp := rt.ToInt(r)
 		if tp != rt.IsInt {
-			return nil, rt.NewErrorF("#%d should be an integer", i+1)
+			return nil, rt.NewErrorF("#%d should be an integer", i+1).AddContext(c)
+		}
+		if n < 0 || n > 0x10FFFF {
+			return nil, rt.NewErrorF("#%d value out of range", i+1).AddContext(c)
 		}
 		sz := utf8.EncodeRune(cur, rune(n))
 		cur = cur[sz:]
@@ -60,7 +64,7 @@ func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				case 0:
 					return next, nil
 				case 1:
-					return nil, rt.NewErrorS("Invalid utf8 encoding").AddContext(c)
+					return nil, rt.NewErrorE(errInvalidCode).AddContext(c)
 				}
 			}
 			next.Push(rt.Int(p + 1))
@@ -91,12 +95,18 @@ func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	next := c.Next()
 	i := ss.NormPos(ii)
+	if i < 1 {
+		return nil, rt.NewErrorE(errPosOutOfRange).AddContext(c)
+	}
 	j := ss.NormPos(jj)
+	if j > len(ss) {
+		return nil, rt.NewErrorE(errPosOutOfRange).AddContext(c)
+	}
 	s := string(ss)
 	for k := i - 1; k < j; {
 		r, sz := utf8.DecodeRuneInString(s[k:])
 		if r == utf8.RuneError {
-			return nil, rt.NewErrorS("Invalid utf8 encoding").AddContext(c)
+			return nil, rt.NewErrorE(errInvalidCode).AddContext(c)
 		}
 		next.Push(rt.Int(r))
 		k += sz
@@ -161,7 +171,7 @@ func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	i := ss.NormPos(ii) - 1
 	s := string(ss)
 	if i < 0 || i > len(s) {
-		return c.PushingNext(nil), nil
+		return nil, rt.NewErrorS("position out of range").AddContext(c)
 	}
 	if nn == 0 {
 		// Special case: locate the starting position of the current
@@ -179,6 +189,7 @@ func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			for nn > 0 {
 				i++
 				if i >= len(s) {
+					nn--
 					break
 				}
 				if utf8.RuneStart(s[i]) {
@@ -200,3 +211,6 @@ func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	return c.PushingNext(nil), nil
 }
+
+var errInvalidCode = errors.New("invalid UTF-8 code")
+var errPosOutOfRange = errors.New("position out of range")
