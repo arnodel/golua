@@ -10,6 +10,8 @@ import (
 	"github.com/arnodel/golua/scanner"
 )
 
+const maxIndexChainLength = 100
+
 func IsNil(v Value) bool {
 	return v == nil
 }
@@ -22,52 +24,58 @@ func RawGet(t *Table, k Value) Value {
 }
 
 func Index(t *Thread, coll Value, idx Value) (Value, *Error) {
-	if tbl, ok := coll.(*Table); ok {
-		if val := RawGet(tbl, idx); val != nil {
-			return val, nil
+	for i := 0; i < maxIndexChainLength; i++ {
+		if tbl, ok := coll.(*Table); ok {
+			if val := RawGet(tbl, idx); val != nil {
+				return val, nil
+			}
+		}
+		metaIdx := t.MetaGetS(coll, "__index")
+		if metaIdx == nil {
+			return nil, nil
+		}
+		switch metaIdx.(type) {
+		case *Table:
+			coll = metaIdx
+		default:
+			res := NewTerminationWith(1, false)
+			if err := Call(t, metaIdx, []Value{coll, idx}, res); err != nil {
+				return nil, err
+			}
+			return res.Get(0), nil
 		}
 	}
-	metaIdx := t.MetaGetS(coll, "__index")
-	if metaIdx == nil {
-		return nil, nil
-	}
-	switch metaIdx.(type) {
-	case *Table:
-		return Index(t, metaIdx, idx)
-	default:
-		res := NewTerminationWith(1, false)
-		if err := Call(t, metaIdx, []Value{coll, idx}, res); err != nil {
-			return nil, err
-		}
-		return res.Get(0), nil
-	}
+	return nil, NewErrorF("'__index' chain too long; possible loop")
 }
 
 func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
-	tbl, ok := coll.(*Table)
-	if ok {
-		if tbl.Get(idx) != nil {
-			if err := tbl.SetCheck(idx, val); err != nil {
-				return NewErrorE(err)
+	for i := 0; i < maxIndexChainLength; i++ {
+		tbl, ok := coll.(*Table)
+		if ok {
+			if tbl.Get(idx) != nil {
+				if err := tbl.SetCheck(idx, val); err != nil {
+					return NewErrorE(err)
+				}
+				return nil
+			}
+		}
+		metaNewIndex := t.MetaGetS(coll, "__newindex")
+		if metaNewIndex == nil {
+			if ok {
+				if err := tbl.SetCheck(idx, val); err != nil {
+					return NewErrorE(err)
+				}
 			}
 			return nil
 		}
-	}
-	metaNewIndex := t.MetaGetS(coll, "__newindex")
-	if metaNewIndex == nil {
-		if ok {
-			if err := tbl.SetCheck(idx, val); err != nil {
-				return NewErrorE(err)
-			}
+		switch metaNewIndex.(type) {
+		case *Table:
+			coll = metaNewIndex
+		default:
+			return Call(t, metaNewIndex, []Value{coll, idx, val}, NewTermination(nil, nil))
 		}
-		return nil
 	}
-	switch metaNewIndex.(type) {
-	case *Table:
-		return SetIndex(t, metaNewIndex, idx, val)
-	default:
-		return Call(t, metaNewIndex, []Value{coll, idx, val}, NewTermination(nil, nil))
-	}
+	return NewErrorF("'__newindex' chain too long; possible loop")
 }
 
 func Truth(v Value) bool {
