@@ -1,8 +1,8 @@
 print(select(1, 3, 2, 1))
---> =3
+--> ~^3\t2\t1$
 
 print(select(2, 3, 2, 1))
---> =2
+--> ~^2\t1$
 
 print(select(4, 3, 2, 1))
 --> =
@@ -12,7 +12,7 @@ do
         return select(i, ...)
     end
     print(f(2, "a", "b", "c"))
---> =b
+--> ~^b\tc$
 end
 
 print(pcall(select, 0, 1, 2))
