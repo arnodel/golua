@@ -364,7 +364,7 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, err.AddContext(c)
 		}
 	}
-	if nargs >= 3 {
+	if nargs >= 3 && c.Arg(2) != nil {
 		j, err = c.IntArg(2)
 	} else {
 		j, err = rt.IntLen(t, tbl)

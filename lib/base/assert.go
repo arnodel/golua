@@ -7,14 +7,18 @@ func assert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	arg := c.Arg(0)
+	etc := c.Etc()
 	if !rt.Truth(arg) {
 		var msg rt.Value
-		if c.NArgs() < 2 {
+		if len(etc) == 0 {
 			msg = rt.String("assertion failed!")
 		} else {
-			msg = c.Arg(1)
+			msg = etc[0]
 		}
 		return nil, rt.NewError(msg).AddContext(c)
 	}
-	return c.PushingNext(arg), nil
+	next := c.Next()
+	next.Push(arg)
+	rt.Push(next, etc...)
+	return next, nil
 }

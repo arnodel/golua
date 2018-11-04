@@ -11,7 +11,7 @@ import (
 
 func Load(r *rt.Runtime) {
 	env := r.GlobalEnv()
-	rt.SetEnvGoFunc(env, "assert", assert, 2, false)
+	rt.SetEnvGoFunc(env, "assert", assert, 1, true)
 	rt.SetEnvGoFunc(env, "collectgarbage", collectgarbage, 2, false)
 	rt.SetEnvGoFunc(env, "dofile", dofile, 1, false)
 	rt.SetEnvGoFunc(env, "error", errorF, 2, false)
