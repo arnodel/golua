@@ -18,6 +18,7 @@ func load(r *rt.Runtime) rt.Value {
 	rt.SetEnvGoFunc(pkg, "getupvalue", getupvalue, 2, false)
 	rt.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false)
 	rt.SetEnvGoFunc(pkg, "upvaluejoin", upvaluejoin, 4, false)
+	rt.SetEnvGoFunc(pkg, "setmetatable", setmetatable, 2, false)
 	return pkg
 }
 
@@ -150,4 +151,21 @@ func upvaluejoin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	f1.Upvalues[up1] = f2.Upvalues[up2]
 	return c.Next(), nil
+}
+
+func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	var err *rt.Error
+	if err = c.CheckNArgs(2); err != nil {
+		return nil, err.AddContext(c)
+	}
+	v := c.Arg(0)
+	var meta *rt.Table
+	if c.Arg(1) != nil {
+		meta, err = c.TableArg(1)
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+	}
+	t.SetRawMetatable(v, meta)
+	return c.PushingNext(v), nil
 }

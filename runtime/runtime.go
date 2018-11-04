@@ -7,6 +7,7 @@ type Runtime struct {
 	stringMeta *Table
 	numberMeta *Table
 	boolMeta   *Table
+	nilMeta    *Table
 	Stdout     io.Writer
 	mainThread *Thread
 	registry   *Table
@@ -45,6 +46,9 @@ func (r *Runtime) SetStringMeta(meta *Table) {
 }
 
 func (r *Runtime) RawMetatable(v Value) *Table {
+	if v == nil {
+		return r.nilMeta
+	}
 	switch x := v.(type) {
 	case String:
 		return r.stringMeta
@@ -58,6 +62,25 @@ func (r *Runtime) RawMetatable(v Value) *Table {
 		return x.Metatable()
 	default:
 		return nil
+	}
+}
+func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
+	if v == nil {
+		r.nilMeta = meta
+	}
+	switch x := v.(type) {
+	case String:
+		r.stringMeta = meta
+	case Float, Int:
+		r.numberMeta = meta
+	case Bool:
+		r.boolMeta = meta
+	case *Table:
+		x.SetMetatable(meta)
+	case *UserData:
+		x.SetMetatable(meta)
+	default:
+		// Shoul there be an error here?
 	}
 }
 
