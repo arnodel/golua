@@ -19,6 +19,7 @@ func load(r *rt.Runtime) rt.Value {
 	rt.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false)
 	rt.SetEnvGoFunc(pkg, "upvaluejoin", upvaluejoin, 4, false)
 	rt.SetEnvGoFunc(pkg, "setmetatable", setmetatable, 2, false)
+	rt.SetEnvGoFunc(pkg, "upvalueid", upvalueid, 2, false)
 	return pkg
 }
 
@@ -151,6 +152,25 @@ func upvaluejoin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	f1.Upvalues[up1] = f2.Upvalues[up2]
 	return c.Next(), nil
+}
+
+func upvalueid(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err.AddContext(c)
+	}
+	f, err := c.ClosureArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	upv, err := c.IntArg(1)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	up := int(upv) - 1
+	if up < 0 || up >= int(f.Code.UpvalueCount) {
+		return nil, rt.NewErrorS("Invalid upvalue index").AddContext(c)
+	}
+	return c.PushingNext(rt.LightUserData{Data: f.Upvalues[up]}), nil
 }
 
 func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

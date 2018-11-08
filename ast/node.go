@@ -17,6 +17,17 @@ func EmitInstr(c *ir.Compiler, l Locator, instr ir.Instruction) {
 	c.Emit(instr, line)
 }
 
+func EmitJump(c *ir.Compiler, l Locator, lbl ir.Name) {
+	line := 0
+	if l != nil {
+		loc := l.Locate()
+		if loc.start != nil {
+			line = loc.start.Line
+		}
+	}
+	c.EmitJump(lbl, line)
+}
+
 func EmitLoadConst(c *ir.Compiler, l Locator, k ir.Constant, reg ir.Register) {
 	line := 0
 	if l != nil {

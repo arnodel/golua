@@ -253,12 +253,32 @@ func (c *Compiler) PopContext() {
 		panic("Cannot pop empty context")
 	}
 	c.context = context
+	c.emitClearReg(top)
 	for _, tr := range top.reg {
 		c.ReleaseRegister(tr.reg)
+	}
+}
+
+func (c *Compiler) emitClearReg(m lexicalMap) {
+	for _, tr := range m.reg {
 		if tr.tags&regHasUpvalue != 0 && tr.reg >= 0 {
 			c.EmitNoLine(ClearReg{Dst: tr.reg})
 		}
 	}
+}
+
+func (c *Compiler) EmitJump(lblName Name, line int) {
+	lc := c.context
+	var top lexicalMap
+	for len(lc) > 0 {
+		lc, top = lc.Pop()
+		if lbl, ok := top.label[lblName]; ok {
+			c.Emit(Jump{Label: lbl}, line)
+			return
+		}
+		c.emitClearReg(top)
+	}
+	panic("Undefined label for jump")
 }
 
 func (c *Compiler) DeclareLocal(name Name, reg Register) {

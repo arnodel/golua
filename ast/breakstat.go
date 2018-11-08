@@ -18,11 +18,7 @@ func (s BreakStat) HWrite(w HWriter) {
 }
 
 func (s BreakStat) CompileStat(c *ir.Compiler) {
-	lbl, ok := c.GetGotoLabel(breakLblName)
-	if !ok {
-		panic("Cannot break from here")
-	}
-	EmitInstr(c, s, ir.Jump{Label: lbl})
+	EmitJump(c, s, breakLblName)
 }
 
 var breakLblName = ir.Name("<break>")

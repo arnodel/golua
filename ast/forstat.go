@@ -136,10 +136,12 @@ func (s ForStat) CompileStat(c *ir.Compiler) {
 	})
 	c.EmitLabel(bodyLbl)
 
+	c.PushContext()
 	iterReg := c.GetFreeRegister()
 	ir.EmitMoveNoLine(c, iterReg, startReg)
 	c.DeclareLocal(ir.Name(s.Var.Val), iterReg)
 	s.Body.CompileBlock(c)
+	c.PopContext()
 
 	c.EmitNoLine(ir.Combine{
 		Op:   ops.OpAdd,

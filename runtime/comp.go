@@ -28,6 +28,7 @@ func eq(t *Thread, x, y Value) (bool, *Error) {
 		if _, ok := y.(*Table); !ok {
 			return false, nil
 		}
+
 	// case *UserData:
 	//     deal with that!
 	default:

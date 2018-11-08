@@ -123,3 +123,11 @@ func NewGoFunction(f func(*Thread, *GoCont) (Cont, *Error), name string, nArgs i
 func (f *GoFunction) Continuation(next Cont) Cont {
 	return NewGoCont(f, next)
 }
+
+//
+// LightUserData
+//
+
+type LightUserData struct {
+	Data interface{}
+}

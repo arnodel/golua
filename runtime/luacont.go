@@ -53,7 +53,7 @@ func (c *LuaCont) RunInThread(t *Thread) (Cont, *Error) {
 	// fmt.Println("START", c)
 RunLoop:
 	for {
-		// fmt.Println(pc)
+		// fmt.Println("PC", pc)
 		opcode := c.code[pc]
 		if opcode.HasType1() {
 			dst := opcode.GetA()

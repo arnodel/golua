@@ -22,9 +22,5 @@ func (s GotoStat) HWrite(w HWriter) {
 }
 
 func (s GotoStat) CompileStat(c *ir.Compiler) {
-	lbl, ok := c.GetGotoLabel(ir.Name(s.Label.Val))
-	if !ok {
-		panic("Undefined label for goto")
-	}
-	EmitInstr(c, s, ir.Jump{Label: lbl})
+	EmitJump(c, s, ir.Name(s.Label.Val))
 }

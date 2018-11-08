@@ -35,8 +35,8 @@ func (s RepeatStat) CompileStat(c *ir.Compiler) {
 	condReg := CompileExp(c, s.Cond)
 	negReg := c.GetFreeRegister()
 	EmitInstr(c, s.Cond, ir.Transform{Op: ops.OpNot, Dst: negReg, Src: condReg})
-	EmitInstr(c, s.Cond, ir.JumpIf{Cond: negReg, Label: loopLbl})
 	pop()
+	EmitInstr(c, s.Cond, ir.JumpIf{Cond: negReg, Label: loopLbl})
 
 	c.EmitGotoLabel(breakLblName)
 	c.PopContext()
