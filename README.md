@@ -4,7 +4,7 @@
 
 # GoLua
 
-Implementation of Lua in Go.
+Implementation of Lua **5.3** in Go.
 
 # Quick start
 
@@ -122,10 +122,7 @@ Go applications.  It should be able to run any pure Lua code
 ### Lexer / Parser
 
 * The lexer is implemented in the package `scanner`.
-* The parser is hand-written and implemented in the `parsing` package (it used
-  to be generated from `lua.bnf` using gocc (https://github.com/goccmack/gocc).
-  The command used was: `gocc -no_lexer lua.bnf`.  I have left the grammar in
-  for now.)
+* The parser is hand-written and implemented in the `parsing` package.
 
 ### AST → IR Compilation
 
