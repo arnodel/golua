@@ -99,11 +99,16 @@ func (t *Thread) Status() ThreadStatus {
 // Resume execution of a suspended thread.  Its status switches to
 // running while its caller's status switches to suspended.
 func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, *Error) {
-	// You cannot wake up from the dead, so no need for a lock.
-	if t.status == ThreadDead {
-		return nil, NewErrorS("Cannot resume a dead thread")
-	}
 	t.mux.Lock()
+	if t.status != ThreadSuspended {
+		t.mux.Unlock()
+		switch t.status {
+		case ThreadDead:
+			return nil, NewErrorS("cannot resume dead thread")
+		default:
+			return nil, NewErrorS("cannot resume running thread")
+		}
+	}
 	caller.mux.Lock()
 	if t.status != ThreadSuspended {
 		panic("Thread to resume is not suspended")
@@ -126,6 +131,10 @@ func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 		panic("Thread to yield is not running")
 	}
 	caller := t.caller
+	if caller == nil {
+		t.mux.Unlock()
+		return nil, NewErrorS("cannot yield from main thread")
+	}
 	caller.mux.Lock()
 	if caller.status != ThreadOK {
 		panic("Caller of thread to yield is not OK")
