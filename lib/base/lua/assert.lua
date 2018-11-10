@@ -12,3 +12,6 @@ print(pcall(assert, false, "xx"))
 
 print(pcall(assert, nil, 123))
 --> =false	123
+
+print(pcall(assert))
+--> ~false\t.*value needed

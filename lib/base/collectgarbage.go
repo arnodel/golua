@@ -1,7 +1,6 @@
 package base
 
 import (
-	"fmt"
 	"runtime"
 	"runtime/debug"
 
@@ -54,5 +53,4 @@ func init() {
 	gcPercent = debug.SetGCPercent(-1)
 	gcRunning = gcPercent != -1
 	debug.SetGCPercent(gcPercent)
-	fmt.Println("GC =", gcPercent)
 }
