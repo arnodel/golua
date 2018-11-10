@@ -17,3 +17,15 @@ end
 
 print(pcall(select, 0, 1, 2))
 --> ~^false	.*
+
+print(select('#', 1, 2, 3))
+--> =3
+
+print(pcall(select))
+--> ~false\t.*value needed
+
+print(pcall(select, 'hello', 1, 2, 3))
+--> ~false\t.*integer or '#'
+
+print(select(-1, 1, 2 , 3, 4))
+--> =4

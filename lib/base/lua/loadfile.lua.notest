@@ -1,2 +1,6 @@
 --- This is to test loadfile
-print("loadfile")
+if ggg then
+    print(ggg)
+else
+    print("loadfile")
+end

@@ -8,15 +8,15 @@ func pairs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	coll := c.Arg(0)
 	next := c.Next()
-	err, ok := rt.Metacall(t, coll, "__pairs", []rt.Value{coll}, next)
+	res := rt.NewTerminationWith(0, true)
+	err, ok := rt.Metacall(t, coll, "__pairs", []rt.Value{coll}, res)
 	if ok {
 		if err != nil {
 			return nil, err.AddContext(c)
 		}
+		rt.Push(next, res.Etc()...)
 		return next, nil
 	}
-	next.Push(nextGoFunc)
-	next.Push(coll)
-	next.Push(nil)
+	rt.Push(next, nextGoFunc, coll, nil)
 	return next, nil
 }

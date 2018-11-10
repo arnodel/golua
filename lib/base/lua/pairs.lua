@@ -16,3 +16,15 @@ for k, v in pairs(t) do
 end
 print(u.x, u.y, u.z)
 --> =1!	2!	hello!
+
+local tt = {}
+setmetatable(tt, {__pairs=function(x) return "what" end})
+print(pairs(tt))
+--> =what
+
+print(pcall(pairs))
+--> ~false\t.*value needed
+
+setmetatable(tt, {__pairs=function(x) error("nono") end})
+print(pcall(pairs, tt))
+--> ~false	nono

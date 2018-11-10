@@ -19,6 +19,15 @@ load("print(...)")(1, 2)
 loadfile("lua/loadfile.lua.notest")()
 --> =loadfile
 
+loadfile("lua/loadfile.lua.notest", "t", {print=print, ggg = "global"})()
+--> =global
+
+print(pcall(loadfile, "lua/loadfile.lua.notest", "t", 123))
+--> ~false\t.*must be a table
+
+print(pcall(loadfile, "lua/loadfile.lua.notest", 123))
+--> ~false\t.*must be a string
+
 print(pcall(loadfile, "lua/nonexistent_file"))
 --> ~^false	.*
 
@@ -52,6 +61,12 @@ print(pcall(load, {}))
 print(load("\x00", "", "t"))
 --> ~nil\t.*binary chunk
 
+print(load("hi", "", "b"))
+--> ~nil\t.*text chunk
+
 local z = "haha"
 load(string.dump(function() print("hi", z) end))()
 --> =hi	nil
+
+print(load("???", "", "t"))
+--> ~nil\t.*unexpected
