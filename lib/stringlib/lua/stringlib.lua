@@ -270,6 +270,21 @@ do
     pack("<f", 1e-3)
     --> =111	18	131	58
 
+    pack("<J", 1000)
+    --> =232	3	0	0	0	0	0	0
+
+    pack(">I10", 9876543210)
+    --> =0	0	0	0	0	2	76	176	22	234
+
+    pack("<I10", 9876543210)
+    --> =234	22	176	76	2	0	0	0	0	0
+
+    pack("<I6", 123456789)
+    --> =21	205	91	7	0	0
+
+    pack(">I6", 123456789)
+    --> =0	0	7	91	205	21
+
     local function packError(...)
         if pcall(string.pack, ...) then
             print("NO ERROR")
@@ -317,6 +332,48 @@ do
     unpack("!4c1Xlc1", "A***B")
     --> =A	B	6
 
+    unpack("<hh", "\x01\x00\x00\x01")
+    --> =1	256	5
+
+    unpack("<J", "\x00\x00\x01\x00\x00\x00\x00\x00")
+    --> =65536	9
+
+    unpack(">I", "\xff\xff\xff\xff")
+    --> =4294967295	5
+
+    unpack("<f", "\x00\x00\x00\x00")
+    --> =0	5
+
+    unpack("<d", "\x00\x00\x00\x00\x00\x00\x00\x00")
+    --> =0	9
+
+    unpack("<I8", "\x00\x00\x01\x00\x00\x00\x00\x00")
+    --> =65536	9
+
+    unpack("<I9", "\x00\x00\x01\x00\x00\x00\x00\x00\x00")
+    --> =65536	10
+
+    unpack("<i8", "\x00\x00\x01\x00\x00\x00\x00\x00")
+    --> =65536	9
+
+    unpack("<i9", "\x00\x00\x01\x00\x00\x00\x00\x00\x00")
+    --> =65536	10
+
+    unpack("<i10", "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff")
+    --> =-1	11
+
+    unpack(">i10", "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff")
+    --> =-1	11
+
+    unpack("<i6", "\xff\xff\x00\x00\x00\x00")
+    --> =65535	7
+
+    unpack(">i6", "\x00\x00\x00\x00\xff\xff")
+    --> =65535	7
+
+    unpack("<i3>i3", "\xff\xff\xff\xff\xff\xff")
+    --> =-1	-1	7
+
     local function unpackError(...)
         if pcall(string.unpack, ...) then
             print("NO ERROR")
@@ -330,6 +387,8 @@ do
     unpackError("c5", "abcd")
     unpackError("By", "a")
     unpackError("s1", "\x3ab")
+    unpackError("XX", "hello")
+    unpackError("X ", "hello")
 end
 
 do
