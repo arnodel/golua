@@ -1,4 +1,16 @@
+local function checknumarg(f)
+    local ok = not pcall(f) and not pcall(f, {})
+    if ok then
+        print "ok"
+    else
+        print "bad"
+    end
+end
+
 do
+    checknumarg(math.abs)
+    --> =ok
+
     print(math.abs(12))
     --> =12
 
@@ -10,9 +22,18 @@ do
 
     print(math.abs("-123"))
     --> =123
+
+    print(pcall(math.abs))
+    --> ~false\t.*value needed
+
+    print(pcall(math.abs, {}))
+    --> ~false\t.*must be a number
 end
 
 do
+    checknumarg(math.ceil)
+    --> =ok
+
     print(math.ceil(123))
     --> =123
 
@@ -27,12 +48,18 @@ do
 end
 
 do
+    checknumarg(math.exp)
+    --> =ok
+
     print(math.exp(0))
     --> =1
     
 end
 
 do
+    checknumarg(math.floor)
+    --> =ok
+
     print(math.floor(123))
     --> =123
 
@@ -47,6 +74,9 @@ do
 end
 
 do
+    checknumarg(math.log)
+    --> =ok
+
     print(math.log(1))
     --> =0
 end
@@ -60,6 +90,9 @@ do
 end
 
 do
+    checknumarg(math.modf)
+    --> =ok
+
     print(math.modf(1.5))
     --> =1	0.5
 
@@ -68,6 +101,12 @@ do
 end
 
 do
+    checknumarg(math.rad)
+    --> =ok
+
+    checknumarg(math.deg)
+    --> =ok
+
     print(math.rad(90) == math.pi / 2)
     --> =true
 
@@ -76,6 +115,12 @@ do
 end
 
 do
+    checknumarg(math.randomseed)
+    --> =ok
+
+    checknumarg(math.random)
+    --> =ok
+
     local rands = {}
     math.randomseed(5)
     for i = 1, 20 do
@@ -98,6 +143,15 @@ do
 end
 
 do
+    checknumarg(math.sin)
+    --> =ok
+
+    checknumarg(math.cos)
+    --> =ok
+
+    checknumarg(math.tan)
+    --> =ok
+
     local function toz(f)
         return function(x)
             local y = f(x)
@@ -125,6 +179,49 @@ do
 end
 
 do
+    checknumarg(math.asin)
+    --> =ok
+
+    checknumarg(math.acos)
+    --> =ok
+
+    checknumarg(math.atan)
+    --> =ok
+
+    local function round(num) 
+        if num >= 0 then return math.floor(num+.5) 
+        else return math.ceil(num-.5) end
+    end
+
+    local function top(f)
+        return function(x)
+            local y = 4*f(x)/math.pi
+            local ry = round(y)
+            if math.abs(y - ry) > 1e-15 then
+                return ry
+            end
+            return y
+        end
+    end
+
+    local acos = top(math.acos)
+    local asin = top(math.asin)
+    local atan = top(math.atan)
+
+    print(acos(-1), acos(0), acos(1))
+    --> =4	2	0
+
+    print(asin(-1), asin(0), asin(1))
+    --> =-2	0	2
+
+    print(atan(-1), atan(0), atan(1))
+    --> =-1	0	1
+end
+
+do
+    checknumarg(math.sqrt)
+    --> =ok
+
     for i = 1, 5 do
         print(math.floor(1000*math.sqrt(i)))
     end
@@ -172,4 +269,13 @@ do
 
     print(math.ult(-1, 2))
     --> =false
+end
+
+do
+    print(math.fmod(5, 2))
+    --> =1
+
+    -- TODO: fix implementation
+    -- print(math.fmod(-5, 2))
+    -- --> =-1
 end
