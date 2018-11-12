@@ -237,6 +237,7 @@ func Len(t *Thread, v Value) (Value, *Error) {
 	}
 	return nil, NewErrorS("Cannot compute len")
 }
+
 func Type(v Value) String {
 	if v == nil {
 		return String("nil")

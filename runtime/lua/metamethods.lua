@@ -112,3 +112,25 @@ print(tbl .. 1, 1 .. tbl)
 function m.__call(t, x, y) return "call(" .. tostring(x) .. "," .. tostring(y) .. ")" end
 print(tbl(1, 2))
 --> =call(1,2)
+
+do
+    local t = {}
+    setmetatable(t, {__index=t, __newindex=t})
+    print(pcall(function() return t[1] end))
+    --> ~^false\t.*chain too long
+
+    print(pcall(function() t[1] = 2 end))
+    --> ~^false\t.*chain too long
+end
+
+do
+    local t = {}
+    setmetatable(t, {
+        __index = function(t, x) error(x) end,
+        __newindex = function(t, x) error(x) end,
+    })
+    print(pcall(function() return t.booo end))
+    --> =false	booo
+    print(pcall(function() t.arghh = 42 end))
+    --> =false	arghh
+end
