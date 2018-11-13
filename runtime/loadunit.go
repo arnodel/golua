@@ -10,7 +10,7 @@ type Code struct {
 	source, name string
 	code         []code.Opcode
 	lines        []int32
-	consts       []Const
+	consts       []Konst
 	UpvalueCount int16
 	UpNames      []string
 	RegCount     int16
@@ -18,7 +18,7 @@ type Code struct {
 
 func (c *Code) RefactorConsts() *Code {
 	opcodes := make([]code.Opcode, len(c.code))
-	var consts []Const
+	var consts []Konst
 	constMap := map[uint16]uint16{}
 	for i, op := range c.code {
 		if op.TypePfx() == code.Type3Pfx {
@@ -45,7 +45,7 @@ func (c *Code) RefactorConsts() *Code {
 	return &cc
 }
 
-func (c *Code) WriteConst(w io.Writer) (err error) {
+func (c *Code) writeKonst(w io.Writer) (err error) {
 	_, err = w.Write([]byte{constTypeCode})
 	if err != nil {
 		return
@@ -86,7 +86,7 @@ func (c *Code) LoadConst(r io.Reader) (err error) {
 	c.lines = make([]int32, sz)
 	bread(r, c.lines)
 	bread(r, &sz)
-	c.consts = make([]Const, sz)
+	c.consts = make([]Konst, sz)
 	for i := range c.consts {
 		c.consts[i], err = LoadConst(r)
 		if err != nil {
@@ -104,7 +104,7 @@ func (c *Code) LoadConst(r io.Reader) (err error) {
 }
 
 func LoadLuaUnit(unit *code.Unit, env Value) *Closure {
-	constants := make([]Const, len(unit.Constants))
+	constants := make([]Konst, len(unit.Constants))
 	for i, ck := range unit.Constants {
 		switch k := ck.(type) {
 		case code.Int:

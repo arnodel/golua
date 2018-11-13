@@ -179,6 +179,7 @@ func modFloat(x, y Float) Float {
 	return r
 }
 
+// Mod returns x % y.
 func Mod(t *Thread, x Value, y Value) (Value, *Error) {
 	nx, kx := ToNumber(x)
 	ny, ky := ToNumber(y)

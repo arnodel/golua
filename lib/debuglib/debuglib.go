@@ -120,7 +120,7 @@ func setupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next.Push(nil)
 	} else {
 		next.Push(rt.String(f.Code.UpNames[up]))
-		f.SetUpValue(up, c.Arg(2))
+		f.SetUpvalue(up, c.Arg(2))
 	}
 	return next, nil
 }
