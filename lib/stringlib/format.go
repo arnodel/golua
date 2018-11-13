@@ -46,8 +46,8 @@ OuterLoop:
 					if len(args) <= j {
 						return rt.String(""), errNotEnoughValues
 					}
-					n, tp := rt.ToInt(values[j])
-					if tp != rt.IsInt {
+					n, ok := rt.ToInt(values[j])
+					if !ok {
 						return rt.String(""), rt.NewErrorS("invalid value for integer format")
 					}
 					arg = []byte{byte(n)}
@@ -58,8 +58,8 @@ OuterLoop:
 					if len(args) <= j {
 						return rt.String(""), errNotEnoughValues
 					}
-					n, tp := rt.ToInt(values[j])
-					if tp != rt.IsInt {
+					n, ok := rt.ToInt(values[j])
+					if !ok {
 						return rt.String(""), rt.NewErrorS("invalid value for integer format")
 					}
 					switch format[i] {

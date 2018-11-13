@@ -177,8 +177,8 @@ func (c *GoCont) ThreadArg(n int) (*Thread, *Error) {
 // IntArg returns the n-th argument as an Int if possible, otherwise a
 // non-nil *Error.  No range check!
 func (c *GoCont) IntArg(n int) (Int, *Error) {
-	i, tp := ToInt(c.Arg(n))
-	if tp != IsInt {
+	i, ok := ToInt(c.Arg(n))
+	if !ok {
 		return 0, NewErrorF("#%d must be an integer", n+1)
 	}
 	return i, nil

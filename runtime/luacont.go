@@ -4,6 +4,8 @@ import (
 	"github.com/arnodel/golua/code"
 )
 
+// LuaCont is a Lua continuation, made from a closure, values for registers and
+// some state.
 type LuaCont struct {
 	*Closure
 	registers []Value
@@ -12,6 +14,8 @@ type LuaCont struct {
 	running   bool
 }
 
+// NewLuaCont returns a new LuaCont from a closure and next, a continuation to
+// push results into.
 func NewLuaCont(clos *Closure, next Cont) *LuaCont {
 	if clos.upvalueIndex < len(clos.Upvalues) {
 		panic("Closure not ready")
@@ -24,6 +28,7 @@ func NewLuaCont(clos *Closure, next Cont) *LuaCont {
 	}
 }
 
+// Push implements Cont.Push.
 func (c *LuaCont) Push(val Value) {
 	opcode := c.code[c.pc]
 	if opcode.HasType0() {
@@ -38,6 +43,7 @@ func (c *LuaCont) Push(val Value) {
 	}
 }
 
+// Next implements Cont.Next.
 func (c *LuaCont) Next() Cont {
 	next, ok := c.registers[0].(Cont)
 	if !ok {
@@ -46,6 +52,7 @@ func (c *LuaCont) Next() Cont {
 	return next
 }
 
+// RunInThread implements Cont.RunInThread.
 func (c *LuaCont) RunInThread(t *Thread) (Cont, *Error) {
 	pc := c.pc
 	consts := c.consts
@@ -295,6 +302,7 @@ RunLoop:
 	// return nil, errors.New("Invalid PC")
 }
 
+// DebugInfo implements Cont.DebugInfo.
 func (c *LuaCont) DebugInfo() *DebugInfo {
 	pc := c.pc
 	if !c.running {

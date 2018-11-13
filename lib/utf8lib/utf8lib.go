@@ -31,8 +31,8 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	cur := buf
 	bufLen := 0
 	for i, r := range runes {
-		n, tp := rt.ToInt(r)
-		if tp != rt.IsInt {
+		n, ok := rt.ToInt(r)
+		if !ok {
 			return nil, rt.NewErrorF("#%d should be an integer", i+1).AddContext(c)
 		}
 		if n < 0 || n > 0x10FFFF {

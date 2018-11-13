@@ -55,7 +55,7 @@ func LoadConst(r io.Reader) (Konst, error) {
 		return nil, nil
 	case constTypeCode:
 		x := new(Code)
-		if err := x.LoadConst(r); err != nil {
+		if err := x.loadKonst(r); err != nil {
 			return nil, err
 		}
 		return x, nil

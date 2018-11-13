@@ -100,8 +100,8 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	vals := c.Etc()
 	buf := make([]byte, len(vals))
 	for i, v := range vals {
-		x, tp := rt.ToInt(v)
-		if tp != rt.IsInt {
+		x, ok := rt.ToInt(v)
+		if !ok {
 			return nil, rt.NewErrorS("arguments must be integers").AddContext(c)
 		}
 		if x < 0 || x > 255 {

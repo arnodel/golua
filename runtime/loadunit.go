@@ -6,6 +6,8 @@ import (
 	"github.com/arnodel/golua/code"
 )
 
+// Code represents the code for a Lua function together with all the constants
+// that this function uses.  It can be turned into a closure by adding upvalues.
 type Code struct {
 	source, name string
 	code         []code.Opcode
@@ -16,6 +18,9 @@ type Code struct {
 	RegCount     int16
 }
 
+// RefactorConsts returns an equivalent *Code this consts "refactored", which
+// means that the consts are slimmed down to only contains the constants
+// required for the function.
 func (c *Code) RefactorConsts() *Code {
 	opcodes := make([]code.Opcode, len(c.code))
 	var consts []Konst
@@ -71,7 +76,7 @@ func (c *Code) writeKonst(w io.Writer) (err error) {
 	return
 }
 
-func (c *Code) LoadConst(r io.Reader) (err error) {
+func (c *Code) loadKonst(r io.Reader) (err error) {
 	sread(r, &c.source)
 	sread(r, &c.name)
 	var sz int64
@@ -103,6 +108,7 @@ func (c *Code) LoadConst(r io.Reader) (err error) {
 	return
 }
 
+// LoadLuaUnit turns a code unit into a closure given an environment env.
 func LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 	constants := make([]Konst, len(unit.Constants))
 	for i, ck := range unit.Constants {

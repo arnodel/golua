@@ -45,7 +45,7 @@ var errInvalidFormat = errors.New("invalid format")
 var errFormatOutOfRange = errors.New("format out of range")
 
 func getFormatReader(fmt rt.Value) (reader formatReader, err error) {
-	if n, tp := rt.ToInt(fmt); tp == rt.IsInt {
+	if n, ok := rt.ToInt(fmt); ok {
 		if n < 0 {
 			return nil, errFormatOutOfRange
 		}

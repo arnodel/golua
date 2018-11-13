@@ -147,8 +147,8 @@ func (p *packer) nextIntValue() bool {
 	if !p.nextValue() {
 		return false
 	}
-	n, tp := rt.ToInt(p.val)
-	if tp != rt.IsInt {
+	n, ok := rt.ToInt(p.val)
+	if !ok {
 		p.err = errBadType
 		return false
 	}
