@@ -107,6 +107,69 @@ func TestPattern(t *testing.T) {
 			s:        "abc123 xyz",
 			captures: []Capture{{0, 10}},
 		},
+		{
+			ptn:      "[]%d]+x?",
+			s:        "xxx]22x456",
+			captures: []Capture{{3, 7}},
+		},
+		{
+			ptn:      "[0-][a-f]+$^",
+			s:        "123--cafe$^ll",
+			captures: []Capture{{4, 11}},
+		},
+		{
+			ptn:     "((((((((((a))))))))))",
+			invalid: true,
+		},
+		{
+			ptn:     "(",
+			invalid: true,
+		},
+		{
+			ptn:     "aa)",
+			invalid: true,
+		},
+		{
+			ptn:     "aaa%",
+			invalid: true,
+		},
+		{
+			ptn:     "%b",
+			invalid: true,
+		},
+		{
+			ptn:     "%b<",
+			invalid: true,
+		},
+		{
+			ptn:     "%0",
+			invalid: true,
+		},
+		{
+			ptn:     "%e",
+			invalid: true,
+		},
+		{
+			ptn:      "%[",
+			s:        "[",
+			captures: []Capture{{0, 1}},
+		},
+		{
+			ptn:     "[%",
+			invalid: true,
+		},
+		{
+			ptn:     "[%e]",
+			invalid: true,
+		},
+		{
+			ptn:     "[x",
+			invalid: true,
+		},
+		{
+			ptn:     "[x-",
+			invalid: true,
+		},
 	}
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("ptn_%d", i), func(t *testing.T) {
