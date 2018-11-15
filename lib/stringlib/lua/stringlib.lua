@@ -141,13 +141,6 @@ do
 
     print(pcall(string.find, "abc", "(xx%1)"))
     --> ~false\t.*
-
-    pf("ab?c", "abc")
-    --> =1	3
-
-    pf("[]]", "123]456")
-    --> =4	4
-
 end
 
 do
