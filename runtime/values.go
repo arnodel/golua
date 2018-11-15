@@ -101,7 +101,7 @@ func (s String) NormPos(n Int) int {
 // GoFunction
 //
 
-// GoFunction is a callable value implemented by a native Go function.
+// A GoFunction is a callable value implemented by a native Go function.
 type GoFunction struct {
 	f      func(*Thread, *GoCont) (Cont, *Error)
 	name   string
@@ -128,6 +128,8 @@ func (f *GoFunction) Continuation(next Cont) Cont {
 // LightUserData
 //
 
+// A LightUserData is some Go value of unspecified type wrapped to be used as a
+// lua Value.
 type LightUserData struct {
 	Data interface{}
 }

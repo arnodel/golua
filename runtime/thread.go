@@ -25,7 +25,7 @@ type valuesError struct {
 	err  *Error
 }
 
-// Thread is a lua thread.
+// A Thread is a lua thread.
 //
 // The mutex guarantees that if status == ThreadRunning, then caller
 // is not nil.
@@ -39,23 +39,6 @@ type Thread struct {
 	caller      *Thread
 }
 
-func (t *Thread) CurrentCont() Cont {
-	return t.currentCont
-}
-
-func (t *Thread) IsMain() bool {
-	return t.caller == nil
-}
-
-func (t *Thread) getResumeValues() ([]Value, *Error) {
-	res := <-t.resumeCh
-	return res.args, res.err
-}
-
-func (t *Thread) sendResumeValues(args []Value, err *Error) {
-	t.resumeCh <- valuesError{args, err}
-}
-
 // NewThread creates a new thread out of a ThreadStarter.  Its initial
 // status is suspended.  Call Resume to run it.
 func NewThread(rt *Runtime) *Thread {
@@ -66,6 +49,20 @@ func NewThread(rt *Runtime) *Thread {
 	}
 }
 
+// CurrentCont returns the continuation currently running (or suspended) in the
+// thread.
+func (t *Thread) CurrentCont() Cont {
+	return t.currentCont
+}
+
+// IsMain returns true if the thread is the runtime's main thread.
+func (t *Thread) IsMain() bool {
+	return t.caller == nil
+}
+
+// RunContinuation runs the continuation c in the thread. It keeps running until
+// the next continuation is nil or an error occurs, in which case it returns the
+// error.
 func (t *Thread) RunContinuation(c Cont) (err *Error) {
 	for c != nil && err == nil {
 		t.currentCont = c
@@ -74,17 +71,14 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 	return
 }
 
-func (t *Thread) Call(c Callable, args []Value, next Cont) *Error {
-	cont := ContWithArgs(c, args, next)
-	return t.RunContinuation(cont)
-}
-
+// Start starts the thread in a goroutine, giving it the callable c to run.  the
+// t.Resume() method needs to be called to provide arguments to the callable.
 func (t *Thread) Start(c Callable) {
 	go func() {
 		args, err := t.getResumeValues()
 		if err == nil {
 			next := NewTerminationWith(0, true)
-			err = t.Call(c, args, next)
+			err = t.call(c, args, next)
 			args = next.Etc()
 		}
 		t.end(args, err)
@@ -163,4 +157,18 @@ func (t *Thread) end(args []Value, err *Error) {
 		t.caller = nil
 	}
 	caller.sendResumeValues(args, err)
+}
+
+func (t *Thread) call(c Callable, args []Value, next Cont) *Error {
+	cont := ContWithArgs(c, args, next)
+	return t.RunContinuation(cont)
+}
+
+func (t *Thread) getResumeValues() ([]Value, *Error) {
+	res := <-t.resumeCh
+	return res.args, res.err
+}
+
+func (t *Thread) sendResumeValues(args []Value, err *Error) {
+	t.resumeCh <- valuesError{args, err}
 }

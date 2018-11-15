@@ -29,7 +29,7 @@ func ToNumber(x Value) (Value, NumberType) {
 	return x, NaN
 }
 
-// ToNumber returns v as an Int and true if v is actually a valid integer.
+// ToInt returns v as an Int and true if v is actually a valid integer.
 func ToInt(v Value) (Int, bool) {
 	switch x := v.(type) {
 	case Int:
@@ -44,7 +44,7 @@ func ToInt(v Value) (Int, bool) {
 	return 0, false
 }
 
-// ToFloat
+// ToFloat returns v as a FLoat and true if v is a valid float.
 func ToFloat(v Value) (Float, bool) {
 	switch x := v.(type) {
 	case Int:

@@ -35,7 +35,7 @@ func Index(t *Thread, coll Value, k Value) (Value, *Error) {
 				return val, nil
 			}
 		}
-		metaIdx := t.MetaGetS(coll, "__index")
+		metaIdx := t.metaGetS(coll, "__index")
 		if metaIdx == nil {
 			return nil, nil
 		}
@@ -66,7 +66,7 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
 				return nil
 			}
 		}
-		metaNewIndex := t.MetaGetS(coll, "__newindex")
+		metaNewIndex := t.metaGetS(coll, "__newindex")
 		if metaNewIndex == nil {
 			if ok {
 				if err := tbl.SetCheck(idx, val); err != nil {
@@ -97,7 +97,7 @@ func Truth(v Value) bool {
 // Metacall calls the metamethod called method on obj with the given arguments
 // args, pushing the result to the continuation next.
 func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (*Error, bool) {
-	if f := t.MetaGetS(obj, method); f != nil {
+	if f := t.metaGetS(obj, method); f != nil {
 		return Call(t, f, args, next), true
 	}
 	return nil, false
@@ -129,7 +129,7 @@ func Call(t *Thread, f Value, args []Value, next Cont) *Error {
 	}
 	callable, ok := f.(Callable)
 	if ok {
-		return t.Call(callable, args, next)
+		return t.call(callable, args, next)
 	}
 	err, ok := Metacall(t, f, "__call", append([]Value{f}, args...), next)
 	if ok {
@@ -307,7 +307,7 @@ func CompileAndLoadLuaChunk(name string, source []byte, env Value) (*Closure, er
 }
 
 func metacont(t *Thread, obj Value, method string, next Cont) (Cont, *Error, bool) {
-	f := t.MetaGetS(obj, method)
+	f := t.metaGetS(obj, method)
 	if IsNil(f) {
 		return nil, nil, false
 	}

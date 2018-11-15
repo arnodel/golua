@@ -1,16 +1,21 @@
 package runtime
 
-// Termination is a 'dead-end' continuation: it cannot be run
+// Termination is a 'dead-end' continuation: it cannot be run.
 type Termination struct {
 	args      []Value
 	pushIndex int
 	etc       *[]Value
 }
 
+// NewTermination returns a new pointer to Termination where the first len(args)
+// values will be pushed into args and the remaining ones will be added to etc
+// if it is non nil, dropped otherwise.
 func NewTermination(args []Value, etc *[]Value) *Termination {
 	return &Termination{args: args, etc: etc}
 }
 
+// NewTerminationWith creates a new Termination expecting nArgs args and
+// possibly gathering extra args into an etc if hasEtc is true.
 func NewTerminationWith(nArgs int, hasEtc bool) *Termination {
 	var args []Value
 	var etc *[]Value
@@ -45,10 +50,12 @@ func (c *Termination) Next() Cont {
 	return nil
 }
 
+// DebugInfo implements Cont.DebugInfo.
 func (c *Termination) DebugInfo() *DebugInfo {
 	return nil
 }
 
+// Get returns the n-th arg pushed to the termination.
 func (c *Termination) Get(n int) Value {
 	if n >= c.pushIndex {
 		return nil
@@ -56,6 +63,7 @@ func (c *Termination) Get(n int) Value {
 	return c.args[n]
 }
 
+// Etc returns all the extra args pushed to the termination.
 func (c *Termination) Etc() []Value {
 	if c.etc == nil {
 		return nil
@@ -63,6 +71,7 @@ func (c *Termination) Etc() []Value {
 	return *c.etc
 }
 
+// Reset erases all the args pushed to the termination.
 func (c *Termination) Reset() {
 	c.pushIndex = 0
 	if c.etc != nil {
