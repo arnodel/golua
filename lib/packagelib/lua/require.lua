@@ -1,3 +1,9 @@
+print(pcall(require))
+--> ~^false\t.*value needed
+
+print(pcall(require, {}))
+--> ~^false\t.*must be a string
+
 print(require "testlib.foo") -- points at testlib/foo.lua
 --> =foo
 --> =bar
