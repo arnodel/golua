@@ -145,7 +145,9 @@ func fileflush(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return ioflush(t, c)
 }
 
-var errFileOrFilename = rt.NewErrorS("#1 must be a file or a filename")
+func errFileOrFilename() *rt.Error {
+	return rt.NewErrorS("#1 must be a file or a filename")
+}
 
 func input(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	ioData := getIoData(t)
@@ -163,11 +165,11 @@ func input(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case *rt.UserData:
 		_, err := FileArg(c, 0)
 		if err != nil {
-			return nil, errFileOrFilename.AddContext(c)
+			return nil, errFileOrFilename().AddContext(c)
 		}
 		fv = x
 	default:
-		return nil, errFileOrFilename.AddContext(c)
+		return nil, errFileOrFilename().AddContext(c)
 	}
 	ioData.defaultInput = fv
 	return c.Next(), nil
@@ -189,11 +191,11 @@ func output(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case *rt.UserData:
 		_, err := FileArg(c, 0)
 		if err != nil {
-			return nil, errFileOrFilename.AddContext(c)
+			return nil, errFileOrFilename().AddContext(c)
 		}
 		fv = x
 	default:
-		return nil, errFileOrFilename.AddContext(c)
+		return nil, errFileOrFilename().AddContext(c)
 	}
 	getIoData(t).defaultOutput = fv
 	return c.Next(), nil
