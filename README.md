@@ -6,7 +6,7 @@
 
 Implementation of Lua **5.3** in Go.
 
-# Quick start
+# Quick start: running golua
 
 To install, run:
 
@@ -101,6 +101,31 @@ $ golua err.lua
 in function foo (file err.lua:3)
 in function bar (file err.lua:8)
 in function <main chunk> (file err.lua:11)
+```
+
+## Quick start: embedding golua
+
+It's very easy to embed the golua compiler / runtime in a Go program.  The example below compiles a lua function, runs it and displays the result.
+
+```golang
+	// First we obtain a new Lua runtime which outputs to stdout
+	r := rt.New(os.Stdout)
+
+	// This is the chunk we want to run.  It returns an adding function.
+	source := []byte(`return function(x, y) return x + y end`)
+
+	// Compile the chunk. Note that compiling doesn't require a runtime.
+	chunk, _ := rt.CompileAndLoadLuaChunk("test", source, r.GlobalEnv())
+
+	// Run the chunk in the runtime's main thread.  Its output is the Lua adding
+	// function.
+	f, _ := rt.Call1(r.MainThread(), chunk)
+
+	// Now, run the Lua function in the main thread.
+	sum, _ := rt.Call1(r.MainThread(), f, rt.Int(40), rt.Int(2))
+
+	// --> 42
+	fmt.Println(sum)
 ```
 
 ## Aim
