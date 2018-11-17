@@ -6,7 +6,7 @@
 
 Implementation of Lua **5.3** in Go.
 
-# Quick start: running golua
+## Quick start: running golua
 
 To install, run:
 
