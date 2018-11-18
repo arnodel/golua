@@ -197,6 +197,10 @@ environment and demonstrates calling it from Lua.
 	_, _ = rt.Call1(r.MainThread(), chunk)
 ```
 
+You can also make custom libraries and use Go values in Lua (using e.g. the
+`runtime.UserData` type).  There is an example implementing a `regex` Lua
+package that uses Go `regexp.Regexp` in [examples/userdata](examples/userdata)
+
 ## Aim
 
 To implememt the Lua programming language in Go, easily embeddable in

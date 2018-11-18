@@ -1,3 +1,11 @@
+// Package regexlib is an example of how to make a go library for lua.  It
+// allows using Go regular expressions in Lua code.  To use in a runtime r, add
+// the following Go code:
+//    regexlib.LibLoader.Run(r)
+// Then in Lua code e.g.
+//    regex = require"regex"
+//    ptn = regex.new("[0-9]+")
+//    match = ptn:find("hello there 123 yippee")
 package regexlib
 
 import (

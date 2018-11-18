@@ -18,10 +18,12 @@ print("found:", match)
 `
 
 func main() {
-	r := rt.New(os.Stdout)
-	base.Load(r)
-	packagelib.LibLoader.Run(r)
-	regexlib.LibLoader.Run(r)
+	r := rt.New(os.Stdout)      // Create runtime
+	base.Load(r)                // Load base lib (needed for print)
+	packagelib.LibLoader.Run(r) // Load package lib (needed for require)
+	regexlib.LibLoader.Run(r)   // Load our example lib
+
+	// Now compile and run the lua code
 	chunk, _ := rt.CompileAndLoadLuaChunk("test", []byte(code), r.GlobalEnv())
 	_, _ = rt.Call1(r.MainThread(), chunk)
 }
