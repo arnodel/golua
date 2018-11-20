@@ -6,6 +6,20 @@
 
 Implementation of Lua **5.3** in Go.
 
+- [GoLua](#golua)
+	- [Quick start: running golua](#quick-start-running-golua)
+	- [Quick start: embedding golua](#quick-start-embedding-golua)
+	- [Quick start: extending golua](#quick-start-extending-golua)
+	- [Aim](#aim)
+	- [Design constraints](#design-constraints)
+	- [Components](#components)
+		- [Lexer / Parser](#lexer--parser)
+		- [AST → IR Compilation](#ast-%E2%86%92-ir-compilation)
+		- [IR → Code Compilation](#ir-%E2%86%92-code-compilation)
+		- [Runtime](#runtime)
+		- [Test Suite](#test-suite)
+		- [Standard Library](#standard-library)
+
 ## Quick start: running golua
 
 To install, run:
