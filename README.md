@@ -297,9 +297,9 @@ lua library.
 * `iolib`: the io library.  It is implemented apart from `popen`,
   `file:setvbuf`, `read("n")` (reading a number)
 * `utf8lib`: the utf8 library.  It is complete.
+* `debug`: partially implemented (mainly to pass the lua test suite).  The
+  `getupvalue`, `setupvalue`, `upvalueid`, `upvaluejoin`, `setmetatable`
+  functions are implemented fully.  The `getinfo` function is partially
+  implemented.
 
-The following libraries do not exist at all:
-* os library
-* debug library (I don't know how much of this can reasonably be
-  implemented as I didn't want to be constrained by it when designing
-  golua)
+The `os` package is not yet implemented.
