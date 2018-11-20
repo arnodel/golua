@@ -1,3 +1,14 @@
+local function errtest(f)
+    return function(...)
+        local ok, err = pcall(f, ...)
+        if ok then
+            print"OK"
+        else
+            print(err)
+        end
+    end
+end
+
 do
     local s = "hello"
     print(string.byte(s))
@@ -18,22 +29,47 @@ do
     -- Byte can also be called as a method on strings
     print(s:byte(3))
     --> =108
+
+    local errbyte = errtest(string.byte)
+
+    errbyte()
+    --> ~value needed
+
+    errbyte({})
+    --> ~must be a string
+
+    errbyte("xxx", true)
+    --> ~must be an integer
+
+    errbyte("xxx", 1, nil)
+    --> ~must be an integer
 end
 
 do
     print(string.char(65, 66, 67))
     --> =ABC
 
-    print(pcall(string.char, -1))
-    --> ~^false\t.*out of range.*
+    local errchar = errtest(string.char)
 
-    print(pcall(string.char, 256))
-    --> ~^false\t.*out of range.*
+    errchar(-1)
+    --> ~out of range
+
+    errchar(256)
+    --> ~out of range
+
+    errchar(1, 2, "x")
+    --> ~must be integers
 end
 
 do
     print(string.len("abc"), string.len(""))
     --> =3	0
+
+    errtest(string.len)()
+    --> ~value needed
+
+    errtest(string.len)(123)
+    --> ~must be a string
 end
 
 do
@@ -43,6 +79,18 @@ do
 
     print(s:upper())
     --> =ABCDEF123
+
+    errtest(string.lower)()
+    --> ~value needed
+
+    errtest(string.lower)(123)
+    --> ~must be a string
+
+    errtest(string.upper)()
+    --> ~value needed
+
+    errtest(string.upper)(123)
+    --> ~must be a string
 end
 
 do
@@ -62,6 +110,29 @@ do
     --> =xy
     --> =xy--xy
     --> =xy--xy--xy
+
+    local errrep = errtest(string.rep)
+
+    errrep()
+    --> ~2 arguments needed
+
+    errrep(1, 2)
+    --> ~must be a string
+
+    errrep("xx", {})
+    --> ~must be an integer
+
+    errrep("xx", -1)
+    --> ~out of range
+
+    errrep("x", 2, 1)
+    --> ~must be a string
+
+    errrep("xxxxxxxxxx", 1 << 62)
+    --> ~overflow
+
+    errrep("xx", 1 << 62, ";")
+    --> ~overflow
 end
 
 do
@@ -71,6 +142,12 @@ do
 
     print(string.reverse("12345"))
     --> =54321
+
+    errtest(string.reverse)()
+    --> ~value needed
+
+    errtest(string.reverse)(123)
+    --> ~must be a string
 end
 
 do
@@ -87,6 +164,26 @@ do
     --> =bc
     --> =c
     --> =
+
+    print(s:sub(2, 3))
+    --> =bc
+
+    print(s:sub(3, 6))
+    --> =c
+
+    local subtest = errtest(string.sub)
+
+    subtest()
+    --> ~2 arguments needed
+
+    subtest(1, 2)
+    --> ~must be a string
+
+    subtest("x", {})
+    --> ~must be an integer
+
+    subtest("xxx", 1, true)
+    --> ~must be an integer
 end
 
 do
