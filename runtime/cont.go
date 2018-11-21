@@ -7,6 +7,7 @@ package runtime
 // TODO: document the methods.
 type Cont interface {
 	Push(Value)
+	PushEtc([]Value)
 	RunInThread(*Thread) (Cont, *Error)
 	Next() Cont
 	DebugInfo() *DebugInfo

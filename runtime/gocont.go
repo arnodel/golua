@@ -43,9 +43,7 @@ func (c *GoCont) Push(v Value) {
 // given values to c.Next() and returns it.
 func (c *GoCont) PushingNext(vals ...Value) Cont {
 	next := c.Next()
-	for _, v := range vals {
-		next.Push(v)
-	}
+	next.PushEtc(vals)
 	return next
 }
 
@@ -169,7 +167,7 @@ func (c *GoCont) ClosureArg(n int) (*Closure, *Error) {
 func (c *GoCont) ThreadArg(n int) (*Thread, *Error) {
 	t, ok := c.Arg(n).(*Thread)
 	if !ok {
-		return nil, NewErrorF("#%d must be a callable", n+1)
+		return nil, NewErrorF("#%d must be a thread", n+1)
 	}
 	return t, nil
 }

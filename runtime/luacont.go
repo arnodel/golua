@@ -43,6 +43,13 @@ func (c *LuaCont) Push(val Value) {
 	}
 }
 
+// PushEtc implements Cont.PushEtc.  TODO: optimise.
+func (c *LuaCont) PushEtc(vals []Value) {
+	for _, val := range vals {
+		c.Push(val)
+	}
+}
+
 // Next implements Cont.Next.
 func (c *LuaCont) Next() Cont {
 	next, ok := c.registers[0].(Cont)
@@ -204,9 +211,7 @@ RunLoop:
 				case code.OpEtcId:
 					// We assume it's a push?
 					cont := c.getReg(dst).(Cont)
-					for _, v := range val.([]Value) {
-						cont.Push(v)
-					}
+					cont.PushEtc(val.([]Value))
 					pc++
 					continue RunLoop
 				case code.OpTruth:

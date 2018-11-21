@@ -39,6 +39,27 @@ func (c *Termination) Push(v Value) {
 	}
 }
 
+// PushEtc implements Cont.PushEtc.
+func (c *Termination) PushEtc(etc []Value) {
+	if c.pushIndex < len(c.args) {
+		for i, v := range etc {
+			c.args[c.pushIndex] = v
+			c.pushIndex++
+			if c.pushIndex == len(c.args) {
+				etc = etc[i+1:]
+				goto FillEtc
+			}
+		}
+		return
+	}
+FillEtc:
+	if c.etc == nil {
+		return
+	}
+	*c.etc = append(*c.etc, etc...)
+
+}
+
 // RunInThread implements Cont.RunInThread. A termination exits
 // immediately so it always returns nil.
 func (c *Termination) RunInThread(t *Thread) (Cont, *Error) {
