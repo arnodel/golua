@@ -67,7 +67,7 @@ func (s String) ToInt() (Int, NumberType) {
 	return 0, NaN
 }
 
-// ToNumber turns a Strign into a numeric value (Int or Float) if
+// ToNumber turns a String into a numeric value (Int or Float) if
 // possible.
 func (s String) ToNumber() (Value, NumberType) {
 	nstring := string(s)

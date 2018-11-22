@@ -30,7 +30,7 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	si := pos(s, init) - 1
+	si := s.NormPos(init) - 1
 	next := c.Next()
 	switch {
 	case si < 0 || si > len(s):
@@ -77,7 +77,7 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	si := pos(s, init) - 1
+	si := s.NormPos(init) - 1
 	next := c.Next()
 	pat, ptnErr := pattern.New(string(ptn))
 	if ptnErr != nil {

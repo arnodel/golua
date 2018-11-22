@@ -40,14 +40,6 @@ var LibLoader = packagelib.Loader{
 	Name: "string",
 }
 
-func pos(s rt.String, n rt.Int) int {
-	p := int(n)
-	if p < 0 {
-		p = len(s) + 1 + p
-	}
-	return p
-}
-
 func maxpos(i, j int) int {
 	if i > j {
 		return i
@@ -76,7 +68,7 @@ func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil {
 			return nil, err.AddContext(c)
 		}
-		i = pos(s, ii)
+		i = s.NormPos(ii)
 		j = i
 	}
 	if c.NArgs() >= 3 {
@@ -84,7 +76,7 @@ func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil {
 			return nil, err.AddContext(c)
 		}
-		j = pos(s, jj)
+		j = s.NormPos(jj)
 	}
 	next := c.Next()
 	i = maxpos(1, i)
@@ -233,14 +225,14 @@ func sub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	i := pos(s, ii)
+	i := s.NormPos(ii)
 	j := len(s)
 	if c.NArgs() >= 3 {
 		jj, err := c.IntArg(2)
 		if err != nil {
 			return nil, err.AddContext(c)
 		}
-		j = pos(s, jj)
+		j = s.NormPos(jj)
 	}
 	var slice rt.String
 	i = maxpos(1, i)
