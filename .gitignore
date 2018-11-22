@@ -16,4 +16,11 @@
 # Emacs recovery files
 *~
 
+# test files written
 writetest*.txt
+
+# MacOS thingy
+.DS_Store
+
+# vscode workspace file
+*.code-workspace
