@@ -85,19 +85,11 @@ func (t *Table) Len() Int {
 		t.borderState = borderOK
 	case borderCheckUp:
 		for t.content[t.border+1].value != nil {
-			t.border++
+			t.border++ // I don't know if that ever happens (can't test it!)
 		}
 		t.borderState = borderOK
 	}
 	return t.border
-}
-
-// HasKey returns true if k is a valid key in the table t.
-func (t *Table) HasKey(k Value) bool {
-	if k == nil {
-		return false
-	}
-	return t.content[k].value != nil
 }
 
 // Next returns the key-value pair that comes after k in the table t.

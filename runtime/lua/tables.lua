@@ -22,3 +22,43 @@ t[4]=nil
 t[5]=nil
 print(#t)
 --> =3
+
+t[3.2] = 5
+print(t[3.2])
+--> =5
+
+t[5e2] = "hi"
+print(t[500])
+--> =hi
+
+print(#t)
+--> =500
+
+t.xxx = nil
+print(t.xxx)
+--> =nil
+
+print(pcall(function() t[nil] = 2 end))
+--> ~false\ttable index is nil
+
+do
+    local t = {"x", "y"}
+    local a, x = next(t)
+    local b, y = next(t, a)
+    if a < b then
+        print(a..b, x..y)
+    else
+        print(b..a, y..x)
+    end
+    --> =12	xy
+
+    print(next(t, b))
+    --> =nil	nil
+
+    print(pcall(next, t, "abc"))
+    --> ~^false
+
+    t[b] = nil
+    print(next(t, a))
+    --> =nil	nil
+end
