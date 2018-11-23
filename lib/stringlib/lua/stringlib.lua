@@ -191,6 +191,8 @@ do
         print(string.format(...))
     end
     
+    local errf = errtest(string.format)
+
     pf("%s=%f", "pi", 3.14)
     --> =pi=3.140000
 
@@ -210,10 +212,72 @@ do
     pf("%s", 1, 2, 3)
     --> =1
 
+    pf("%c", 65)
+    --> =A
+
+    errf("%c")
+    --> ~not enough values
+
+    errf("%c", {})
+    --> ~invalid value
+
+    errf("%d", "hello")
+    --> ~invalid value
+
+    pf("-%u-", 55)
+    --> =-55-
+
+    pf("%i", -12)
+    --> =-12
+
+    pf("%x", 255)
+    --> =ff
+
+    errf("%e")
+    --> ~not enough values
+
+    errf("%e", false)
+    --> ~invalid value
+
+    errf('"%s"')
+    --> ~not enough values
+
+    local t = {}
+    setmetatable(t, {__tostring=function() error("bad") end})
+    errf("%s", t)
+    --> =bad
+
+    errf("%q")
+    --> ~not enough values
+
+    pf("[%q]", nil)
+    --> =[nil]
+
+    errf("%q", {})
+    --> ~no literal
+
+    errf("%t")
+    --> ~not enough values
+
+    pf("This is %t", true)
+    --> =This is true
+
+    errf("%t", 1)
+    --> ~invalid value
+
+    errf("%z")
+    --> ~invalid format string
+
     -- Not enough values is not OK
     print(pcall(pf, "%s %d", 1))
     --> ~^false\t.*$
-    
+
+    errf()
+    --> ~value needed
+
+    errf(321)
+    --> ~must be a string
+
 end
 
 do
