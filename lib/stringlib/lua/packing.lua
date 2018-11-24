@@ -60,6 +60,15 @@ do
     pack(">I6", 123456789)
     --> =0	0	7	91	205	21
 
+    pack("i8", 123)
+    --> =123	0	0	0	0	0	0	0
+
+    pack("i9", -1)
+    --> =255	255	255	255	255	255	255	255	255
+
+    pack("I4", 1122334455)
+    --> =247	118	229	66
+
     local function packError(...)
         if pcall(string.pack, ...) then
             print("NO ERROR")
@@ -76,6 +85,23 @@ do
     packError("dy", 1) -- invalid option "y"
     packError("bbX", 1, 1) -- "X" must be followed by option
     packError("!3bi", 1, 1) -- alignment not a power of 2
+    packError("z", "a\0b") -- string contains zero
+    packError("f", "xx") -- expect float
+    packError("i") -- expect a value
+    packError("s") -- expect a value
+    packError("s", {}) -- expect a string-like
+    packError("f", 1e50) -- float too big
+    packError("i1", 300) -- int too big
+    packError("c18446744073709551620", "hello") -- size to big
+    packError("c18446744073709551619", "hello") -- size to big
+
+    s = string.rep("x", 500)
+    print(#s)
+    --> =500
+    packError("s1", s) -- string too long
+
+    print("DONE")
+    --> =DONE
 end
 
 do
@@ -196,4 +222,14 @@ do
     psError("!20")
     psError("z")
     psError("s4")
+end
+
+do
+    local function pu(f, ...)
+        print(string.unpack(f, string.pack(f, ...)))
+    end
+
+    pu("<i>i=i", 1, 2, 3)
+    --> ~1	2	3	
+
 end

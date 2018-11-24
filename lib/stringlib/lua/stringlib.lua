@@ -281,8 +281,8 @@ do
 end
 
 do
-    local function dl(f)
-        return load(string.dump(f))
+    local function dl(...)
+        return load(string.dump(...))
     end
     
     local function f(x)
@@ -295,7 +295,7 @@ do
     dl(f)(2)
     --> =2 squared is 4
 
-    dl(f)(10)
+    dl(f, true)(10)
     --> =10 squared is 100
 
     local function g(x)
@@ -308,4 +308,12 @@ do
     print(dl(g)(3)(5))
     --> =Working...
     --> =10
+
+    local errd = errtest(string.dump)
+
+    errd()
+    --> ~value needed
+
+    errd(true)
+    --> ~must be a lua function
 end

@@ -34,7 +34,7 @@ func (p *packFormatReader) smallOptSize(defaultSize uint) (ok bool) {
 	}
 	p.optSize = defaultSize
 	if ok = defaultSize != 0; !ok {
-		p.err = errMissingSize
+		p.err = errMissingSize // TODO: check this condition occurs
 	}
 	return
 }
