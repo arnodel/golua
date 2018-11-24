@@ -75,6 +75,8 @@ do
         end
     end
 
+    packError() -- value needed
+    packError(123) -- string expected
     packError("d") -- missing value
     packError("i", "abc") -- bad value type
     packError("!17") -- size out of bounds
@@ -181,6 +183,11 @@ do
         end
     end
 
+    unpackError() -- 2 arguments needed
+    unpackError("a") -- 2 argument needed
+    unpackError(1, "z") -- #1 must be a string
+    unpackError("b", {}) -- #2 must be a string
+    unpackError("a", "xyz", 40) -- #3 out of range
     unpackError("b", "")
     unpackError("i", "123")
     unpackError("bX", "2")
@@ -212,12 +219,14 @@ do
     ps("!8hXi8")
     --> =8
 
-    local function psError(f)
-        if pcall(string.packsize, f) then
+    local function psError(...)
+        if pcall(string.packsize, ...) then
             print("NO ERROR")
         end
     end
 
+    psError() -- value needed
+    psError(false) -- value must be a string
     psError("c")
     psError("!20")
     psError("z")
