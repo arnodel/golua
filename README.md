@@ -260,10 +260,10 @@ bytecode interpreter is implemented in the `RunInThread` method of the
 
 ### Test Suite
 
-There is a framework for running lua tests in the package `luatests`.
-In the directory `luatests/lua`, each `.lua` file is a test. Expected
-output is specified in the file as comments of a special form,
-starting with `-->`:
+There is a framework for running lua tests in the package `luatesting`. In the
+various Go packages, if there is a  `lua` directory, each `.lua` file is a test.
+Expected output is specified in the file as comments of a special form, starting
+with `-->`:
 
 ```lua
 print(1 + 2)
@@ -275,8 +275,8 @@ print("ababab")
 -- "~" means match with a regexp (syntax is go regexp)
 ```
 
-There is good coverage of the standard library but more tests need to
-be written for the core language.
+Most of the code is covered with such Lua tests.  Specific packages or functions
+are covered with Go tests.
 
 ### Standard Library
 
