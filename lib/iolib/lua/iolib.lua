@@ -1,4 +1,20 @@
+local function testf(f)
+    return function(...)
+        (function(ok, ...) 
+            if ok then
+                print("OK", ...)
+            else
+                print("ERR", ...)
+            end
+        end)(pcall(f, ...))
+    end
+end
+
 do
+    local close = testf(io.close)
+    close("abc")
+    --> ~ERR	.*must be a file
+
     print(pcall(io.open))
     --> ~^false\t.*value needed
 
@@ -7,6 +23,9 @@ do
 
     print(pcall(io.open, "aaa", false))
     --> ~^false\t.*must be a string
+
+    testf(io.open)("files/doesnotexist")
+    --> ~ERR	.*no such file
 
     local f = io.open("files/iotest.txt")
     print(f)
@@ -21,6 +40,12 @@ do
     print(pcall(f.read, f, "?"))
     --> ~^false\t.*invalid format
 
+    testf(io.type)()
+    --> ~ERR	.*value needed
+
+    print(io.type(123))
+    --> =nil
+
     print(io.type(f))
     --> =file
 
@@ -33,6 +58,7 @@ do
     print(pcall(f.lines, f, "wat"))
     --> ~^false\t.*invalid format
 
+
     for line in f:lines() do
         print(line)
     end
@@ -40,12 +66,30 @@ do
     --> =123
     --> =bye
 
+    testf(f.close)()
+    --> ~ERR	.*value needed
+
+    testf(f.flush)()
+    --> ~ERR	.*value needed
+
+    testf(f.flush)(123)
+    --> ~ERR	.*must be a file
+
     f:close()
     print(io.type(f))
     --> =closed file
 end
 
 do
+    testf(io.lines)(123)
+    --> ~ERR	.*must be a string
+
+    testf(io.lines)("nonexistent")
+    --> ~ERR	.*no such file
+
+    testf(io.lines)("files/iotest.txt", "z")
+    --> ~ERR	.*invalid format
+
     for line in io.lines("files/iotest.txt") do
         print(line)
     end
@@ -62,6 +106,9 @@ do
         print("[" .. x .. "]")
     end
     local f = io.open("files/writetest.txt", "w")
+
+    testf(f.write)()
+    --> ~ERR	.*value needed
 
     print(pcall(f.write, 123))
     --> ~^false\t.*must be a file
@@ -80,6 +127,9 @@ do
 
     wp(f:read("l"))
     --> =[nil]
+
+    testf(f.seek)(f, "set", "hello")
+    --> ~ERR	.*must be an integer
 
     f:seek("set", 0)
     wp(f:read(7))
@@ -105,9 +155,25 @@ do
     print(pcall(f.seek, f, 42))
     --> ~^false\t.*string
 
+    print(f:seek("set", -100000))
+    --> ~^nil\t
+
+    local metaf = getmetatable(f)
+
+    testf(metaf.__tostring)()
+    --> ~ERR	.*value needed
+
+    testf(metaf.__tostring)("not a file")
+    --> ~ERR	.*must be a file
 end
 
 do
+    testf(io.read)("z")
+    --> ~ERR	.*invalid format
+
+    testf(io.read)(false)
+    --> ~ERR	.*invalid format
+
     local f = io.open("files/writetest2.txt", "w+")
     io.output(f)
     io.write([[Dear sir,
@@ -160,6 +226,9 @@ do
     local stdout = io.output()
     print(io.type(stdout))
     --> =file
+
+    testf(io.output)(false)
+    --> ~^ERR
 
     io.output("files/outputtest.txt")
     io.write("hello")

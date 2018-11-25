@@ -377,7 +377,7 @@ func fileseek(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
 	if ioErr != nil {
 		next.Push(nil)
-		next.Push(rt.String(err.Error()))
+		next.Push(rt.String(ioErr.Error()))
 	} else {
 		next.Push(rt.Int(pos))
 	}
