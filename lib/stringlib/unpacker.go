@@ -94,6 +94,7 @@ func UnpackString(format, pack string, j int) ([]rt.Value, int, error) {
 				u.add(u.strVal)
 		case 'z':
 			if !u.align(0) {
+				u.err = errExpectedOption
 				break
 			}
 			var zi = u.j
@@ -206,11 +207,15 @@ func (u *unpacker) readVarUint() (ok bool) {
 	default:
 		// n < 8 so truncated
 		var b [8]byte
+		var rn int
 		switch u.byteOrder {
 		case binary.LittleEndian:
-			_, u.err = u.Read(b[:n])
+			rn, u.err = u.Read(b[:n])
 		default:
-			_, u.err = u.Read(b[8-n:])
+			rn, u.err = u.Read(b[8-n:])
+		}
+		if rn < int(n) {
+			u.err = errUnexpectedPackEnd
 		}
 		if u.err != nil {
 			return false
@@ -263,9 +268,13 @@ func (u *unpacker) readVarInt() (ok bool) {
 	default:
 		// n < 8 so truncated
 		var b [8]byte
+		var rn int
 		switch u.byteOrder {
 		case binary.LittleEndian:
-			_, u.err = u.Read(b[:n])
+			rn, u.err = u.Read(b[:n])
+			if rn < int(n) {
+				u.err = errUnexpectedPackEnd
+			}
 			if u.err != nil {
 				return false
 			}
@@ -275,7 +284,10 @@ func (u *unpacker) readVarInt() (ok bool) {
 				}
 			}
 		default:
-			_, u.err = u.Read(b[8-n:])
+			rn, u.err = u.Read(b[8-n:])
+			if rn < int(n) {
+				u.err = errUnexpectedPackEnd
+			}
 			if u.err != nil {
 				return false
 			}
@@ -314,6 +326,7 @@ func (u *unpacker) skip0(n uint) (ok bool) {
 	ok = u.j <= len(u.pack)
 	if !ok {
 		u.err = errUnexpectedPackEnd
+		return
 	}
 	for j < u.j {
 		if ok = u.pack[j] == 0; !ok {
@@ -331,6 +344,7 @@ func (u *unpacker) readSignExt(n uint, sign *uint8) (ok bool) {
 	ok = n > 0 && u.j <= len(u.pack)
 	if !ok {
 		u.err = errUnexpectedPackEnd
+		return
 	}
 	*sign = u.pack[j]
 	ok = *sign == 0 || *sign == 0xff

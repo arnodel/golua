@@ -177,6 +177,9 @@ do
     unpack("<i3>i3", "\xff\xff\xff\xff\xff\xff")
     --> =-1	-1	7
 
+    unpack("z", "ho\0")
+    --> =ho	4
+
     local function unpackError(...)
         if pcall(string.unpack, ...) then
             print("NO ERROR")
@@ -197,6 +200,17 @@ do
     unpackError("s1", "\x3ab")
     unpackError("XX", "hello")
     unpackError("X ", "hello")
+    unpackError("Xz", "a\0") -- z has no alignment
+    unpackError("!4zf", "a\0") -- no padding
+    unpackError("I6", "1234") -- not enough bytes to read
+    unpackError("<I10", "12345678xx") -- ext bytes should be 0
+    unpackError(">I10", "\0") -- missing 0 byte
+    unpackError(">i10", "") -- not enough sign bytes
+    unpackError(">i10", "1100000000") -- wrong value for sign byte
+    unpackError(">i10", "\0\0\xff\xff\xff\xff\xff\xff\xff\xff") -- too big
+    unpackError(">i10", "\xff\xff\0\0\0\0\0\0\0\0") -- too big negative
+    unpackError("<i6", "123") -- not enough bytes
+    unpackError(">i6", "123") -- not enough bytes
 end
 
 do
