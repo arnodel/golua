@@ -53,18 +53,19 @@ func TestScanner(t *testing.T) {
 			"",
 		},
 		{
-			`123.45 "abc" -0xff`,
+			`123.45 "abc" -0xff .5`,
 			[]tok{
 				{token.NUMDEC, "123.45", 0, 1, 1},
 				{token.STRING, `"abc"`, 7, 1, 8},
 				{token.SgMinus, "-", 13, 1, 14},
 				{token.NUMHEX, "0xff", 14, 1, 15},
-				{token.EOF, "", 18, 1, 19},
+				{token.NUMDEC, ".5", 19, 1, 20},
+				{token.EOF, "", 21, 1, 22},
 			},
 			"",
 		},
 		{
-			`...,:<=}///  `,
+			"...,:<=}///[]>=~~====  --hi\n--[bye",
 			[]tok{
 				{token.SgEtc, "...", 0, 1, 1},
 				{token.SgComma, ",", 3, 1, 4},
@@ -73,7 +74,14 @@ func TestScanner(t *testing.T) {
 				{token.SgCloseBrace, "}", 7, 1, 8},
 				{token.SgSlashSlash, "//", 8, 1, 9},
 				{token.SgSlash, "/", 10, 1, 11},
-				{token.EOF, "", 13, 1, 14},
+				{token.SgOpenSquareBkt, "[", 11, 1, 12},
+				{token.SgCloseSquareBkt, "]", 12, 1, 13},
+				{token.SgGreaterEqual, ">=", 13, 1, 14},
+				{token.SgTilde, "~", 15, 1, 16},
+				{token.SgNotEqual, "~=", 16, 1, 17},
+				{token.SgEqual, "==", 18, 1, 19},
+				{token.SgAssign, "=", 20, 1, 21},
+				{token.EOF, "", 34, 2, 7},
 			},
 			"",
 		},
@@ -146,6 +154,14 @@ func TestScanner(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"'abc\\z\n  \r\\65x'",
+			[]tok{
+				{token.STRING, "'abc\\z\n  \n\\65x'", 0, 1, 1},
+				{token.EOF, "", 15, 3, 6},
+			},
+			"",
+		},
 		// Short string errors
 		{
 			`"\x2w"`,
@@ -176,6 +192,11 @@ func TestScanner(t *testing.T) {
 			`"foo\"`,
 			[]tok{{token.INVALID, `"foo\"`, 0, 1, 1}},
 			"Illegal EOF in string literal",
+		},
+		{
+			`"\o"`,
+			[]tok{{token.INVALID, `"\o`, 0, 1, 1}},
+			"Illegal escaped character",
 		},
 	}
 	for i, test := range tests {

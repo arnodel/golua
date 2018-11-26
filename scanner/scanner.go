@@ -108,13 +108,6 @@ func (l *Scanner) accept(valid string) bool {
 	return false
 }
 
-// acceptRun consumes a run of runes from the valid set.
-func (l *Scanner) acceptRun(valid string) {
-	for strings.ContainsRune(valid, l.next()) {
-	}
-	l.backup()
-}
-
 // errorf returns an error token and terminates the scan
 // by passing back a nil pointer that will be the next
 // state, terminating l.run.
@@ -146,14 +139,6 @@ func (l *Scanner) Scan() *token.Token {
 // ErrorMsg returns the current error message or an empty string if there is none.
 func (l *Scanner) ErrorMsg() string {
 	return l.errorMsg
-}
-
-// Error return the current error or nil if none.
-func (l *Scanner) Error() error {
-	if l.errorMsg == "" {
-		return nil
-	}
-	return fmt.Errorf("%s:%d (col %d): %s", l.name, l.pos.Line, l.pos.Column, l.errorMsg)
 }
 
 var newLines = regexp.MustCompile(`(?s)\r\n|\n\r|\r`)

@@ -172,11 +172,12 @@ func scanShortString(q rune) stateFn {
 						if l.next() != '\r' {
 							l.backup()
 						}
-					case '\r':
-						// we accept "\n\r" as one newline
-						if l.next() != '\n' {
-							l.backup()
-						}
+					// This case doesn't happen because newlines were normalized.
+					// case '\r':
+					// 	// we accept "\n\r" as one newline
+					// 	if l.next() != '\n' {
+					// 		l.backup()
+					// 	}
 					case 'a', 'b', 'f', 'n', 'r', 't', 'v', 'z', '"', '\'', '\\':
 						break
 					default:
