@@ -36,10 +36,13 @@ func (e Error) Error() string {
 	return fmt.Sprintf("%d:%d: %s near %s", e.Got.Line, e.Got.Column, expected, tok)
 }
 
+// ParseExp takes in a function that returns tokens and builds an ExpNode for it
+// (or returns an error).
 func ParseExp(getToken func() *token.Token) (exp ast.ExpNode, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			ok := false
+			exp = nil
 			err, ok = r.(error)
 			if !ok {
 				err = errors.New("Unknown error")
@@ -53,10 +56,13 @@ func ParseExp(getToken func() *token.Token) (exp ast.ExpNode, err error) {
 	return
 }
 
+// ParseChunk takes in a function that returns tokens and builds a BlockStat for it
+// (or returns an error).
 func ParseChunk(getToken func() *token.Token) (stat ast.BlockStat, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			ok := false
+			stat = ast.BlockStat{}
 			err, ok = r.(error)
 			if !ok {
 				err = errors.New("Unknown error")

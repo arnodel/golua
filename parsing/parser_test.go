@@ -138,6 +138,12 @@ func TestParser_PrefixExp(t *testing.T) {
 			want1: tok(token.SgSlash, "/"),
 		},
 		{
+			name:  "call in brackets",
+			input: `(f(x)) /`,
+			want:  ast.NewFunctionCall(name("f"), ast.Name{}, []ast.ExpNode{name("x")}).InBrackets(),
+			want1: tok(token.SgSlash, "/"),
+		},
+		{
 			name:  "chain index, dot, function call, method call",
 			input: "x[1].abc():meth(1)",
 			want: ast.NewFunctionCall(
@@ -1180,6 +1186,36 @@ func TestParser_Stat(t *testing.T) {
 			},
 			want1: tok(token.KwIf, "if"),
 		},
+		{
+			name:  "function with plain name",
+			input: "function foo() end",
+			want: ast.AssignStat{
+				Dest: []ast.Var{name("foo")},
+				Src: []ast.ExpNode{ast.Function{
+					Name: "foo",
+					Body: ast.BlockStat{Return: []ast.ExpNode{}},
+				}},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "local single variable declaration with no value",
+			input: "local x z",
+			want:  ast.LocalStat{Names: []ast.Name{name("x")}},
+			want1: tok(token.IDENT, "z"),
+		},
+		{
+			name:  "for x = 1, 2 do ; end",
+			input: "for x = 1, 2 do ; end",
+			want: &ast.ForStat{
+				Var:   name("x"),
+				Start: ast.NewInt(1),
+				Stop:  ast.NewInt(2),
+				Step:  ast.NewInt(1),
+				Body:  ast.BlockStat{Stats: []ast.Stat{ast.EmptyStat{}}},
+			},
+			want1: tok(token.EOF, ""),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1190,6 +1226,123 @@ func TestParser_Stat(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got1, tt.want1) {
 				t.Errorf("Parser.Stat() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+func TestParseChunk(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantStat ast.BlockStat
+		wantErr  bool
+	}{
+		{
+			name:  "success",
+			input: "return 1",
+			wantStat: ast.NewBlockStat(
+				nil,
+				[]ast.ExpNode{ast.NewInt(1)},
+			),
+		},
+		{
+			name:    "error",
+			input:   "return ?",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotStat, err := ParseChunk(testScanner(tt.input))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseChunk() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotStat, tt.wantStat) {
+				t.Errorf("ParseChunk() = %v, want %v", gotStat, tt.wantStat)
+			}
+		})
+	}
+}
+
+func TestParseExp(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantExp ast.ExpNode
+		wantErr bool
+	}{
+		{
+			name:  "short expression",
+			input: "-x.y",
+			wantExp: &ast.UnOp{
+				Op: ops.OpNeg,
+				Operand: ast.IndexExp{
+					Coll: name("x"),
+					Idx:  str("y"),
+				},
+			},
+		},
+		{
+			name:    "short expression but with trailing bracket",
+			input:   "-x.y)",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotExp, err := ParseExp(testScanner(tt.input))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseExp() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotExp, tt.wantExp) {
+				t.Errorf("ParseExp() = %v, want %v", gotExp, tt.wantExp)
+			}
+		})
+	}
+}
+
+func TestError_Error(t *testing.T) {
+	type fields struct {
+		Got      *token.Token
+		Expected string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   string
+	}{
+		{
+			name: "empty expected, type EOF",
+			fields: fields{
+				Got: &token.Token{Type: token.EOF, Pos: token.Pos{Line: 1, Column: 2}},
+			},
+			want: "1:2: unexpected symbol near <eof>",
+		},
+		{
+			name: "'foo', expected, type non EOF",
+			fields: fields{
+				Got: &token.Token{
+					Type: token.IDENT,
+					Lit:  []byte("bar"),
+					Pos:  token.Pos{Line: 10, Column: 3},
+				},
+				Expected: "'foo'",
+			},
+			want: "10:3: expected 'foo' near 'bar'",
+		},
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := Error{
+				Got:      tt.fields.Got,
+				Expected: tt.fields.Expected,
+			}
+			if got := e.Error(); got != tt.want {
+				t.Errorf("Error.Error() = %v, want %v", got, tt.want)
 			}
 		})
 	}
