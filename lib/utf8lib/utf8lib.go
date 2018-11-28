@@ -57,20 +57,18 @@ func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	p := 0
 	var iterF = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next := c.Next()
-		if p < len(s) {
-			r, n := utf8.DecodeRune(s[p:])
-			if r == utf8.RuneError {
-				switch n {
-				case 0:
-					return next, nil
-				case 1:
-					return nil, rt.NewErrorE(errInvalidCode).AddContext(c)
-				}
+		r, n := utf8.DecodeRune(s[p:])
+		if r == utf8.RuneError {
+			switch n {
+			case 0:
+				return next, nil
+			case 1:
+				return nil, rt.NewErrorE(errInvalidCode).AddContext(c)
 			}
-			next.Push(rt.Int(p + 1))
-			next.Push(rt.Int(r))
-			p += n
 		}
+		next.Push(rt.Int(p + 1))
+		next.Push(rt.Int(r))
+		p += n
 		return next, nil
 	}
 	var iter = rt.NewGoFunction(iterF, "codesiterator", 0, false)
