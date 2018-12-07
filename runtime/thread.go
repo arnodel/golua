@@ -104,9 +104,7 @@ func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, *Error) {
 		}
 	}
 	caller.mux.Lock()
-	if t.status != ThreadSuspended {
-		panic("Thread to resume is not suspended")
-	} else if caller.status != ThreadOK {
+	if caller.status != ThreadOK {
 		panic("Caller of thread to resume is not running")
 	}
 	t.caller = caller

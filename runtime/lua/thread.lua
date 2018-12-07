@@ -16,6 +16,15 @@ do
         local t = coroutine.running()
         print(coroutine.resume(t))
         --> ~^false\t.*running thread
+        print(coroutine.status(t))
+        --> =running
     end)
     coroutine.resume(co)
+    print(coroutine.status(co))
+    --> =dead
+end
+
+do
+    print(pcall(coroutine.yield, 1))
+    --> ~cannot yield from main thread
 end
