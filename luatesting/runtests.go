@@ -31,8 +31,10 @@ func RunSource(r *runtime.Runtime, source []byte) {
 func RunLuaTest(source []byte, setup func(*runtime.Runtime)) error {
 	outputBuf := new(bytes.Buffer)
 	r := runtime.New(outputBuf)
-	setup(r)
 	lib.Load(r)
+	if setup != nil {
+		setup(r)
+	}
 	checkers := ExtractLineCheckers(source)
 	RunSource(r, source)
 	return CheckLines(outputBuf.Bytes(), checkers)
