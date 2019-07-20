@@ -31,6 +31,8 @@ func setup(r *rt.Runtime) {
 	rt.SetEnv(g, "double", golib.NewGoValue(r, func(x int) int { return 2 * x }))
 	rt.SetEnv(g, "polly", golib.NewGoValue(r, TestStruct{Age: 10, Name: "Polly"}))
 	rt.SetEnv(g, "ben", golib.NewGoValue(r, &TestStruct{Age: 5, Name: "Ben"}))
+	rt.SetEnv(g, "mapping", golib.NewGoValue(r, map[string]int{"answer": 42}))
+	rt.SetEnv(g, "slice", golib.NewGoValue(r, []string{"I", "am", "here"}))
 }
 
 func TestGoLib(t *testing.T) {
