@@ -5,6 +5,7 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
+// LibLoader loads this library.
 var LibLoader = packagelib.Loader{
 	Load: load,
 	Name: "golib",
@@ -24,6 +25,7 @@ func load(r *rt.Runtime) rt.Value {
 	return nil
 }
 
+// NewGoValue will return a UserData representing the go value.
 func NewGoValue(r *rt.Runtime, x interface{}) *rt.UserData {
 	meta := r.Registry(govalueKey).(*rt.Table)
 	return rt.NewUserData(ToGoValue(x), meta)
@@ -52,9 +54,9 @@ func goValueSetIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	ok := gv.SetIndex(c.Arg(1), c.Arg(2))
-	if !ok {
-		return nil, rt.NewErrorF("unable to set index of go value").AddContext(c)
+	setIndexErr := gv.SetIndex(c.Arg(1), c.Arg(2))
+	if setIndexErr != nil {
+		return nil, rt.NewErrorE(setIndexErr).AddContext(c)
 	}
 	return c.Next(), nil
 }
@@ -74,7 +76,7 @@ func goValueCall(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext(res...), nil
 }
 
-// FileArg turns a continuation argument into a *File.
+// GoValueArg turns a continuation argument into a *File.
 func GoValueArg(c *rt.GoCont, n int) (GoValue, *rt.Table, *rt.Error) {
 	f, meta, ok := ValueToGoValue(c.Arg(n))
 	if ok {
@@ -83,7 +85,7 @@ func GoValueArg(c *rt.GoCont, n int) (GoValue, *rt.Table, *rt.Error) {
 	return GoValue{}, nil, rt.NewErrorF("#%d must be a go value", n+1)
 }
 
-// ValueToFile turns a lua value to a *File if possible.
+// ValueToGoValue turns a lua value to a *File if possible.
 func ValueToGoValue(v rt.Value) (GoValue, *rt.Table, bool) {
 	u, ok := v.(*rt.UserData)
 	var goVal GoValue

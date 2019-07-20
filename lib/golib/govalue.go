@@ -61,59 +61,62 @@ func (g GoValue) Index(v rt.Value, meta *rt.Table) (rt.Value, error) {
 	return nil, errors.New("unable to index")
 }
 
-func (g GoValue) SetIndex(key rt.Value, val rt.Value) bool {
+// SetIndex tries to set the value of the index given by key to val.  This could
+// mean setting a struct field value or a map value or a slice item.
+func (g GoValue) SetIndex(key rt.Value, val rt.Value) error {
 	gv := g.value
 	switch g.value.Kind() {
 	case reflect.Ptr:
 		gv = gv.Elem()
 		if gv.Kind() != reflect.Struct {
-			return false
+			return errors.New("can only set pointer index when pointing to a struct")
 		}
 		fallthrough
 	case reflect.Struct:
 		field, ok := rt.AsString(key)
 		if !ok {
-			return false
+			return errors.New("can only set struct index for a string")
 		}
 		f := gv.FieldByName(string(field))
 		if f == (reflect.Value{}) {
-			return false
+			return errors.New("struct does not have field: " + string(field))
 		}
 		if !f.CanSet() {
-			return false
+			return errors.New("struct field cannot be set")
 		}
 		goVal := valueToType(val, f.Type())
 		if goVal == (reflect.Value{}) {
-			return false
+			return errors.New("struct field set to incompatible type")
 		}
 		f.Set(goVal)
-		return true
+		return nil
 	case reflect.Map:
 		goKey := valueToType(key, gv.Type().Key())
 		if goKey == (reflect.Value{}) {
-			return false
+			return errors.New("map key of incompatible type")
 		}
 		goVal := valueToType(val, gv.Type().Elem())
 		if goVal == (reflect.Value{}) {
-			return false
+			return errors.New("map value set to incompatible type")
 		}
 		gv.SetMapIndex(goKey, goVal)
-		return true
+		return nil
 	case reflect.Slice:
 		i, ok := rt.ToInt(key)
 		if !ok {
-			return false
+			return errors.New("slice idnex must be an integer")
 		}
 		goVal := valueToType(val, gv.Type().Elem())
 		if goVal == (reflect.Value{}) {
-			return false
+			return errors.New("slice item set to incompatible type")
 		}
 		gv.Index(int(i)).Set(goVal)
-		return true
+		return nil
 	}
-	return false
+	return errors.New("unable to set index")
 }
 
+// Call tries to call the goValue if it is a function with the given arguments.
 func (g GoValue) Call(args []rt.Value, meta *rt.Table) ([]rt.Value, error) {
 	if g.value.Kind() != reflect.Func {
 		return nil, errors.New("not a function")
