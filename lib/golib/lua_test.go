@@ -1,6 +1,7 @@
 package golib_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/arnodel/golua/lib/golib"
@@ -8,10 +9,28 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
+type TestStruct struct {
+	Age  int
+	Name string
+}
+
+func (t TestStruct) Descr() string {
+	return fmt.Sprintf("age: %d, name: %s", t.Age, t.Name)
+}
+
+func (t *TestStruct) Mix(u *TestStruct) *TestStruct {
+	return &TestStruct{
+		Age:  t.Age + u.Age,
+		Name: t.Name + "-" + u.Name,
+	}
+}
+
 func setup(r *rt.Runtime) {
 	g := r.GlobalEnv()
 	rt.SetEnv(g, "hello", rt.String("world"))
-	rt.SetEnv(g, "foo", golib.NewGoValue(r, func(x int) int { return 2 * x }))
+	rt.SetEnv(g, "double", golib.NewGoValue(r, func(x int) int { return 2 * x }))
+	rt.SetEnv(g, "polly", golib.NewGoValue(r, TestStruct{Age: 10, Name: "Polly"}))
+	rt.SetEnv(g, "ben", golib.NewGoValue(r, &TestStruct{Age: 5, Name: "Ben"}))
 }
 
 func TestGoLib(t *testing.T) {

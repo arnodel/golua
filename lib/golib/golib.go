@@ -1,8 +1,6 @@
 package golib
 
 import (
-	"log"
-
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -69,11 +67,10 @@ func goValueCall(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	res, ok := gv.Call(c.Etc(), meta)
-	if !ok {
-		return nil, rt.NewErrorF("unable to call go value").AddContext(c)
+	res, callErr := gv.Call(c.Etc(), meta)
+	if callErr != nil {
+		return nil, rt.NewErrorE(callErr).AddContext(c)
 	}
-	log.Print("XXX:", res)
 	return c.PushingNext(res...), nil
 }
 
@@ -93,5 +90,8 @@ func ValueToGoValue(v rt.Value) (GoValue, *rt.Table, bool) {
 	if ok {
 		goVal, ok = u.Value().(GoValue)
 	}
-	return goVal, u.Metatable(), ok
+	if !ok {
+		return goVal, nil, false
+	}
+	return goVal, u.Metatable(), true
 }

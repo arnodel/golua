@@ -1,6 +1,7 @@
 package golib
 
 import (
+	"errors"
 	"reflect"
 
 	rt "github.com/arnodel/golua/runtime"
@@ -15,103 +16,110 @@ func ToGoValue(x interface{}) GoValue {
 }
 
 func (g GoValue) Index(v rt.Value, meta *rt.Table) (rt.Value, bool) {
-	switch g.value.Kind() {
-	case reflect.Struct:
-		field, ok := rt.AsString(v)
-		if !ok {
+	gv := g.value
+	field, ok := rt.AsString(v)
+	if !ok {
+		return nil, false
+	}
+	m := gv.MethodByName(string(field))
+	if m != (reflect.Value{}) {
+		return reflectToValue(m, meta), true
+	}
+	switch gv.Kind() {
+	case reflect.Ptr:
+		gv = gv.Elem()
+		if gv.Kind() != reflect.Struct {
 			return nil, false
 		}
-		m := g.value.MethodByName(string(field))
-		if m != (reflect.Value{}) {
-			return reflectToValue(m, meta), true
-		}
-		f := g.value.FieldByName(string(field))
+		fallthrough
+	case reflect.Struct:
+		f := gv.FieldByName(string(field))
 		if f != (reflect.Value{}) {
 			return reflectToValue(f, meta), true
 		}
 		return nil, false
-	case reflect.Interface:
-		field, ok := rt.AsString(v)
-		if !ok {
-			return nil, false
-		}
-		m := g.value.MethodByName(string(field))
-		if m != (reflect.Value{}) {
-			return reflectToValue(m, meta), true
-		}
-		return nil, false
 	case reflect.Map:
-		goV := valueToType(v, g.value.Type().Key())
+		goV := valueToType(v, gv.Type().Key())
 		if goV == (reflect.Value{}) {
 			return nil, false
 		}
-		return reflectToValue(g.value.MapIndex(goV), meta), true
+		return reflectToValue(gv.MapIndex(goV), meta), true
 	case reflect.Slice:
 		i, ok := rt.ToInt(v)
 		if !ok {
 			return nil, false
 		}
-		return reflectToValue(g.value.Index(int(i)), meta), true
+		return reflectToValue(gv.Index(int(i)), meta), true
 	}
 	return nil, false
 }
 
 func (g GoValue) SetIndex(key rt.Value, val rt.Value) bool {
+	gv := g.value
 	switch g.value.Kind() {
+	case reflect.Ptr:
+		gv = gv.Elem()
+		if gv.Kind() != reflect.Struct {
+			return false
+		}
+		fallthrough
 	case reflect.Struct:
 		field, ok := rt.AsString(key)
 		if !ok {
 			return false
 		}
-		f := g.value.FieldByName(string(field))
+		f := gv.FieldByName(string(field))
 		if f == (reflect.Value{}) {
 			return false
 		}
-		goVal := valueToType(val, g.value.Type())
+		if !f.CanSet() {
+			return false
+		}
+		goVal := valueToType(val, f.Type())
 		if goVal == (reflect.Value{}) {
 			return false
 		}
-		g.value.Set(goVal)
+		f.Set(goVal)
 		return true
 	case reflect.Map:
-		goKey := valueToType(key, g.value.Type().Key())
+		goKey := valueToType(key, gv.Type().Key())
 		if goKey == (reflect.Value{}) {
 			return false
 		}
-		goVal := valueToType(val, g.value.Type().Elem())
+		goVal := valueToType(val, gv.Type().Elem())
 		if goVal == (reflect.Value{}) {
 			return false
 		}
-		g.value.SetMapIndex(goKey, goVal)
+		gv.SetMapIndex(goKey, goVal)
 		return true
 	case reflect.Slice:
 		i, ok := rt.ToInt(key)
 		if !ok {
 			return false
 		}
-		goVal := valueToType(val, g.value.Type().Elem())
+		goVal := valueToType(val, gv.Type().Elem())
 		if goVal == (reflect.Value{}) {
 			return false
 		}
-		g.value.Index(int(i)).Set(goVal)
+		gv.Index(int(i)).Set(goVal)
 		return true
 	}
 	return false
 }
 
-func (g GoValue) Call(args []rt.Value, meta *rt.Table) ([]rt.Value, bool) {
+func (g GoValue) Call(args []rt.Value, meta *rt.Table) ([]rt.Value, error) {
 	if g.value.Kind() != reflect.Func {
-		return nil, false
+		return nil, errors.New("not a function")
 	}
 	f := g.value.Type()
 	if f.NumIn() != len(args) {
-		return nil, false
+		return nil, errors.New("wrong number of arguments")
 	}
 	goArgs := make([]reflect.Value, len(args))
 	for i, arg := range args {
 		goArg := valueToType(arg, f.In(i))
 		if goArg == (reflect.Value{}) {
-			return nil, false
+			return nil, errors.New("argument of incorrect type")
 		}
 		goArgs[i] = goArg
 	}
@@ -120,11 +128,11 @@ func (g GoValue) Call(args []rt.Value, meta *rt.Table) ([]rt.Value, bool) {
 	for i, x := range goRes {
 		res[i] = reflectToValue(x, meta)
 	}
-	return res, true
+	return res, nil
 }
 
 func valueToType(v rt.Value, tp reflect.Type) reflect.Value {
-	if goVal, ok := v.(GoValue); ok {
+	if goVal, _, ok := ValueToGoValue(v); ok {
 		if goVal.value.Type().AssignableTo(tp) {
 			return goVal.value
 		}
