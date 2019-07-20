@@ -37,9 +37,9 @@ func goValueIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	val, ok := gv.Index(c.Arg(1), meta)
-	if !ok {
-		return nil, rt.NewErrorF("unable to get index of go value").AddContext(c)
+	val, indexErr := gv.Index(c.Arg(1), meta)
+	if indexErr != nil {
+		return nil, rt.NewErrorE(indexErr).AddContext(c)
 	}
 	return c.PushingNext(val), nil
 }

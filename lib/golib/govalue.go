@@ -7,51 +7,58 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
+// A GoValue holds any go value.
 type GoValue struct {
 	value reflect.Value
 }
 
+// ToGoValue turn any go value into a GoValue
 func ToGoValue(x interface{}) GoValue {
 	return GoValue{value: reflect.ValueOf(x)}
 }
 
-func (g GoValue) Index(v rt.Value, meta *rt.Table) (rt.Value, bool) {
+// Index tries to find the value of the go value at "index" v. This could mean
+// finding a method or a struct field or a map key or a slice index.
+func (g GoValue) Index(v rt.Value, meta *rt.Table) (rt.Value, error) {
 	gv := g.value
 	field, ok := rt.AsString(v)
-	if !ok {
-		return nil, false
-	}
-	m := gv.MethodByName(string(field))
-	if m != (reflect.Value{}) {
-		return reflectToValue(m, meta), true
+	if ok {
+		// First try a method
+		m := gv.MethodByName(string(field))
+		if m != (reflect.Value{}) {
+			return reflectToValue(m, meta), nil
+		}
 	}
 	switch gv.Kind() {
 	case reflect.Ptr:
 		gv = gv.Elem()
 		if gv.Kind() != reflect.Struct {
-			return nil, false
+			return nil, errors.New("can only index a pointer when to a struct")
 		}
 		fallthrough
 	case reflect.Struct:
+		if !ok {
+			return nil, errors.New("can only index a struct with a string")
+		}
 		f := gv.FieldByName(string(field))
 		if f != (reflect.Value{}) {
-			return reflectToValue(f, meta), true
+			return reflectToValue(f, meta), nil
 		}
-		return nil, false
+		return nil, errors.New("could not find field or method with name: " + string(field))
 	case reflect.Map:
 		goV := valueToType(v, gv.Type().Key())
 		if goV == (reflect.Value{}) {
-			return nil, false
+			return nil, errors.New("map index or incorrect type")
 		}
-		return reflectToValue(gv.MapIndex(goV), meta), true
+		return reflectToValue(gv.MapIndex(goV), meta), nil
 	case reflect.Slice:
 		i, ok := rt.ToInt(v)
 		if !ok {
-			return nil, false
+			return nil, errors.New("slice index must be an integer")
 		}
-		return reflectToValue(gv.Index(int(i)), meta), true
+		return reflectToValue(gv.Index(int(i)), meta), nil
 	}
-	return nil, false
+	return nil, errors.New("unable to index")
 }
 
 func (g GoValue) SetIndex(key rt.Value, val rt.Value) bool {
