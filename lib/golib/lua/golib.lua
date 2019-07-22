@@ -30,6 +30,10 @@ ben.Age = 7
 print(ben.Age)
 --> =7
 
+benalice = ben.Mix{Name = "Alice", Age = 3}
+print(benalice.Descr())
+--> =age: 10, name: Ben-Alice
+
 print(mapping.answer)
 --> =42
 
@@ -47,3 +51,6 @@ slice[1] = "was"
 
 print(slice[0], slice[1], slice[2])
 --> ~I\twas\there
+
+print(sprintf("the %s is %d", "answer", 6*7))
+--> =the answer is 42

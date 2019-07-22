@@ -122,23 +122,76 @@ func (g GoValue) Call(args []rt.Value, meta *rt.Table) ([]rt.Value, error) {
 		return nil, errors.New("not a function")
 	}
 	f := g.value.Type()
-	if f.NumIn() != len(args) {
-		return nil, errors.New("wrong number of arguments")
+	numParams := f.NumIn()
+	goArgs := make([]reflect.Value, numParams)
+	isVariadic := f.IsVariadic()
+	if isVariadic {
+		numParams--
 	}
-	goArgs := make([]reflect.Value, len(args))
-	for i, arg := range args {
-		goArg := valueToType(arg, f.In(i))
-		if goArg == (reflect.Value{}) {
-			return nil, errors.New("argument of incorrect type")
+	var goArg reflect.Value
+	for i := 0; i < numParams; i++ {
+		if i < len(args) {
+			goArg = valueToType(args[i], f.In(i))
+			if goArg == (reflect.Value{}) {
+				return nil, errors.New("argument of incorrect type")
+			}
+		} else {
+			goArg = reflect.Zero(f.In(i))
 		}
 		goArgs[i] = goArg
 	}
-	goRes := g.value.Call(goArgs)
+	var goRes []reflect.Value
+	if isVariadic {
+		etcSliceType := f.In(numParams)
+		etcType := etcSliceType.Elem()
+		etcLen := len(args) - numParams
+		etc := reflect.MakeSlice(etcSliceType, etcLen, etcLen)
+		for i := 0; i < etcLen; i++ {
+			goArg = valueToType(args[i+numParams], etcType)
+			if goArg == (reflect.Value{}) {
+				return nil, errors.New("argument of incorrect type")
+			}
+			etc.Index(i).Set(goArg)
+		}
+		goArgs[numParams] = etc
+		goRes = g.value.CallSlice(goArgs)
+	} else {
+		goRes = g.value.Call(goArgs)
+	}
 	res := make([]rt.Value, len(goRes))
 	for i, x := range goRes {
 		res[i] = reflectToValue(x, meta)
 	}
 	return res, nil
+}
+
+func fillStruct(s reflect.Value, v rt.Value) bool {
+	var ok bool
+	t, ok := v.(*rt.Table)
+	if !ok {
+		return false
+	}
+	var fk, fv rt.Value
+	for {
+		fk, fv, ok = t.Next(fk)
+		if !ok || fk == nil {
+			break
+		}
+		name, ok := fk.(rt.String)
+		if !ok {
+			return false
+		}
+		field := s.FieldByName(string(name))
+		if field == (reflect.Value{}) {
+			return false
+		}
+		goFv := valueToType(fv, field.Type())
+		if goFv == (reflect.Value{}) {
+			return false
+		}
+		field.Set(goFv)
+	}
+	return true
 }
 
 func valueToType(v rt.Value, tp reflect.Type) reflect.Value {
@@ -151,6 +204,21 @@ func valueToType(v rt.Value, tp reflect.Type) reflect.Value {
 	var goV interface{}
 	var ok bool
 	switch tp.Kind() {
+	case reflect.Ptr:
+		if tp.Elem().Kind() != reflect.Struct {
+			return reflect.Value{}
+		}
+		p := reflect.New(tp.Elem())
+		if !fillStruct(p.Elem(), v) {
+			return reflect.Value{}
+		}
+		return p
+	case reflect.Struct:
+		s := reflect.Zero(tp)
+		if !fillStruct(s, v) {
+			return reflect.Value{}
+		}
+		return s
 	case reflect.Int:
 		var x rt.Int
 		x, ok = rt.ToInt(v)
@@ -166,6 +234,11 @@ func valueToType(v rt.Value, tp reflect.Type) reflect.Value {
 	case reflect.Bool:
 		goV = rt.Truth(v)
 		ok = true
+	case reflect.Interface:
+		ok = reflect.TypeOf(v).Implements(tp)
+		if ok {
+			goV = v
+		}
 	}
 	if !ok {
 		return reflect.Value{}
