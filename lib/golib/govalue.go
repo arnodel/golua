@@ -10,18 +10,18 @@ import (
 
 // A GoValue holds any go value.
 type GoValue struct {
-	value reflect.Value
+	value interface{}
 }
 
 // ToGoValue turn any go value into a GoValue
 func ToGoValue(x interface{}) GoValue {
-	return GoValue{value: reflect.ValueOf(x)}
+	return GoValue{value: x}
 }
 
 // Index tries to find the value of the go value at "index" v. This could mean
 // finding a method or a struct field or a map key or a slice index.
 func (g GoValue) Index(v rt.Value, meta *rt.Table) (rt.Value, error) {
-	gv := g.value
+	gv := reflect.ValueOf(g.value)
 	field, ok := rt.AsString(v)
 	if ok {
 		// First try a method
@@ -65,8 +65,8 @@ func (g GoValue) Index(v rt.Value, meta *rt.Table) (rt.Value, error) {
 // SetIndex tries to set the value of the index given by key to val.  This could
 // mean setting a struct field value or a map value or a slice item.
 func (g GoValue) SetIndex(key rt.Value, val rt.Value) error {
-	gv := g.value
-	switch g.value.Kind() {
+	gv := reflect.ValueOf(g.value)
+	switch gv.Kind() {
 	case reflect.Ptr:
 		gv = gv.Elem()
 		if gv.Kind() != reflect.Struct {
@@ -119,10 +119,11 @@ func (g GoValue) SetIndex(key rt.Value, val rt.Value) error {
 
 // Call tries to call the goValue if it is a function with the given arguments.
 func (g GoValue) Call(args []rt.Value, meta *rt.Table) ([]rt.Value, error) {
-	if g.value.Kind() != reflect.Func {
-		return nil, errors.New("not a function")
+	gv := reflect.ValueOf(g.value)
+	if gv.Kind() != reflect.Func {
+		return nil, fmt.Errorf("%s is not a function", gv.Kind())
 	}
-	f := g.value.Type()
+	f := gv.Type()
 	numParams := f.NumIn()
 	goArgs := make([]reflect.Value, numParams)
 	isVariadic := f.IsVariadic()
@@ -156,9 +157,9 @@ func (g GoValue) Call(args []rt.Value, meta *rt.Table) ([]rt.Value, error) {
 			etc.Index(i).Set(goArg)
 		}
 		goArgs[numParams] = etc
-		goRes = g.value.CallSlice(goArgs)
+		goRes = gv.CallSlice(goArgs)
 	} else {
-		goRes = g.value.Call(goArgs)
+		goRes = gv.Call(goArgs)
 	}
 	res := make([]rt.Value, len(goRes))
 	for i, x := range goRes {
@@ -198,15 +199,15 @@ func fillStruct(s reflect.Value, v rt.Value) error {
 
 func valueToType(v rt.Value, tp reflect.Type) (reflect.Value, error) {
 	if goVal, _, ok := ValueToGoValue(v); ok {
-		if goVal.value.Type().AssignableTo(tp) {
-			return goVal.value, nil
+		gv := reflect.ValueOf(goVal.value)
+		if gv.Type().AssignableTo(tp) {
+			return gv, nil
 		}
-		if goVal.value.Type().ConvertibleTo(tp) {
-			return goVal.value.Convert(tp), nil
+		if gv.Type().ConvertibleTo(tp) {
+			return gv.Convert(tp), nil
 		}
-		return reflect.Value{}, fmt.Errorf("%+v is not assignable or convertible to %s", goVal.value.Interface(), tp.Name())
+		return reflect.Value{}, fmt.Errorf("%+v is not assignable or convertible to %s", goVal.value, tp.Name())
 	}
-	var goV interface{}
 	var ok bool
 	switch tp.Kind() {
 	case reflect.Ptr:
@@ -227,28 +228,30 @@ func valueToType(v rt.Value, tp reflect.Type) (reflect.Value, error) {
 	case reflect.Int:
 		var x rt.Int
 		x, ok = rt.ToInt(v)
-		goV = int(x)
+		if ok {
+			return reflect.ValueOf(int(x)), nil
+		}
 	case reflect.Float64:
 		var x rt.Float
 		x, ok = rt.ToFloat(v)
-		goV = float64(x)
+		if ok {
+			return reflect.ValueOf(float64(x)), nil
+		}
 	case reflect.String:
 		var x rt.String
 		x, ok = rt.AsString(v)
-		goV = string(x)
+		if ok {
+			return reflect.ValueOf(string(x)), nil
+		}
 	case reflect.Bool:
-		goV = rt.Truth(v)
-		ok = true
+		return reflect.ValueOf(rt.Truth(v)), nil
 	case reflect.Interface:
 		ok = reflect.TypeOf(v).Implements(tp)
 		if ok {
-			goV = v
+			return reflect.ValueOf(v), nil
 		}
 	}
-	if !ok {
-		return reflect.Value{}, fmt.Errorf("%+v cannot be converted to %s", v, tp.Name())
-	}
-	return reflect.ValueOf(goV), nil
+	return reflect.Value{}, fmt.Errorf("%+v cannot be converted to %s", v, tp.Name())
 }
 
 func reflectToValue(v reflect.Value, meta *rt.Table) rt.Value {
@@ -260,6 +263,8 @@ func reflectToValue(v reflect.Value, meta *rt.Table) rt.Value {
 		return rt.Int(v.Int())
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return rt.Int(v.Uint())
+	case reflect.Float32, reflect.Float64:
+		return rt.Float(v.Float())
 	case reflect.String:
 		return rt.String(v.String())
 	case reflect.Bool:
@@ -269,5 +274,5 @@ func reflectToValue(v reflect.Value, meta *rt.Table) rt.Value {
 			return rt.String(v.Interface().([]byte))
 		}
 	}
-	return rt.NewUserData(GoValue{value: v}, meta)
+	return rt.NewUserData(GoValue{value: v.Interface()}, meta)
 }

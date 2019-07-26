@@ -1,6 +1,7 @@
 package golib
 
 import (
+	"github.com/arnodel/golua/lib/golib/goimports"
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -16,13 +17,17 @@ type govalueKeyType struct{}
 var govalueKey = govalueKeyType{}
 
 func load(r *rt.Runtime) rt.Value {
+	pkg := rt.NewTable()
+	rt.SetEnvGoFunc(pkg, "import", goimport, 1, false)
+
 	meta := rt.NewTable()
 	rt.SetEnvGoFunc(meta, "__index", goValueIndex, 2, false)
 	rt.SetEnvGoFunc(meta, "__newindex", goValueSetIndex, 3, false)
 	rt.SetEnvGoFunc(meta, "__call", goValueCall, 1, true)
 
 	r.SetRegistry(govalueKey, meta)
-	return nil
+
+	return pkg
 }
 
 // NewGoValue will return a UserData representing the go value.
@@ -96,4 +101,19 @@ func ValueToGoValue(v rt.Value) (GoValue, *rt.Table, bool) {
 		return goVal, nil, false
 	}
 	return goVal, u.Metatable(), true
+}
+
+func goimport(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	path, err := c.StringArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	exports, loadErr := goimports.LoadGoPackage(string(path), "/Users/adelobelle/goplugins")
+	if loadErr != nil {
+		return nil, rt.NewErrorF("cannot import go package %s: %s", path, loadErr)
+	}
+	return c.PushingNext(NewGoValue(t.Runtime, exports)), nil
 }
