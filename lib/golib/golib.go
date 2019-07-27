@@ -1,6 +1,8 @@
 package golib
 
 import (
+	"fmt"
+
 	"github.com/arnodel/golua/lib/golib/goimports"
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
@@ -24,16 +26,31 @@ func load(r *rt.Runtime) rt.Value {
 	rt.SetEnvGoFunc(meta, "__index", goValueIndex, 2, false)
 	rt.SetEnvGoFunc(meta, "__newindex", goValueSetIndex, 3, false)
 	rt.SetEnvGoFunc(meta, "__call", goValueCall, 1, true)
+	rt.SetEnvGoFunc(meta, "__tostring", goValueToString, 1, false)
 
 	r.SetRegistry(govalueKey, meta)
 
 	return pkg
 }
 
+func getMeta(r *rt.Runtime) *rt.Table {
+	return r.Registry(govalueKey).(*rt.Table)
+}
+
 // NewGoValue will return a UserData representing the go value.
 func NewGoValue(r *rt.Runtime, x interface{}) *rt.UserData {
-	meta := r.Registry(govalueKey).(*rt.Table)
-	return rt.NewUserData(x, meta)
+	return rt.NewUserData(x, getMeta(r))
+}
+
+func goValueToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err.AddContext(c)
+	}
+	u, err := c.UserDataArg(0)
+	if err != nil {
+		return nil, err.AddContext(c)
+	}
+	return c.PushingNext(rt.String(fmt.Sprintf("%#v", u.Value()))), nil
 }
 
 func goValueIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

@@ -190,10 +190,11 @@ func fillStruct(t *rt.Thread, s reflect.Value, v rt.Value) error {
 }
 
 func valueToFunc(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, error) {
+	meta := getMeta(t.Runtime)
 	fn := func(in []reflect.Value) []reflect.Value {
 		args := make([]rt.Value, len(in))
 		for i, x := range in {
-			args[i] = reflectToValue(x, nil)
+			args[i] = reflectToValue(x, meta)
 		}
 		res := make([]rt.Value, tp.NumOut())
 		out := make([]reflect.Value, len(res))
@@ -260,6 +261,13 @@ func valueToType(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, erro
 		}
 	case reflect.Bool:
 		return reflect.ValueOf(rt.Truth(v)), nil
+	case reflect.Slice:
+		if tp.Elem().Kind() == reflect.Uint8 {
+			s, ok := v.(rt.String)
+			if ok {
+				return reflect.ValueOf([]byte(s)), nil
+			}
+		}
 	case reflect.Interface:
 		if reflect.TypeOf(v).Implements(tp) {
 			return reflect.ValueOf(v), nil
