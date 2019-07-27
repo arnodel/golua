@@ -97,6 +97,7 @@ func repl(r *rt.Runtime) {
 			fmt.Print("| ")
 		}
 		line, err := reader.ReadBytes('\n')
+		line = bytes.TrimLeft(line, ">|")
 		if err == io.EOF {
 			w.WriteTo(os.Stdout)
 			fmt.Print(string(line))
