@@ -41,6 +41,7 @@ func setup(r *rt.Runtime) {
 	rt.SetEnv(g, "slice", golib.NewGoValue(r, []string{"I", "am", "here"}))
 	rt.SetEnv(g, "sprintf", golib.NewGoValue(r, fmt.Sprintf))
 	rt.SetEnv(g, "twice", golib.NewGoValue(r, twice))
+	rt.SetEnv(g, "panic", golib.NewGoValue(r, func() { panic("OMG") }))
 }
 
 func TestGoLib(t *testing.T) {

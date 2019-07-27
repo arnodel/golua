@@ -58,10 +58,16 @@ print(sprintf("the %s is %d", "answer", 6*7))
 print(twice(function(n) return 2*n end)(5))
 --> =20
 
--- do
---     go = require("golib")
---     fmt = go.import("fmt")
---     sprintf = fmt.Sprintf
---     print(sprintf("-%s-", "hello"))
--- end
--- --> =-hello-
+print(pcall(panic))
+--> ~false\tpanic in go call: OMG
+
+print(tostring(polly))
+--> =golib_test.TestStruct{Age:10, Name:"Polly"}
+
+do
+    go = require("golib")
+    fmt = go.import("fmt")
+    sprintf = fmt.Sprintf
+    print(sprintf("-%s-", "hello"))
+end
+--> =-hello-
