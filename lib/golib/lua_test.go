@@ -25,6 +25,12 @@ func (t *TestStruct) Mix(u *TestStruct) *TestStruct {
 	}
 }
 
+func twice(f func(int) int) func(int) int {
+	return func(n int) int {
+		return f(f(n))
+	}
+}
+
 func setup(r *rt.Runtime) {
 	g := r.GlobalEnv()
 	rt.SetEnv(g, "hello", rt.String("world"))
@@ -34,6 +40,7 @@ func setup(r *rt.Runtime) {
 	rt.SetEnv(g, "mapping", golib.NewGoValue(r, map[string]int{"answer": 42}))
 	rt.SetEnv(g, "slice", golib.NewGoValue(r, []string{"I", "am", "here"}))
 	rt.SetEnv(g, "sprintf", golib.NewGoValue(r, fmt.Sprintf))
+	rt.SetEnv(g, "twice", golib.NewGoValue(r, twice))
 }
 
 func TestGoLib(t *testing.T) {

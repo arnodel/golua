@@ -38,7 +38,7 @@ func goIndex(t *rt.Thread, u *rt.UserData, key rt.Value) (rt.Value, error) {
 		}
 		return nil, fmt.Errorf("no field or method with name %q", field)
 	case reflect.Map:
-		goV, err := valueToType(key, gv.Type().Key())
+		goV, err := valueToType(t, key, gv.Type().Key())
 		if err != nil {
 			return nil, fmt.Errorf("map index or incorrect type: %s", err)
 		}
@@ -76,18 +76,18 @@ func goSetIndex(t *rt.Thread, u *rt.UserData, key rt.Value, val rt.Value) error 
 		if !f.CanSet() {
 			return errors.New("struct field cannot be set")
 		}
-		goVal, err := valueToType(val, f.Type())
+		goVal, err := valueToType(t, val, f.Type())
 		if err != nil {
 			return fmt.Errorf("struct field of incompatible type: %s", err)
 		}
 		f.Set(goVal)
 		return nil
 	case reflect.Map:
-		goKey, err := valueToType(key, gv.Type().Key())
+		goKey, err := valueToType(t, key, gv.Type().Key())
 		if err != nil {
 			return fmt.Errorf("map key of incompatible type: %s", err)
 		}
-		goVal, err := valueToType(val, gv.Type().Elem())
+		goVal, err := valueToType(t, val, gv.Type().Elem())
 		if err != nil {
 			return fmt.Errorf("map value set to incompatible type: %s", err)
 		}
@@ -98,7 +98,7 @@ func goSetIndex(t *rt.Thread, u *rt.UserData, key rt.Value, val rt.Value) error 
 		if !ok {
 			return errors.New("slice idnex must be an integer")
 		}
-		goVal, err := valueToType(val, gv.Type().Elem())
+		goVal, err := valueToType(t, val, gv.Type().Elem())
 		if err != nil {
 			return fmt.Errorf("slice item set to incompatible type: %s", err)
 		}
@@ -126,7 +126,7 @@ func goCall(t *rt.Thread, u *rt.UserData, args []rt.Value) ([]rt.Value, error) {
 	var err error
 	for i := 0; i < numParams; i++ {
 		if i < len(args) {
-			goArg, err = valueToType(args[i], f.In(i))
+			goArg, err = valueToType(t, args[i], f.In(i))
 			if err != nil {
 				return nil, err
 			}
@@ -142,7 +142,7 @@ func goCall(t *rt.Thread, u *rt.UserData, args []rt.Value) ([]rt.Value, error) {
 		etcLen := len(args) - numParams
 		etc := reflect.MakeSlice(etcSliceType, etcLen, etcLen)
 		for i := 0; i < etcLen; i++ {
-			goArg, err = valueToType(args[i+numParams], etcType)
+			goArg, err = valueToType(t, args[i+numParams], etcType)
 			if err != nil {
 				return nil, err
 			}
@@ -160,15 +160,15 @@ func goCall(t *rt.Thread, u *rt.UserData, args []rt.Value) ([]rt.Value, error) {
 	return res, nil
 }
 
-func fillStruct(s reflect.Value, v rt.Value) error {
+func fillStruct(t *rt.Thread, s reflect.Value, v rt.Value) error {
 	var ok bool
-	t, ok := v.(*rt.Table)
+	tbl, ok := v.(*rt.Table)
 	if !ok {
 		return errors.New("fillStruct: can only fill from a table")
 	}
 	var fk, fv rt.Value
 	for {
-		fk, fv, ok = t.Next(fk)
+		fk, fv, ok = tbl.Next(fk)
 		if !ok || fk == nil {
 			break
 		}
@@ -180,7 +180,7 @@ func fillStruct(s reflect.Value, v rt.Value) error {
 		if field == (reflect.Value{}) {
 			return fmt.Errorf("fillStruct: field %q does not exist in struct", name)
 		}
-		goFv, err := valueToType(fv, field.Type())
+		goFv, err := valueToType(t, fv, field.Type())
 		if err != nil {
 			return err
 		}
@@ -189,30 +189,31 @@ func fillStruct(s reflect.Value, v rt.Value) error {
 	return nil
 }
 
-// func valueToFunc(v rt.Value, tp reflect.Type) (reflect.Value, error) {
-// 	fn := func(in []reflect.Value) []reflect.Value {
-// 		args := make([]rt.Value, len(in))
-// 		for i, x := range in {
-// 			args[i] = reflectToValue(x, nil)
-// 		}
-// 		res := make([]rt.Value, 5)
-// 		// res
-// 		out := make([]reflect.Value, len(res))
-// 		term := rt.NewTerminationWith(tp.NumOut(), false)
-// 		err := rt.Call(nil, v)
-// 		var err error
-// 		for i, y := range res {
-// 			out[i], err = valueToType(y, tp.Out(i))
-// 			if err != nil {
-// 				panic(err)
-// 			}
-// 		}
-// 		return out
-// 	}
-// 	return reflect.MakeFunc(tp, fn), nil
-// }
+func valueToFunc(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, error) {
+	fn := func(in []reflect.Value) []reflect.Value {
+		args := make([]rt.Value, len(in))
+		for i, x := range in {
+			args[i] = reflectToValue(x, nil)
+		}
+		res := make([]rt.Value, tp.NumOut())
+		out := make([]reflect.Value, len(res))
+		term := rt.NewTermination(res, nil)
+		if err := rt.Call(t, v, args, term); err != nil {
+			panic(err)
+		}
+		var err error
+		for i, y := range res {
+			out[i], err = valueToType(t, y, tp.Out(i))
+			if err != nil {
+				panic(err)
+			}
+		}
+		return out
+	}
+	return reflect.MakeFunc(tp, fn), nil
+}
 
-func valueToType(v rt.Value, tp reflect.Type) (reflect.Value, error) {
+func valueToType(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, error) {
 	// Fist we deal with UserData
 	if u, ok := v.(*rt.UserData); ok {
 		gv := reflect.ValueOf(u.Value())
@@ -230,18 +231,18 @@ func valueToType(v rt.Value, tp reflect.Type) (reflect.Value, error) {
 			return reflect.Value{}, fmt.Errorf("lua value cannot be converted to %s", tp.Name())
 		}
 		p := reflect.New(tp.Elem())
-		if err := fillStruct(p.Elem(), v); err != nil {
+		if err := fillStruct(t, p.Elem(), v); err != nil {
 			return reflect.Value{}, err
 		}
 		return p, nil
 	case reflect.Struct:
 		s := reflect.Zero(tp)
-		if err := fillStruct(s, v); err != nil {
+		if err := fillStruct(t, s, v); err != nil {
 			return reflect.Value{}, err
 		}
 		return s, nil
-	// case reflect.Func:
-	// 	return valueToFunc(v, tp)
+	case reflect.Func:
+		return valueToFunc(t, v, tp)
 	case reflect.Int:
 		x, ok := rt.ToInt(v)
 		if ok {

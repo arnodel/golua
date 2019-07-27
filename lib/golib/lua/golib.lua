@@ -54,3 +54,14 @@ print(slice[0], slice[1], slice[2])
 
 print(sprintf("the %s is %d", "answer", 6*7))
 --> =the answer is 42
+
+print(twice(function(n) return 2*n end)(5))
+--> =20
+
+-- do
+--     go = require("golib")
+--     fmt = go.import("fmt")
+--     sprintf = fmt.Sprintf
+--     print(sprintf("-%s-", "hello"))
+-- end
+-- --> =-hello-
