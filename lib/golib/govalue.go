@@ -115,7 +115,7 @@ func goSetIndex(t *rt.Thread, u *rt.UserData, key rt.Value, val rt.Value) error 
 }
 
 // Call tries to call the goValue if it is a function with the given arguments.
-func goCall(t *rt.Thread, u *rt.UserData, args []rt.Value) ([]rt.Value, error) {
+func goCall(t *rt.Thread, u *rt.UserData, args []rt.Value) (res []rt.Value, err error) {
 	gv := reflect.ValueOf(u.Value())
 	meta := u.Metatable()
 	if gv.Kind() != reflect.Func {
@@ -129,12 +129,11 @@ func goCall(t *rt.Thread, u *rt.UserData, args []rt.Value) ([]rt.Value, error) {
 		numParams--
 	}
 	var goArg reflect.Value
-	var err error
 	for i := 0; i < numParams; i++ {
 		if i < len(args) {
 			goArg, err = valueToType(t, args[i], f.In(i))
 			if err != nil {
-				return nil, err
+				return
 			}
 		} else {
 			goArg = reflect.Zero(f.In(i))
@@ -142,6 +141,11 @@ func goCall(t *rt.Thread, u *rt.UserData, args []rt.Value) ([]rt.Value, error) {
 		goArgs[i] = goArg
 	}
 	var goRes []reflect.Value
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic in go call: %v", r)
+		}
+	}()
 	if isVariadic {
 		etcSliceType := f.In(numParams)
 		etcType := etcSliceType.Elem()
@@ -159,11 +163,11 @@ func goCall(t *rt.Thread, u *rt.UserData, args []rt.Value) ([]rt.Value, error) {
 	} else {
 		goRes = gv.Call(goArgs)
 	}
-	res := make([]rt.Value, len(goRes))
+	res = make([]rt.Value, len(goRes))
 	for i, x := range goRes {
 		res[i] = reflectToValue(x, meta)
 	}
-	return res, nil
+	return
 }
 
 func fillStruct(t *rt.Thread, s reflect.Value, v rt.Value) error {
@@ -300,6 +304,13 @@ func reflectToValue(v reflect.Value, meta *rt.Table) rt.Value {
 	case reflect.Slice:
 		if v.Type().Elem().Kind() == reflect.Uint8 {
 			return rt.String(v.Interface().([]byte))
+		}
+	case reflect.Ptr:
+		switch x := v.Interface().(type) {
+		case *rt.Table:
+			return x
+		case *rt.UserData:
+			return x
 		}
 	}
 	return rt.NewUserData(v.Interface(), meta)
