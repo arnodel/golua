@@ -2,6 +2,9 @@ package golib
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"path"
 
 	"github.com/arnodel/golua/lib/golib/goimports"
 	"github.com/arnodel/golua/lib/packagelib"
@@ -99,6 +102,9 @@ func goValueCall(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func goimport(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if pluginsRoot == "" {
+		return nil, rt.NewError("cannot import go packages: plugins root not set")
+	}
 	if err := c.Check1Arg(); err != nil {
 		return nil, err.AddContext(c)
 	}
@@ -106,9 +112,26 @@ func goimport(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	exports, loadErr := goimports.LoadGoPackage(string(path), "/Users/adelobelle/goplugins")
+	exports, loadErr := goimports.LoadGoPackage(string(path), pluginsRoot)
 	if loadErr != nil {
 		return nil, rt.NewErrorF("cannot import go package %s: %s", path, loadErr)
 	}
 	return c.PushingNext(NewGoValue(t.Runtime, exports)), nil
+}
+
+var pluginsRoot string
+
+func init() {
+	var ok bool
+	pluginsRoot, ok = os.LookupEnv("GOLUA_PLUGINS_ROOT")
+	if ok {
+		return
+	}
+	home, err := os.UserHomeDir()
+	if err == nil {
+		pluginsRoot = path.Join(home, ".golua/goplugins")
+		return
+	}
+	pluginsRoot = ""
+	log.Print("Unable to set go plugins root")
 }
