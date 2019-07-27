@@ -161,6 +161,7 @@ var Exports = map[string]interface{}{
 	// Types
 {{ range .Types }}
 	"{{ . }}": func(x {{ $pkgName }}.{{ . }}) {{ $pkgName }}.{{ . }} { return x },
+	"new{{ . }}": func() *{{ $pkgName }}.{{ . }} { return new({{ $pkgName }}.{{ . }}) },
 {{- end }}
 }
 `
