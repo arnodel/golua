@@ -20,6 +20,12 @@ func goIndex(t *rt.Thread, u *rt.UserData, key rt.Value) (rt.Value, error) {
 		if m != (reflect.Value{}) {
 			return reflectToValue(m, meta), nil
 		}
+		if gv.CanAddr() {
+			m = gv.Addr().MethodByName(string(field))
+			if m != (reflect.Value{}) {
+				return reflectToValue(m, meta), nil
+			}
+		}
 	}
 	switch gv.Kind() {
 	case reflect.Ptr:
