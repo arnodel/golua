@@ -8,21 +8,12 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-// A GoValue holds any go value.
-type GoValue struct {
-	value interface{}
-}
-
-// ToGoValue turn any go value into a GoValue
-func ToGoValue(x interface{}) GoValue {
-	return GoValue{value: x}
-}
-
 // Index tries to find the value of the go value at "index" v. This could mean
 // finding a method or a struct field or a map key or a slice index.
-func (g GoValue) Index(v rt.Value, meta *rt.Table) (rt.Value, error) {
-	gv := reflect.ValueOf(g.value)
-	field, ok := rt.AsString(v)
+func goIndex(t *rt.Thread, u *rt.UserData, key rt.Value) (rt.Value, error) {
+	gv := reflect.ValueOf(u.Value())
+	meta := u.Metatable()
+	field, ok := rt.AsString(key)
 	if ok {
 		// First try a method
 		m := gv.MethodByName(string(field))
@@ -47,13 +38,13 @@ func (g GoValue) Index(v rt.Value, meta *rt.Table) (rt.Value, error) {
 		}
 		return nil, fmt.Errorf("no field or method with name %q", field)
 	case reflect.Map:
-		goV, err := valueToType(v, gv.Type().Key())
+		goV, err := valueToType(key, gv.Type().Key())
 		if err != nil {
 			return nil, fmt.Errorf("map index or incorrect type: %s", err)
 		}
 		return reflectToValue(gv.MapIndex(goV), meta), nil
 	case reflect.Slice:
-		i, ok := rt.ToInt(v)
+		i, ok := rt.ToInt(key)
 		if !ok {
 			return nil, errors.New("slice index must be an integer")
 		}
@@ -64,8 +55,8 @@ func (g GoValue) Index(v rt.Value, meta *rt.Table) (rt.Value, error) {
 
 // SetIndex tries to set the value of the index given by key to val.  This could
 // mean setting a struct field value or a map value or a slice item.
-func (g GoValue) SetIndex(key rt.Value, val rt.Value) error {
-	gv := reflect.ValueOf(g.value)
+func goSetIndex(t *rt.Thread, u *rt.UserData, key rt.Value, val rt.Value) error {
+	gv := reflect.ValueOf(u.Value())
 	switch gv.Kind() {
 	case reflect.Ptr:
 		gv = gv.Elem()
@@ -118,8 +109,9 @@ func (g GoValue) SetIndex(key rt.Value, val rt.Value) error {
 }
 
 // Call tries to call the goValue if it is a function with the given arguments.
-func (g GoValue) Call(args []rt.Value, meta *rt.Table) ([]rt.Value, error) {
-	gv := reflect.ValueOf(g.value)
+func goCall(t *rt.Thread, u *rt.UserData, args []rt.Value) ([]rt.Value, error) {
+	gv := reflect.ValueOf(u.Value())
+	meta := u.Metatable()
 	if gv.Kind() != reflect.Func {
 		return nil, fmt.Errorf("%s is not a function", gv.Kind())
 	}
@@ -197,18 +189,41 @@ func fillStruct(s reflect.Value, v rt.Value) error {
 	return nil
 }
 
+// func valueToFunc(v rt.Value, tp reflect.Type) (reflect.Value, error) {
+// 	fn := func(in []reflect.Value) []reflect.Value {
+// 		args := make([]rt.Value, len(in))
+// 		for i, x := range in {
+// 			args[i] = reflectToValue(x, nil)
+// 		}
+// 		res := make([]rt.Value, 5)
+// 		// res
+// 		out := make([]reflect.Value, len(res))
+// 		term := rt.NewTerminationWith(tp.NumOut(), false)
+// 		err := rt.Call(nil, v)
+// 		var err error
+// 		for i, y := range res {
+// 			out[i], err = valueToType(y, tp.Out(i))
+// 			if err != nil {
+// 				panic(err)
+// 			}
+// 		}
+// 		return out
+// 	}
+// 	return reflect.MakeFunc(tp, fn), nil
+// }
+
 func valueToType(v rt.Value, tp reflect.Type) (reflect.Value, error) {
-	if goVal, _, ok := ValueToGoValue(v); ok {
-		gv := reflect.ValueOf(goVal.value)
+	// Fist we deal with UserData
+	if u, ok := v.(*rt.UserData); ok {
+		gv := reflect.ValueOf(u.Value())
 		if gv.Type().AssignableTo(tp) {
 			return gv, nil
 		}
 		if gv.Type().ConvertibleTo(tp) {
 			return gv.Convert(tp), nil
 		}
-		return reflect.Value{}, fmt.Errorf("%+v is not assignable or convertible to %s", goVal.value, tp.Name())
+		return reflect.Value{}, fmt.Errorf("%+v is not assignable or convertible to %s", u.Value(), tp.Name())
 	}
-	var ok bool
 	switch tp.Kind() {
 	case reflect.Ptr:
 		if tp.Elem().Kind() != reflect.Struct {
@@ -225,29 +240,27 @@ func valueToType(v rt.Value, tp reflect.Type) (reflect.Value, error) {
 			return reflect.Value{}, err
 		}
 		return s, nil
+	// case reflect.Func:
+	// 	return valueToFunc(v, tp)
 	case reflect.Int:
-		var x rt.Int
-		x, ok = rt.ToInt(v)
+		x, ok := rt.ToInt(v)
 		if ok {
 			return reflect.ValueOf(int(x)), nil
 		}
 	case reflect.Float64:
-		var x rt.Float
-		x, ok = rt.ToFloat(v)
+		x, ok := rt.ToFloat(v)
 		if ok {
 			return reflect.ValueOf(float64(x)), nil
 		}
 	case reflect.String:
-		var x rt.String
-		x, ok = rt.AsString(v)
+		x, ok := rt.AsString(v)
 		if ok {
 			return reflect.ValueOf(string(x)), nil
 		}
 	case reflect.Bool:
 		return reflect.ValueOf(rt.Truth(v)), nil
 	case reflect.Interface:
-		ok = reflect.TypeOf(v).Implements(tp)
-		if ok {
+		if reflect.TypeOf(v).Implements(tp) {
 			return reflect.ValueOf(v), nil
 		}
 	}
@@ -274,5 +287,5 @@ func reflectToValue(v reflect.Value, meta *rt.Table) rt.Value {
 			return rt.String(v.Interface().([]byte))
 		}
 	}
-	return rt.NewUserData(GoValue{value: v.Interface()}, meta)
+	return rt.NewUserData(v.Interface(), meta)
 }

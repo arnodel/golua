@@ -33,18 +33,18 @@ func load(r *rt.Runtime) rt.Value {
 // NewGoValue will return a UserData representing the go value.
 func NewGoValue(r *rt.Runtime, x interface{}) *rt.UserData {
 	meta := r.Registry(govalueKey).(*rt.Table)
-	return rt.NewUserData(ToGoValue(x), meta)
+	return rt.NewUserData(x, meta)
 }
 
 func goValueIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err.AddContext(c)
 	}
-	gv, meta, err := GoValueArg(c, 0)
+	u, err := c.UserDataArg(0)
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	val, indexErr := gv.Index(c.Arg(1), meta)
+	val, indexErr := goIndex(t, u, c.Arg(1))
 	if indexErr != nil {
 		return nil, rt.NewErrorE(indexErr).AddContext(c)
 	}
@@ -55,11 +55,11 @@ func goValueSetIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(3); err != nil {
 		return nil, err.AddContext(c)
 	}
-	gv, _, err := GoValueArg(c, 0)
+	u, err := c.UserDataArg(0)
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	setIndexErr := gv.SetIndex(c.Arg(1), c.Arg(2))
+	setIndexErr := goSetIndex(t, u, c.Arg(1), c.Arg(2))
 	if setIndexErr != nil {
 		return nil, rt.NewErrorE(setIndexErr).AddContext(c)
 	}
@@ -70,37 +70,15 @@ func goValueCall(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err.AddContext(c)
 	}
-	gv, meta, err := GoValueArg(c, 0)
+	u, err := c.UserDataArg(0)
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	res, callErr := gv.Call(c.Etc(), meta)
+	res, callErr := goCall(t, u, c.Etc())
 	if callErr != nil {
 		return nil, rt.NewErrorE(callErr).AddContext(c)
 	}
 	return c.PushingNext(res...), nil
-}
-
-// GoValueArg turns a continuation argument into a *File.
-func GoValueArg(c *rt.GoCont, n int) (GoValue, *rt.Table, *rt.Error) {
-	f, meta, ok := ValueToGoValue(c.Arg(n))
-	if ok {
-		return f, meta, nil
-	}
-	return GoValue{}, nil, rt.NewErrorF("#%d must be a go value", n+1)
-}
-
-// ValueToGoValue turns a lua value to a *File if possible.
-func ValueToGoValue(v rt.Value) (GoValue, *rt.Table, bool) {
-	u, ok := v.(*rt.UserData)
-	var goVal GoValue
-	if ok {
-		goVal, ok = u.Value().(GoValue)
-	}
-	if !ok {
-		return goVal, nil, false
-	}
-	return goVal, u.Metatable(), true
 }
 
 func goimport(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
