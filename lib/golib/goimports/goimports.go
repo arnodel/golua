@@ -17,12 +17,19 @@ import (
 	"text/template"
 )
 
-func LoadGoPackage(pkg string, pluginRoot string) (map[string]interface{}, error) {
+// LoadGoPackage builds a plugin for a package if necessary, compiles it and loads
+// it.  The value of the "Exports" symbol is returned if successful.
+func LoadGoPackage(pkg string, pluginRoot string, forceBuild bool) (map[string]interface{}, error) {
 	pluginDir := path.Join(pluginRoot, pkg)
 	filename := path.Base(pluginDir) + ".so"
 	pluginPath := path.Join(pluginDir, filename)
-	p, err := plugin.Open(pluginPath)
-	if err != nil {
+	var p *plugin.Plugin
+	var err error
+	if !forceBuild {
+		p, err = plugin.Open(pluginPath)
+		forceBuild = err != nil
+	}
+	if forceBuild {
 		err = buildPlugin(pkg, pluginPath)
 		if err != nil {
 			return nil, err
@@ -50,10 +57,6 @@ type libModel struct {
 	Types       []string
 	vars        []string
 	consts      []string
-}
-
-func getPluginPath(pkg string) {
-	return
 }
 
 func getPackagePath(pkg string) (string, string, error) {
