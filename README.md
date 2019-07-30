@@ -4,18 +4,19 @@
 
 # GoLua
 
-Implementation of Lua **5.3** in Go with **no third party dependencies**.  The compiler and runtime are complete (including coroutines), the standard Lua library is mostly implemented.
+Implementation of Lua **5.3** in Go with **no third party dependencies**. The compiler and runtime are complete (including coroutines), the standard Lua library is mostly implemented.
 
 - [GoLua](#golua)
 	- [Quick start: running golua](#quick-start-running-golua)
+		- [Importing and using Go packages](#importing-and-using-go-packages)
 	- [Quick start: embedding golua](#quick-start-embedding-golua)
 	- [Quick start: extending golua](#quick-start-extending-golua)
 	- [Aim](#aim)
 	- [Design constraints](#design-constraints)
 	- [Components](#components)
 		- [Lexer / Parser](#lexer--parser)
-		- [AST → IR Compilation](#ast-%E2%86%92-ir-compilation)
-		- [IR → Code Compilation](#ir-%E2%86%92-code-compilation)
+		- [AST → IR Compilation](#ast-%e2%86%92-ir-compilation)
+		- [IR → Code Compilation](#ir-%e2%86%92-code-compilation)
 		- [Runtime](#runtime)
 		- [Test Suite](#test-suite)
 		- [Standard Library](#standard-library)
@@ -53,6 +54,29 @@ $ golua
 4	24
 5	120
 >
+```
+
+### Importing and using Go packages
+
+You can dynamically _import Go packages_ very easily as long as they are already
+downloaded - this include the standard library. Here is an example of running an
+http server in the repl:
+
+```sh
+$ golua
+> go = require('golib')
+> http = go.import('net/http')
+> http.HandleFunc('/hello/', function(w, r)
+|   w.Write('hi there from Lua! You requested ' .. r.URL.Path)
+| end)
+> http.ListenAndServe(':7777')
+```
+
+In another terminal you can do:
+
+```sh
+$ curl http://localhost:7777/hello/golua
+hi there from Lua! You requested /hello/golua
 ```
 
 To run a lua file:
@@ -119,7 +143,7 @@ in function <main chunk> (file err.lua:11)
 
 ## Quick start: embedding golua
 
-It's very easy to embed the golua compiler / runtime in a Go program.  The example below compiles a lua function, runs it and displays the result.
+It's very easy to embed the golua compiler / runtime in a Go program. The example below compiles a lua function, runs it and displays the result.
 
 ```golang
 	// First we obtain a new Lua runtime which outputs to stdout
@@ -148,12 +172,13 @@ It's also very easy to add write Go functions that can be called from Lua code.
 The example below shows how to.
 
 This is the Go function that we are going to call from Lua. Its inputs are:
+
 - `t`: the thread the function is running in.
 - `c`: the go continuation that represents the context the function is called in.
-       It contains the arguments to the function and the next continuation (the
-       one which receives the values computed by this function).
+  It contains the arguments to the function and the next continuation (the
+  one which receives the values computed by this function).
 
- It returns the next continuation on success, else an error.
+It returns the next continuation on success, else an error.
 
 ```golang
 func addints(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -212,29 +237,29 @@ environment and demonstrates calling it from Lua.
 ```
 
 You can also make custom libraries and use Go values in Lua (using e.g. the
-`runtime.UserData` type).  There is an example implementing a `regex` Lua
+`runtime.UserData` type). There is an example implementing a `regex` Lua
 package that uses Go `regexp.Regexp` in [examples/userdata](examples/userdata)
 
 ## Aim
 
 To implememt the Lua programming language in Go, easily embeddable in
-Go applications.  It should be able to run any pure Lua code
+Go applications. It should be able to run any pure Lua code
 
 ## Design constraints
 
-* clean room implementation: do not look at existing implementations
-* self contained: no dependencies
-* small: avoid re-implementing features which are already present in
+- clean room implementation: do not look at existing implementations
+- self contained: no dependencies
+- small: avoid re-implementing features which are already present in
   the Go language or in the standard library (e.g. garbage collection)
-* register based VM
-* no call stack (continuation passing)
+- register based VM
+- no call stack (continuation passing)
 
 ## Components
 
 ### Lexer / Parser
 
-* The lexer is implemented in the package `scanner`.
-* The parser is hand-written and implemented in the `parsing` package.
+- The lexer is implemented in the package `scanner`.
+- The parser is hand-written and implemented in the `parsing` package.
 
 ### AST → IR Compilation
 
@@ -245,13 +270,13 @@ The `ir` package defines all the IR instructions and the IR compiler.
 
 ### IR → Code Compilation
 
-The runtime bytecode is defined in the `code` package.  Each IR
+The runtime bytecode is defined in the `code` package. Each IR
 instruction (see package `ir`) know how to compile itself using an
 `ir.InstrCompiler` instance.
 
 ### Runtime
 
-The runtime is implemented in the `runtime` package.  This defines a
+The runtime is implemented in the `runtime` package. This defines a
 `Runtime` type which contains the global state of a runtime, a
 `Thread` type which can run a continuation, can yield and can be
 resumed, the various runtime data types (e.g. `String`, `Int`...). The
@@ -261,7 +286,7 @@ bytecode interpreter is implemented in the `RunInThread` method of the
 ### Test Suite
 
 There is a framework for running lua tests in the package `luatesting`. In the
-various Go packages, if there is a  `lua` directory, each `.lua` file is a test.
+various Go packages, if there is a `lua` directory, each `.lua` file is a test.
 Expected output is specified in the file as comments of a special form, starting
 with `-->`:
 
@@ -275,7 +300,7 @@ print("ababab")
 -- "~" means match with a regexp (syntax is go regexp)
 ```
 
-Most of the code is covered with such Lua tests.  Specific packages or functions
+Most of the code is covered with such Lua tests. Specific packages or functions
 are covered with Go tests.
 
 ### Standard Library
@@ -283,23 +308,23 @@ are covered with Go tests.
 The `lib` directory contains a number of package, each implementing a
 lua library.
 
-* `base`: basic library. It is done apart from `xpcall` (and the
+- `base`: basic library. It is done apart from `xpcall` (and the
   implementation of `load` is not complete).
-* `coroutine`: the coroutine library, which is done.
-* `packagelib`: the package library.  It is able to load lua modules
+- `coroutine`: the coroutine library, which is done.
+- `packagelib`: the package library. It is able to load lua modules
   but not "native" modules, which would be written in Go. Obviously
   this is not part of the official Lua specification. Perhaps using
   the plugin mechanism (https://golang.org/pkg/plugin/) would be a way
-  of doing it.  I have no plan to support Lua C modules!
-* `stringlib`: the string library.  It is complete.
-* `mathlib`: the math library,  It is complete.
-* `tablelib`: the table library.  It is complete.
-* `iolib`: the io library.  It is implemented apart from `popen`,
+  of doing it. I have no plan to support Lua C modules!
+- `stringlib`: the string library. It is complete.
+- `mathlib`: the math library, It is complete.
+- `tablelib`: the table library. It is complete.
+- `iolib`: the io library. It is implemented apart from `popen`,
   `file:setvbuf`, `read("n")` (reading a number)
-* `utf8lib`: the utf8 library.  It is complete.
-* `debug`: partially implemented (mainly to pass the lua test suite).  The
+- `utf8lib`: the utf8 library. It is complete.
+- `debug`: partially implemented (mainly to pass the lua test suite). The
   `getupvalue`, `setupvalue`, `upvalueid`, `upvaluejoin`, `setmetatable`
-  functions are implemented fully.  The `getinfo` function is partially
+  functions are implemented fully. The `getinfo` function is partially
   implemented.
 
 The `os` package is not yet implemented.
