@@ -201,3 +201,13 @@ func (c *GoCont) TableArg(n int) (*Table, *Error) {
 	}
 	return t, nil
 }
+
+// UserDataArg returns the n-th argument as a UserData if possible, otherwise a
+// non-nil *Error.  No range check!
+func (c *GoCont) UserDataArg(n int) (*UserData, *Error) {
+	t, ok := c.Arg(n).(*UserData)
+	if !ok {
+		return nil, NewErrorF("#%d must be userdata", n+1)
+	}
+	return t, nil
+}

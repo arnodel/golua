@@ -4,6 +4,7 @@ import (
 	"github.com/arnodel/golua/lib/base"
 	"github.com/arnodel/golua/lib/coroutine"
 	"github.com/arnodel/golua/lib/debuglib"
+	"github.com/arnodel/golua/lib/golib"
 	"github.com/arnodel/golua/lib/iolib"
 	"github.com/arnodel/golua/lib/mathlib"
 	"github.com/arnodel/golua/lib/oslib"
@@ -25,4 +26,5 @@ func Load(r *rt.Runtime) {
 	utf8lib.LibLoader.Run(r)
 	oslib.LibLoader.Run(r)
 	debuglib.LibLoader.Run(r)
+	golib.LibLoader.Run(r)
 }
