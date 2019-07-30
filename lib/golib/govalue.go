@@ -106,7 +106,10 @@ func goSetIndex(t *rt.Thread, u *rt.UserData, key rt.Value, val rt.Value) error 
 	case reflect.Slice:
 		i, ok := rt.ToInt(key)
 		if !ok {
-			return errors.New("slice idnex must be an integer")
+			return errors.New("slice index must be an integer")
+		}
+		if i < 0 || int(i) >= gv.Len() {
+			return errors.New("slice index out of bounds")
 		}
 		goVal, err := valueToType(t, val, gv.Type().Elem())
 		if err != nil {

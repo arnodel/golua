@@ -398,3 +398,136 @@ func Test_goIndex(t *testing.T) {
 		})
 	}
 }
+
+func Test_goSetIndex(t *testing.T) {
+	thread := new(rt.Thread)
+	meta := rt.NewTable()
+	testInt := int(12)
+	tests := []struct {
+		name    string
+		goval   interface{}
+		after   interface{}
+		key     rt.Value
+		val     rt.Value
+		wantErr bool
+	}{
+		{
+			name:    "pointer to non struct",
+			goval:   &testInt,
+			key:     rt.String("key"),
+			val:     rt.String("val"),
+			wantErr: true,
+		},
+		{
+			name:    "non string struct index",
+			goval:   &struct{}{},
+			key:     rt.Bool(true),
+			val:     rt.Int(10),
+			wantErr: true,
+		},
+		{
+			name:    "non existing struct field",
+			goval:   &struct{ Foo int }{},
+			key:     rt.String("Bar"),
+			val:     rt.Int(1),
+			wantErr: true,
+		},
+		{
+			name:    "struct field set to incompatible type",
+			goval:   &struct{ Foo int }{},
+			key:     rt.String("Foo"),
+			val:     rt.String("hi"),
+			wantErr: true,
+		},
+		{
+			name:  "struct field set to incompatible type",
+			goval: &struct{ Foo int }{},
+			key:   rt.String("Foo"),
+			val:   rt.Int(12),
+			after: &struct{ Foo int }{Foo: 12},
+		},
+		{
+			name:    "struct field non settable",
+			goval:   struct{ Foo int }{},
+			key:     rt.String("Foo"),
+			val:     rt.Int(12),
+			wantErr: true,
+		},
+		{
+			name:    "map key of incompatible type",
+			goval:   map[int]string{},
+			key:     rt.String("three"),
+			val:     rt.Int(444),
+			wantErr: true,
+		},
+		{
+			name:    "map value of incompatible type",
+			goval:   map[int]string{},
+			key:     rt.Int(444),
+			val:     rt.Bool(false),
+			wantErr: true,
+		},
+		{
+			name:  "map success",
+			goval: map[int]string{},
+			key:   rt.Int(444),
+			val:   rt.String("chouette"),
+			after: map[int]string{444: "chouette"},
+		},
+		{
+			name:    "non integer slice index",
+			goval:   []int{3, 2, 1},
+			key:     rt.String("deux"),
+			val:     rt.Int(12),
+			wantErr: true,
+		},
+		{
+			name:    "negative slice index",
+			goval:   []int{3, 2, 1},
+			key:     rt.Int(-1),
+			val:     rt.Int(12),
+			wantErr: true,
+		},
+		{
+			name:    "slice index > len-1",
+			goval:   []int{3, 2, 1},
+			key:     rt.Int(3),
+			val:     rt.Int(12),
+			wantErr: true,
+		},
+		{
+			name:    "slice value of incompatible type",
+			goval:   []int{3, 2, 1},
+			key:     rt.Int(2),
+			val:     rt.Bool(true),
+			wantErr: true,
+		},
+		{
+			name:  "successful slice",
+			goval: []int{3, 2, 1},
+			key:   rt.Int(1),
+			val:   rt.Int(12),
+			after: []int{3, 12, 1},
+		},
+		{
+			name:    "unsupported go type",
+			goval:   false,
+			key:     rt.Int(1),
+			val:     rt.Int(2),
+			wantErr: true,
+		},
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			u := rt.NewUserData(tt.goval, meta)
+			err := goSetIndex(thread, u, tt.key, tt.val)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("goSetIndex() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil && !reflect.DeepEqual(tt.goval, tt.after) {
+				t.Errorf("goSetIndex() got %v expected %v", tt.goval, tt.after)
+			}
+		})
+	}
+}
