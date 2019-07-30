@@ -1,6 +1,7 @@
 package golib
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -234,6 +235,165 @@ func Test_valueToType(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got.Interface(), tt.want) {
 				t.Errorf("valueToType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_fillStruct(t *testing.T) {
+	type testStruct struct {
+		Foo int
+	}
+	thread := new(rt.Thread)
+	tests := []struct {
+		name    string
+		before  reflect.Value
+		after   interface{}
+		v       rt.Value
+		wantErr bool
+	}{
+		{
+			name:    "not a table",
+			before:  reflect.ValueOf(struct{}{}),
+			v:       rt.Int(12),
+			wantErr: true,
+		},
+		{
+			name:    "table with non-string field",
+			before:  reflect.ValueOf(struct{}{}),
+			v:       tabledef{10: 12}.table(),
+			wantErr: true,
+		},
+		{
+			name:   "success",
+			before: reflect.ValueOf(&testStruct{}).Elem(),
+			v:      tabledef{"Foo": 23}.table(),
+			after:  testStruct{Foo: 23},
+		},
+		{
+			name:    "incorrect type for field",
+			before:  reflect.ValueOf(&testStruct{}).Elem(),
+			v:       tabledef{"Foo": "hi"}.table(),
+			wantErr: true,
+		},
+		{
+			name:    "Non-existent field",
+			before:  reflect.ValueOf(&testStruct{}).Elem(),
+			v:       tabledef{"Bar": 1}.table(),
+			wantErr: true,
+		},
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := fillStruct(thread, tt.before, tt.v)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("fillStruct() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && !reflect.DeepEqual(tt.before.Interface(), tt.after) {
+				t.Errorf("fillStruct() expected %s got %s", tt.after, tt.before.Interface())
+			}
+		})
+	}
+}
+
+func Test_goIndex(t *testing.T) {
+	thread := new(rt.Thread)
+	meta := rt.NewTable()
+	testErr := errors.New("hello")
+	testInt := int(12)
+
+	tests := []struct {
+		name            string
+		goval           interface{}
+		key             rt.Value
+		want            rt.Value
+		wantErr         bool
+		doNotCheckValue bool
+	}{
+		{
+			name:            "method on struct pointer",
+			goval:           testErr,
+			key:             rt.String("Error"),
+			doNotCheckValue: true,
+		},
+		{
+			name:    "pointer to non struct",
+			goval:   &testInt,
+			key:     rt.String("x"),
+			wantErr: true,
+		},
+		{
+			name:    "non-string index for struct",
+			goval:   struct{ Foo int }{},
+			key:     rt.Bool(true),
+			wantErr: true,
+		},
+		{
+			name:    "index for struct not referring to a field",
+			goval:   struct{ Foo int }{},
+			key:     rt.String("Bar"),
+			wantErr: true,
+		},
+		{
+			name:  "index for struct referring to a field",
+			goval: struct{ Foo int }{Foo: 12},
+			key:   rt.String("Foo"),
+			want:  rt.Int(12),
+		},
+		{
+			name:    "map index of incompatible type",
+			goval:   map[int]int{},
+			key:     rt.String("hi"),
+			wantErr: true,
+		},
+		{
+			name:  "map index of compatible type",
+			goval: map[string]int{"hi": 34},
+			key:   rt.String("hi"),
+			want:  rt.Int(34),
+		},
+		{
+			name:    "non-integral slice index",
+			goval:   []string{"hi", "there"},
+			key:     rt.String("bad"),
+			wantErr: true,
+		},
+		{
+			name:  "integral slice index within bounds",
+			goval: []string{"hi", "there"},
+			key:   rt.Float(1),
+			want:  rt.String("there"),
+		},
+		{
+			name:    "integral slice index greater than length-1",
+			goval:   []string{"hi", "there"},
+			key:     rt.Float(2),
+			wantErr: true,
+		},
+		{
+			name:    "integral slice index negative",
+			goval:   []string{"hi", "there"},
+			key:     rt.Int(-1),
+			wantErr: true,
+		},
+		{
+			name:    "unsupported type (function)",
+			goval:   func() {},
+			key:     rt.Int(1),
+			wantErr: true,
+		},
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := goIndex(thread, rt.NewUserData(tt.goval, meta), tt.key)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("goIndex() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && !tt.doNotCheckValue && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("goIndex() = %v, want %v", got, tt.want)
 			}
 		})
 	}

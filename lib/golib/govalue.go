@@ -21,6 +21,7 @@ func goIndex(t *rt.Thread, u *rt.UserData, key rt.Value) (rt.Value, error) {
 			return reflectToValue(m, meta), nil
 		}
 		if gv.CanAddr() {
+			// Is that even possible?
 			m = gv.Addr().MethodByName(string(field))
 			if m != (reflect.Value{}) {
 				return reflectToValue(m, meta), nil
@@ -53,6 +54,9 @@ func goIndex(t *rt.Thread, u *rt.UserData, key rt.Value) (rt.Value, error) {
 		i, ok := rt.ToInt(key)
 		if !ok {
 			return nil, errors.New("slice index must be an integer")
+		}
+		if i < 0 || int(i) >= gv.Len() {
+			return nil, errors.New("index out of slice bounds")
 		}
 		return reflectToValue(gv.Index(int(i)), meta), nil
 	}
