@@ -28,11 +28,13 @@ func (l Label) String() string {
 	return fmt.Sprintf("L%d", l)
 }
 
+// Combine applies the binary operator Op to Lsrc and Rsrc and stores the result
+// in Dst.
 type Combine struct {
-	Op   ops.Op
-	Dst  Register
-	Lsrc Register
-	Rsrc Register
+	Op   ops.Op   // Operator to apply to Lsrc and Rsrc
+	Dst  Register // Destination register
+	Lsrc Register // Left operand register
+	Rsrc Register // Right operand register
 }
 
 var codeBinOp = map[ops.Op]code.BinOp{
@@ -76,10 +78,11 @@ func (c Combine) String() string {
 	return fmt.Sprintf("%s := %s(%s, %s)", c.Dst, c.Op, c.Lsrc, c.Rsrc)
 }
 
+// Transform applies a unary operator Op to Src and stores the result in Dst.
 type Transform struct {
-	Op  ops.Op
-	Dst Register
-	Src Register
+	Op  ops.Op   // Operator to apply to Src
+	Dst Register // Destination register
+	Src Register // Operand register
 }
 
 func (t Transform) Compile(kc InstrCompiler) {
@@ -95,9 +98,10 @@ func (t Transform) String() string {
 	return fmt.Sprintf("%s := %s(%s)", t.Dst, t.Op, t.Src)
 }
 
+// LoadConst loads a constant into a register.
 type LoadConst struct {
-	Dst  Register
-	Kidx uint
+	Dst  Register // Destination register
+	Kidx uint     // Index of the constant to load
 }
 
 func (l LoadConst) Compile(kc InstrCompiler) {
@@ -113,10 +117,11 @@ func (l LoadConst) String() string {
 	return fmt.Sprintf("%s := k%d", l.Dst, l.Kidx)
 }
 
+// Push pushes the contents of a register into a continuation.
 type Push struct {
-	Cont Register
-	Item Register
-	Etc  bool
+	Cont Register // Destination register (should contain a continuation)
+	Item Register // Register containing item to push
+	Etc  bool     // True if the Item is an etc value.
 }
 
 func (p Push) Compile(kc InstrCompiler) {
@@ -132,19 +137,7 @@ func (p Push) String() string {
 	return fmt.Sprintf("push %s to %s", p.Item, p.Cont)
 }
 
-type PushCC struct {
-	Cont Register
-}
-
-func (p PushCC) Compile(kc InstrCompiler) {
-	opcode := code.MkType4b(code.On, code.OpCC, codeReg(p.Cont), code.Lit8(0))
-	kc.Emit(opcode)
-}
-
-func (p PushCC) String() string {
-	return fmt.Sprintf("push cc to %s", p.Cont)
-}
-
+// Jump jumps to the givel label.
 type Jump struct {
 	Label Label
 }
@@ -158,6 +151,7 @@ func (j Jump) Compile(kc InstrCompiler) {
 	kc.EmitJump(opcode, code.Label(j.Label))
 }
 
+// JumpIf jumps to the given label if the boolean value in Cond is different from Not.
 type JumpIf struct {
 	Cond  Register
 	Label Label
@@ -177,6 +171,7 @@ func (j JumpIf) String() string {
 	return fmt.Sprintf("jump %s if %s is not %t", j.Label, j.Cond, j.Not)
 }
 
+// Call moves execution to the given continuation
 type Call struct {
 	Cont Register
 }
@@ -191,6 +186,7 @@ func (c Call) String() string {
 	return fmt.Sprintf("call %s", c.Cont)
 }
 
+// MkClosure creates a new closure with the given code and upvalues and puts it in Dst.
 type MkClosure struct {
 	Dst      Register
 	Code     uint
@@ -222,6 +218,7 @@ func (m MkClosure) String() string {
 	return fmt.Sprintf("%s := mkclos(k%d; %s)", m.Dst, m.Code, joinRegisters(m.Upvalues, ", "))
 }
 
+// MkCont creates a new continuation for the given closure and puts it in Dst.
 type MkCont struct {
 	Dst     Register
 	Closure Register
@@ -241,6 +238,8 @@ func (m MkCont) String() string {
 	return fmt.Sprintf("%s := mkcont(%s)", m.Dst, m.Closure)
 }
 
+// ClearReg resets the given register to nil (if it contained a cell, this cell
+// is removed).
 type ClearReg struct {
 	Dst Register
 }
@@ -254,6 +253,7 @@ func (i ClearReg) String() string {
 	return fmt.Sprintf("clrreg(%s)", i.Dst)
 }
 
+// MkTable creates a new empty table and puts it i Dst.
 type MkTable struct {
 	Dst Register
 }
@@ -267,6 +267,8 @@ func (m MkTable) String() string {
 	return fmt.Sprintf("%s := mktable()", m.Dst)
 }
 
+// Lookup finds the value associated with the key Index in Table and puts it in
+// Dst.
 type Lookup struct {
 	Dst   Register
 	Table Register
@@ -282,6 +284,7 @@ func (s Lookup) String() string {
 	return fmt.Sprintf("%s := %s[%s]", s.Dst, s.Table, s.Index)
 }
 
+// SetIndex associates Index with Src in the table Table.
 type SetIndex struct {
 	Table Register
 	Index Register
@@ -297,19 +300,10 @@ func (s SetIndex) String() string {
 	return fmt.Sprintf("%s[%s] := %s", s.Table, s.Index, s.Src)
 }
 
-// type Receiver interface {
-// 	GetRegisters() []Register
-// 	HasEtc() bool
-// 	GetEtc() Register
-// }
-
+// Receive will put the result of pushes in the given registers.
 type Receive struct {
 	Dst []Register
 }
-
-// func (r Receive) GetRegisters() []Register { return r.Dst }
-// func (r Receive) HasEtc() bool             { return false }
-// func (r Receive) GetEtc() Register         { return Register(0) }
 
 func (r Receive) Compile(kc InstrCompiler) {
 	for _, reg := range r.Dst {
@@ -321,14 +315,12 @@ func (r Receive) String() string {
 	return fmt.Sprintf("recv(%s)", joinRegisters(r.Dst, ", "))
 }
 
+// ReceiveEtc will put the result of pushes into the given registers.  Extra
+// pushes will be accumulated into the Etc register.
 type ReceiveEtc struct {
 	Dst []Register
 	Etc Register
 }
-
-// func (r ReceiveEtc) GetRegisters() []Register { return r.Dst }
-// func (r ReceiveEtc) HasEtc() bool             { return true }
-// func (r ReceiveEtc) GetEtc() Register         { return r.Etc }
 
 func (r ReceiveEtc) String() string {
 	return fmt.Sprintf("recv(%s, ...%s)", joinRegisters(r.Dst, ", "), r.Etc)
@@ -341,6 +333,8 @@ func (r ReceiveEtc) Compile(kc InstrCompiler) {
 	kc.Emit(code.MkType0(code.On, codeReg(r.Etc)))
 }
 
+// EtcLookup finds the value at index Idx in the Etc register and puts it in
+// Dst.
 type EtcLookup struct {
 	Etc Register
 	Dst Register
@@ -358,6 +352,8 @@ func (l EtcLookup) Compile(kc InstrCompiler) {
 	kc.Emit(code.MkType6(code.Off, codeReg(l.Dst), codeReg(l.Etc), uint8(l.Idx)))
 }
 
+// FillTable fills Dst (which must contain a table) with the contents of Etc
+// (which must be an etc value) starting from the given index.
 type FillTable struct {
 	Etc Register
 	Dst Register
@@ -373,22 +369,6 @@ func (f FillTable) Compile(kc InstrCompiler) {
 		panic("Fill table index out of range")
 	}
 	kc.Emit(code.MkType6(code.On, codeReg(f.Dst), codeReg(f.Etc), uint8(f.Idx)))
-}
-
-type JumpIfForLoopDone struct {
-	Label Label
-	Var   Register
-	Limit Register
-	Step  Register
-}
-
-func (j JumpIfForLoopDone) Compile(kc InstrCompiler) {
-	opcode := code.MkType5(code.Off, code.OpJumpIfForLoopDone, code.Reg(0), code.Lit16(0))
-	kc.EmitJump(opcode, code.Label(j.Label))
-}
-
-func (j JumpIfForLoopDone) String() string {
-	return fmt.Sprintf("jump %s if for loop done(%s, %s, %s)", j.Label, j.Var, j.Limit, j.Step)
 }
 
 func codeReg(r Register) code.Reg {

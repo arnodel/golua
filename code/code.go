@@ -265,7 +265,6 @@ const (
 	OpCall JumpOp = iota
 	OpJump
 	OpJumpIf
-	OpJumpIfForLoopDone // Extra opcode (3 registers needed)
 )
 
 func (op JumpOp) ToY() uint32 {

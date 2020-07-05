@@ -5,6 +5,7 @@ import (
 	"io"
 )
 
+// A Unit is a chunk of code
 type Unit struct {
 	Source    string
 	Code      []Opcode
