@@ -15,8 +15,8 @@ Implementation of Lua **5.3** in Go with **no third party dependencies**. The co
 	- [Design constraints](#design-constraints)
 	- [Components](#components)
 		- [Lexer / Parser](#lexer--parser)
-		- [AST → IR Compilation](#ast-%e2%86%92-ir-compilation)
-		- [IR → Code Compilation](#ir-%e2%86%92-code-compilation)
+		- [AST → IR Compilation](#ast--ir-compilation)
+		- [IR → Code Compilation](#ir--code-compilation)
 		- [Runtime](#runtime)
 		- [Test Suite](#test-suite)
 		- [Standard Library](#standard-library)
@@ -263,8 +263,9 @@ Go applications. It should be able to run any pure Lua code
 
 ### AST → IR Compilation
 
-The `ast` package defines all the AST nodes. Each node in the AST
-knows how to compile itself using an `ir.Compiler` instance.
+The `ast` package defines all the AST nodes.  The `astcomp` package defines a
+`Compiler` type that is able to compile an AST to IR, using an instance of
+`ir.Compiler`.
 
 The `ir` package defines all the IR instructions and the IR compiler.
 
