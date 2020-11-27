@@ -109,7 +109,7 @@ func replaceEscapeSeq(e []byte) []byte {
 		if i >= 0x110000 {
 			panic(errors.New("unicode escape sequence out of range"))
 		}
-		return []byte(string(i))
+		return []byte(string(rune(i)))
 	default:
 		return e[1:]
 	}

@@ -30,3 +30,9 @@ func CompileLuaChunk(source string, s ast.BlockStat) *ir.Compiler {
 	})
 	return irC
 }
+
+func (c *Compiler) NewChild() *Compiler {
+	return &Compiler{
+		Compiler: c.Compiler.NewChild(),
+	}
+}

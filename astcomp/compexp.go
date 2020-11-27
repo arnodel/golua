@@ -1,8 +1,6 @@
 package astcomp
 
 import (
-	"log"
-
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/ops"
@@ -110,9 +108,8 @@ func (c *expCompiler) ProcessEtcExp(e ast.EtcType) {
 
 // ProcessFunctionExp compiles a Function.
 func (c *expCompiler) ProcessFunctionExp(f ast.Function) {
-	log.Println("HERE", f)
 	fc := c.NewChild()
-	c.compileFunctionBody(f)
+	fc.compileFunctionBody(f)
 	kidx := c.GetConstant(fc.GetCode(f.Name))
 	c.EmitInstr(f, ir.MkClosure{
 		Dst:      c.dst,
