@@ -7,8 +7,14 @@ type LabelStat struct {
 	Name
 }
 
+var _ Stat = LabelStat{}
+
 func NewLabelStat(label Name) LabelStat {
 	return LabelStat{Location: label.Location, Name: label}
+}
+
+func (s LabelStat) ProcessStat(p StatProcessor) {
+	p.ProcessLabelStat(s)
 }
 
 func (s LabelStat) HWrite(w HWriter) {

@@ -1,12 +1,12 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
-
 type IndexExp struct {
 	Location
 	Coll ExpNode
 	Idx  ExpNode
 }
+
+var _ Var = IndexExp{}
 
 func NewIndexExp(coll ExpNode, idx ExpNode) IndexExp {
 	return IndexExp{
@@ -16,35 +16,12 @@ func NewIndexExp(coll ExpNode, idx ExpNode) IndexExp {
 	}
 }
 
-func (e IndexExp) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	tReg := CompileExp(c, e.Coll)
-	c.TakeRegister(tReg)
-	iReg := CompileExp(c, e.Idx)
-	EmitInstr(c, e, ir.Lookup{
-		Dst:   dst,
-		Table: tReg,
-		Index: iReg,
-	})
-	c.ReleaseRegister(tReg)
-	return dst
+func (e IndexExp) ProcessExp(p ExpProcessor) {
+	p.ProcessIndexExp(e)
 }
 
-func (e IndexExp) CompileAssign(c *ir.Compiler) Assign {
-	tReg := c.GetFreeRegister()
-	CompileExpInto(c, e.Coll, tReg)
-	c.TakeRegister(tReg)
-	iReg := c.GetFreeRegister()
-	CompileExpInto(c, e.Idx, iReg)
-	c.TakeRegister(iReg)
-	return func(src ir.Register) {
-		c.ReleaseRegister(tReg)
-		c.ReleaseRegister(iReg)
-		EmitInstr(c, e, ir.SetIndex{
-			Table: tReg,
-			Index: iReg,
-			Src:   src,
-		})
-	}
+func (e IndexExp) ProcessVar(p VarProcessor) {
+	p.ProcessIndexExpVar(e)
 }
 
 func (e IndexExp) FunctionName() string {

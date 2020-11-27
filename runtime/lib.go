@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/arnodel/golua/ast"
+	"github.com/arnodel/golua/astcomp"
 	"github.com/arnodel/golua/code"
 	"github.com/arnodel/golua/parsing"
 	"github.com/arnodel/golua/scanner"
@@ -290,10 +291,9 @@ func CompileLuaChunk(name string, source []byte) (*code.Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := stat.CompileChunk(name)
+	c := astcomp.CompileLuaChunk(name, *stat)
 	kc := c.NewConstantCompiler()
 	return kc.CompileQueue(), nil
-
 }
 
 // CompileAndLoadLuaChunk pares, compiles and loads a Lua chunk from source and

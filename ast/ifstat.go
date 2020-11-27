@@ -1,7 +1,6 @@
 package ast
 
 import (
-	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/token"
 )
 
@@ -11,6 +10,8 @@ type IfStat struct {
 	ElseIfs []CondStat
 	Else    *BlockStat
 }
+
+var _ Stat = IfStat{}
 
 func NewIfStat(endTok *token.Token) IfStat {
 	return IfStat{Location: LocFromToken(endTok)}
@@ -33,6 +34,10 @@ func (s IfStat) AddElseIf(cond ExpNode, body BlockStat) IfStat {
 	return s
 }
 
+func (s IfStat) ProcessStat(p StatProcessor) {
+	p.ProcessIfStat(s)
+}
+
 func (s IfStat) HWrite(w HWriter) {
 	w.Writef("if: ")
 	w.Indent()
@@ -48,25 +53,4 @@ func (s IfStat) HWrite(w HWriter) {
 		s.Else.HWrite(w)
 	}
 	w.Dedent()
-}
-
-func (s IfStat) CompileStat(c *ir.Compiler) {
-	endLbl := c.GetNewLabel()
-	lbl := c.GetNewLabel()
-	s.If.CompileCond(c, lbl)
-	for _, s := range s.ElseIfs {
-		EmitInstr(c, s.Cond, ir.Jump{Label: endLbl}) // TODO: better location
-		c.EmitLabel(lbl)
-		lbl = c.GetNewLabel()
-		s.CompileCond(c, lbl)
-	}
-	if s.Else != nil {
-		EmitInstr(c, s, ir.Jump{Label: endLbl}) // TODO: better location
-		c.EmitLabel(lbl)
-		s.Else.CompileStat(c)
-	} else {
-		c.EmitLabel(lbl)
-	}
-	c.EmitLabel(endLbl)
-
 }

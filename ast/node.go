@@ -6,53 +6,6 @@ import (
 	"github.com/arnodel/golua/ir"
 )
 
-func EmitInstr(c *ir.Compiler, l Locator, instr ir.Instruction) {
-	line := 0
-	if l != nil {
-		loc := l.Locate()
-		if loc.start != nil {
-			line = loc.start.Line
-		}
-	}
-	c.Emit(instr, line)
-}
-
-func EmitJump(c *ir.Compiler, l Locator, lbl ir.Name) {
-	line := 0
-	if l != nil {
-		loc := l.Locate()
-		if loc.start != nil {
-			line = loc.start.Line
-		}
-	}
-	c.EmitJump(lbl, line)
-}
-
-func EmitLoadConst(c *ir.Compiler, l Locator, k ir.Constant, reg ir.Register) {
-	line := 0
-	if l != nil {
-		loc := l.Locate()
-		if loc.start != nil {
-			line = loc.start.Line
-		}
-	}
-	ir.EmitConstant(c, k, reg, line)
-}
-
-func EmitMove(c *ir.Compiler, l Locator, dst, src ir.Register) {
-	if src == dst {
-		return
-	}
-	line := 0
-	if l != nil {
-		loc := l.Locate()
-		if loc.start != nil {
-			line = loc.start.Line
-		}
-	}
-	ir.EmitMove(c, dst, src, line)
-}
-
 type Locator interface {
 	Locate() Location
 }
@@ -124,27 +77,70 @@ type HWriter interface {
 // Stat is a statement
 type Stat interface {
 	Node
-	CompileStat(c *ir.Compiler)
+	ProcessStat(StatProcessor)
 }
 
 // ExpNode is an expression
 type ExpNode interface {
 	Node
-	CompileExp(*ir.Compiler, ir.Register) ir.Register
+	ProcessExp(ExpProcessor)
 }
 
 // TailExpNode is an expression which can be the tail of an exp list
 type TailExpNode interface {
 	Node
-	CompileTailExp(*ir.Compiler, []ir.Register)
-	CompileEtcExp(*ir.Compiler, ir.Register) ir.Register
+	ProcessTailExp(TailExpProcessor)
 }
 
 // Var is an l-value
 type Var interface {
 	ExpNode
-	CompileAssign(*ir.Compiler) Assign
 	FunctionName() string
+	ProcessVar(VarProcessor)
 }
 
 type Assign func(ir.Register)
+
+type StatProcessor interface {
+	ProcessAssignStat(AssignStat)
+	ProcessBlockStat(BlockStat)
+	ProcessBreakStat(BreakStat)
+	ProcessEmptyStat(EmptyStat)
+	ProcessForInStat(ForInStat)
+	ProcessForStat(ForStat)
+	ProcessFunctionCallStat(FunctionCall)
+	ProcessGotoStat(GotoStat)
+	ProcessIfStat(IfStat)
+	ProcessLabelStat(LabelStat)
+	ProcessLocalFunctionStat(LocalFunctionStat)
+	ProcessLocalStat(LocalStat)
+	ProcessRepeatStat(RepeatStat)
+	ProcessWhileStat(WhileStat)
+}
+
+type ExpProcessor interface {
+	ProcessBFunctionCallExp(BFunctionCall)
+	ProcessBinOpExp(BinOp)
+	ProcesBoolExp(Bool)
+	ProcessEtcExp(EtcType)
+	ProcessFunctionExp(Function)
+	ProcessFunctionCallExp(FunctionCall)
+	ProcessIndexExp(IndexExp)
+	ProcessNameExp(Name)
+	ProcessNilExp(NilType)
+	ProcessIntExp(Int)
+	ProcessFloatExp(Float)
+	ProcessStringExp(String)
+	ProcessTableConstructorExp(TableConstructor)
+	ProcessUnOpExp(UnOp)
+}
+
+type TailExpProcessor interface {
+	ProcessEtcTailExp(EtcType)
+	ProcessFunctionCallTailExp(FunctionCall)
+}
+
+type VarProcessor interface {
+	ProcessIndexExpVar(IndexExp)
+	ProcessNameVar(Name)
+}

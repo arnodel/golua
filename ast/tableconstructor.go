@@ -1,7 +1,6 @@
 package ast
 
 import (
-	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/token"
 )
 
@@ -13,6 +12,8 @@ type TableConstructor struct {
 	Location
 	Fields []TableField
 }
+
+var _ ExpNode = TableConstructor{}
 
 func NewTableConstructor(opTok, clTok *token.Token, fields []TableField) TableConstructor {
 	return TableConstructor{
@@ -35,41 +36,8 @@ func (c TableConstructor) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (t TableConstructor) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	EmitInstr(c, t, ir.MkTable{Dst: dst})
-	c.TakeRegister(dst)
-	currImplicitKey := 1
-	for i, field := range t.Fields {
-		keyExp := field.Key
-		_, noKey := keyExp.(NoTableKey)
-		if i == len(t.Fields)-1 && noKey {
-			tailExp, ok := field.Value.(TailExpNode)
-			if ok {
-				etc := tailExp.CompileEtcExp(c, c.GetFreeRegister())
-				EmitInstr(c, field.Value, ir.FillTable{
-					Dst: dst,
-					Idx: currImplicitKey,
-					Etc: etc,
-				})
-				break
-			}
-		}
-		valReg := CompileExp(c, field.Value)
-		c.TakeRegister(valReg)
-		if _, ok := keyExp.(NoTableKey); ok {
-			keyExp = Int{val: uint64(currImplicitKey)}
-			currImplicitKey++
-		}
-		keyReg := CompileExp(c, keyExp)
-		EmitInstr(c, field.Value, ir.SetIndex{
-			Table: dst,
-			Index: keyReg,
-			Src:   valReg,
-		})
-		c.ReleaseRegister(valReg)
-	}
-	c.ReleaseRegister(dst)
-	return dst
+func (t TableConstructor) ProcessExp(p ExpProcessor) {
+	p.ProcessTableConstructorExp(t)
 }
 
 //
@@ -102,6 +70,6 @@ func (k NoTableKey) HWrite(w HWriter) {
 	w.Writef("<no key>")
 }
 
-func (k NoTableKey) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	panic("NoTableKey should not be compiled")
+func (k NoTableKey) ProcessExp(p ExpProcessor) {
+	panic("nothing to process?")
 }
