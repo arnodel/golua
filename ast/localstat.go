@@ -1,12 +1,12 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
-
 type LocalStat struct {
 	Location
 	Names  []Name
 	Values []ExpNode
 }
+
+var _ Stat = LocalStat{}
 
 func NewLocalStat(names []Name, values []ExpNode) LocalStat {
 	loc := MergeLocations(names[0], names[len(names)-1])
@@ -14,6 +14,10 @@ func NewLocalStat(names []Name, values []ExpNode) LocalStat {
 		loc = MergeLocations(loc, values[len(values)-1])
 	}
 	return LocalStat{Location: loc, Names: names, Values: values}
+}
+
+func (s LocalStat) ProcessStat(p StatProcessor) {
+	p.ProcessLocalStat(s)
 }
 
 func (s LocalStat) HWrite(w HWriter) {
@@ -29,13 +33,4 @@ func (s LocalStat) HWrite(w HWriter) {
 		val.HWrite(w)
 	}
 	w.Dedent()
-}
-
-func (s LocalStat) CompileStat(c *ir.Compiler) {
-	localRegs := make([]ir.Register, len(s.Names))
-	CompileExpList(c, s.Values, localRegs)
-	for i, reg := range localRegs {
-		c.ReleaseRegister(reg)
-		c.DeclareLocal(ir.Name(s.Names[i].Val), reg)
-	}
 }

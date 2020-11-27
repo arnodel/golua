@@ -1,7 +1,5 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
-
 type AssignStat struct {
 	Location
 	Dest []Var
@@ -32,21 +30,6 @@ func (s AssignStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (s AssignStat) CompileStat(c *ir.Compiler) {
-
-	// Evaluate the right hand side
-	resultRegs := make([]ir.Register, len(s.Dest))
-	CompileExpList(c, s.Src, resultRegs)
-
-	// Compile the lvalues
-	assigns := make([]Assign, len(s.Dest))
-	for i, v := range s.Dest {
-		assigns[i] = v.CompileAssign(c)
-	}
-
-	// Compile the assignments
-	for i, reg := range resultRegs {
-		c.ReleaseRegister(reg)
-		assigns[i](reg)
-	}
+func (s AssignStat) ProcessStat(p StatProcessor) {
+	p.ProcessAssignStat(s)
 }

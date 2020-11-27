@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/token"
 )
 
@@ -28,7 +27,7 @@ func NewNumber(id *token.Token) (ExpNode, error) {
 		if err != nil {
 			return nil, err
 		}
-		return Float{Location: loc, val: f}, nil
+		return Float{Location: loc, Val: f}, nil
 	}
 	var n uint64
 	var err error
@@ -45,51 +44,45 @@ func NewNumber(id *token.Token) (ExpNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Int{Location: loc, val: n}, nil
+	return Int{Location: loc, Val: n}, nil
 }
 
 type Int struct {
 	Location
-	val uint64
+	Val uint64
 }
+
+var _ ExpNode = Int{}
 
 func NewInt(val uint64) Int {
-	return Int{val: val}
-}
-
-func (n Int) Val() uint64 {
-	return n.val
+	return Int{Val: val}
 }
 
 func (n Int) HWrite(w HWriter) {
-	w.Writef("%d", n.val)
+	w.Writef("%d", n.Val)
 }
 
-func (n Int) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	EmitLoadConst(c, n, ir.Int(n.val), dst)
-	return dst
+func (n Int) ProcessExp(p ExpProcessor) {
+	p.ProcessIntExp(n)
 }
 
 type Float struct {
 	Location
-	val float64
+	Val float64
 }
+
+var _ ExpNode = Float{}
 
 func NewFloat(x float64) Float {
-	return Float{val: x}
+	return Float{Val: x}
 }
 
-func (f Float) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	EmitLoadConst(c, f, ir.Float(f.val), dst)
-	return dst
+func (f Float) ProcessExp(p ExpProcessor) {
+	p.ProcessFloatExp(f)
 }
 
 func (f Float) HWrite(w HWriter) {
-	w.Writef("%f", f.val)
-}
-
-func (f Float) Val() float64 {
-	return f.val
+	w.Writef("%f", f.Val)
 }
 
 type NumberOracle interface {

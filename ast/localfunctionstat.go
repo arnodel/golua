@@ -1,12 +1,12 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
-
 type LocalFunctionStat struct {
 	Location
 	Function
 	Name Name
 }
+
+var _ Stat = LocalFunctionStat{}
 
 func NewLocalFunctionStat(name Name, fx Function) LocalFunctionStat {
 	fx.Name = name.Val
@@ -17,16 +17,12 @@ func NewLocalFunctionStat(name Name, fx Function) LocalFunctionStat {
 	}
 }
 
+func (s LocalFunctionStat) ProcessStat(p StatProcessor) {
+	p.ProcessLocalFunctionStat(s)
+}
+
 func (s LocalFunctionStat) HWrite(w HWriter) {
 	w.Writef("local function ")
 	s.Name.HWrite(w)
 	s.Function.HWrite(w)
-}
-
-func (s LocalFunctionStat) CompileStat(c *ir.Compiler) {
-	fReg := c.GetFreeRegister()
-	c.DeclareLocal(ir.Name(s.Name.Val), fReg)
-	reg := s.Function.CompileExp(c, fReg)
-	EmitMove(c, s, fReg, reg)
-
 }

@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/token"
 )
 
@@ -15,6 +14,8 @@ type String struct {
 	Location
 	Val []byte
 }
+
+var _ ExpNode = String{}
 
 // NewString returns a String from a string token, or an error if it couln't.
 func NewString(id *token.Token) (ss String, err error) {
@@ -55,13 +56,12 @@ func NewLongString(id *token.Token) String {
 	}
 }
 
-func (s String) HWrite(w HWriter) {
-	w.Writef("%q", s.Val)
+func (s String) ProcessExp(p ExpProcessor) {
+	p.ProcessStringExp(s)
 }
 
-func (s String) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	EmitLoadConst(c, s, ir.String(s.Val), dst)
-	return dst
+func (s String) HWrite(w HWriter) {
+	w.Writef("%q", s.Val)
 }
 
 var escapeSeqs = regexp.MustCompile(`(?s)\\\d{1,3}|\\[xX][0-9a-fA-F]{2}|\\[abtnvfr\\]|\\z[\s\v]*|\\[uU]{[0-9a-fA-F]+}|\\.`)

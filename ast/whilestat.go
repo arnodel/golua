@@ -1,7 +1,6 @@
 package ast
 
 import (
-	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/token"
 )
 
@@ -11,6 +10,8 @@ type WhileStat struct {
 	CondStat
 }
 
+var _ Stat = WhileStat{}
+
 func NewWhileStat(whileTok, endTok *token.Token, cond ExpNode, body BlockStat) WhileStat {
 	return WhileStat{
 		Location: LocFromTokens(whileTok, endTok),
@@ -18,23 +19,11 @@ func NewWhileStat(whileTok, endTok *token.Token, cond ExpNode, body BlockStat) W
 	}
 }
 
+func (s WhileStat) ProcessStat(p StatProcessor) {
+	p.ProcessWhileStat(s)
+}
+
 func (s WhileStat) HWrite(w HWriter) {
 	w.Writef("while: ")
 	s.CondStat.HWrite(w)
-}
-
-// CompileStat implements Stat.CompileStat.
-func (s WhileStat) CompileStat(c *ir.Compiler) {
-	c.PushContext()
-	stopLbl := c.DeclareGotoLabel(breakLblName)
-
-	loopLbl := c.GetNewLabel()
-	c.EmitLabel(loopLbl)
-
-	s.CondStat.CompileCond(c, stopLbl)
-
-	EmitInstr(c, s, ir.Jump{Label: loopLbl}) // TODO: better location
-
-	c.EmitGotoLabel(breakLblName)
-	c.PopContext()
 }

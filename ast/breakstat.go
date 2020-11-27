@@ -1,13 +1,14 @@
 package ast
 
 import (
-	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/token"
 )
 
 type BreakStat struct {
 	Location
 }
+
+var _ Stat = BreakStat{}
 
 func NewBreakStat(tok *token.Token) BreakStat {
 	return BreakStat{Location: LocFromToken(tok)}
@@ -17,8 +18,6 @@ func (s BreakStat) HWrite(w HWriter) {
 	w.Writef("break")
 }
 
-func (s BreakStat) CompileStat(c *ir.Compiler) {
-	EmitJump(c, s, breakLblName)
+func (s BreakStat) ProcessStat(p StatProcessor) {
+	p.ProcessBreakStat(s)
 }
-
-var breakLblName = ir.Name("<break>")

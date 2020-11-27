@@ -1,7 +1,6 @@
 package ast
 
 import (
-	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/token"
 )
 
@@ -9,13 +8,14 @@ type NilType struct {
 	Location
 }
 
+var _ ExpNode = NilType{}
+
 func (n NilType) HWrite(w HWriter) {
 	w.Writef("nil")
 }
 
-func (n NilType) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	EmitLoadConst(c, n, ir.NilType{}, dst)
-	return dst
+func (n NilType) ProcessExp(p ExpProcessor) {
+	p.ProcessNilExp(n)
 }
 
 func Nil(tok *token.Token) NilType {

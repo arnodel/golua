@@ -1,7 +1,6 @@
 package ast
 
 import (
-	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/token"
 )
 
@@ -10,13 +9,14 @@ type Bool struct {
 	Val bool
 }
 
+var _ ExpNode = Bool{}
+
 func (b Bool) HWrite(w HWriter) {
 	w.Writef("%t", b.Val)
 }
 
-func (b Bool) CompileExp(c *ir.Compiler, dst ir.Register) ir.Register {
-	EmitLoadConst(c, b, ir.Bool(b.Val), dst)
-	return dst
+func (b Bool) ProcessExp(p ExpProcessor) {
+	p.ProcesBoolExp(b)
 }
 
 func True(tok *token.Token) Bool {
