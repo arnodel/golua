@@ -21,6 +21,6 @@ func (s LabelStat) HWrite(w HWriter) {
 	w.Writef("label %s", s.Name.Val)
 }
 
-func (s LabelStat) CompileStat(c *ir.Compiler) {
+func (s LabelStat) CompileStat(c *ir.CodeBuilder) {
 	c.EmitGotoLabel(ir.Name(s.Name.Val))
 }

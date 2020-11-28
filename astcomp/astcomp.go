@@ -6,7 +6,7 @@ import (
 )
 
 type Compiler struct {
-	ir.Builder
+	*ir.CodeBuilder
 }
 
 // Names of various labels and registers used during compilation.
@@ -20,20 +20,20 @@ const (
 )
 
 // TODO: a better interface
-func CompileLuaChunk(source string, s ast.BlockStat) *ir.Compiler {
-	rootIrC := ir.NewCompiler(source, "<global chunk>")
+func CompileLuaChunk(source string, s ast.BlockStat) *ir.Code {
+	rootIrC := ir.NewCodeBuilder(source, "<global chunk>")
 	rootIrC.DeclareLocal("_ENV", rootIrC.GetFreeRegister())
 	irC := rootIrC.NewChild("<main chunk>")
-	c := &Compiler{Builder: irC}
+	c := &Compiler{CodeBuilder: irC}
 	c.compileFunctionBody(ast.Function{
 		ParList: ast.ParList{HasDots: true},
 		Body:    s,
 	})
-	return irC
+	return irC.GetCode()
 }
 
 func (c *Compiler) NewChild(name string) *Compiler {
 	return &Compiler{
-		Builder: c.Builder.NewChild(name),
+		CodeBuilder: c.CodeBuilder.NewChild(name),
 	}
 }

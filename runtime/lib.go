@@ -7,6 +7,7 @@ import (
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/astcomp"
 	"github.com/arnodel/golua/code"
+	"github.com/arnodel/golua/ircomp"
 	"github.com/arnodel/golua/parsing"
 	"github.com/arnodel/golua/scanner"
 )
@@ -291,12 +292,14 @@ func CompileLuaChunk(name string, source []byte) (*code.Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := astcomp.CompileLuaChunk(name, *stat)
-	kc := c.NewConstantCompiler()
+	irCode := astcomp.CompileLuaChunk(name, *stat)
+	constants := append(irCode.Constants, irCode)
+	kc := ircomp.NewConstantCompiler(constants, code.NewCompiler(name))
+	kc.QueueConstant(uint(len(irCode.Constants)))
 	return kc.CompileQueue(), nil
 }
 
-// CompileAndLoadLuaChunk pares, compiles and loads a Lua chunk from source and
+// CompileAndLoadLuaChunk parses, compiles and loads a Lua chunk from source and
 // returns the closure that runs the chunk in the given global environment.
 func CompileAndLoadLuaChunk(name string, source []byte, env Value) (*Closure, error) {
 	unit, err := CompileLuaChunk(name, source)

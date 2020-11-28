@@ -7,6 +7,10 @@ type lexicalMap struct {
 	label map[Name]Label
 }
 
+type taggedReg struct {
+	reg  Register
+	tags uint
+}
 type LexicalContext []lexicalMap
 
 func (c LexicalContext) GetRegister(name Name, tags uint) (reg Register, ok bool) {

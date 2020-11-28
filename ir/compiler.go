@@ -3,25 +3,19 @@ package ir
 import (
 	"fmt"
 
-	"github.com/arnodel/golua/code"
 	"github.com/arnodel/golua/ops"
 )
 
 type Name string
 
-type taggedReg struct {
-	reg  Register
-	tags uint
-}
-
 const regHasUpvalue uint = 1
 
-type Compiler struct {
+type CodeBuilder struct {
 	source       string
 	chunkName    string
 	registers    []int
 	context      LexicalContext
-	parent       *Compiler
+	parent       *CodeBuilder
 	upvalues     []Register
 	upnames      []string
 	code         []Instruction
@@ -31,8 +25,8 @@ type Compiler struct {
 	labelPos     map[int][]Label
 }
 
-func NewCompiler(source, chunkName string) *Compiler {
-	return &Compiler{
+func NewCodeBuilder(source, chunkName string) *CodeBuilder {
+	return &CodeBuilder{
 		source:       source,
 		chunkName:    chunkName,
 		context:      LexicalContext{}.PushNew(),
@@ -42,8 +36,8 @@ func NewCompiler(source, chunkName string) *Compiler {
 	}
 }
 
-func (c *Compiler) NewChild(chunkName string) *Compiler {
-	return &Compiler{
+func (c *CodeBuilder) NewChild(chunkName string) *CodeBuilder {
+	return &CodeBuilder{
 		source:       c.source,
 		chunkName:    chunkName,
 		context:      LexicalContext{}.PushNew(),
@@ -54,11 +48,11 @@ func (c *Compiler) NewChild(chunkName string) *Compiler {
 	}
 }
 
-func (c *Compiler) Upvalues() []Register {
+func (c *CodeBuilder) Upvalues() []Register {
 	return c.upvalues
 }
 
-func (c *Compiler) Dump() {
+func (c *CodeBuilder) Dump() {
 	fmt.Println("--context")
 	c.context.Dump()
 	fmt.Println("--constants")
@@ -74,17 +68,17 @@ func (c *Compiler) Dump() {
 	}
 }
 
-func (c *Compiler) DeclareGotoLabel(name Name) Label {
+func (c *CodeBuilder) DeclareGotoLabel(name Name) Label {
 	lbl := c.GetNewLabel()
 	c.context.AddLabel(name, lbl)
 	return lbl
 }
 
-func (c *Compiler) getGotoLabel(name Name) (Label, bool) {
+func (c *CodeBuilder) getGotoLabel(name Name) (Label, bool) {
 	return c.context.GetLabel(name)
 }
 
-func (c *Compiler) EmitGotoLabel(name Name) {
+func (c *CodeBuilder) EmitGotoLabel(name Name) {
 	label, ok := c.getGotoLabel(name)
 	if !ok {
 		panic("Cannot emit undeclared label")
@@ -92,23 +86,23 @@ func (c *Compiler) EmitGotoLabel(name Name) {
 	c.EmitLabel(label)
 }
 
-func (c *Compiler) GetNewLabel() Label {
+func (c *CodeBuilder) GetNewLabel() Label {
 	lbl := Label(len(c.labels))
 	c.labels[lbl] = -1
 	return lbl
 }
 
-func (c *Compiler) EmitLabel(lbl Label) {
+func (c *CodeBuilder) EmitLabel(lbl Label) {
 	pos := len(c.code)
 	c.labels[lbl] = pos
 	c.labelPos[pos] = append(c.labelPos[pos], lbl)
 }
 
-func (c *Compiler) GetRegister(name Name) (Register, bool) {
+func (c *CodeBuilder) GetRegister(name Name) (Register, bool) {
 	return c.getRegister(name, 0)
 }
 
-func (c *Compiler) getRegister(name Name, tags uint) (reg Register, ok bool) {
+func (c *CodeBuilder) getRegister(name Name, tags uint) (reg Register, ok bool) {
 	reg, ok = c.context.GetRegister(name, tags)
 	if ok || c.parent == nil {
 		return
@@ -123,7 +117,7 @@ func (c *Compiler) getRegister(name Name, tags uint) (reg Register, ok bool) {
 	return
 }
 
-func (c *Compiler) GetFreeRegister() Register {
+func (c *CodeBuilder) GetFreeRegister() Register {
 	var reg Register
 	for i, n := range c.registers {
 		if n == 0 {
@@ -138,14 +132,14 @@ FoundLbl:
 	return reg
 }
 
-func (c *Compiler) TakeRegister(reg Register) {
+func (c *CodeBuilder) TakeRegister(reg Register) {
 	if int(reg) >= 0 {
 		c.registers[reg]++
 		// fmt.Printf("Take Reg %s %d\n", reg, c.registers[reg])
 	}
 }
 
-func (c *Compiler) ReleaseRegister(reg Register) {
+func (c *CodeBuilder) ReleaseRegister(reg Register) {
 	if int(reg) < 0 {
 		return
 	}
@@ -156,12 +150,12 @@ func (c *Compiler) ReleaseRegister(reg Register) {
 	// fmt.Printf("Release Reg %s %d\n", reg, c.registers[reg])
 }
 
-func (c *Compiler) PushContext() {
+func (c *CodeBuilder) PushContext() {
 	// fmt.Println("PUSH")
 	c.context = c.context.PushNew()
 }
 
-func (c *Compiler) PopContext() {
+func (c *CodeBuilder) PopContext() {
 	// fmt.Println("POP")
 	context, top := c.context.Pop()
 	if top.reg == nil {
@@ -174,7 +168,7 @@ func (c *Compiler) PopContext() {
 	}
 }
 
-func (c *Compiler) emitClearReg(m lexicalMap) {
+func (c *CodeBuilder) emitClearReg(m lexicalMap) {
 	for _, tr := range m.reg {
 		if tr.tags&regHasUpvalue != 0 && tr.reg >= 0 {
 			c.EmitNoLine(ClearReg{Dst: tr.reg})
@@ -182,7 +176,7 @@ func (c *Compiler) emitClearReg(m lexicalMap) {
 	}
 }
 
-func (c *Compiler) EmitJump(lblName Name, line int) {
+func (c *CodeBuilder) EmitJump(lblName Name, line int) {
 	lc := c.context
 	var top lexicalMap
 	for len(lc) > 0 {
@@ -196,28 +190,28 @@ func (c *Compiler) EmitJump(lblName Name, line int) {
 	panic("Undefined label for jump")
 }
 
-func (c *Compiler) DeclareLocal(name Name, reg Register) {
+func (c *CodeBuilder) DeclareLocal(name Name, reg Register) {
 	// fmt.Printf("Declare %s %s\n", name, reg)
 
 	c.TakeRegister(reg)
 	c.context.AddToTop(name, reg)
 }
 
-func (c *Compiler) EmitNoLine(instr Instruction) {
+func (c *CodeBuilder) EmitNoLine(instr Instruction) {
 	// fmt.Printf("Emit %s\n", instr)
 	c.Emit(instr, 0)
 }
 
-func (c *Compiler) Emit(instr Instruction, line int) {
+func (c *CodeBuilder) Emit(instr Instruction, line int) {
 	c.code = append(c.code, instr)
 	c.lines = append(c.lines, line)
 }
 
-func (c *Compiler) GetConstant(k Constant) uint {
+func (c *CodeBuilder) GetConstant(k Constant) uint {
 	return c.constantPool.GetConstant(k)
 }
 
-func (c *Compiler) GetCode() *Code {
+func (c *CodeBuilder) GetCode() *Code {
 	return &Code{
 		Instructions: c.code,
 		Lines:        c.lines,
@@ -230,29 +224,18 @@ func (c *Compiler) GetCode() *Code {
 	}
 }
 
-func EmitConstant(c Builder, k Constant, reg Register, line int) {
+func EmitConstant(c *CodeBuilder, k Constant, reg Register, line int) {
 	c.Emit(LoadConst{Dst: reg, Kidx: c.GetConstant(k)}, line)
 }
 
-func EmitMoveNoLine(c Builder, dst Register, src Register) {
+func EmitMoveNoLine(c *CodeBuilder, dst Register, src Register) {
 	if dst != src {
 		c.EmitNoLine(Transform{Op: ops.OpId, Dst: dst, Src: src})
 	}
 }
 
-func EmitMove(c Builder, dst Register, src Register, line int) {
+func EmitMove(c *CodeBuilder, dst Register, src Register, line int) {
 	if dst != src {
 		c.Emit(Transform{Op: ops.OpId, Dst: dst, Src: src}, line)
 	}
-}
-
-func (c *Compiler) NewConstantCompiler() *ConstantCompiler {
-	ki := c.GetConstant(c.GetCode())
-	kc := &ConstantCompiler{
-		Compiler:    code.NewCompiler(c.source),
-		constants:   c.constantPool.Constants(),
-		constantMap: make(map[uint]int),
-	}
-	kc.QueueConstant(ki)
-	return kc
 }

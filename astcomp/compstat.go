@@ -96,7 +96,7 @@ func (c *Compiler) ProcessForInStat(s ast.ForInStat) {
 func (c *Compiler) ProcessForStat(s ast.ForStat) {
 	startReg := c.GetFreeRegister()
 	r := c.CompileExp(s.Start, startReg)
-	ir.EmitMoveNoLine(c.Builder, startReg, r)
+	ir.EmitMoveNoLine(c.CodeBuilder, startReg, r)
 	if !ast.IsNumber(s.Start) {
 		c.EmitNoLine(ir.Transform{
 			Dst: startReg,
@@ -108,7 +108,7 @@ func (c *Compiler) ProcessForStat(s ast.ForStat) {
 
 	stopReg := c.GetFreeRegister()
 	r = c.CompileExp(s.Stop, stopReg)
-	ir.EmitMoveNoLine(c.Builder, stopReg, r)
+	ir.EmitMoveNoLine(c.CodeBuilder, stopReg, r)
 	if !ast.IsNumber(s.Stop) {
 		c.EmitNoLine(ir.Transform{
 			Dst: stopReg,
@@ -120,7 +120,7 @@ func (c *Compiler) ProcessForStat(s ast.ForStat) {
 
 	stepReg := c.GetFreeRegister()
 	r = c.CompileExp(s.Step, stepReg)
-	ir.EmitMoveNoLine(c.Builder, stepReg, r)
+	ir.EmitMoveNoLine(c.CodeBuilder, stepReg, r)
 	if !ast.IsNumber(s.Step) {
 		c.EmitNoLine(ir.Transform{
 			Dst: stepReg,
@@ -179,7 +179,7 @@ func (c *Compiler) ProcessForStat(s ast.ForStat) {
 
 	c.PushContext()
 	iterReg := c.GetFreeRegister()
-	ir.EmitMoveNoLine(c.Builder, iterReg, startReg)
+	ir.EmitMoveNoLine(c.CodeBuilder, iterReg, startReg)
 	c.DeclareLocal(ir.Name(s.Var.Val), iterReg)
 	c.CompileBlock(s.Body)
 	c.PopContext()
@@ -316,14 +316,14 @@ func (c *Compiler) CompileBlock(s ast.BlockStat) {
 
 func (c *Compiler) CompileBlockNoPop(s ast.BlockStat) func() {
 	totalDepth := 0
-	getLabels(c.Builder, s.Stats)
-	truncLen := len(s.Stats) - getBackLabels(c.Builder, s.Stats)
+	getLabels(c.CodeBuilder, s.Stats)
+	truncLen := len(s.Stats) - getBackLabels(c.CodeBuilder, s.Stats)
 	for i, stat := range s.Stats {
 		switch stat.(type) {
 		case ast.LocalStat, ast.LocalFunctionStat:
 			totalDepth++
 			c.PushContext()
-			getLabels(c.Builder, s.Stats[i+1:truncLen])
+			getLabels(c.CodeBuilder, s.Stats[i+1:truncLen])
 		}
 		c.CompileStat(stat)
 	}
@@ -347,7 +347,7 @@ func (c *Compiler) CompileBlockNoPop(s ast.BlockStat) func() {
 	}
 }
 
-func getLabels(c ir.Builder, statements []ast.Stat) {
+func getLabels(c *ir.CodeBuilder, statements []ast.Stat) {
 	for _, stat := range statements {
 		switch s := stat.(type) {
 		case ast.LabelStat:
@@ -358,7 +358,7 @@ func getLabels(c ir.Builder, statements []ast.Stat) {
 	}
 }
 
-func getBackLabels(c ir.Builder, statements []ast.Stat) int {
+func getBackLabels(c *ir.CodeBuilder, statements []ast.Stat) int {
 	count := 0
 	for i := len(statements) - 1; i >= 0; i-- {
 		if lbl, ok := statements[i].(ast.LabelStat); ok {
