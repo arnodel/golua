@@ -54,28 +54,29 @@ func (n NilType) ShortString() string {
 	return "nil"
 }
 
-type Compiler struct {
-	source   string
-	lines    []int32
-	code     []Opcode
-	jumpTo   map[Label]int
-	jumpFrom map[Label][]int
+type Builder struct {
+	source    string
+	lines     []int32
+	code      []Opcode
+	jumpTo    map[Label]int
+	jumpFrom  map[Label][]int
+	constants []Constant
 }
 
-func NewCompiler(source string) *Compiler {
-	return &Compiler{
+func NewBuilder(source string) *Builder {
+	return &Builder{
 		source:   source,
 		jumpTo:   make(map[Label]int),
 		jumpFrom: make(map[Label][]int),
 	}
 }
 
-func (c *Compiler) Emit(opcode Opcode, line int) {
+func (c *Builder) Emit(opcode Opcode, line int) {
 	c.code = append(c.code, opcode)
 	c.lines = append(c.lines, int32(line))
 }
 
-func (c *Compiler) EmitJump(opcode Opcode, lbl Label, line int) {
+func (c *Builder) EmitJump(opcode Opcode, lbl Label, line int) {
 	jumpToAddr, ok := c.jumpTo[lbl]
 	addr := len(c.code)
 	if ok {
@@ -86,7 +87,7 @@ func (c *Compiler) EmitJump(opcode Opcode, lbl Label, line int) {
 	c.Emit(opcode, line)
 }
 
-func (c *Compiler) EmitLabel(lbl Label) {
+func (c *Builder) EmitLabel(lbl Label) {
 	if _, ok := c.jumpTo[lbl]; ok {
 		panic("Label already emitted")
 	}
@@ -98,7 +99,7 @@ func (c *Compiler) EmitLabel(lbl Label) {
 	delete(c.jumpFrom, lbl)
 }
 
-func (c *Compiler) Offset() uint {
+func (c *Builder) Offset() uint {
 	if len(c.jumpFrom) > 0 {
 		fmt.Printf("to: %v\n", c.jumpTo)
 		fmt.Printf("from: %v\n", c.jumpFrom)
@@ -108,14 +109,10 @@ func (c *Compiler) Offset() uint {
 	return uint(len(c.code))
 }
 
-func (c *Compiler) Code() []Opcode {
-	return c.code
+func (c *Builder) AddConstant(k Constant) {
+	c.constants = append(c.constants, k)
 }
 
-func (c *Compiler) Lines() []int32 {
-	return c.lines
-}
-
-func (c *Compiler) Source() string {
-	return c.source
+func (c *Builder) GetUnit() *Unit {
+	return NewUnit(c.source, c.code, c.lines, c.constants)
 }

@@ -6,19 +6,19 @@ import (
 )
 
 type ConstantCompiler struct {
-	*code.Compiler
-	constants   []ir.Constant
-	constantMap map[uint]int
-	compiled    []code.Constant
-	queue       []uint
-	offset      int
+	builder       *code.Builder
+	constants     []ir.Constant
+	constantMap   map[uint]int
+	compiledCount int
+	queue         []uint
+	offset        int
 }
 
 var _ ir.ConstantProcessor = (*ConstantCompiler)(nil)
 
-func NewConstantCompiler(constants []ir.Constant, cc *code.Compiler) *ConstantCompiler {
+func NewConstantCompiler(constants []ir.Constant, cc *code.Builder) *ConstantCompiler {
 	kc := &ConstantCompiler{
-		Compiler:    cc,
+		builder:     cc,
 		constants:   constants,
 		constantMap: make(map[uint]int),
 	}
@@ -52,14 +52,14 @@ func (kc *ConstantCompiler) ProcessNil(k ir.NilType) {
 
 // ProcessCode compiles a Code.
 func (kc *ConstantCompiler) ProcessCode(c ir.Code) {
-	start := kc.Offset()
+	start := kc.builder.Offset()
 	for i, instr := range c.Instructions {
 		for _, lbl := range c.LabelPos[i] {
-			kc.EmitLabel(code.Label(lbl))
+			kc.builder.EmitLabel(code.Label(lbl))
 		}
 		instr.ProcessInstr(instrCompiler{c.Lines[i], kc})
 	}
-	end := kc.Offset()
+	end := kc.builder.Offset()
 	kc.addCompiled(code.Code{
 		Name:         c.Name,
 		StartOffset:  start,
@@ -75,8 +75,8 @@ func (kc *ConstantCompiler) compileConstant(ki uint) {
 }
 
 func (kc *ConstantCompiler) addCompiled(ck code.Constant) {
-	kc.compiled = append(kc.compiled, ck)
-
+	kc.builder.AddConstant(ck)
+	kc.compiledCount++
 }
 
 func (kc *ConstantCompiler) GetConstant(ki uint) ir.Constant {
@@ -99,10 +99,10 @@ func (kc *ConstantCompiler) CompileQueue() *code.Unit {
 		kc.queue = nil
 		for _, ki := range queue {
 			kc.compileConstant(ki)
-			if kc.constantMap[ki] != len(kc.compiled)-1 {
+			if kc.constantMap[ki] != kc.compiledCount-1 {
 				panic("Inconsistent constant indexes :(")
 			}
 		}
 	}
-	return code.NewUnit(kc.Source(), kc.Code(), kc.Lines(), kc.compiled)
+	return kc.builder.GetUnit()
 }

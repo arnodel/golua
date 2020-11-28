@@ -22,11 +22,11 @@ type instrCompiler struct {
 var _ ir.InstrProcessor = instrCompiler{}
 
 func (ic instrCompiler) Emit(opcode code.Opcode) {
-	ic.Compiler.Emit(opcode, ic.line)
+	ic.builder.Emit(opcode, ic.line)
 }
 
 func (ic instrCompiler) EmitJump(opcode code.Opcode, lbl code.Label) {
-	ic.Compiler.EmitJump(opcode, lbl, ic.line)
+	ic.builder.EmitJump(opcode, lbl, ic.line)
 }
 
 // ProcessCombineInstr compiles a Combine instruction.
