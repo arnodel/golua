@@ -108,9 +108,9 @@ func (c *expCompiler) ProcessEtcExp(e ast.EtcType) {
 
 // ProcessFunctionExp compiles a Function.
 func (c *expCompiler) ProcessFunctionExp(f ast.Function) {
-	fc := c.NewChild()
+	fc := c.NewChild(f.Name)
 	fc.compileFunctionBody(f)
-	kidx := c.GetConstant(fc.GetCode(f.Name))
+	kidx := c.GetConstant(fc.GetCode())
 	c.EmitInstr(f, ir.MkClosure{
 		Dst:      c.dst,
 		Code:     kidx,
@@ -407,12 +407,23 @@ func (c *Compiler) compileCall(f ast.BFunctionCall, tail bool) {
 			Index: mReg,
 		})
 		contReg = c.GetFreeRegister()
-		c.EmitInstr(f, ir.MkCont{Dst: contReg, Closure: fReg, Tail: tail})
-		c.EmitInstr(f, ir.Push{Cont: fReg, Item: self})
+		c.EmitInstr(f, ir.MkCont{
+			Dst:     contReg,
+			Closure: fReg,
+			Tail:    tail,
+		})
+		c.EmitInstr(f, ir.Push{
+			Cont: fReg,
+			Item: self,
+		})
 		c.ReleaseRegister(self)
 	} else {
 		contReg = c.GetFreeRegister()
-		c.EmitInstr(f, ir.MkCont{Dst: contReg, Closure: fReg, Tail: tail})
+		c.EmitInstr(f, ir.MkCont{
+			Dst:     contReg,
+			Closure: fReg,
+			Tail:    tail,
+		})
 	}
 	c.compilePushArgs(f.Args, contReg)
 	c.EmitInstr(f, ir.Call{Cont: contReg})
@@ -434,7 +445,11 @@ func (c *Compiler) compilePushArgs(args []ast.ExpNode, contReg ir.Register) {
 		if !isTailArg {
 			argReg = c.CompileExpNoDestHint(arg)
 		}
-		c.EmitInstr(arg, ir.Push{Cont: contReg, Item: argReg, Etc: isTailArg})
+		c.EmitInstr(arg, ir.Push{
+			Cont: contReg,
+			Item: argReg,
+			Etc:  isTailArg,
+		})
 	}
 	c.ReleaseRegister(contReg)
 }

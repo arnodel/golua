@@ -16,96 +16,9 @@ type taggedReg struct {
 
 const regHasUpvalue uint = 1
 
-type lexicalMap struct {
-	reg   map[Name]taggedReg
-	label map[Name]Label
-}
-
-type LexicalContext []lexicalMap
-
-func (c LexicalContext) GetRegister(name Name, tags uint) (reg Register, ok bool) {
-	for i := len(c) - 1; i >= 0; i-- {
-		var tr taggedReg
-		tr, ok = c[i].reg[name]
-		if ok {
-			reg = tr.reg
-			if tags != 0 {
-				tr.tags |= tags
-				c[i].reg[name] = tr
-			}
-			break
-		}
-	}
-	return
-}
-
-func (c LexicalContext) GetLabel(name Name) (label Label, ok bool) {
-	for i := len(c) - 1; i >= 0; i-- {
-		label, ok = c[i].label[name]
-		if ok {
-			break
-		}
-	}
-	return
-}
-
-func (c LexicalContext) AddToRoot(name Name, reg Register) (ok bool) {
-	ok = len(c) > 0
-	if ok {
-		c[0].reg[name] = taggedReg{reg, 0}
-	}
-	return
-}
-
-func (c LexicalContext) AddToTop(name Name, reg Register) (ok bool) {
-	ok = len(c) > 0
-	if ok {
-		c[len(c)-1].reg[name] = taggedReg{reg, 0}
-	}
-	return
-}
-
-func (c LexicalContext) AddLabel(name Name, label Label) (ok bool) {
-	ok = len(c) > 0
-	if ok {
-		c[len(c)-1].label[name] = label
-	}
-	return
-}
-
-func (c LexicalContext) PushNew() LexicalContext {
-	return append(c, lexicalMap{
-		reg:   make(map[Name]taggedReg),
-		label: make(map[Name]Label),
-	})
-}
-
-func (c LexicalContext) Pop() (LexicalContext, lexicalMap) {
-	if len(c) == 0 {
-		return c, lexicalMap{}
-	}
-	return c[:len(c)-1], c[len(c)-1]
-}
-
-func (c LexicalContext) Top() lexicalMap {
-	if len(c) > 0 {
-		return c[len(c)-1]
-	}
-	return lexicalMap{}
-}
-
-func (c LexicalContext) Dump() {
-	for i, ns := range c {
-		fmt.Printf("NS %d:\n", i)
-		for name, tr := range ns.reg {
-			fmt.Printf("  %s: %s\n", name, tr.reg)
-		}
-		// TODO: dump labels
-	}
-}
-
 type Compiler struct {
 	source       string
+	chunkName    string
 	registers    []int
 	context      LexicalContext
 	parent       *Compiler
@@ -118,9 +31,10 @@ type Compiler struct {
 	labelPos     map[int][]Label
 }
 
-func NewCompiler(source string) *Compiler {
+func NewCompiler(source, chunkName string) *Compiler {
 	return &Compiler{
 		source:       source,
+		chunkName:    chunkName,
 		context:      LexicalContext{}.PushNew(),
 		labels:       make(map[Label]int),
 		labelPos:     make(map[int][]Label),
@@ -128,9 +42,10 @@ func NewCompiler(source string) *Compiler {
 	}
 }
 
-func (c *Compiler) NewChild() *Compiler {
+func (c *Compiler) NewChild(chunkName string) *Compiler {
 	return &Compiler{
 		source:       c.source,
+		chunkName:    chunkName,
 		context:      LexicalContext{}.PushNew(),
 		labels:       make(map[Label]int),
 		labelPos:     make(map[int][]Label),
@@ -165,12 +80,12 @@ func (c *Compiler) DeclareGotoLabel(name Name) Label {
 	return lbl
 }
 
-func (c *Compiler) GetGotoLabel(name Name) (Label, bool) {
+func (c *Compiler) getGotoLabel(name Name) (Label, bool) {
 	return c.context.GetLabel(name)
 }
 
 func (c *Compiler) EmitGotoLabel(name Name) {
-	label, ok := c.GetGotoLabel(name)
+	label, ok := c.getGotoLabel(name)
 	if !ok {
 		panic("Cannot emit undeclared label")
 	}
@@ -302,7 +217,7 @@ func (c *Compiler) GetConstant(k Constant) uint {
 	return c.constantPool.GetConstant(k)
 }
 
-func (c *Compiler) GetCode(name string) *Code {
+func (c *Compiler) GetCode() *Code {
 	return &Code{
 		Instructions: c.code,
 		Lines:        c.lines,
@@ -311,28 +226,28 @@ func (c *Compiler) GetCode(name string) *Code {
 		UpvalueCount: int16(len(c.upvalues)),
 		UpNames:      c.upnames,
 		LabelPos:     c.labelPos,
-		Name:         name,
+		Name:         c.chunkName,
 	}
 }
 
-func EmitConstant(c *Compiler, k Constant, reg Register, line int) {
+func EmitConstant(c Builder, k Constant, reg Register, line int) {
 	c.Emit(LoadConst{Dst: reg, Kidx: c.GetConstant(k)}, line)
 }
 
-func EmitMoveNoLine(c *Compiler, dst Register, src Register) {
+func EmitMoveNoLine(c Builder, dst Register, src Register) {
 	if dst != src {
 		c.EmitNoLine(Transform{Op: ops.OpId, Dst: dst, Src: src})
 	}
 }
 
-func EmitMove(c *Compiler, dst Register, src Register, line int) {
+func EmitMove(c Builder, dst Register, src Register, line int) {
 	if dst != src {
 		c.Emit(Transform{Op: ops.OpId, Dst: dst, Src: src}, line)
 	}
 }
 
 func (c *Compiler) NewConstantCompiler() *ConstantCompiler {
-	ki := c.GetConstant(c.GetCode("<main chunk>"))
+	ki := c.GetConstant(c.GetCode())
 	kc := &ConstantCompiler{
 		Compiler:    code.NewCompiler(c.source),
 		constants:   c.constantPool.Constants(),
