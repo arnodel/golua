@@ -30,7 +30,7 @@ func addints(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		y, err = c.IntArg(1)
 	}
 	if err != nil {
-		// Some error occured, we return it in our context
+		// Some error occurred, we return it in our context
 		return nil, err.AddContext(c)
 	}
 	// Arguments parsed!  First get the next continuation.

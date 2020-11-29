@@ -93,7 +93,7 @@ func regexFind(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		s, err = c.StringArg(1)
 	}
 	if err != nil {
-		// Fail if an error occured above
+		// Fail if an error occurred above
 		return nil, err.AddContext(c)
 	}
 	// Find the pattern in the string and return it.

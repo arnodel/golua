@@ -32,7 +32,7 @@ func (c *Closure) GetUpvalue(n int) Value {
 	return c.Upvalues[n].Get()
 }
 
-// SetUpvalue sets teh upvalue for c at index n to v.
+// SetUpvalue sets the upvalue for c at index n to v.
 func (c *Closure) SetUpvalue(n int, val Value) {
 	c.Upvalues[n].Set(val)
 }
