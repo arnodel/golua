@@ -29,12 +29,14 @@ func (u *Unit) Disassemble(w io.Writer) {
 type UnitDisassembler struct {
 	unit   *Unit
 	labels map[int]string
+	spans  map[int]string
 }
 
 func NewUnitDisassembler(unit *Unit) *UnitDisassembler {
 	return &UnitDisassembler{
 		unit:   unit,
 		labels: make(map[int]string),
+		spans:  make(map[int]string),
 	}
 }
 
@@ -51,9 +53,21 @@ func (d *UnitDisassembler) GetLabel(offset int) string {
 	return lbl
 }
 
+func (d *UnitDisassembler) SetSpan(name string, startOffset, endOffset int) {
+	d.spans[startOffset] = name
+	for {
+		startOffset++
+		d.spans[startOffset] = " |"
+		if startOffset == endOffset {
+			d.spans[endOffset] = `  \`
+			return
+		}
+	}
+}
+
 func (d *UnitDisassembler) ShortKString(ki uint16) string {
 	k := d.unit.Constants[ki]
-	return k.ShortString()
+	return k.ShortString(d)
 }
 
 func (d *UnitDisassembler) Disassemble(w io.Writer) {
@@ -62,6 +76,6 @@ func (d *UnitDisassembler) Disassemble(w io.Writer) {
 		disCode[i] = opcode.Disassemble(d, i)
 	}
 	for i, dis := range disCode {
-		fmt.Fprintf(w, "%d\t%s\t%d\t%08x\t%s\n", d.unit.Lines[i], d.labels[i], i, d.unit.Code[i], dis)
+		fmt.Fprintf(w, "%6d  %-6s  %-10s  %6d  %08x  %s\n", d.unit.Lines[i], d.labels[i], d.spans[i], i, d.unit.Code[i], dis)
 	}
 }

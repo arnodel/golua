@@ -9,7 +9,7 @@ type Label uint
 type Addr int
 
 type Constant interface {
-	ShortString() string
+	ShortString(d *UnitDisassembler) string
 }
 
 type Code struct {
@@ -20,37 +20,43 @@ type Code struct {
 	UpNames                []string
 }
 
-func (c Code) ShortString() string {
-	return "some code"
+func (c Code) ShortString(d *UnitDisassembler) string {
+	lbl := d.GetLabel(int(c.StartOffset))
+	name := c.Name
+	if name == "" {
+		name = "<" + lbl + ">"
+	}
+	d.SetSpan(name, int(c.StartOffset), int(c.EndOffset-1))
+	return fmt.Sprintf("function %s %s=%d - %d", name, lbl, c.StartOffset, c.EndOffset-1)
 }
 
 type Float float64
 
-func (f Float) ShortString() string {
+func (f Float) ShortString(d *UnitDisassembler) string {
 	return strconv.FormatFloat(float64(f), 'g', -1, 64)
 }
 
 type Int int64
 
-func (i Int) ShortString() string {
+func (i Int) ShortString(d *UnitDisassembler) string {
 	return strconv.FormatInt(int64(i), 10)
 }
 
 type Bool bool
 
-func (b Bool) ShortString() string {
+func (b Bool) ShortString(d *UnitDisassembler) string {
 	return strconv.FormatBool(bool(b))
 }
 
 type String string
 
-func (s String) ShortString() string {
+func (s String) ShortString(d *UnitDisassembler) string {
 	return strconv.Quote(string(s))
 }
 
 type NilType struct{}
 
-func (n NilType) ShortString() string {
+func (n NilType) ShortString(d *UnitDisassembler) string {
 	return "nil"
 }
 
