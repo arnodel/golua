@@ -330,7 +330,7 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 		if c.HasType4a() {
 			rB := c.GetB()
 			// Type4a
-			tpl := "???"
+			tpl := "??? %s"
 			switch c.GetZ() {
 			case OpNeg:
 				tpl = "-%s"
@@ -342,6 +342,8 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 				tpl = "clos(%s)"
 			case OpCont:
 				tpl = "cont(%s)"
+			case OpTailCont:
+				tpl = "tailcont(%s)"
 			case OpId:
 				tpl = "%s"
 			case OpEtcId:
