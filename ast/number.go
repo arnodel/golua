@@ -58,10 +58,12 @@ func NewInt(val uint64) Int {
 	return Int{Val: val}
 }
 
+// HWrite prints a tree representation of the node.
 func (n Int) HWrite(w HWriter) {
 	w.Writef("%d", n.Val)
 }
 
+// ProcessExp uses the given ExpProcessor to process the receiver.
 func (n Int) ProcessExp(p ExpProcessor) {
 	p.ProcessIntExp(n)
 }
@@ -77,10 +79,12 @@ func NewFloat(x float64) Float {
 	return Float{Val: x}
 }
 
+// ProcessExp uses the given ExpProcessor to process the receiver.
 func (f Float) ProcessExp(p ExpProcessor) {
 	p.ProcessFloatExp(f)
 }
 
+// HWrite prints a tree representation of the node.
 func (f Float) HWrite(w HWriter) {
 	w.Writef("%f", f.Val)
 }

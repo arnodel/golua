@@ -17,10 +17,12 @@ func NewLocalFunctionStat(name Name, fx Function) LocalFunctionStat {
 	}
 }
 
+// ProcessStat uses the given StatProcessor to process the receiver.
 func (s LocalFunctionStat) ProcessStat(p StatProcessor) {
 	p.ProcessLocalFunctionStat(s)
 }
 
+// HWrite prints a tree representation of the node.
 func (s LocalFunctionStat) HWrite(w HWriter) {
 	w.Writef("local function ")
 	s.Name.HWrite(w)

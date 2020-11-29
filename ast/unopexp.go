@@ -21,10 +21,12 @@ func NewUnOp(opTok *token.Token, op ops.Op, exp ExpNode) *UnOp {
 	}
 }
 
+// ProcessExp uses the given ExpProcessor to process the receiver.
 func (u UnOp) ProcessExp(p ExpProcessor) {
 	p.ProcessUnOpExp(u)
 }
 
+// HWrite prints a tree representation of the node.
 func (u UnOp) HWrite(w HWriter) {
 	w.Writef("unop: %s", u.Op)
 	w.Indent()

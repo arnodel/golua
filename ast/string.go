@@ -56,10 +56,12 @@ func NewLongString(id *token.Token) String {
 	}
 }
 
+// ProcessExp uses the given ExpProcessor to process the receiver.
 func (s String) ProcessExp(p ExpProcessor) {
 	p.ProcessStringExp(s)
 }
 
+// HWrite prints a tree representation of the node.
 func (s String) HWrite(w HWriter) {
 	w.Writef("%q", s.Val)
 }

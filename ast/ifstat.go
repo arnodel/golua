@@ -34,10 +34,12 @@ func (s IfStat) AddElseIf(cond ExpNode, body BlockStat) IfStat {
 	return s
 }
 
+// ProcessStat uses the given StatProcessor to process the receiver.
 func (s IfStat) ProcessStat(p StatProcessor) {
 	p.ProcessIfStat(s)
 }
 
+// HWrite prints a tree representation of the node.
 func (s IfStat) HWrite(w HWriter) {
 	w.Writef("if: ")
 	w.Indent()

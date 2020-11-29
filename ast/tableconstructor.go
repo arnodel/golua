@@ -22,6 +22,7 @@ func NewTableConstructor(opTok, clTok *token.Token, fields []TableField) TableCo
 	}
 }
 
+// HWrite prints a tree representation of the node.
 func (c TableConstructor) HWrite(w HWriter) {
 	w.Writef("table")
 	w.Indent()
@@ -36,8 +37,9 @@ func (c TableConstructor) HWrite(w HWriter) {
 	w.Dedent()
 }
 
-func (t TableConstructor) ProcessExp(p ExpProcessor) {
-	p.ProcessTableConstructorExp(t)
+// ProcessExp uses the given ExpProcessor to process the receiver.
+func (c TableConstructor) ProcessExp(p ExpProcessor) {
+	p.ProcessTableConstructorExp(c)
 }
 
 //
@@ -66,10 +68,12 @@ type NoTableKey struct {
 	Location
 }
 
+// HWrite prints a tree representation of the node.
 func (k NoTableKey) HWrite(w HWriter) {
 	w.Writef("<no key>")
 }
 
+// ProcessExp uses the given ExpProcessor to process the receiver.
 func (k NoTableKey) ProcessExp(p ExpProcessor) {
 	panic("nothing to process?")
 }

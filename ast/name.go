@@ -18,6 +18,7 @@ func NewName(id *token.Token) Name {
 	}
 }
 
+// ProcessExp uses the given ExpProcessor to process the receiver.
 func (n Name) ProcessExp(p ExpProcessor) {
 	p.ProcessNameExp(n)
 }
@@ -26,6 +27,7 @@ func (n Name) ProcessVar(p VarProcessor) {
 	p.ProcessNameVar(n)
 }
 
+// HWrite prints a tree representation of the node.
 func (n Name) HWrite(w HWriter) {
 	w.Writef(n.Val)
 }

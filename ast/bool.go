@@ -11,10 +11,12 @@ type Bool struct {
 
 var _ ExpNode = Bool{}
 
+// HWrite prints a tree representation of the node.
 func (b Bool) HWrite(w HWriter) {
 	w.Writef("%t", b.Val)
 }
 
+// ProcessExp uses the given ExpProcessor to process the receiver.
 func (b Bool) ProcessExp(p ExpProcessor) {
 	p.ProcesBoolExp(b)
 }

@@ -38,10 +38,12 @@ func NewBinOp(left ExpNode, op ops.Op, right ExpNode) *BinOp {
 	}
 }
 
+// ProcessExp uses the given ExpProcessor to process the receiver.
 func (b BinOp) ProcessExp(p ExpProcessor) {
 	p.ProcessBinOpExp(b)
 }
 
+// HWrite prints a tree representation of the node.
 func (b BinOp) HWrite(w HWriter) {
 	w.Writef("binop: %d", b.OpType)
 	w.Indent()

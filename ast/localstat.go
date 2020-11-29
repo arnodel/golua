@@ -16,10 +16,12 @@ func NewLocalStat(names []Name, values []ExpNode) LocalStat {
 	return LocalStat{Location: loc, Names: names, Values: values}
 }
 
+// ProcessStat uses the given StatProcessor to process the receiver.
 func (s LocalStat) ProcessStat(p StatProcessor) {
 	p.ProcessLocalStat(s)
 }
 
+// HWrite prints a tree representation of the node.
 func (s LocalStat) HWrite(w HWriter) {
 	w.Writef("local")
 	w.Indent()

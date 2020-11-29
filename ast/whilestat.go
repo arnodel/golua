@@ -19,10 +19,12 @@ func NewWhileStat(whileTok, endTok *token.Token, cond ExpNode, body BlockStat) W
 	}
 }
 
+// ProcessStat uses the given StatProcessor to process the receiver.
 func (s WhileStat) ProcessStat(p StatProcessor) {
 	p.ProcessWhileStat(s)
 }
 
+// HWrite prints a tree representation of the node.
 func (s WhileStat) HWrite(w HWriter) {
 	w.Writef("while: ")
 	s.CondStat.HWrite(w)

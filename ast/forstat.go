@@ -26,6 +26,7 @@ func NewForStat(startTok, endTok *token.Token, itervar Name, params []ExpNode, b
 	}
 }
 
+// HWrite prints a tree representation of the node.
 func (s ForStat) HWrite(w HWriter) {
 	w.Writef("for %s", s.Var)
 	w.Indent()
@@ -49,6 +50,7 @@ func (s ForStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
+// ProcessStat uses the given StatProcessor to process the receiver.
 func (s ForStat) ProcessStat(p StatProcessor) {
 	p.ProcessForStat(s)
 }

@@ -16,6 +16,7 @@ func NewIndexExp(coll ExpNode, idx ExpNode) IndexExp {
 	}
 }
 
+// ProcessExp uses the given ExpProcessor to process the receiver.
 func (e IndexExp) ProcessExp(p ExpProcessor) {
 	p.ProcessIndexExp(e)
 }
@@ -31,6 +32,7 @@ func (e IndexExp) FunctionName() string {
 	return ""
 }
 
+// HWrite prints a tree representation of the node.
 func (e IndexExp) HWrite(w HWriter) {
 	w.Writef("idx")
 	w.Indent()

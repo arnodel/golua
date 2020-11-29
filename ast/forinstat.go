@@ -22,10 +22,12 @@ func NewForInStat(startTok, endTok *token.Token, itervars []Name, params []ExpNo
 	}
 }
 
+// ProcessStat uses the given StatProcessor to process the receiver.
 func (s ForInStat) ProcessStat(p StatProcessor) {
 	p.ProcessForInStat(s)
 }
 
+// HWrite prints a tree representation of the node.
 func (s ForInStat) HWrite(w HWriter) {
 	w.Writef("for in")
 	w.Indent()

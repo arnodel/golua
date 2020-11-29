@@ -25,10 +25,12 @@ func NewFunction(startTok, endTok *token.Token, parList ParList, body BlockStat)
 	}
 }
 
+// ProcessExp uses the given ExpProcessor to process the receiver.
 func (f Function) ProcessExp(p ExpProcessor) {
 	p.ProcessFunctionExp(f)
 }
 
+// HWrite prints a tree representation of the node.
 func (f Function) HWrite(w HWriter) {
 	w.Writef("(")
 	for i, param := range f.Params {

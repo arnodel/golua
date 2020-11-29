@@ -33,6 +33,7 @@ func NewFunctionCall(target ExpNode, method Name, args []ExpNode) FunctionCall {
 	}}
 }
 
+// ProcessExp uses the given ExpProcessor to process the receiver.
 func (f FunctionCall) ProcessExp(p ExpProcessor) {
 	p.ProcessFunctionCallExp(f)
 }
@@ -41,6 +42,7 @@ func (f FunctionCall) ProcessTailExp(p TailExpProcessor) {
 	p.ProcessFunctionCallTailExp(f)
 }
 
+// ProcessStat uses the given StatProcessor to process the receiver.
 func (f FunctionCall) ProcessStat(p StatProcessor) {
 	p.ProcessFunctionCallStat(f)
 }
@@ -49,10 +51,12 @@ func (f FunctionCall) InBrackets() *BFunctionCall {
 	return f.BFunctionCall
 }
 
+// ProcessExp uses the given ExpProcessor to process the receiver.
 func (f BFunctionCall) ProcessExp(p ExpProcessor) {
 	p.ProcessBFunctionCallExp(f)
 }
 
+// HWrite prints a tree representation of the node.
 func (f BFunctionCall) HWrite(w HWriter) {
 	w.Writef("call")
 	w.Indent()

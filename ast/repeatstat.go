@@ -19,10 +19,12 @@ func NewRepeatStat(repTok *token.Token, body BlockStat, cond ExpNode) RepeatStat
 	}
 }
 
+// ProcessStat uses the given StatProcessor to process the receiver.
 func (s RepeatStat) ProcessStat(p StatProcessor) {
 	p.ProcessRepeatStat(s)
 }
 
+// HWrite prints a tree representation of the node.
 func (s RepeatStat) HWrite(w HWriter) {
 	w.Writef("repeat if: ")
 	s.CondStat.HWrite(w)

@@ -14,10 +14,12 @@ func NewEmptyStat(tok *token.Token) EmptyStat {
 	return EmptyStat{Location: LocFromToken(tok)}
 }
 
+// ProcessStat uses the given StatProcessor to process the receiver.
 func (s EmptyStat) ProcessStat(p StatProcessor) {
 	p.ProcessEmptyStat(s)
 }
 
+// HWrite prints a tree representation of the node.
 func (s EmptyStat) HWrite(w HWriter) {
 	w.Writef("empty stat")
 }

@@ -16,6 +16,7 @@ func NewBlockStat(stats []Stat, rtn []ExpNode) BlockStat {
 	}
 }
 
+// HWrite prints a tree representation of the node.
 func (s BlockStat) HWrite(w HWriter) {
 	w.Writef("block")
 	w.Indent()
@@ -36,6 +37,7 @@ func (s BlockStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
+// ProcessStat uses the given StatProcessor to process the receiver.
 func (s BlockStat) ProcessStat(p StatProcessor) {
 	p.ProcessBlockStat(s)
 }

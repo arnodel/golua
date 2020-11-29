@@ -7,6 +7,7 @@ type CondStat struct {
 	Body BlockStat
 }
 
+// HWrite prints a tree representation of the node.
 func (s CondStat) HWrite(w HWriter) {
 	s.Cond.HWrite(w)
 	w.Next()
