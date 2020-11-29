@@ -110,11 +110,11 @@ func (c *expCompiler) ProcessEtcExp(e ast.EtcType) {
 func (c *expCompiler) ProcessFunctionExp(f ast.Function) {
 	fc := c.NewChild(f.Name)
 	fc.compileFunctionBody(f)
-	kidx := c.GetConstant(fc.GetCode())
+	kidx, upvalues := fc.Close()
 	c.EmitInstr(f, ir.MkClosure{
 		Dst:      c.dst,
 		Code:     kidx,
-		Upvalues: fc.Upvalues(),
+		Upvalues: upvalues,
 	})
 }
 

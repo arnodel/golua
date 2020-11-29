@@ -292,10 +292,9 @@ func CompileLuaChunk(name string, source []byte) (*code.Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	irCode := astcomp.CompileLuaChunk(name, *stat)
-	constants := append(irCode.Constants, irCode)
+	kidx, constants := astcomp.CompileLuaChunk(name, *stat)
 	kc := ircomp.NewConstantCompiler(constants, code.NewBuilder(name))
-	kc.QueueConstant(uint(len(irCode.Constants)))
+	kc.QueueConstant(kidx)
 	return kc.CompileQueue(), nil
 }
 

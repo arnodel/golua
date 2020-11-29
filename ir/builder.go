@@ -11,7 +11,6 @@ type Name string
 const regHasUpvalue uint = 1
 
 type CodeBuilder struct {
-	source       string
 	chunkName    string
 	registers    []int
 	context      LexicalContext
@@ -25,20 +24,18 @@ type CodeBuilder struct {
 	labelPos     map[int][]Label
 }
 
-func NewCodeBuilder(source, chunkName string) *CodeBuilder {
+func NewCodeBuilder(chunkName string, constantPool *ConstantPool) *CodeBuilder {
 	return &CodeBuilder{
-		source:       source,
 		chunkName:    chunkName,
 		context:      LexicalContext{}.PushNew(),
 		labels:       make(map[Label]int),
 		labelPos:     make(map[int][]Label),
-		constantPool: new(ConstantPool),
+		constantPool: constantPool,
 	}
 }
 
 func (c *CodeBuilder) NewChild(chunkName string) *CodeBuilder {
 	return &CodeBuilder{
-		source:       c.source,
 		chunkName:    chunkName,
 		context:      LexicalContext{}.PushNew(),
 		labels:       make(map[Label]int),
@@ -46,10 +43,6 @@ func (c *CodeBuilder) NewChild(chunkName string) *CodeBuilder {
 		constantPool: c.constantPool,
 		parent:       c,
 	}
-}
-
-func (c *CodeBuilder) Upvalues() []Register {
-	return c.upvalues
 }
 
 func (c *CodeBuilder) Dump() {
@@ -207,11 +200,15 @@ func (c *CodeBuilder) Emit(instr Instruction, line int) {
 	c.lines = append(c.lines, line)
 }
 
-func (c *CodeBuilder) GetConstant(k Constant) uint {
+func (c *CodeBuilder) Close() (uint, []Register) {
+	return c.getConstant(c.getCode()), c.upvalues
+}
+
+func (c *CodeBuilder) getConstant(k Constant) uint {
 	return c.constantPool.GetConstant(k)
 }
 
-func (c *CodeBuilder) GetCode() *Code {
+func (c *CodeBuilder) getCode() *Code {
 	return &Code{
 		Instructions: c.code,
 		Lines:        c.lines,
@@ -225,7 +222,7 @@ func (c *CodeBuilder) GetCode() *Code {
 }
 
 func EmitConstant(c *CodeBuilder, k Constant, reg Register, line int) {
-	c.Emit(LoadConst{Dst: reg, Kidx: c.GetConstant(k)}, line)
+	c.Emit(LoadConst{Dst: reg, Kidx: c.getConstant(k)}, line)
 }
 
 func EmitMoveNoLine(c *CodeBuilder, dst Register, src Register) {

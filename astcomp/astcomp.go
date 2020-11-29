@@ -20,8 +20,9 @@ const (
 )
 
 // TODO: a better interface
-func CompileLuaChunk(source string, s ast.BlockStat) *ir.Code {
-	rootIrC := ir.NewCodeBuilder(source, "<global chunk>")
+func CompileLuaChunk(source string, s ast.BlockStat) (uint, []ir.Constant) {
+	kp := new(ir.ConstantPool)
+	rootIrC := ir.NewCodeBuilder("<global chunk>", kp)
 	rootIrC.DeclareLocal("_ENV", rootIrC.GetFreeRegister())
 	irC := rootIrC.NewChild("<main chunk>")
 	c := &Compiler{CodeBuilder: irC}
@@ -29,7 +30,8 @@ func CompileLuaChunk(source string, s ast.BlockStat) *ir.Code {
 		ParList: ast.ParList{HasDots: true},
 		Body:    s,
 	})
-	return irC.GetCode()
+	kidx, _ := irC.Close()
+	return kidx, kp.Constants()
 }
 
 func (c *Compiler) NewChild(name string) *Compiler {
