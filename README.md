@@ -265,15 +265,15 @@ Go applications. It should be able to run any pure Lua code
 
 The `ast` package defines all the AST nodes.  The `astcomp` package defines a
 `Compiler` type that is able to compile an AST to IR, using an instance of
-`ir.Compiler`.
+`ir.CodeBuilder`.
 
 The `ir` package defines all the IR instructions and the IR compiler.
 
 ### IR → Code Compilation
 
-The runtime bytecode is defined in the `code` package. Each IR
-instruction (see package `ir`) know how to compile itself using an
-`ir.InstrCompiler` instance.
+The runtime bytecode is defined in the `code` package. The `ircomp` package
+defines a `ConstantCompiler` type that is able to compile IR code to runtime
+bytecode, using an instance of `code.Builder`.
 
 ### Runtime
 

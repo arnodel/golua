@@ -6,9 +6,10 @@ import (
 )
 
 type Compiler struct {
-	*ir.Compiler
+	*ir.CodeBuilder
 }
 
+// Names of various labels and registers used during compilation.
 const (
 	breakLblName    = ir.Name("<break>")
 	ellipsisRegName = ir.Name("...")
@@ -19,20 +20,22 @@ const (
 )
 
 // TODO: a better interface
-func CompileLuaChunk(source string, s ast.BlockStat) *ir.Compiler {
-	rootIrC := ir.NewCompiler(source)
+func CompileLuaChunk(source string, s ast.BlockStat) (uint, []ir.Constant) {
+	kp := new(ir.ConstantPool)
+	rootIrC := ir.NewCodeBuilder("<global chunk>", kp)
 	rootIrC.DeclareLocal("_ENV", rootIrC.GetFreeRegister())
-	irC := rootIrC.NewChild()
-	c := &Compiler{Compiler: irC}
+	irC := rootIrC.NewChild("<main chunk>")
+	c := &Compiler{CodeBuilder: irC}
 	c.compileFunctionBody(ast.Function{
 		ParList: ast.ParList{HasDots: true},
 		Body:    s,
 	})
-	return irC
+	kidx, _ := irC.Close()
+	return kidx, kp.Constants()
 }
 
-func (c *Compiler) NewChild() *Compiler {
+func (c *Compiler) NewChild(name string) *Compiler {
 	return &Compiler{
-		Compiler: c.Compiler.NewChild(),
+		CodeBuilder: c.CodeBuilder.NewChild(name),
 	}
 }
