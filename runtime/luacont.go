@@ -26,10 +26,6 @@ func NewLuaCont(clos *Closure, next Cont) *LuaCont {
 		Closure:   clos,
 		registers: registers,
 	}
-	// log.Printf("NewLuaCont %s@%p next=%p", clos.name, cont, next)
-	// runtime.SetFinalizer(cont, func(obj *LuaCont) {
-	// 	log.Printf("Finalizing LuaCont %p", obj)
-	// })
 	return cont
 }
 
