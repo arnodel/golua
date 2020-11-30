@@ -1,7 +1,6 @@
 package ast
 
-import "github.com/arnodel/golua/ir"
-
+// LabelStat is a statement node that represents a label.
 type LabelStat struct {
 	Location
 	Name
@@ -9,6 +8,7 @@ type LabelStat struct {
 
 var _ Stat = LabelStat{}
 
+// NewLabelStat returns a LabelStat instance for the given label.
 func NewLabelStat(label Name) LabelStat {
 	return LabelStat{Location: label.Location, Name: label}
 }
@@ -21,8 +21,4 @@ func (s LabelStat) ProcessStat(p StatProcessor) {
 // HWrite prints a tree representation of the node.
 func (s LabelStat) HWrite(w HWriter) {
 	w.Writef("label %s", s.Name.Val)
-}
-
-func (s LabelStat) CompileStat(c *ir.CodeBuilder) {
-	c.EmitGotoLabel(ir.Name(s.Name.Val))
 }

@@ -1,5 +1,7 @@
 package ast
 
+// LocalStat is a statement node representing the declaration / definition of a
+// list of local variables.
 type LocalStat struct {
 	Location
 	Names  []Name
@@ -8,6 +10,8 @@ type LocalStat struct {
 
 var _ Stat = LocalStat{}
 
+// NewLocalStat returns a LocalStat instance defining the given names with the
+// given values.
 func NewLocalStat(names []Name, values []ExpNode) LocalStat {
 	loc := MergeLocations(names[0], names[len(names)-1])
 	if len(values) > 0 {

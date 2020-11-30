@@ -1,5 +1,7 @@
 package ast
 
+// LocalFunctionStat is a statement node that represents a local function
+// definition, i.e. "local function Name() ...".
 type LocalFunctionStat struct {
 	Location
 	Function
@@ -8,6 +10,8 @@ type LocalFunctionStat struct {
 
 var _ Stat = LocalFunctionStat{}
 
+// NewLocalFunctionStat returns a LocalFunctionStat instance for the given name
+// and function definition.
 func NewLocalFunctionStat(name Name, fx Function) LocalFunctionStat {
 	fx.Name = name.Val
 	return LocalFunctionStat{
