@@ -22,10 +22,15 @@ func NewLuaCont(clos *Closure, next Cont) *LuaCont {
 	}
 	registers := make([]Value, clos.RegCount)
 	registers[0] = next
-	return &LuaCont{
+	cont := &LuaCont{
 		Closure:   clos,
 		registers: registers,
 	}
+	// log.Printf("NewLuaCont %s@%p next=%p", clos.name, cont, next)
+	// runtime.SetFinalizer(cont, func(obj *LuaCont) {
+	// 	log.Printf("Finalizing LuaCont %p", obj)
+	// })
+	return cont
 }
 
 // Push implements Cont.Push.
@@ -280,7 +285,13 @@ RunLoop:
 				c.pc = pc
 				c.acc = nil
 				c.running = false
-				return c.getReg(opcode.GetA()).(Cont), nil
+				contReg := opcode.GetA()
+				next := c.getReg(contReg).(Cont)
+				// We clear the register containing the continuation to allow
+				// garbage collection.  A continuation can only be called once
+				// anyway, so that's ok semantically.
+				c.clearReg(contReg)
+				return next, nil
 			default:
 				panic("unsupported")
 			}
