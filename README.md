@@ -252,7 +252,7 @@ Go applications. It should be able to run any pure Lua code
 - small: avoid re-implementing features which are already present in
   the Go language or in the standard library (e.g. garbage collection)
 - register based VM
-- no call stack (continuation passing)
+- no call stack (continuation passing), tail call optimisation.
 
 ## Components
 

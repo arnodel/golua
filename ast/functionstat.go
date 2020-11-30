@@ -1,5 +1,8 @@
 package ast
 
+// NewFunctionStat returns an AssgnStat, ie. "function f() ..." gets transformed
+// to "f = function() ...".  This is a shortcut, probably should make a specific
+// node for this.
 func NewFunctionStat(fName Var, method Name, fx Function) AssignStat {
 	// TODO: include the "function" keywork in the location calculation
 	if method.Val != "" {

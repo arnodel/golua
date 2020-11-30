@@ -151,11 +151,10 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 // If parses an if / then / else statement.  It assumes that t is the "if"
 // token.
 func (p *Parser) If(t *token.Token) (ast.IfStat, *token.Token) {
-	ifStat := ast.NewIfStat(nil)
 	cond, thenTok := p.Exp(p.Scan())
 	expectType(thenTok, token.KwThen, "'then'")
 	thenBlock, endTok := p.Block(p.Scan())
-	ifStat = ifStat.AddIf(t, cond, thenBlock)
+	ifStat := ast.NewIfStat(t, cond, thenBlock)
 	for {
 		switch endTok.Type {
 		case token.KwElseIf:
@@ -168,7 +167,7 @@ func (p *Parser) If(t *token.Token) (ast.IfStat, *token.Token) {
 		case token.KwElse:
 			elseBlock, elseTok := p.Block(p.Scan())
 			expectType(elseTok, token.KwEnd, "'end'")
-			ifStat = ifStat.AddElse(endTok, elseBlock)
+			ifStat = ifStat.WithElse(endTok, elseBlock)
 			return ifStat, p.Scan()
 		default:
 			tokenError(t, "'elseif' or 'end' or 'else'")
@@ -366,7 +365,7 @@ func (p *Parser) ShortExp(t *token.Token) (ast.ExpNode, *token.Token) {
 	case token.SgOpenBrace:
 		exp, t = p.TableConstructor(t)
 	case token.SgEtc:
-		exp, t = ast.Etc(t), p.Scan()
+		exp, t = ast.NewEtc(t), p.Scan()
 	case token.KwFunction:
 		exp, t = p.FunctionDef(p.Scan())
 	case token.SgMinus, token.KwNot, token.SgHash, token.SgTilde:

@@ -4,6 +4,7 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
+// Bool is an expression node representing a boolean literal.
 type Bool struct {
 	Location
 	Val bool
@@ -21,10 +22,12 @@ func (b Bool) ProcessExp(p ExpProcessor) {
 	p.ProcesBoolExp(b)
 }
 
+// True is a true boolean literal.
 func True(tok *token.Token) Bool {
 	return Bool{Location: LocFromToken(tok), Val: true}
 }
 
+// False is a false boolean literal.
 func False(tok *token.Token) Bool {
 	return Bool{Location: LocFromToken(tok), Val: false}
 }

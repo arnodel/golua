@@ -319,7 +319,7 @@ func TestParser_ShortExp(t *testing.T) {
 		{
 			name:  "...",
 			input: `...`,
-			want:  ast.EtcType{},
+			want:  ast.Etc{},
 			want1: tok(token.EOF, ""),
 		},
 		{
@@ -516,7 +516,7 @@ func TestParser_Args(t *testing.T) {
 		{
 			name:  "etc arg",
 			input: "(...)",
-			want:  []ast.ExpNode{ast.EtcType{}},
+			want:  []ast.ExpNode{ast.Etc{}},
 			want1: tok(token.EOF, ""),
 		},
 	}

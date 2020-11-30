@@ -1,5 +1,8 @@
 package ast
 
+// A BlockStat is a statement node that represents a block of statements,
+// optionally ending in a return statement (if Return is not a nil slice - note
+// that a bare return is encoded as a non-nil slice of length 0).
 type BlockStat struct {
 	Location
 	Stats  []Stat
@@ -8,6 +11,8 @@ type BlockStat struct {
 
 var _ Stat = BlockStat{}
 
+// NewBlockStat returns a BlockStat instance conatining the given stats and
+// return statement.
 func NewBlockStat(stats []Stat, rtn []ExpNode) BlockStat {
 	return BlockStat{
 		// TODO: set Location

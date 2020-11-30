@@ -4,6 +4,7 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
+// GotoStat is a statement node representing a goto statement.
 type GotoStat struct {
 	Location
 	Label Name
@@ -11,6 +12,7 @@ type GotoStat struct {
 
 var _ Stat = GotoStat{}
 
+// NewGotoStat returns a GotoStat instance with the given label.
 func NewGotoStat(gotoTok *token.Token, lbl Name) GotoStat {
 	return GotoStat{
 		Location: MergeLocations(LocFromToken(gotoTok), lbl),

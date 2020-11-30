@@ -51,3 +51,7 @@ const OpToNumber Op = 0x10000
 func (op Op) Precedence() int {
 	return int(op & 0xff)
 }
+
+func (op Op) Type() Op {
+	return op & 0xff
+}

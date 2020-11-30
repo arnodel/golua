@@ -4,6 +4,8 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
+// ForInStat is a statement node representing the "for Vars in Params do Body end"
+// statement.
 type ForInStat struct {
 	Location
 	Vars   []Name
@@ -13,6 +15,7 @@ type ForInStat struct {
 
 var _ Stat = ForInStat{}
 
+// NewForInStat returns a ForInStat instance from the given parts.
 func NewForInStat(startTok, endTok *token.Token, itervars []Name, params []ExpNode, body BlockStat) *ForInStat {
 	return &ForInStat{
 		Location: LocFromTokens(startTok, endTok),

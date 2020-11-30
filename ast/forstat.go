@@ -4,6 +4,7 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
+// ForStat represents the statement node "for Var = Start, Stop, Step do Body end".
 type ForStat struct {
 	Location
 	Var   Name
@@ -15,6 +16,7 @@ type ForStat struct {
 
 var _ Stat = ForStat{}
 
+// NewForStat returns a ForStat from the given parts.
 func NewForStat(startTok, endTok *token.Token, itervar Name, params []ExpNode, body BlockStat) *ForStat {
 	return &ForStat{
 		Location: LocFromTokens(startTok, endTok),

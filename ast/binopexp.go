@@ -4,37 +4,46 @@ import (
 	"github.com/arnodel/golua/ops"
 )
 
+// A BinOp is a expression node that represents any binary operator.  The right
+// hand side can be a list of operations of the same type (OpType).  All
+// operations of the same type have the same precedence and can be merged into a
+// list.
 type BinOp struct {
 	Location
 	Left   ExpNode
 	OpType ops.Op
-	Right  []Operand
+	Right  []Operation
 }
 
 var _ ExpNode = BinOp{}
 
-type Operand struct {
+// An Operation is a pair (operator, operand) which can be applied to an
+// expression node (e.g. "+ 2" or "/ 5").
+type Operation struct {
 	Op      ops.Op
 	Operand ExpNode
 }
 
+// NewBinOp creates a new BinOp from the given arguments.  If the left node is
+// already a BinOp node with the same operator type, a new node based on that
+// will be created.
 func NewBinOp(left ExpNode, op ops.Op, right ExpNode) *BinOp {
 	loc := MergeLocations(left, right)
 	leftOp, ok := left.(*BinOp)
-	opType := op & 0xFF
+	opType := op.Type()
 	if ok && leftOp.OpType == opType {
 		return &BinOp{
 			Location: loc,
 			Left:     leftOp.Left,
 			OpType:   opType,
-			Right:    append(leftOp.Right, Operand{op, right}),
+			Right:    append(leftOp.Right, Operation{op, right}),
 		}
 	}
 	return &BinOp{
 		Location: loc,
 		Left:     left.(ExpNode),
 		OpType:   opType,
-		Right:    []Operand{{op, right}},
+		Right:    []Operation{{op, right}},
 	}
 }
 

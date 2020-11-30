@@ -101,7 +101,7 @@ func (c *expCompiler) ProcesBoolExp(b ast.Bool) {
 }
 
 // ProcessEtcExp compiles a EtcExp.
-func (c *expCompiler) ProcessEtcExp(e ast.EtcType) {
+func (c *expCompiler) ProcessEtcExp(e ast.Etc) {
 	reg := c.getEllipsisReg()
 	c.EmitInstr(e, ir.EtcLookup{Dst: c.dst, Etc: reg})
 }
@@ -226,7 +226,7 @@ type tailExpCompiler struct {
 var _ ast.TailExpProcessor = tailExpCompiler{}
 
 // ProcessEtcTailExp compiles an Etc tail expression.
-func (c tailExpCompiler) ProcessEtcTailExp(e ast.EtcType) {
+func (c tailExpCompiler) ProcessEtcTailExp(e ast.Etc) {
 	reg := c.getEllipsisReg()
 	for i, dst := range c.dsts {
 		c.EmitInstr(e, ir.EtcLookup{
@@ -254,7 +254,7 @@ type etcExpCompiler struct {
 
 var _ ast.TailExpProcessor = (*etcExpCompiler)(nil)
 
-func (c *etcExpCompiler) ProcessEtcTailExp(e ast.EtcType) {
+func (c *etcExpCompiler) ProcessEtcTailExp(e ast.Etc) {
 	c.dst = c.getEllipsisReg()
 }
 

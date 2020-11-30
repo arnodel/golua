@@ -67,7 +67,7 @@ type ExpProcessor interface {
 	ProcessBFunctionCallExp(BFunctionCall)
 	ProcessBinOpExp(BinOp)
 	ProcesBoolExp(Bool)
-	ProcessEtcExp(EtcType)
+	ProcessEtcExp(Etc)
 	ProcessFunctionExp(Function)
 	ProcessFunctionCallExp(FunctionCall)
 	ProcessIndexExp(IndexExp)
@@ -82,7 +82,7 @@ type ExpProcessor interface {
 
 // A TailExpProcessor can process all implementations fo TailExpNode.
 type TailExpProcessor interface {
-	ProcessEtcTailExp(EtcType)
+	ProcessEtcTailExp(Etc)
 	ProcessFunctionCallTailExp(FunctionCall)
 }
 

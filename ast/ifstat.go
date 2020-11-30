@@ -4,6 +4,9 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
+// IfStat is a statement node representing an "if ... [elseif] ... [else] ...
+// end" statement, where the else clause is optional and there can be 0 or more
+// elseif clauses.
 type IfStat struct {
 	Location
 	If      CondStat
@@ -13,22 +16,24 @@ type IfStat struct {
 
 var _ Stat = IfStat{}
 
-func NewIfStat(endTok *token.Token) IfStat {
-	return IfStat{Location: LocFromToken(endTok)}
+// NewIfStat returns an IfStat with the given condition and then clause.
+func NewIfStat(ifTok *token.Token, cond ExpNode, body BlockStat) IfStat {
+	return IfStat{
+		Location: LocFromToken(ifTok),
+		If:       CondStat{cond, body},
+	}
 }
 
-func (s IfStat) AddIf(ifTok *token.Token, cond ExpNode, body BlockStat) IfStat {
-	s.Location = MergeLocations(LocFromToken(ifTok), s)
-	s.If = CondStat{cond, body}
-	return s
-}
-
-func (s IfStat) AddElse(endTok *token.Token, body BlockStat) IfStat {
+// WithElse returns an IfStat based on the receiver but with the given else
+// clause.
+func (s IfStat) WithElse(endTok *token.Token, body BlockStat) IfStat {
 	s.Location = MergeLocations(s, LocFromToken(endTok))
 	s.Else = &body
 	return s
 }
 
+// AddElseIf returns an IfStat based on the receiver but adding an extra elseif
+// clause.
 func (s IfStat) AddElseIf(cond ExpNode, body BlockStat) IfStat {
 	s.ElseIfs = append(s.ElseIfs, CondStat{cond, body})
 	return s

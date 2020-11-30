@@ -4,6 +4,8 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
+// A Function is an expression node representing a function definition, i.e.
+// "function Name(ParList) do Body end".  The Name is optional.
 type Function struct {
 	Location
 	ParList
@@ -13,6 +15,7 @@ type Function struct {
 
 var _ ExpNode = Function{}
 
+// NewFunction returns a Function instance built from the given arguments.
 func NewFunction(startTok, endTok *token.Token, parList ParList, body BlockStat) Function {
 	// Make sure we return at the end of the function
 	if body.Return == nil {
@@ -49,11 +52,13 @@ func (f Function) HWrite(w HWriter) {
 	w.Dedent()
 }
 
+// A ParList represents a function parameter list (it is not a node).
 type ParList struct {
 	Params  []Name
 	HasDots bool
 }
 
+// NewParList returns ParList instance for the given parameters.
 func NewParList(params []Name, hasDots bool) ParList {
 	return ParList{
 		Params:  params,

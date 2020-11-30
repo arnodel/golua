@@ -4,27 +4,30 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
-type EtcType struct {
+// Etc is the "..." expression node (ellipsis).
+type Etc struct {
 	Location
 }
 
-var _ ExpNode = EtcType{}
-var _ TailExpNode = EtcType{}
+var _ ExpNode = Etc{}
+var _ TailExpNode = Etc{}
 
-func Etc(tok *token.Token) EtcType {
-	return EtcType{Location: LocFromToken(tok)}
+// NewEtc returns an Etc instance at the location given by the passed token.
+func NewEtc(tok *token.Token) Etc {
+	return Etc{Location: LocFromToken(tok)}
 }
 
 // ProcessExp uses the given ExpProcessor to process the receiver.
-func (e EtcType) ProcessExp(p ExpProcessor) {
+func (e Etc) ProcessExp(p ExpProcessor) {
 	p.ProcessEtcExp(e)
 }
 
-func (e EtcType) ProcessTailExp(p TailExpProcessor) {
+// ProcessTailExp uses the given TailExpProcessor to process the reveiver.
+func (e Etc) ProcessTailExp(p TailExpProcessor) {
 	p.ProcessEtcTailExp(e)
 }
 
 // HWrite prints a tree representation of the node.
-func (e EtcType) HWrite(w HWriter) {
+func (e Etc) HWrite(w HWriter) {
 	w.Writef("...")
 }

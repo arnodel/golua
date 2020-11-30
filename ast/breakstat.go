@@ -4,12 +4,15 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
+// BreakStat is a statement node representing the "break" statement.
 type BreakStat struct {
 	Location
 }
 
 var _ Stat = BreakStat{}
 
+// NewBreakStat returns a BreakStat instance (the token is needed to record the
+// location of the statement).
 func NewBreakStat(tok *token.Token) BreakStat {
 	return BreakStat{Location: LocFromToken(tok)}
 }

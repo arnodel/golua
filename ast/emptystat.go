@@ -4,12 +4,14 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
+// EmptyStat is a statement expression containing an empty statement.
 type EmptyStat struct {
 	Location
 }
 
 var _ Stat = EmptyStat{}
 
+// NewEmptyStat returns an EmptyStat instance (located from the given token).
 func NewEmptyStat(tok *token.Token) EmptyStat {
 	return EmptyStat{Location: LocFromToken(tok)}
 }
