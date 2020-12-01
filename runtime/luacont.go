@@ -172,6 +172,8 @@ RunLoop:
 			switch code.UnOpK16(opcode.GetY()) {
 			case code.OpInt16:
 				val = Int(n)
+			case code.OpStr2:
+				val = String(code.Lit16(n).ToStr2())
 			case code.OpK:
 				val = consts[n]
 			case code.OpClosureK:
@@ -246,6 +248,10 @@ RunLoop:
 					res = c
 				case code.OpTable:
 					res = NewTable()
+				case code.OpStr0:
+					res = String("")
+				case code.OpStr1:
+					res = String(opcode.GetLit8().ToStr1())
 				case code.OpClear:
 					// Special case: clear reg
 					c.clearReg(dst)

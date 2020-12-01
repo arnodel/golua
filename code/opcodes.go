@@ -1,6 +1,7 @@
 package code
 
 import (
+	"encoding/binary"
 	"fmt"
 )
 
@@ -87,6 +88,10 @@ func (c Opcode) GetA() Reg {
 
 func (c Opcode) GetB() Reg {
 	return Reg((c >> 17 & 0x100) | (c >> 8 & 0xff))
+}
+
+func (c Opcode) GetLit8() Lit8 {
+	return Lit8(c >> 8)
 }
 
 func (c Opcode) GetC() Reg {
@@ -218,6 +223,17 @@ func (l Lit16) ToN() uint32 {
 	return uint32(l)
 }
 
+// ToStr2 converts a Lit16 to two bytes.
+func (l Lit16) ToStr2() []byte {
+	b := make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, uint16(l))
+	return b
+}
+
+func Lit16FromStr2(b []byte) Lit16 {
+	return Lit16(binary.LittleEndian.Uint16(b))
+}
+
 type UnOp uint8
 
 const (
@@ -263,6 +279,15 @@ type Lit8 uint8
 
 func (l Lit8) ToB() uint32 {
 	return uint32(l) << 8
+}
+
+// ToStr1 converts a Lit8 to a slice of 1 byte.
+func (l Lit8) ToStr1() []byte {
+	return []byte{byte(l)}
+}
+
+func Lit8FromStr1(b []byte) Lit8 {
+	return Lit8(b[0])
 }
 
 type JumpOp uint8
@@ -378,6 +403,10 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 			k = "CC"
 		case OpTable:
 			k = "{}"
+		case OpStr0:
+			k = `""`
+		case OpStr1:
+			k = fmt.Sprintf("%q", c.GetLit8().ToStr1())
 		case OpClear:
 			// Special case
 			return fmt.Sprintf("clr %s", rA)
@@ -402,6 +431,8 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 		switch UnOpK16(y) {
 		case OpInt16:
 			tpl = fmt.Sprint(n)
+		case OpStr2:
+			tpl = fmt.Sprintf("%q", Lit16(n).ToStr2())
 		case OpK:
 			tpl = fmt.Sprintf("K%d (%s)", n, d.ShortKString(n))
 		case OpClosureK:

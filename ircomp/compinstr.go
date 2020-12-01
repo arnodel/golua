@@ -81,19 +81,32 @@ var codeUnOp = map[ops.Op]code.UnOp{
 // ProcessLoadConstInstr compiles a LoadConst instruction.
 func (ic instrCompiler) ProcessLoadConstInstr(l ir.LoadConst) {
 	k := ic.GetConstant(l.Kidx)
+	var opcode code.Opcode
+
+	// Short strings and small integers are inlined.
 	switch kk := k.(type) {
 	case ir.Int:
 		if 0 <= kk && kk <= math.MaxUint16 {
-			opcode := code.MkType3(code.Off, code.OpInt16, codeReg(l.Dst), code.Lit16(kk))
-			ic.Emit(opcode)
-			return
+			opcode = code.MkType3(code.Off, code.OpInt16, codeReg(l.Dst), code.Lit16(kk))
+		}
+	case ir.String:
+		b := []byte(kk)
+		switch len(b) {
+		case 0:
+			opcode = code.MkType4b(code.Off, code.OpStr0, codeReg(l.Dst), 0)
+		case 1:
+			opcode = code.MkType4b(code.Off, code.OpStr1, codeReg(l.Dst), code.Lit8FromStr1(b))
+		case 2:
+			opcode = code.MkType3(code.Off, code.OpStr2, codeReg(l.Dst), code.Lit16FromStr2(b))
 		}
 	}
-	ckidx := ic.QueueConstant(l.Kidx)
-	if ckidx > 0xffff {
-		panic("Only 2^16 constants are supported in one compilation unit")
+	if opcode == 0 {
+		ckidx := ic.QueueConstant(l.Kidx)
+		if ckidx > 0xffff {
+			panic("Only 2^16 constants are supported in one compilation unit")
+		}
+		opcode = code.MkType3(code.Off, code.OpK, codeReg(l.Dst), code.Lit16(ckidx))
 	}
-	opcode := code.MkType3(code.Off, code.OpK, codeReg(l.Dst), code.Lit16(ckidx))
 	ic.Emit(opcode)
 }
 
