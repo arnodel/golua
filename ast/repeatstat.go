@@ -4,7 +4,7 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
-// RepeatStat represents a repeat / until statement.
+// RepeatStat ia a statement expression that represents a repeat / until statement.
 type RepeatStat struct {
 	Location
 	CondStat
@@ -12,6 +12,8 @@ type RepeatStat struct {
 
 var _ Stat = RepeatStat{}
 
+// NewRepeatStat returns a RepeatStat instance representing the statement
+// "repeat <body> until <cond>".
 func NewRepeatStat(repTok *token.Token, body BlockStat, cond ExpNode) RepeatStat {
 	return RepeatStat{
 		Location: MergeLocations(LocFromToken(repTok), cond),

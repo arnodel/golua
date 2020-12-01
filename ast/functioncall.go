@@ -1,5 +1,16 @@
 package ast
 
+// TODO: the FunctionCall / BFunctionCall distinction is awkward.  Find a better
+// expression of the difference.
+
+// A BFunctionCall is an expression node that represents a function call
+// surrounded by brackets. This changes the semantics of the call in some
+// situations (e.g. ellipsis, tail calls).
+//
+// For example:
+//
+//    return f(x)   -- this may return multiple values and will be subject to TCO
+//    return (f(x)) -- this will only return one single value and will not be subject to TCO
 type BFunctionCall struct {
 	Location
 	Target ExpNode
@@ -9,6 +20,7 @@ type BFunctionCall struct {
 
 var _ ExpNode = BFunctionCall{}
 
+// A FunctionCall is an expression node that represents a function call.
 type FunctionCall struct {
 	*BFunctionCall
 }
@@ -17,6 +29,9 @@ var _ ExpNode = FunctionCall{}
 var _ TailExpNode = FunctionCall{}
 var _ Stat = FunctionCall{}
 
+// NewFunctionCall returns a FunctionCall instance representing the call of
+// <target> with <args>.  The <method> arg should be non-nil if the call syntax
+// included ":", e.g. stack:pop().
 func NewFunctionCall(target ExpNode, method Name, args []ExpNode) FunctionCall {
 	// TODO: fix this by creating an Args node
 	loc := target.Locate()
@@ -38,6 +53,7 @@ func (f FunctionCall) ProcessExp(p ExpProcessor) {
 	p.ProcessFunctionCallExp(f)
 }
 
+// ProcessTailExp uses the give TailExpProcessor to process the receiver.
 func (f FunctionCall) ProcessTailExp(p TailExpProcessor) {
 	p.ProcessFunctionCallTailExp(f)
 }
@@ -47,6 +63,7 @@ func (f FunctionCall) ProcessStat(p StatProcessor) {
 	p.ProcessFunctionCallStat(f)
 }
 
+// InBrackets turns the receiver into a BFunctionCall.
 func (f FunctionCall) InBrackets() *BFunctionCall {
 	return f.BFunctionCall
 }

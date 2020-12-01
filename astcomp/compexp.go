@@ -149,7 +149,7 @@ func (c *expCompiler) ProcessNameExp(n ast.Name) {
 }
 
 // ProcessNilExp compiles a NilExp.
-func (c *expCompiler) ProcessNilExp(n ast.NilType) {
+func (c *expCompiler) ProcessNilExp(n ast.Nil) {
 	c.EmitLoadConst(n, ir.NilType{}, c.dst)
 }
 

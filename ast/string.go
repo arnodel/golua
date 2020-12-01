@@ -17,7 +17,9 @@ type String struct {
 
 var _ ExpNode = String{}
 
-// NewString returns a String from a string token, or an error if it couln't.
+// NewString returns a String from a token containing a Lua short string
+// literal, or an error if it couln't (although perhaps it should panic instead?
+// Parsing should ensure well-formed string token).
 func NewString(id *token.Token) (ss String, err error) {
 	s := id.Lit
 	defer func() {
@@ -34,19 +36,12 @@ func NewString(id *token.Token) (ss String, err error) {
 	}, nil
 }
 
-func NewStringArgs(id *token.Token) ([]ExpNode, error) {
-	s, err := NewString(id)
-	if err != nil {
-		return nil, err
-	}
-	return []ExpNode{s}, nil
-}
-
+// NewLongString returns a String computed from a token containing a Lua long
+// string.
 func NewLongString(id *token.Token) String {
 	s := id.Lit
 	idx := bytes.IndexByte(s[1:], '[') + 2
 	contents := s[idx : len(s)-idx]
-	// contents = newLines.ReplaceAllLiteral(contents, []byte{'\n'})
 	if contents[0] == '\n' {
 		contents = contents[1:]
 	}
@@ -66,10 +61,7 @@ func (s String) HWrite(w HWriter) {
 	w.Writef("%q", s.Val)
 }
 
-var escapeSeqs = regexp.MustCompile(`(?s)\\\d{1,3}|\\[xX][0-9a-fA-F]{2}|\\[abtnvfr\\]|\\z[\s\v]*|\\[uU]{[0-9a-fA-F]+}|\\.`)
-
-// var newLines = regexp.MustCompile(`(?s)\r\n|\n\r|\r|\n`)
-
+// This function replaces escape sequences with the values they escape.
 func replaceEscapeSeq(e []byte) []byte {
 	switch e[1] {
 	case 'a':
@@ -116,3 +108,6 @@ func replaceEscapeSeq(e []byte) []byte {
 		return e[1:]
 	}
 }
+
+// This regex matches all the escape sequences that can be found in a Lua string.
+var escapeSeqs = regexp.MustCompile(`(?s)\\\d{1,3}|\\[xX][0-9a-fA-F]{2}|\\[abtnvfr\\]|\\z[\s\v]*|\\[uU]{[0-9a-fA-F]+}|\\.`)

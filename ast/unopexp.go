@@ -5,6 +5,8 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
+// An UnOp is an expression node representing the application of a unary
+// operation on an expression.
 type UnOp struct {
 	Location
 	Op      ops.Op
@@ -13,6 +15,7 @@ type UnOp struct {
 
 var _ ExpNode = UnOp{}
 
+// NewUnOp returns a UnOp instance from the given operator an expression.
 func NewUnOp(opTok *token.Token, op ops.Op, exp ExpNode) *UnOp {
 	return &UnOp{
 		Location: MergeLocations(LocFromToken(opTok), exp),

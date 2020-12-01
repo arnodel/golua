@@ -8,17 +8,9 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
-func isFloatToken(tok *token.Token) bool {
-	switch tok.Type {
-	case token.NUMDEC:
-		return bytes.ContainsAny(tok.Lit, ".eE")
-	case token.NUMHEX:
-		return bytes.ContainsAny(tok.Lit, ".pP")
-	default:
-		return false
-	}
-}
-
+// NewNumber returns an ExpNode that represents the numeric literal in the given
+// token, or an error if it's not a valid numeric literal (the error should not
+// happen, perhaps panic instead?).
 func NewNumber(id *token.Token) (ExpNode, error) {
 	loc := LocFromToken(id)
 	nstring := string(id.Lit)
@@ -47,6 +39,17 @@ func NewNumber(id *token.Token) (ExpNode, error) {
 	return Int{Location: loc, Val: n}, nil
 }
 
+// IsNumber returns true if the given expression node is a numerical value.
+func IsNumber(e ExpNode) bool {
+	n, ok := e.(numberOracle)
+	return ok && n.isNumber()
+}
+
+//
+// Int
+//
+
+// Int is an expression node representing a non-negative integer literal.
 type Int struct {
 	Location
 	Val uint64
@@ -54,6 +57,7 @@ type Int struct {
 
 var _ ExpNode = Int{}
 
+// NewInt returns an Int instance with the given value.
 func NewInt(val uint64) Int {
 	return Int{Val: val}
 }
@@ -68,6 +72,15 @@ func (n Int) ProcessExp(p ExpProcessor) {
 	p.ProcessIntExp(n)
 }
 
+func (n Int) isNumber() bool {
+	return true
+}
+
+//
+// Float
+//
+
+// Float is an expression node representing a floating point numeric literal.
 type Float struct {
 	Location
 	Val float64
@@ -75,6 +88,7 @@ type Float struct {
 
 var _ ExpNode = Float{}
 
+// NewFloat returns a Float instance with the given value.
 func NewFloat(x float64) Float {
 	return Float{Val: x}
 }
@@ -89,11 +103,21 @@ func (f Float) HWrite(w HWriter) {
 	w.Writef("%f", f.Val)
 }
 
-type NumberOracle interface {
-	IsNumber() bool
+func (f Float) isNumber() bool {
+	return true
 }
 
-func IsNumber(e ExpNode) bool {
-	n, ok := e.(NumberOracle)
-	return ok && n.IsNumber()
+type numberOracle interface {
+	isNumber() bool
+}
+
+func isFloatToken(tok *token.Token) bool {
+	switch tok.Type {
+	case token.NUMDEC:
+		return bytes.ContainsAny(tok.Lit, ".eE")
+	case token.NUMHEX:
+		return bytes.ContainsAny(tok.Lit, ".pP")
+	default:
+		return false
+	}
 }

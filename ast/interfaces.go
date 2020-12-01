@@ -72,7 +72,7 @@ type ExpProcessor interface {
 	ProcessFunctionCallExp(FunctionCall)
 	ProcessIndexExp(IndexExp)
 	ProcessNameExp(Name)
-	ProcessNilExp(NilType)
+	ProcessNilExp(Nil)
 	ProcessIntExp(Int)
 	ProcessFloatExp(Float)
 	ProcessStringExp(String)

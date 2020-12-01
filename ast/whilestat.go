@@ -12,6 +12,8 @@ type WhileStat struct {
 
 var _ Stat = WhileStat{}
 
+// NewWhileStat returns a WhileStat instance representing the statement "while
+// <cond> do <body> done".
 func NewWhileStat(whileTok, endTok *token.Token, cond ExpNode, body BlockStat) WhileStat {
 	return WhileStat{
 		Location: LocFromTokens(whileTok, endTok),

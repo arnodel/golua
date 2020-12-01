@@ -265,7 +265,7 @@ func TestParser_ShortExp(t *testing.T) {
 		{
 			name:  "nil",
 			input: "nil and",
-			want:  ast.NilType{},
+			want:  ast.Nil{},
 			want1: tok(token.KwAnd, "and"),
 		},
 		{

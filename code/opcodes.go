@@ -215,19 +215,19 @@ func (l Lit16) ToN() uint32 {
 type UnOp uint8
 
 const (
-	OpNeg UnOp = iota
-	OpBitNot
-	OpLen
-	OpClosure
-	OpCont
-	OpTailCont
-	OpId
-	OpTruth // Turn operand to boolean
-	OpCell  // ?
-	OpNot   // Added afterwards - why did I not have it in the first place?
-	OpUpvalue
-	OpEtcId
-	OpToNumber
+	OpNeg      UnOp = iota // numerical negation
+	OpBitNot               // bitwise negation
+	OpLen                  // length
+	OpClosure              // make a closure for the code
+	OpCont                 // make a continuation for the closure
+	OpTailCont             // make a "tail continuation" for the closure (its next is cc's next)
+	OpId                   // identity
+	OpTruth                // Turn operand to boolean
+	OpCell                 // ?
+	OpNot                  // Added afterwards - why did I not have it in the first place?
+	OpUpvalue              // get an upvalue
+	OpEtcId                // etc identity
+	OpToNumber             // convert to number
 )
 
 func (op UnOp) ToC() uint32 {
@@ -354,6 +354,8 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 				tpl = "cell(%s)"
 			case OpNot:
 				tpl = "not %s"
+			case OpToNumber:
+				tpl = "tonumber(%s)"
 			case OpUpvalue:
 				// Special case
 				return fmt.Sprintf("upval %s, %s", rA, rB)

@@ -343,7 +343,7 @@ func (p *Parser) ShortExp(t *token.Token) (ast.ExpNode, *token.Token) {
 	var exp ast.ExpNode
 	switch t.Type {
 	case token.KwNil:
-		exp, t = ast.Nil(t), p.Scan()
+		exp, t = ast.NewNil(t), p.Scan()
 	case token.KwTrue:
 		exp, t = ast.True(t), p.Scan()
 	case token.KwFalse:
