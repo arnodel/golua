@@ -27,20 +27,23 @@ func (c *Code) RefactorConsts() *Code {
 	constMap := map[uint16]uint16{}
 	for i, op := range c.code {
 		if op.TypePfx() == code.Type3Pfx {
-			// We are loading a constant
-			n := op.GetN()
-			m, ok := constMap[n]
-			if !ok {
-				m = uint16(len(consts))
-				constMap[n] = m
-				newConst := c.consts[n]
-				if code.UnOpK16(op.GetY()) == code.OpClosureK {
-					// It's a closure so we need to refactor its consts
-					newConst = newConst.(*Code).RefactorConsts()
+			unop := code.UnOpK16(op.GetY())
+			if unop.LoadsK() {
+				// We are loading a constant
+				n := op.GetN()
+				m, ok := constMap[n]
+				if !ok {
+					m = uint16(len(consts))
+					constMap[n] = m
+					newConst := c.consts[n]
+					if unop == code.OpClosureK {
+						// It's a closure so we need to refactor its consts
+						newConst = newConst.(*Code).RefactorConsts()
+					}
+					consts = append(consts, newConst)
 				}
-				consts = append(consts, newConst)
+				op = op.SetN(m)
 			}
-			op = op.SetN(m)
 		}
 		opcodes[i] = op
 	}

@@ -206,6 +206,12 @@ func (op UnOpK16) ToY() uint32 {
 	return uint32(op) << 24
 }
 
+// LoadsK returns true if it loads a constant from the constant vector (not a
+// literal encoded in the opcode).
+func (op UnOpK16) LoadsK() bool {
+	return op == OpK || op == OpClosureK
+}
+
 type Lit16 uint16
 
 func (l Lit16) ToN() uint32 {
@@ -394,6 +400,8 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 		// Type3
 		tpl := "???"
 		switch UnOpK16(y) {
+		case OpInt16:
+			tpl = fmt.Sprint(n)
 		case OpK:
 			tpl = fmt.Sprintf("K%d (%s)", n, d.ShortKString(n))
 		case OpClosureK:

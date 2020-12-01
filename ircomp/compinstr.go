@@ -80,6 +80,15 @@ var codeUnOp = map[ops.Op]code.UnOp{
 
 // ProcessLoadConstInstr compiles a LoadConst instruction.
 func (ic instrCompiler) ProcessLoadConstInstr(l ir.LoadConst) {
+	k := ic.GetConstant(l.Kidx)
+	switch kk := k.(type) {
+	case ir.Int:
+		if 0 <= kk && kk <= math.MaxUint16 {
+			opcode := code.MkType3(code.Off, code.OpInt16, codeReg(l.Dst), code.Lit16(kk))
+			ic.Emit(opcode)
+			return
+		}
+	}
 	ckidx := ic.QueueConstant(l.Kidx)
 	if ckidx > 0xffff {
 		panic("Only 2^16 constants are supported in one compilation unit")

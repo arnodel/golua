@@ -37,3 +37,11 @@ func (u UnOp) HWrite(w HWriter) {
 	u.Operand.HWrite(w)
 	w.Dedent()
 }
+
+func (u UnOp) isNumber() bool {
+	switch u.Op {
+	case ops.OpNeg, ops.OpId:
+		return IsNumber(u.Operand)
+	}
+	return false
+}

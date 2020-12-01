@@ -170,6 +170,8 @@ RunLoop:
 			n := opcode.GetN()
 			var val Value
 			switch code.UnOpK16(opcode.GetY()) {
+			case code.OpInt16:
+				val = Int(n)
 			case code.OpK:
 				val = consts[n]
 			case code.OpClosureK:
