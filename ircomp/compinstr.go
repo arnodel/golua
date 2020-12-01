@@ -2,6 +2,7 @@ package ircomp
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/arnodel/golua/code"
 	"github.com/arnodel/golua/ir"
