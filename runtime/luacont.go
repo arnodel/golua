@@ -274,12 +274,12 @@ RunLoop:
 		case code.Type5Pfx:
 			switch code.JumpOp(opcode.GetY()) {
 			case code.OpJump:
-				pc += int16(opcode.GetN())
+				pc += int16(opcode.GetN().ToOffset())
 				continue RunLoop
 			case code.OpJumpIf:
 				test := Truth(c.getReg(opcode.GetA()))
 				if test == opcode.GetF() {
-					pc += int16(opcode.GetN())
+					pc += int16(opcode.GetN().ToOffset())
 				} else {
 					pc++
 				}

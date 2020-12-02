@@ -3,6 +3,7 @@ package code
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 )
 
 // Type1:  1XXXXabc AAAAAAAA BBBBBBBB CCCCCCCC
@@ -74,8 +75,8 @@ func MkType5(f Flag, op JumpOp, rA Reg, k Lit16) Opcode {
 	return Opcode(Type5Pfx | f.ToF() | op.ToY() | rA.ToA() | k.ToN())
 }
 
-func MkType6(f Flag, rA, rB Reg, m uint8) Opcode {
-	return Opcode(Type6Pfx | f.ToF() | rA.ToA() | rB.ToB() | uint32(m))
+func MkType6(f Flag, rA, rB Reg, k Lit8) Opcode {
+	return Opcode(Type6Pfx | f.ToF() | rA.ToA() | rB.ToB() | k.ToC())
 }
 
 func MkType0(f Flag, rA Reg) Opcode {
@@ -102,8 +103,8 @@ func (c Opcode) GetZ() UnOp {
 	return UnOp(c & 0xff)
 }
 
-func (c Opcode) GetN() uint16 {
-	return uint16(c)
+func (c Opcode) GetN() Lit16 {
+	return Lit16(c)
 }
 
 func (c Opcode) SetN(n uint16) Opcode {
@@ -223,6 +224,18 @@ func (l Lit16) ToN() uint32 {
 	return uint32(l)
 }
 
+func (l Lit16) ToInt16() int16 {
+	return int16(l)
+}
+
+func (l Lit16) ToKIndex() KIndex {
+	return KIndex(l)
+}
+
+func (l Lit16) ToOffset() Offset {
+	return Offset(l)
+}
+
 // ToStr2 converts a Lit16 to two bytes.
 func (l Lit16) ToStr2() []byte {
 	b := make([]byte, 2)
@@ -281,13 +294,27 @@ func (l Lit8) ToB() uint32 {
 	return uint32(l) << 8
 }
 
+func (l Lit8) ToC() uint32 {
+	return uint32(l)
+}
+
 // ToStr1 converts a Lit8 to a slice of 1 byte.
 func (l Lit8) ToStr1() []byte {
 	return []byte{byte(l)}
 }
 
+func (l Lit8) ToInt() int {
+	return int(l)
+}
 func Lit8FromStr1(b []byte) Lit8 {
 	return Lit8(b[0])
+}
+
+func Lit8FromInt(n int) Lit8 {
+	if n < 0 || n > math.MaxInt8 {
+		panic("n out of range")
+	}
+	return Lit8(n)
 }
 
 type JumpOp uint8
@@ -300,6 +327,25 @@ const (
 
 func (op JumpOp) ToY() uint32 {
 	return uint32(op) << 24
+}
+
+type KIndex uint16
+
+func (i KIndex) ToLit16() Lit16 {
+	return Lit16(i)
+}
+
+func KIndexFromInt(i int) KIndex {
+	if i < 0 || i > math.MaxUint16 {
+		panic("constant index out of range")
+	}
+	return KIndex(i)
+}
+
+type Offset int16
+
+func (d Offset) ToLit16() Lit16 {
+	return Lit16(d)
 }
 
 func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
@@ -434,9 +480,9 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 		case OpStr2:
 			tpl = fmt.Sprintf("%q", Lit16(n).ToStr2())
 		case OpK:
-			tpl = fmt.Sprintf("K%d (%s)", n, d.ShortKString(n))
+			tpl = fmt.Sprintf("K%d (%s)", n, d.ShortKString(n.ToKIndex()))
 		case OpClosureK:
-			tpl = fmt.Sprintf("clos(K%d) (%s)", n, d.ShortKString(n))
+			tpl = fmt.Sprintf("clos(K%d) (%s)", n, d.ShortKString(n.ToKIndex()))
 		}
 		if f {
 			return fmt.Sprintf("push %s, "+tpl, rA)
@@ -444,20 +490,21 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 		return fmt.Sprintf("%s <- "+tpl, rA)
 	case Type5Pfx:
 		rA := c.GetA()
-		n := c.GetN()
 		f := c.GetF()
 		y := c.GetY()
 		switch JumpOp(y) {
 		case OpJump:
-			dest := i + int(int16(n))
-			return fmt.Sprintf("jump %+d (%s)", int16(n), d.GetLabel(dest))
+			j := int(c.GetN().ToOffset())
+			dest := i + j
+			return fmt.Sprintf("jump %+d (%s)", j, d.GetLabel(dest))
 		case OpJumpIf:
-			dest := i + int(int16(n))
+			j := int(c.GetN().ToOffset())
+			dest := i + j
 			not := ""
 			if !f {
 				not = " not"
 			}
-			return fmt.Sprintf("if%s %s jump %+d (%s)", not, rA, int16(n), d.GetLabel(dest))
+			return fmt.Sprintf("if%s %s jump %+d (%s)", not, rA, j, d.GetLabel(dest))
 		case OpCall:
 			return fmt.Sprintf("call %s", rA)
 		default:
@@ -471,7 +518,7 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 		if f {
 			return fmt.Sprintf("fill %s, %d, %s", rA, m, rB)
 		}
-		return fmt.Sprintf("%s <- %s[%d]", rA, rB, m)
+		return fmt.Sprintf("%s <- etclookup(%s, %d)", rA, rB, m)
 	default:
 		return "???"
 	}

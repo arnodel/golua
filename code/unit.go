@@ -65,7 +65,7 @@ func (d *UnitDisassembler) SetSpan(name string, startOffset, endOffset int) {
 	}
 }
 
-func (d *UnitDisassembler) ShortKString(ki uint16) string {
+func (d *UnitDisassembler) ShortKString(ki KIndex) string {
 	k := d.unit.Constants[ki]
 	return k.ShortString(d)
 }
