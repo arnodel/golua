@@ -51,52 +51,61 @@ const (
 	Type0Pfx uint32 = 0
 )
 
-func MkType1(op BinOp, rA, rB, rC Reg) Opcode {
-	return Opcode(1<<31 | rA.ToA() | rB.ToB() | rC.ToC() | op.ToX())
+func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
+	return Opcode(1<<31 | rA.toA() | rB.toB() | rC.toC() | op.ToX())
 }
 
-func MkType2(f Flag, rA, rB, rC Reg) Opcode {
-	return Opcode(0x7<<28 | rA.ToA() | rB.ToB() | rC.ToC() | f.ToF())
+func mkType2(f Flag, rA, rB, rC Reg) Opcode {
+	return Opcode(0x7<<28 | rA.toA() | rB.toB() | rC.toC() | f.ToF())
 }
 
-func MkType3(f Flag, op UnOpK16, rA Reg, k Lit16) Opcode {
-	return Opcode(0x6<<28 | f.ToF() | op.ToY() | rA.ToA() | k.ToN())
+func mkType3(f Flag, op UnOpK16, rA Reg, k Lit16) Opcode {
+	return Opcode(0x6<<28 | f.ToF() | op.ToY() | rA.toA() | k.ToN())
 }
 
-func MkType4a(f Flag, op UnOp, rA, rB Reg) Opcode {
-	return Opcode(0x5<<28 | 1<<24 | f.ToF() | op.ToC() | rA.ToA() | rB.ToB())
+func mkType4a(f Flag, op UnOp, rA, rB Reg) Opcode {
+	return Opcode(0x5<<28 | 1<<24 | f.ToF() | op.ToC() | rA.toA() | rB.toB())
 }
 
-func MkType4b(f Flag, op UnOpK, rA Reg, k Lit8) Opcode {
-	return Opcode(0x5<<28 | f.ToF() | rA.ToA() | k.ToB() | op.ToC())
+func mkType4b(f Flag, op UnOpK, rA Reg, k Lit8) Opcode {
+	return Opcode(0x5<<28 | f.ToF() | rA.toA() | k.ToB() | op.ToC())
 }
 
-func MkType5(f Flag, op JumpOp, rA Reg, k Lit16) Opcode {
-	return Opcode(Type5Pfx | f.ToF() | op.ToY() | rA.ToA() | k.ToN())
+func mkType5(f Flag, op JumpOp, rA Reg, k Lit16) Opcode {
+	return Opcode(Type5Pfx | f.ToF() | op.ToY() | rA.toA() | k.ToN())
 }
 
-func MkType6(f Flag, rA, rB Reg, k Lit8) Opcode {
-	return Opcode(Type6Pfx | f.ToF() | rA.ToA() | rB.ToB() | k.ToC())
+func mkType6(f Flag, rA, rB Reg, k Lit8) Opcode {
+	return Opcode(Type6Pfx | f.ToF() | rA.toA() | rB.toB() | k.ToC())
 }
 
-func MkType0(f Flag, rA Reg) Opcode {
-	return Opcode(f.ToF() | rA.ToA())
+func mkType0(f Flag, rA Reg) Opcode {
+	return Opcode(f.ToF() | rA.toA())
 }
 
 func (c Opcode) GetA() Reg {
-	return Reg((c >> 18 & 0x100) | (c >> 16 & 0xff))
+	return Reg{
+		idx: uint8(c >> 16 & 0xff),
+		tp:  RegType(c >> 26 & 1),
+	}
 }
 
 func (c Opcode) GetB() Reg {
-	return Reg((c >> 17 & 0x100) | (c >> 8 & 0xff))
+	return Reg{
+		idx: uint8(c >> 8 & 0xff),
+		tp:  RegType(c >> 25 & 1),
+	}
+}
+
+func (c Opcode) GetC() Reg {
+	return Reg{
+		idx: uint8(c & 0xff),
+		tp:  RegType(c >> 24 & 1),
+	}
 }
 
 func (c Opcode) GetLit8() Lit8 {
 	return Lit8(c >> 8)
-}
-
-func (c Opcode) GetC() Reg {
-	return Reg((c >> 16 & 0x100) | (c & 0xff))
 }
 
 func (c Opcode) GetZ() UnOp {
@@ -249,6 +258,7 @@ func Lit16FromStr2(b []byte) Lit16 {
 
 type UnOp uint8
 
+// Available unary operators
 const (
 	OpNeg      UnOp = iota // numerical negation
 	OpBitNot               // bitwise negation
@@ -271,6 +281,7 @@ func (op UnOp) ToC() uint32 {
 
 type UnOpK uint8
 
+// Available binary operators
 const (
 	OpNil UnOpK = iota
 	OpStr0
