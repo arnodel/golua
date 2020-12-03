@@ -25,17 +25,14 @@ type CodeBuilder struct {
 	upnames      []string
 	code         []Instruction
 	lines        []int
+	labels       []bool
 	constantPool *ConstantPool
-	labels       map[Label]int
-	labelPos     map[int][]Label
 }
 
 func NewCodeBuilder(chunkName string, constantPool *ConstantPool) *CodeBuilder {
 	return &CodeBuilder{
 		chunkName:    chunkName,
 		context:      LexicalContext{}.PushNew(),
-		labels:       make(map[Label]int),
-		labelPos:     make(map[int][]Label),
 		constantPool: constantPool,
 	}
 }
@@ -44,8 +41,6 @@ func (c *CodeBuilder) NewChild(chunkName string) *CodeBuilder {
 	return &CodeBuilder{
 		chunkName:    chunkName,
 		context:      LexicalContext{}.PushNew(),
-		labels:       make(map[Label]int),
-		labelPos:     make(map[int][]Label),
 		constantPool: c.constantPool,
 		parent:       c,
 	}
@@ -59,10 +54,7 @@ func (c *CodeBuilder) Dump() {
 		fmt.Printf("k%d: %s\n", i, k)
 	}
 	fmt.Println("--code")
-	for i, instr := range c.code {
-		for _, lbl := range c.labelPos[i] {
-			fmt.Printf("%s:\n", lbl)
-		}
+	for _, instr := range c.code {
 		fmt.Println(instr)
 	}
 }
@@ -87,14 +79,16 @@ func (c *CodeBuilder) EmitGotoLabel(name Name) {
 
 func (c *CodeBuilder) GetNewLabel() Label {
 	lbl := Label(len(c.labels))
-	c.labels[lbl] = -1
+	c.labels = append(c.labels, false)
 	return lbl
 }
 
 func (c *CodeBuilder) EmitLabel(lbl Label) {
-	pos := len(c.code)
-	c.labels[lbl] = pos
-	c.labelPos[pos] = append(c.labelPos[pos], lbl)
+	if c.labels[lbl] {
+		panic(fmt.Sprintf("Label %s emitted twice", lbl))
+	}
+	c.labels[lbl] = true
+	c.EmitNoLine(DeclareLabel{Label: lbl})
 }
 
 func (c *CodeBuilder) GetRegister(name Name) (Register, bool) {
@@ -211,7 +205,6 @@ func (c *CodeBuilder) getCode() *Code {
 		Registers:    c.registers,
 		UpvalueDests: c.upvalueDests,
 		UpNames:      c.upnames,
-		LabelPos:     c.labelPos,
 		Name:         c.chunkName,
 	}
 }
@@ -221,9 +214,7 @@ func EmitConstant(c *CodeBuilder, k Constant, reg Register, line int) {
 }
 
 func EmitMoveNoLine(c *CodeBuilder, dst Register, src Register) {
-	if dst != src {
-		c.EmitNoLine(Transform{Op: ops.OpId, Dst: dst, Src: src})
-	}
+	EmitMove(c, dst, src, 0)
 }
 
 func EmitMove(c *CodeBuilder, dst Register, src Register, line int) {

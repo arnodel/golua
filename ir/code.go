@@ -68,7 +68,6 @@ type Code struct {
 	UpvalueDests []Register
 	Registers    []RegData
 	UpNames      []string
-	LabelPos     map[int][]Label
 	Name         string
 }
 

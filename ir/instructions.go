@@ -13,6 +13,8 @@ type Instruction interface {
 }
 
 type InstrProcessor interface {
+
+	// Real instructions
 	ProcessCombineInstr(Combine)
 	ProcessTransformInstr(Transform)
 	ProcessLoadConstInstr(LoadConst)
@@ -31,8 +33,12 @@ type InstrProcessor interface {
 	ProcessEtcLookupInstr(EtcLookup)
 	ProcessFillTableInstr(FillTable)
 
+	// These are hints that a register is needed or no longer needed.
 	ProcessTakeRegisterInstr(TakeRegister)
 	ProcessReleaseRegisterInstr(ReleaseRegister)
+
+	// A label (for jumping to)
+	ProcessDeclareLabelInstr(DeclareLabel)
 }
 
 type Register int
@@ -347,4 +353,16 @@ func (r ReleaseRegister) String() string {
 
 func (r ReleaseRegister) ProcessInstr(p InstrProcessor) {
 	p.ProcessReleaseRegisterInstr(r)
+}
+
+type DeclareLabel struct {
+	Label Label
+}
+
+func (l DeclareLabel) String() string {
+	return fmt.Sprintf("L%d:", l.Label)
+}
+
+func (l DeclareLabel) ProcessInstr(p InstrProcessor) {
+	p.ProcessDeclareLabelInstr(l)
 }

@@ -214,6 +214,10 @@ func (ic instrCompiler) ProcessReleaseRegisterInstr(r ir.ReleaseRegister) {
 	ic.releaseRegister(r.Reg)
 }
 
+func (ic instrCompiler) ProcessDeclareLabelInstr(l ir.DeclareLabel) {
+	ic.builder.EmitLabel(code.Label(l.Label))
+}
+
 type regAllocation struct {
 	r    code.Reg
 	done bool

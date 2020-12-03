@@ -66,9 +66,6 @@ func (kc *ConstantCompiler) ProcessCode(c ir.Code) {
 		regAllocator:     regAllocator,
 	}
 	for i, instr := range c.Instructions {
-		for _, lbl := range c.LabelPos[i] {
-			kc.builder.EmitLabel(code.Label(lbl))
-		}
 		ic.line = c.Lines[i]
 		instr.ProcessInstr(ic)
 	}
