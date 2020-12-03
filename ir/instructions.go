@@ -30,6 +30,9 @@ type InstrProcessor interface {
 	ProcessReceiveEtcInstr(ReceiveEtc)
 	ProcessEtcLookupInstr(EtcLookup)
 	ProcessFillTableInstr(FillTable)
+
+	ProcessTakeRegisterInstr(TakeRegister)
+	ProcessReleaseRegisterInstr(ReleaseRegister)
 }
 
 type Register int
@@ -320,4 +323,28 @@ func (f FillTable) String() string {
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (f FillTable) ProcessInstr(p InstrProcessor) {
 	p.ProcessFillTableInstr(f)
+}
+
+type TakeRegister struct {
+	Reg Register
+}
+
+func (t TakeRegister) String() string {
+	return fmt.Sprintf("take %s", t.Reg)
+}
+
+func (t TakeRegister) ProcessInstr(p InstrProcessor) {
+	p.ProcessTakeRegisterInstr(t)
+}
+
+type ReleaseRegister struct {
+	Reg Register
+}
+
+func (r ReleaseRegister) String() string {
+	return fmt.Sprintf("release %s", r.Reg)
+}
+
+func (r ReleaseRegister) ProcessInstr(p InstrProcessor) {
+	p.ProcessReleaseRegisterInstr(r)
 }

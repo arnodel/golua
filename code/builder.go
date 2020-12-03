@@ -16,6 +16,7 @@ type Code struct {
 	Name                   string
 	StartOffset, EndOffset uint
 	UpvalueCount           int16
+	CellCount              int16
 	RegCount               int16
 	UpNames                []string
 }

@@ -9,6 +9,7 @@ import (
 type LuaCont struct {
 	*Closure
 	registers []Value
+	cells     []Cell
 	pc        int16
 	acc       []Value
 	running   bool
@@ -20,11 +21,22 @@ func NewLuaCont(clos *Closure, next Cont) *LuaCont {
 	if clos.upvalueIndex < len(clos.Upvalues) {
 		panic("Closure not ready")
 	}
+	var cells []Cell
+	if clos.UpvalueCount == clos.CellCount {
+		cells = clos.Upvalues
+	} else {
+		cells = make([]Cell, clos.CellCount)
+		copy(cells, clos.Upvalues)
+		for i := clos.UpvalueCount; i < clos.CellCount; i++ {
+			cells[i] = NewCell(nil)
+		}
+	}
 	registers := make([]Value, clos.RegCount)
 	registers[0] = next
 	cont := &LuaCont{
 		Closure:   clos,
 		registers: registers,
+		cells:     cells,
 	}
 	return cont
 }
@@ -345,45 +357,37 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 
 func (c *LuaCont) setReg(reg code.Reg, val Value) {
 	idx := reg.Idx()
-	switch reg.Tp() {
-	case code.Register:
-		cell, ok := c.registers[idx].(Cell)
-		if ok {
-			cell.Set(val)
-		} else {
-			c.registers[idx] = val
-		}
+	switch reg.RegType() {
+	case code.ValueRegType:
+		c.registers[idx] = val
 	default:
-		c.Upvalues[idx].Set(val)
+		c.cells[idx].Set(val)
 	}
 }
 
 func (c *LuaCont) getReg(reg code.Reg) Value {
-	switch reg.Tp() {
-	case code.Register:
-		return asValue(c.registers[reg.Idx()])
+	switch reg.RegType() {
+	case code.ValueRegType:
+		return c.registers[reg.Idx()]
 	default:
-		return *c.Upvalues[reg.Idx()].ref
+		return *c.cells[reg.Idx()].ref
 	}
 }
 
 func (c *LuaCont) getRegCell(reg code.Reg) Cell {
-	switch reg.Tp() {
-	case code.Register:
-		v := c.registers[reg.Idx()]
-		cell, ok := v.(Cell)
-		if !ok {
-			cell = Cell{&v}
-			c.registers[reg.Idx()] = cell
-		}
-		return cell
+	switch reg.RegType() {
+	case code.ValueRegType:
+		panic("should be a cell")
+		// return cell
 	default:
-		return c.Upvalues[reg.Idx()]
+		return c.cells[reg.Idx()]
 	}
 }
 
 func (c *LuaCont) clearReg(reg code.Reg) {
-	if reg.Tp() == code.Register {
+	if reg.RegType() == code.ValueRegType {
 		c.registers[reg.Idx()] = nil
+	} else {
+		c.cells[reg.Idx()] = NewCell(nil)
 	}
 }

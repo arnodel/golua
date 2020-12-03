@@ -53,20 +53,34 @@ func (kc *ConstantCompiler) ProcessNil(k ir.NilType) {
 // ProcessCode compiles a Code.
 func (kc *ConstantCompiler) ProcessCode(c ir.Code) {
 	start := kc.builder.Offset()
+	regAllocator := &regAllocator{
+		registers:   c.Registers,
+		allocations: make([]regAllocation, len(c.Registers)),
+	}
+	// First allocate all the registers that will take upvalues.
+	for _, r := range c.UpvalueDests {
+		regAllocator.takeRegister(r)
+	}
+	ic := instrCompiler{
+		ConstantCompiler: kc,
+		regAllocator:     regAllocator,
+	}
 	for i, instr := range c.Instructions {
 		for _, lbl := range c.LabelPos[i] {
 			kc.builder.EmitLabel(code.Label(lbl))
 		}
-		instr.ProcessInstr(instrCompiler{c.Lines[i], kc})
+		ic.line = c.Lines[i]
+		instr.ProcessInstr(ic)
 	}
 	end := kc.builder.Offset()
 	kc.addCompiled(code.Code{
 		Name:         c.Name,
 		StartOffset:  start,
 		EndOffset:    end,
-		UpvalueCount: c.UpvalueCount,
+		UpvalueCount: int16(len(c.UpvalueDests)),
+		CellCount:    int16(len(regAllocator.cells)),
 		UpNames:      c.UpNames,
-		RegCount:     c.RegCount,
+		RegCount:     int16(len(regAllocator.regs)),
 	})
 }
 

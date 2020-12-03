@@ -65,8 +65,8 @@ type Code struct {
 	Instructions []Instruction
 	Lines        []int
 	Constants    []Constant
-	RegCount     int16
-	UpvalueCount int16
+	UpvalueDests []Register
+	Registers    []RegData
 	UpNames      []string
 	LabelPos     map[int][]Label
 	Name         string

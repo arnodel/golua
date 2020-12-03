@@ -16,6 +16,7 @@ type Code struct {
 	UpvalueCount int16
 	UpNames      []string
 	RegCount     int16
+	CellCount    int16
 }
 
 // RefactorConsts returns an equivalent *Code this consts "refactored", which
@@ -72,6 +73,7 @@ func (c *Code) writeKonst(w io.Writer) (err error) {
 	}
 	bwrite(w, c.UpvalueCount)
 	bwrite(w, c.RegCount)
+	bwrite(w, c.CellCount)
 	bwrite(w, int64(len(c.UpNames)))
 	for _, n := range c.UpNames {
 		swrite(w, n)
@@ -103,6 +105,7 @@ func (c *Code) loadKonst(r io.Reader) (err error) {
 	}
 	bread(r, &c.UpvalueCount)
 	bread(r, &c.RegCount)
+	bread(r, &c.CellCount)
 	bread(r, &sz)
 	c.UpNames = make([]string, sz)
 	for i := range c.UpNames {
@@ -136,6 +139,7 @@ func LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 				UpvalueCount: k.UpvalueCount,
 				UpNames:      k.UpNames,
 				RegCount:     k.RegCount,
+				CellCount:    k.CellCount,
 			}
 		default:
 			panic("Unsupported constant type")

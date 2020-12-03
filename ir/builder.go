@@ -8,14 +8,20 @@ import (
 
 type Name string
 
+type RegData struct {
+	IsCell   bool
+	refCount int
+}
+
 const regHasUpvalue uint = 1
 
 type CodeBuilder struct {
 	chunkName    string
-	registers    []int
+	registers    []RegData
 	context      LexicalContext
 	parent       *CodeBuilder
 	upvalues     []Register
+	upvalueDests []Register
 	upnames      []string
 	code         []Instruction
 	lines        []int
@@ -102,45 +108,34 @@ func (c *CodeBuilder) getRegister(name Name, tags uint) (reg Register, ok bool) 
 	}
 	reg, ok = c.parent.getRegister(name, regHasUpvalue)
 	if ok {
+		c.parent.registers[reg].IsCell = true
 		c.upvalues = append(c.upvalues, reg)
 		c.upnames = append(c.upnames, string(name))
-		reg = Register(-len(c.upvalues))
+		reg = c.GetFreeRegister()
+		c.upvalueDests = append(c.upvalueDests, reg)
+		c.registers[reg].IsCell = true
 		c.context.AddToRoot(name, reg)
 	}
 	return
 }
 
 func (c *CodeBuilder) GetFreeRegister() Register {
-	var reg Register
-	for i, n := range c.registers {
-		if n == 0 {
-			reg = Register(i)
-			goto FoundLbl
-		}
-	}
-	c.registers = append(c.registers, 0)
-	reg = Register(len(c.registers) - 1)
-FoundLbl:
-	// fmt.Printf("Get Free Reg %s\n", reg)
+	reg := Register(len(c.registers))
+	c.registers = append(c.registers, RegData{})
 	return reg
 }
 
 func (c *CodeBuilder) TakeRegister(reg Register) {
-	if int(reg) >= 0 {
-		c.registers[reg]++
-		// fmt.Printf("Take Reg %s %d\n", reg, c.registers[reg])
-	}
+	c.registers[reg].refCount++
+	c.EmitNoLine(TakeRegister{Reg: reg})
 }
 
 func (c *CodeBuilder) ReleaseRegister(reg Register) {
-	if int(reg) < 0 {
-		return
+	if c.registers[reg].refCount == 0 {
+		panic("cannot release register")
 	}
-	if c.registers[reg] == 0 {
-		panic("Register cannot be released")
-	}
-	c.registers[reg]--
-	// fmt.Printf("Release Reg %s %d\n", reg, c.registers[reg])
+	c.registers[reg].refCount--
+	c.EmitNoLine(ReleaseRegister{Reg: reg})
 }
 
 func (c *CodeBuilder) PushContext() {
@@ -213,8 +208,8 @@ func (c *CodeBuilder) getCode() *Code {
 		Instructions: c.code,
 		Lines:        c.lines,
 		Constants:    c.constantPool.Constants(),
-		RegCount:     int16(len(c.registers)),
-		UpvalueCount: int16(len(c.upvalues)),
+		Registers:    c.registers,
+		UpvalueDests: c.upvalueDests,
 		UpNames:      c.upnames,
 		LabelPos:     c.labelPos,
 		Name:         c.chunkName,
