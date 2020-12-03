@@ -12,6 +12,11 @@ type Instruction interface {
 	ProcessInstr(InstrProcessor)
 }
 
+type SetRegInstruction interface {
+	DestReg() Register
+	WithDestReg(Register) Instruction
+}
+
 type InstrProcessor interface {
 
 	// Real instructions
@@ -65,6 +70,15 @@ type Combine struct {
 	Rsrc Register // Right operand register
 }
 
+func (c Combine) DestReg() Register {
+	return c.Dst
+}
+
+func (c Combine) WithDestReg(r Register) Instruction {
+	c.Dst = r
+	return c
+}
+
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (c Combine) ProcessInstr(p InstrProcessor) {
 	p.ProcessCombineInstr(c)
@@ -81,6 +95,15 @@ type Transform struct {
 	Src Register // Operand register
 }
 
+func (t Transform) DestReg() Register {
+	return t.Dst
+}
+
+func (t Transform) WithDestReg(r Register) Instruction {
+	t.Dst = r
+	return t
+}
+
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (t Transform) ProcessInstr(p InstrProcessor) {
 	p.ProcessTransformInstr(t)
@@ -94,6 +117,15 @@ func (t Transform) String() string {
 type LoadConst struct {
 	Dst  Register // Destination register
 	Kidx uint     // Index of the constant to load
+}
+
+func (l LoadConst) DestReg() Register {
+	return l.Dst
+}
+
+func (l LoadConst) WithDestReg(r Register) Instruction {
+	l.Dst = r
+	return l
 }
 
 // ProcessInstr makes the InstrProcessor process this instruction.
@@ -172,6 +204,15 @@ type MkClosure struct {
 	Upvalues []Register
 }
 
+func (m MkClosure) DestReg() Register {
+	return m.Dst
+}
+
+func (m MkClosure) WithDestReg(r Register) Instruction {
+	m.Dst = r
+	return m
+}
+
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (m MkClosure) ProcessInstr(p InstrProcessor) {
 	p.ProcessMkClosureInstr(m)
@@ -194,6 +235,15 @@ type MkCont struct {
 	Dst     Register
 	Closure Register
 	Tail    bool
+}
+
+func (m MkCont) DestReg() Register {
+	return m.Dst
+}
+
+func (m MkCont) WithDestReg(r Register) Instruction {
+	m.Dst = r
+	return m
 }
 
 // ProcessInstr makes the InstrProcessor process this instruction.
@@ -240,6 +290,15 @@ type Lookup struct {
 	Dst   Register
 	Table Register
 	Index Register
+}
+
+func (s Lookup) DestReg() Register {
+	return s.Dst
+}
+
+func (s Lookup) WithDestReg(r Register) Instruction {
+	s.Dst = r
+	return s
 }
 
 // ProcessInstr makes the InstrProcessor process this instruction.
@@ -303,6 +362,15 @@ type EtcLookup struct {
 	Etc Register
 	Dst Register
 	Idx int
+}
+
+func (l EtcLookup) DestReg() Register {
+	return l.Dst
+}
+
+func (l EtcLookup) WithDestReg(r Register) Instruction {
+	l.Dst = r
+	return l
 }
 
 func (l EtcLookup) String() string {

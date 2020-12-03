@@ -7,6 +7,7 @@ import (
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/astcomp"
 	"github.com/arnodel/golua/code"
+	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/ircomp"
 	"github.com/arnodel/golua/parsing"
 	"github.com/arnodel/golua/scanner"
@@ -292,7 +293,13 @@ func CompileLuaChunk(name string, source []byte) (*code.Unit, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Compile ast to ir
 	kidx, constants := astcomp.CompileLuaChunk(name, *stat)
+
+	// "Optimise" the ir code
+	constants = ir.FoldConstants(constants, ir.DefaultFold)
+
+	// Compile ir to code
 	kc := ircomp.NewConstantCompiler(constants, code.NewBuilder(name))
 	kc.QueueConstant(kidx)
 	return kc.CompileQueue(), nil
