@@ -22,6 +22,9 @@ func FoldConstants(consts []Constant, f FoldFunc) []Constant {
 // FoldCode uses the given FoldFunc to fold the instructions in the given code.
 // Returns a new Code instande with folded code.
 func FoldCode(c Code, f FoldFunc) Code {
+	if f == nil {
+		return c
+	}
 	var s foldStack
 	var i1 Instruction
 	var l1 int
@@ -64,7 +67,7 @@ func FoldCode(c Code, f FoldFunc) Code {
 type FoldFunc func(i1, i2 Instruction, regs []RegData) (Instruction, Instruction)
 
 // DefaultFold applies a few simple folds
-var DefaultFold = ComposeFolds(FoldTakeRelease, FoldMoveReg)
+var DefaultFold FoldFunc = nil
 
 // FoldTakeRelease folds the following
 //
