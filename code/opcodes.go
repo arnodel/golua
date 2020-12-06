@@ -464,6 +464,8 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 			k = `""`
 		case OpStr1:
 			k = fmt.Sprintf("%q", c.GetLit8().ToStr1())
+		case OpNil:
+			k = "nil"
 		case OpClear:
 			// Special case
 			return fmt.Sprintf("clr %s", rA)

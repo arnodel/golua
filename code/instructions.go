@@ -50,16 +50,6 @@ func LoadStr2(r Reg, b []byte) Opcode {
 	return mkType3(Off, OpStr2, r, Lit16FromStr2(b))
 }
 
-// LoadLookup encodes r1 <- r2[r3]
-func LoadLookup(r1, r2, r3 Reg) Opcode {
-	return mkType2(Off, r1, r2, r3)
-}
-
-// SetIndex encodes r2[r3] <- r1
-func SetIndex(r1, r2, r3 Reg) Opcode {
-	return mkType2(On, r1, r2, r3)
-}
-
 // LoadShortString attempts to encode loading a short string.  Currently succees
 // when len(b) <= 2.
 func LoadShortString(r Reg, b []byte) (Opcode, bool) {
@@ -77,6 +67,21 @@ func LoadShortString(r Reg, b []byte) (Opcode, bool) {
 // LoadEmptyTable encodes r <- {}
 func LoadEmptyTable(r Reg) Opcode {
 	return mkType4b(Off, OpTable, r, 0)
+}
+
+// LoadNil encodes r <- nil
+func LoadNil(r Reg) Opcode {
+	return mkType4b(Off, OpNil, r, 0)
+}
+
+// LoadLookup encodes r1 <- r2[r3]
+func LoadLookup(r1, r2, r3 Reg) Opcode {
+	return mkType2(Off, r1, r2, r3)
+}
+
+// SetIndex encodes r2[r3] <- r1
+func SetIndex(r1, r2, r3 Reg) Opcode {
+	return mkType2(On, r1, r2, r3)
 }
 
 // Push encodes push r1, r2

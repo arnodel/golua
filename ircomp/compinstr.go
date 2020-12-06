@@ -77,18 +77,22 @@ var codeUnOp = map[ops.Op]code.UnOp{
 // ProcessLoadConstInstr compiles a LoadConst instruction.
 func (ic instrCompiler) ProcessLoadConstInstr(l ir.LoadConst) {
 	k := ic.GetConstant(l.Kidx)
+	dst := ic.codeReg(l.Dst)
 	var opcode code.Opcode
 	var inlined bool
 	// Short strings and small integers are inlined.
 	switch kk := k.(type) {
 	case ir.Int:
-		opcode, inlined = code.LoadSmallInt(ic.codeReg(l.Dst), int(kk))
+		opcode, inlined = code.LoadSmallInt(dst, int(kk))
 	case ir.String:
-		opcode, inlined = code.LoadShortString(ic.codeReg(l.Dst), []byte(kk))
+		opcode, inlined = code.LoadShortString(dst, []byte(kk))
+	case ir.NilType:
+		opcode = code.LoadNil(dst)
+		inlined = true
 	}
 	if !inlined {
 		ckidx := ic.QueueConstant(l.Kidx)
-		opcode = code.LoadConst(ic.codeReg(l.Dst), code.KIndexFromInt(ckidx))
+		opcode = code.LoadConst(dst, code.KIndexFromInt(ckidx))
 	}
 	ic.Emit(opcode)
 }

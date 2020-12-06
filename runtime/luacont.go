@@ -264,6 +264,8 @@ RunLoop:
 					res = String("")
 				case code.OpStr1:
 					res = String(opcode.GetLit8().ToStr1())
+				case code.OpNil:
+					res = nil
 				case code.OpClear:
 					// Special case: clear reg
 					c.clearReg(dst)
