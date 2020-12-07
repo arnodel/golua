@@ -126,6 +126,13 @@ func Call(r Reg) Opcode {
 	return mkType5(Off, OpCall, r, 0)
 }
 
+// TailCall encodes tailcall r
+//
+// r must contain a continuation that is ready to be called.
+func TailCall(r Reg) Opcode {
+	return mkType5(On, OpCall, r, 0)
+}
+
 // Upval encodes upval r1, r2
 //
 // r1 must contain a closure.  This appends the value of r2 to the list of

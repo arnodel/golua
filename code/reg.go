@@ -43,6 +43,11 @@ func (r Reg) RegType() RegType {
 	return r.tp
 }
 
+// IsCell returns true if r is a cell.
+func (r Reg) IsCell() bool {
+	return r.tp == CellRegType
+}
+
 func (r Reg) toA() uint32 {
 	return uint32(r.Idx())<<16 | uint32(r.RegType())<<26
 }

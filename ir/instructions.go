@@ -186,6 +186,7 @@ func (j JumpIf) String() string {
 // Call moves execution to the given continuation
 type Call struct {
 	Cont Register
+	Tail bool
 }
 
 // ProcessInstr makes the InstrProcessor process this instruction.
@@ -194,7 +195,7 @@ func (c Call) ProcessInstr(p InstrProcessor) {
 }
 
 func (c Call) String() string {
-	return fmt.Sprintf("call %s", c.Cont)
+	return fmt.Sprintf("call %s, tail=%t", c.Cont, c.Tail)
 }
 
 // MkClosure creates a new closure with the given code and upvalues and puts it in Dst.
@@ -252,7 +253,7 @@ func (m MkCont) ProcessInstr(p InstrProcessor) {
 }
 
 func (m MkCont) String() string {
-	return fmt.Sprintf("%s := mkcont(%s)", m.Dst, m.Closure)
+	return fmt.Sprintf("%s := mkcont(%s, tail=%t)", m.Dst, m.Closure, m.Tail)
 }
 
 // ClearReg resets the given register to nil (if it contained a cell, this cell

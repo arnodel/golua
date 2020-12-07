@@ -426,7 +426,10 @@ func (c *Compiler) compileCall(f ast.BFunctionCall, tail bool) {
 		})
 	}
 	c.compilePushArgs(f.Args, contReg)
-	c.EmitInstr(f, ir.Call{Cont: contReg})
+	c.EmitInstr(f, ir.Call{
+		Cont: contReg,
+		Tail: tail,
+	})
 }
 
 // TODO: move this to somewhere better

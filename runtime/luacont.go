@@ -8,11 +8,12 @@ import (
 // some state.
 type LuaCont struct {
 	*Closure
-	registers []Value
-	cells     []Cell
-	pc        int16
-	acc       []Value
-	running   bool
+	registers     []Value
+	cells         []Cell
+	pc            int16
+	acc           []Value
+	running       bool
+	borrowedCells bool
 }
 
 // NewLuaCont returns a new LuaCont from a closure and next, a continuation to
@@ -22,23 +23,34 @@ func NewLuaCont(clos *Closure, next Cont) *LuaCont {
 		panic("Closure not ready")
 	}
 	var cells []Cell
-	if clos.UpvalueCount == clos.CellCount {
+	borrowCells := clos.UpvalueCount == clos.CellCount
+	if borrowCells {
 		cells = clos.Upvalues
 	} else {
-		cells = make([]Cell, clos.CellCount)
+		cells = globalRegPool.getCells(int(clos.CellCount))
 		copy(cells, clos.Upvalues)
 		for i := clos.UpvalueCount; i < clos.CellCount; i++ {
 			cells[i] = NewCell(nil)
 		}
 	}
-	registers := make([]Value, clos.RegCount)
+	registers := globalRegPool.getRegs(int(clos.RegCount))
 	registers[0] = next
-	cont := &LuaCont{
-		Closure:   clos,
-		registers: registers,
-		cells:     cells,
+	cont := globalLuaContPool.get()
+	*cont = LuaCont{
+		Closure:       clos,
+		registers:     registers,
+		cells:         cells,
+		borrowedCells: borrowCells,
 	}
 	return cont
+}
+
+func (c *LuaCont) release() {
+	globalRegPool.releaseRegs(c.registers)
+	if !c.borrowedCells {
+		globalRegPool.releaseCells(c.cells)
+	}
+	globalLuaContPool.release(c)
 }
 
 // Push implements Cont.Push.
@@ -309,6 +321,10 @@ RunLoop:
 				// garbage collection.  A continuation can only be called once
 				// anyway, so that's ok semantically.
 				c.clearReg(contReg)
+				if opcode.GetF() {
+					// It's a tail call
+					c.release()
+				}
 				return next, nil
 			default:
 				panic("unsupported")
@@ -359,37 +375,31 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 
 func (c *LuaCont) setReg(reg code.Reg, val Value) {
 	idx := reg.Idx()
-	switch reg.RegType() {
-	case code.ValueRegType:
-		c.registers[idx] = val
-	default:
+	if reg.IsCell() {
 		c.cells[idx].Set(val)
+	} else {
+		c.registers[idx] = val
 	}
 }
 
 func (c *LuaCont) getReg(reg code.Reg) Value {
-	switch reg.RegType() {
-	case code.ValueRegType:
-		return c.registers[reg.Idx()]
-	default:
+	if reg.IsCell() {
 		return *c.cells[reg.Idx()].ref
 	}
+	return c.registers[reg.Idx()]
 }
 
 func (c *LuaCont) getRegCell(reg code.Reg) Cell {
-	switch reg.RegType() {
-	case code.ValueRegType:
-		panic("should be a cell")
-		// return cell
-	default:
+	if reg.IsCell() {
 		return c.cells[reg.Idx()]
 	}
+	panic("should be a cell")
 }
 
 func (c *LuaCont) clearReg(reg code.Reg) {
-	if reg.RegType() == code.ValueRegType {
-		c.registers[reg.Idx()] = nil
-	} else {
+	if reg.IsCell() {
 		c.cells[reg.Idx()] = NewCell(nil)
+	} else {
+		c.registers[reg.Idx()] = nil
 	}
 }

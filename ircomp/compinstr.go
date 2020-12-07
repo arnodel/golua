@@ -128,7 +128,11 @@ func (ic instrCompiler) ProcessJumpIfInstr(j ir.JumpIf) {
 
 // ProcessCallInstr compiles a Call instruction.
 func (ic instrCompiler) ProcessCallInstr(c ir.Call) {
-	opcode := code.Call(ic.codeReg(c.Cont))
+	call := code.Call
+	if c.Tail {
+		call = code.TailCall
+	}
+	opcode := call(ic.codeReg(c.Cont))
 	ic.Emit(opcode)
 }
 

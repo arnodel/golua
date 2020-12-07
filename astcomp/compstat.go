@@ -337,7 +337,10 @@ func (c *Compiler) CompileBlockNoPop(s ast.BlockStat) func() {
 			if len(s.Return) > 0 {
 				loc = s.Return[0]
 			}
-			c.EmitInstr(loc, ir.Call{Cont: contReg})
+			c.EmitInstr(loc, ir.Call{
+				Cont: contReg,
+				Tail: true,
+			})
 		}
 	}
 	return func() {

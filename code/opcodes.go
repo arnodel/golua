@@ -519,7 +519,11 @@ func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
 			}
 			return fmt.Sprintf("if%s %s jump %+d (%s)", not, rA, j, d.GetLabel(dest))
 		case OpCall:
-			return fmt.Sprintf("call %s", rA)
+			instr := "call"
+			if c.GetF() {
+				instr = "tailcall"
+			}
+			return fmt.Sprintf("%s %s", instr, rA)
 		default:
 			return "???"
 		}
