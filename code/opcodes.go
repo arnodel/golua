@@ -359,7 +359,14 @@ func (d Offset) ToLit16() Lit16 {
 	return Lit16(d)
 }
 
-func (c Opcode) Disassemble(d *UnitDisassembler, i int) string {
+// OpcodeDisassembler is an interface that helps disassemble an opcode.
+type OpcodeDisassembler interface {
+	ShortKString(KIndex) string // Gets a string representation of a constant
+	GetLabel(int) string        // Gets a constistent label name for a code offset
+}
+
+// Disassemble gets a human readable representation of an opcode.
+func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 	if c.HasType1() {
 		// Type1
 		rA := c.GetA()

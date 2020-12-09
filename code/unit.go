@@ -5,23 +5,16 @@ import (
 	"io"
 )
 
-// A Unit is a chunk of code
+// A Unit is a chunk of code with associated constants.
 type Unit struct {
-	Source    string
-	Code      []Opcode
-	Lines     []int32
-	Constants []Constant
+	Source    string     // Shows were the unit comes from (e.g. a filename) - only for information.
+	Code      []Opcode   // The code
+	Lines     []int32    // Optional: source code line for the corresponding opcode
+	Constants []Constant // All the constants required for running the code
 }
 
-func NewUnit(source string, code []Opcode, lines []int32, constants []Constant) *Unit {
-	return &Unit{
-		Source:    source,
-		Code:      code,
-		Lines:     lines,
-		Constants: constants,
-	}
-}
-
+// Disassemble outputs the disassembly of the unit code into the given
+// io.Writer.
 func (u *Unit) Disassemble(w io.Writer) {
 	NewUnitDisassembler(u).Disassemble(w)
 }
@@ -67,10 +60,19 @@ func (d *UnitDisassembler) SetSpan(name string, startOffset, endOffset int) {
 
 func (d *UnitDisassembler) ShortKString(ki KIndex) string {
 	k := d.unit.Constants[ki]
-	return k.ShortString(d)
+	return k.ShortString()
+}
+
+type spanGetter interface {
+	GetSpan() (string, int, int)
 }
 
 func (d *UnitDisassembler) Disassemble(w io.Writer) {
+	for _, k := range d.unit.Constants {
+		if sg, ok := k.(spanGetter); ok {
+			d.SetSpan(sg.GetSpan())
+		}
+	}
 	disCode := make([]string, len(d.unit.Code))
 	for i, opcode := range d.unit.Code {
 		disCode[i] = opcode.Disassemble(d, i)
