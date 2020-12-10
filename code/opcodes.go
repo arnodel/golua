@@ -6,81 +6,274 @@ import (
 	"math"
 )
 
+// Opcode is the type of opcodes
+type Opcode uint32
+
+// There are 7 types of opcodes (Typ0 - Type7).  The type of opcode is defined
+// by the most significant 4 bits of the opcode.
+
+// Prefixes for the different types of opcodes.  Note: there is an unused prefix
+// (0001).
+const (
+	Type1Pfx uint32 = 1 << 31 // 1......
+	Type2Pfx uint32 = 7 << 28 // 0111...
+	Type3Pfx uint32 = 6 << 28 // 0110...
+	Type4Pfx uint32 = 5 << 28 // 0101...
+	Type5Pfx uint32 = 4 << 28 // 0100...
+	Type6Pfx uint32 = 3 << 28 // 0011...
+	Type0Pfx uint32 = 0 << 28 // 0000...
+)
+
+// ==================================================================
 // Type1:  1XXXXabc AAAAAAAA BBBBBBBB CCCCCCCC
 //
-// Binary ops
+// Opcodes for binary operations.
+// - XXXX encodes the operator op
+// - aAAAAAAAA encodes the destination register rA
+// - bBBBBBBBB encodes the left operand register rB
+// - cCCCCCCCC encodes the right operand register rC
 
+// BinOp is the type of binary operator available int Type1 opcodes.
+type BinOp uint8
+
+// Here is the list of available binary operators.
+const (
+	OpAdd BinOp = iota
+	OpSub
+	OpMul
+	OpDiv
+	OpFloorDiv
+	OpMod
+	OpPow
+	OpBitAnd
+	OpBitOr
+	OpBitXor
+	OpShiftL
+	OpShiftR
+	OpEq
+	OpLt
+	OpLeq
+	OpConcat
+)
+
+// ToX encodes a BinOp into an opcode.
+func (op BinOp) ToX() uint32 {
+	return uint32(op) << 27
+}
+
+// This functions builds the opcode for
+//    rA <- op(rB, rC)
+func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
+	return Opcode(Type1Pfx | rA.toA() | rB.toB() | rC.toC() | op.ToX())
+}
+
+// ==================================================================
 // Type2:  0111Fabc AAAAAAAA BBBBBBBB CCCCCCCC
 //
-// Table lookup / setting
+// Opcodes for table lookup / setting
+// - F encodes the flag f (On / Off)
+// - aAAAAAAAA encodes the register rA (source or destination depending on f)
+// - bBBBBBBBB encodes the register holding the table rB
+// - cCCCCCCCC encodes the register holding the index rC
 
+// This builds the opcode for
+//     rA <- rB[rC]  if f is Off
+//     rB[rC] <- rA  if f is On
+func mkType2(f Flag, rA, rB, rC Reg) Opcode {
+	return Opcode(Type2Pfx | rA.toA() | rB.toB() | rC.toC() | f.ToF())
+}
+
+// ==================================================================
 // Type3:  0110FaYY AAAAAAAA NNNNNNNN NNNNNNNN
 //
 // Setting reg from constant
 
+// UnOpK16 is the type of operator available in Type3 opcodes.
+type UnOpK16 uint8
+
+// Here is the list of available UnOpK16 operators.
+const (
+	OpInt16 UnOpK16 = iota
+	OpK
+	OpClosureK
+	OpStr2
+)
+
+// ToY encodes an UnOpK16 into an opcode.
+func (op UnOpK16) ToY() uint32 {
+	return uint32(op) << 24
+}
+
+// LoadsK returns true if it loads a constant from the constant vector (not a
+// literal encoded in the opcode).
+func (op UnOpK16) LoadsK() bool {
+	return op == OpK || op == OpClosureK
+}
+
+// Build a Type3 opcode from its constituents.
+func mkType3(f Flag, op UnOpK16, rA Reg, k Lit16) Opcode {
+	return Opcode(Type3Pfx | f.ToF() | op.ToY() | rA.toA() | k.ToN())
+}
+
+// ==================================================================
 // Type4a: 0101Fab1 AAAAAAAA BBBBBBBB CCCCCCCC
 //
 // Unary ops + upvalues
 
+// UnOp is the type of operators available in Type4a opcodes.
+type UnOp uint8
+
+// Available unary operators
+const (
+	OpNeg      UnOp = iota // numerical negation
+	OpBitNot               // bitwise negation
+	OpLen                  // length
+	OpClosure              // make a closure for the code
+	OpCont                 // make a continuation for the closure
+	OpTailCont             // make a "tail continuation" for the closure (its next is cc's next)
+	OpId                   // identity
+	OpTruth                // Turn operand to boolean
+	OpCell                 // ?
+	OpNot                  // Added afterwards - why did I not have it in the first place?
+	OpUpvalue              // get an upvalue
+	OpEtcId                // etc identity
+	OpToNumber             // convert to number
+)
+
+// ToC enocodes an UnOp into an opcode.
+func (op UnOp) ToC() uint32 {
+	return uint32(op)
+}
+
+func mkType4a(f Flag, op UnOp, rA, rB Reg) Opcode {
+	return Opcode(Type4Pfx | 1<<24 | f.ToF() | op.ToC() | rA.toA() | rB.toB())
+}
+
+// ==================================================================
 // Type4b: 0101Fa00 AAAAAAAA BBBBBBBB CCCCCCCC
 //
 // Setting reg from constant (2)
 
+// UnOpK is the type of operators available in Type4b opcodes.
+type UnOpK uint8
+
+// Available Constant operators
+const (
+	OpNil UnOpK = iota
+	OpStr0
+	OpTable
+	OpStr1
+	OpBool
+	OpCC
+	OpClear
+	OpInt   // Extra 64 bits (2 opcodes)
+	OpFloat // Extra 64 bits (2 opcodes)
+	OpStrN  // Extra [n / 4] opcodes
+)
+
+// ToC encodes an UnOpK into an opcode.
+func (op UnOpK) ToC() uint32 {
+	return uint32(op)
+}
+
+// Build a Type4b opcode from its constituents
+func mkType4b(f Flag, op UnOpK, rA Reg, k Lit8) Opcode {
+	return Opcode(Type4Pfx | f.ToF() | rA.toA() | k.ToB() | op.ToC())
+}
+
+// ==================================================================
 // Type5:  0100FaYY AAAAAAAA NNNNNNNN NNNNNNNN
 //
 // Jump / call
 
-// Type6:  0011Fab0 AAAAAAAA BBBBBBBB MMMMMMMM
-//
-// Load from etc
+// JumpOp is the type of jump supported by Type5 opcode.
+type JumpOp uint8
 
-// Type0:  0000Fabc AAAAAAAA BBBBBBBB CCCCCCCC
-//
-// Receiving args
-
-// Opcode is the type of opcodes
-type Opcode uint32
-
+// Here are the types of jumps
 const (
-	Type1Pfx uint32 = 8 << 28
-	Type2Pfx uint32 = 7 << 28
-	Type3Pfx uint32 = 6 << 28
-	Type4Pfx uint32 = 5 << 28
-	Type5Pfx uint32 = 4 << 28
-	Type6Pfx uint32 = 3 << 28
-	Type0Pfx uint32 = 0
+	OpCall JumpOp = iota
+	OpJump
+	OpJumpIf
 )
 
-func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
-	return Opcode(1<<31 | rA.toA() | rB.toB() | rC.toC() | op.ToX())
-}
-
-func mkType2(f Flag, rA, rB, rC Reg) Opcode {
-	return Opcode(0x7<<28 | rA.toA() | rB.toB() | rC.toC() | f.ToF())
-}
-
-func mkType3(f Flag, op UnOpK16, rA Reg, k Lit16) Opcode {
-	return Opcode(0x6<<28 | f.ToF() | op.ToY() | rA.toA() | k.ToN())
-}
-
-func mkType4a(f Flag, op UnOp, rA, rB Reg) Opcode {
-	return Opcode(0x5<<28 | 1<<24 | f.ToF() | op.ToC() | rA.toA() | rB.toB())
-}
-
-func mkType4b(f Flag, op UnOpK, rA Reg, k Lit8) Opcode {
-	return Opcode(0x5<<28 | f.ToF() | rA.toA() | k.ToB() | op.ToC())
+// ToY encodes a jump type into and opcode.
+func (op JumpOp) ToY() uint32 {
+	return uint32(op) << 24
 }
 
 func mkType5(f Flag, op JumpOp, rA Reg, k Lit16) Opcode {
 	return Opcode(Type5Pfx | f.ToF() | op.ToY() | rA.toA() | k.ToN())
 }
 
+// ==================================================================
+// Type6:  0011Fab0 AAAAAAAA BBBBBBBB MMMMMMMM
+//
+// Load from etc
+
 func mkType6(f Flag, rA, rB Reg, k Lit8) Opcode {
 	return Opcode(Type6Pfx | f.ToF() | rA.toA() | rB.toB() | k.ToC())
 }
 
+// ==================================================================
+// Type0:  0000Fabc AAAAAAAA BBBBBBBB CCCCCCCC
+//
+// Receiving args
+
 func mkType0(f Flag, rA Reg) Opcode {
 	return Opcode(f.ToF() | rA.toA())
+}
+
+// ==================================================================
+// Types that are used in several opcodes.
+
+// Flag is an On / Off switch that can be used in several types of opcodes.
+type Flag uint8
+
+// Flags have two values: On or Off
+const (
+	On  Flag = 1
+	Off Flag = 0
+)
+
+// ToF encodes the flag into an opcode at the F position.
+func (f Flag) ToF() uint32 {
+	return uint32(f) << 27
+}
+
+// Lit16 is a 16 bit literal used in several opcode types, used to represent
+// constant values, offsets or indexes into the constants table.
+type Lit16 uint16
+
+// ToN encodes l into an opcode at N position.
+func (l Lit16) ToN() uint32 {
+	return uint32(l)
+}
+
+// ToInt16 converts l to an int16
+func (l Lit16) ToInt16() int16 {
+	return int16(l)
+}
+
+// ToKIndex converts l to a KIndex, an index into the constants table.
+func (l Lit16) ToKIndex() KIndex {
+	return KIndex(l)
+}
+
+// ToOffset converts l to an Offset, a relative position to jump to.
+func (l Lit16) ToOffset() Offset {
+	return Offset(l)
+}
+
+// ToStr2 converts a Lit16 to a slice of two bytes.
+func (l Lit16) ToStr2() []byte {
+	b := make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, uint16(l))
+	return b
+}
+
+// Lit16FromStr2 converts a slice into a Lit16.  The slice must have length 2.
+func Lit16FromStr2(b []byte) Lit16 {
+	return Lit16(binary.LittleEndian.Uint16(b))
 }
 
 func (c Opcode) GetA() Reg {
@@ -172,133 +365,6 @@ func (c Opcode) HasType0() bool {
 	return c&(0xf<<28) == 0
 }
 
-type BinOp uint8
-
-const (
-	OpAdd BinOp = iota
-	OpSub
-	OpMul
-	OpDiv
-	OpFloorDiv
-	OpMod
-	OpPow
-	OpBitAnd
-	OpBitOr
-	OpBitXor
-	OpShiftL
-	OpShiftR
-	OpEq
-	OpLt
-	OpLeq
-	OpConcat
-)
-
-func (op BinOp) ToX() uint32 {
-	return uint32(op) << 27
-}
-
-type Flag uint8
-
-const (
-	On  Flag = 1
-	Off Flag = 0
-)
-
-func (f Flag) ToF() uint32 {
-	return uint32(f) << 27
-}
-
-type UnOpK16 uint8
-
-const (
-	OpInt16 UnOpK16 = iota
-	OpK
-	OpClosureK
-	OpStr2
-)
-
-func (op UnOpK16) ToY() uint32 {
-	return uint32(op) << 24
-}
-
-// LoadsK returns true if it loads a constant from the constant vector (not a
-// literal encoded in the opcode).
-func (op UnOpK16) LoadsK() bool {
-	return op == OpK || op == OpClosureK
-}
-
-type Lit16 uint16
-
-func (l Lit16) ToN() uint32 {
-	return uint32(l)
-}
-
-func (l Lit16) ToInt16() int16 {
-	return int16(l)
-}
-
-func (l Lit16) ToKIndex() KIndex {
-	return KIndex(l)
-}
-
-func (l Lit16) ToOffset() Offset {
-	return Offset(l)
-}
-
-// ToStr2 converts a Lit16 to two bytes.
-func (l Lit16) ToStr2() []byte {
-	b := make([]byte, 2)
-	binary.LittleEndian.PutUint16(b, uint16(l))
-	return b
-}
-
-func Lit16FromStr2(b []byte) Lit16 {
-	return Lit16(binary.LittleEndian.Uint16(b))
-}
-
-type UnOp uint8
-
-// Available unary operators
-const (
-	OpNeg      UnOp = iota // numerical negation
-	OpBitNot               // bitwise negation
-	OpLen                  // length
-	OpClosure              // make a closure for the code
-	OpCont                 // make a continuation for the closure
-	OpTailCont             // make a "tail continuation" for the closure (its next is cc's next)
-	OpId                   // identity
-	OpTruth                // Turn operand to boolean
-	OpCell                 // ?
-	OpNot                  // Added afterwards - why did I not have it in the first place?
-	OpUpvalue              // get an upvalue
-	OpEtcId                // etc identity
-	OpToNumber             // convert to number
-)
-
-func (op UnOp) ToC() uint32 {
-	return uint32(op)
-}
-
-type UnOpK uint8
-
-// Available binary operators
-const (
-	OpNil UnOpK = iota
-	OpStr0
-	OpTable
-	OpStr1
-	OpBool
-	OpCC
-	OpClear
-	OpInt   // Extra 64 bits (2 opcodes)
-	OpFloat // Extra 64 bits (2 opcodes)
-	OpStrN  // Extra [n / 4] opcodes
-)
-
-func (op UnOpK) ToC() uint32 {
-	return uint32(op)
-}
-
 type Lit8 uint8
 
 func (l Lit8) ToB() uint32 {
@@ -326,18 +392,6 @@ func Lit8FromInt(n int) Lit8 {
 		panic("n out of range")
 	}
 	return Lit8(n)
-}
-
-type JumpOp uint8
-
-const (
-	OpCall JumpOp = iota
-	OpJump
-	OpJumpIf
-)
-
-func (op JumpOp) ToY() uint32 {
-	return uint32(op) << 24
 }
 
 type KIndex uint16
