@@ -12,12 +12,12 @@ func Transform(op UnOp, r1, r2 Reg) Opcode {
 
 // LoadConst encodes r <- Ki
 func LoadConst(r Reg, i KIndex) Opcode {
-	return mkType3(Off, OpK, r, i.ToLit16())
+	return mkType3(Off, OpK, r, i)
 }
 
 // LoadClosure encodes r <- clos(Ki)
 func LoadClosure(r1 Reg, i KIndex) Opcode {
-	return mkType3(Off, OpClosureK, r1, i.ToLit16())
+	return mkType3(Off, OpClosureK, r1, i)
 }
 
 // LoadInt16 encodes r <- n
@@ -102,21 +102,21 @@ func PushEtc(r1, r2 Reg) Opcode {
 //
 // jump j
 func Jump(j Offset) Opcode {
-	return mkType5(Off, OpJump, Reg{}, j.ToLit16())
+	return mkType5(Off, OpJump, Reg{}, j)
 }
 
 // JumpIf encodes a conditional jump.
 //
 // jump j if r
 func JumpIf(j Offset, r Reg) Opcode {
-	return mkType5(On, OpJumpIf, r, j.ToLit16())
+	return mkType5(On, OpJumpIf, r, j)
 }
 
 // JumpIfNot encodes a conditional jump.
 //
 // jump j if not r
 func JumpIfNot(j Offset, r Reg) Opcode {
-	return mkType5(Off, OpJumpIf, r, j.ToLit16())
+	return mkType5(Off, OpJumpIf, r, j)
 }
 
 // Call encodes call r

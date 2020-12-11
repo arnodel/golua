@@ -25,16 +25,16 @@ type Code struct {
 func (c *Code) RefactorConsts() *Code {
 	opcodes := make([]code.Opcode, len(c.code))
 	var consts []Konst
-	constMap := map[code.KIndex]uint16{}
+	constMap := map[code.KIndex]code.KIndex{}
 	for i, op := range c.code {
 		if op.TypePfx() == code.Type3Pfx {
 			unop := op.GetY()
 			if unop.LoadsK() {
 				// We are loading a constant
-				n := op.GetN().ToKIndex()
+				n := op.GetKIndex()
 				m, ok := constMap[n]
 				if !ok {
-					m = uint16(len(consts))
+					m = code.KIndexFromInt(len(consts))
 					constMap[n] = m
 					newConst := c.consts[n]
 					if unop == code.OpClosureK {
@@ -43,7 +43,7 @@ func (c *Code) RefactorConsts() *Code {
 					}
 					consts = append(consts, newConst)
 				}
-				op = op.SetN(m)
+				op = op.SetKIndex(m)
 			}
 		}
 		opcodes[i] = op

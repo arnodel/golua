@@ -24,6 +24,27 @@ const (
 	Type0Pfx Opcode = 0 << 28 // 0000...
 )
 
+// TypePfx returns the type prefix of the opcode. (valid for all types apart
+// from Type1, which has MSB 1).
+func (c Opcode) TypePfx() Opcode {
+	return Opcode(c) & 0xf0000000
+}
+
+// HasType1 returns true if the opcode is Type1.
+func (c Opcode) HasType1() bool {
+	return c&(1<<31) != 0
+}
+
+// HasType4a returns true if the opcode is Type4a.
+func (c Opcode) HasType4a() bool {
+	return c&(1<<24) != 0
+}
+
+// HasType0 returns true if the opcdoe is Type0.
+func (c Opcode) HasType0() bool {
+	return c&(0xf<<28) == 0
+}
+
 // ==================================================================
 // Type1:  1XXXXabc AAAAAAAA BBBBBBBB CCCCCCCC
 //
@@ -56,15 +77,20 @@ const (
 	OpConcat
 )
 
-// ToX encodes a BinOp into an opcode.
-func (op BinOp) ToX() Opcode {
+// encodeX encodes a BinOp into an opcode.
+func (op BinOp) encodeX() Opcode {
 	return Opcode(op) << 27
+}
+
+// GetX decodes the BinOp from this opcode.
+func (c Opcode) GetX() BinOp {
+	return BinOp((c >> 27) & 0xf)
 }
 
 // This functions builds the opcode for
 //    rA <- op(rB, rC)
 func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
-	return Type1Pfx | rA.toA() | rB.toB() | rC.toC() | op.ToX()
+	return Type1Pfx | rA.toA() | rB.toB() | rC.toC() | op.encodeX()
 }
 
 // ==================================================================
@@ -80,7 +106,7 @@ func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
 //     rA <- rB[rC]  if f is Off
 //     rB[rC] <- rA  if f is On
 func mkType2(f Flag, rA, rB, rC Reg) Opcode {
-	return Type2Pfx | rA.toA() | rB.toB() | rC.toC() | f.ToF()
+	return Type2Pfx | rA.toA() | rB.toB() | rC.toC() | f.encodeF()
 }
 
 // ==================================================================
@@ -110,9 +136,85 @@ func (op UnOpK16) LoadsK() bool {
 	return op == OpK || op == OpClosureK
 }
 
+type encoderToN interface {
+	encodeN() Opcode
+}
+
+// Lit16 is a 16 bit literal used in several opcode types, used to represent
+// constant values, offsets or indexes into the constants table.
+type Lit16 uint16
+
+// ToN encodes l into an opcode at N position.
+func (l Lit16) encodeN() Opcode {
+	return Opcode(l)
+}
+
+// ToInt16 converts l to an int16
+func (l Lit16) ToInt16() int16 {
+	return int16(l)
+}
+
+// ToStr2 converts a Lit16 to a slice of two bytes.
+func (l Lit16) ToStr2() []byte {
+	b := make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, uint16(l))
+	return b
+}
+
+// ToKIndex converts a Lit16 into a KIndex.
+func (l Lit16) ToKIndex() KIndex {
+	return KIndex(l)
+}
+
+// Lit16FromStr2 converts a slice into a Lit16.  The slice must have length 2.
+func Lit16FromStr2(b []byte) Lit16 {
+	return Lit16(binary.LittleEndian.Uint16(b))
+}
+
+// Lit16FromInt16 converts an int16 into a Lit16.
+func Lit16FromInt16(n int16) Lit16 {
+	return Lit16(n)
+}
+
+// KIndex is an index into the constants table
+type KIndex uint16
+
+func (i KIndex) encodeN() Opcode {
+	return Opcode(i)
+}
+
+// KIndexFromInt returns a KIndex encoding the given index i, panicking if out
+// of range.
+func KIndexFromInt(i int) KIndex {
+	if i < 0 || i > math.MaxUint16 {
+		panic("constant index out of range")
+	}
+	return KIndex(i)
+}
+
+// SetKIndex returns a copy of the opcode with a new KIndex.
+func (c Opcode) SetKIndex(i KIndex) Opcode {
+	return c&0xffff0000 | i.encodeN()
+}
+
+// GetKIndex decodes the KIndex from the opcode.
+func (c Opcode) GetKIndex() KIndex {
+	return KIndex(c)
+}
+
+// GetN decodes the Lit16 from the opcode.
+func (c Opcode) GetN() Lit16 {
+	return Lit16(c)
+}
+
+// GetY decodes the UnOpK16 from the opcode.
+func (c Opcode) GetY() UnOpK16 {
+	return UnOpK16(c.getYorJ())
+}
+
 // Build a Type3 opcode from its constituents.
-func mkType3(f Flag, op UnOpK16, rA Reg, k Lit16) Opcode {
-	return Type3Pfx | f.ToF() | op.ToY() | rA.toA() | k.ToN()
+func mkType3(f Flag, op UnOpK16, rA Reg, k encoderToN) Opcode {
+	return Type3Pfx | f.encodeF() | op.ToY() | rA.toA() | k.encodeN()
 }
 
 // ==================================================================
@@ -145,8 +247,13 @@ func (op UnOp) ToZ() Opcode {
 	return Opcode(op)
 }
 
+// GetUnOp decodes the UnOp in the opcode.
+func (c Opcode) GetUnOp() UnOp {
+	return UnOp(c & 0xff)
+}
+
 func mkType4a(f Flag, op UnOp, rA, rB Reg) Opcode {
-	return Type4Pfx | 1<<24 | f.ToF() | op.ToZ() | rA.toA() | rB.toB()
+	return Type4Pfx | 1<<24 | f.encodeF() | op.ToZ() | rA.toA() | rB.toB()
 }
 
 // ==================================================================
@@ -176,13 +283,41 @@ func (op UnOpK) ToZ() Opcode {
 	return Opcode(op)
 }
 
+// Lit8 is an 8 bit literal that can encode different types of constants inline.
+type Lit8 uint8
+
+func (l Lit8) encodeL() Opcode {
+	return Opcode(l) << 8
+}
+
+// ToStr1 converts a Lit8 to a slice of 1 byte.
+func (l Lit8) ToStr1() []byte {
+	return []byte{byte(l)}
+}
+
+// Lit8FromStr1 encodes a Lit8 from a byte string of length 1.  Panics if b has
+// length 0.
+func Lit8FromStr1(b []byte) Lit8 {
+	return Lit8(b[0])
+}
+
+// GetL decodes the L field of the opcode.
+func (c Opcode) GetL() Lit8 {
+	return Lit8(c >> 8)
+}
+
+// GetUnOpK decodes the UnOpK in the opcode.
+func (c Opcode) GetUnOpK() UnOpK {
+	return UnOpK(c & 0xff)
+}
+
 // Build a Type4b opcode from its constituents
 func mkType4b(f Flag, op UnOpK, rA Reg, k Lit8) Opcode {
-	return Type4Pfx | f.ToF() | rA.toA() | k.ToL() | op.ToZ()
+	return Type4Pfx | f.encodeF() | rA.toA() | k.encodeL() | op.ToZ()
 }
 
 // ==================================================================
-// Type5:  0100FaJJ AAAAAAAA NNNNNNNN NNNNNNNN
+// Type5:  0100FaJJ AAAAAAAA DDDDDDDD DDDDDDDD
 //
 // Jump / call
 
@@ -196,13 +331,35 @@ const (
 	OpJumpIf
 )
 
-// ToJ encodes a jump type into and opcode.
-func (op JumpOp) ToJ() Opcode {
+// encodeJ encodes a jump type into and opcode.
+func (op JumpOp) encodeJ() Opcode {
 	return Opcode(op) << 24
 }
 
-func mkType5(f Flag, op JumpOp, rA Reg, k Lit16) Opcode {
-	return Type5Pfx | f.ToF() | op.ToJ() | rA.toA() | k.ToN()
+// An Offset is a relative position in the code for jumping to.
+type Offset int16
+
+func (d Offset) encodeD() Opcode {
+	return Opcode(uint16(d))
+}
+
+// GetJ decodes the JumpOp from this opcode.
+func (c Opcode) GetJ() JumpOp {
+	return JumpOp(c.getYorJ())
+}
+
+// GetOffset decodes the Offset from the opcode.
+func (c Opcode) GetOffset() Offset {
+	return Offset(uint16(c))
+}
+
+// SetOffset returns a copy of the opcode with the given offset.
+func (c Opcode) SetOffset(n Offset) Opcode {
+	return c&0xffff0000 | n.encodeD()
+}
+
+func mkType5(f Flag, op JumpOp, rA Reg, k Offset) Opcode {
+	return Type5Pfx | f.encodeF() | op.encodeJ() | rA.toA() | k.encodeD()
 }
 
 // ==================================================================
@@ -213,13 +370,22 @@ func mkType5(f Flag, op JumpOp, rA Reg, k Lit16) Opcode {
 // Index8 is an 8 bit index (0 - 255).
 type Index8 uint8
 
-// ToM encodes an Index8 into an Opcode.
-func (i Index8) ToM() Opcode {
+// encodeM encodes an Index8 into an Opcode.
+func (i Index8) encodeM() Opcode {
 	return Opcode(i)
 }
 
+// Index8FromInt returns an Index8 encoding the given int, which must fit in an
+// uint8.
+func Index8FromInt(n int) Index8 {
+	if n < 0 || n > math.MaxUint8 {
+		panic("n out of range")
+	}
+	return Index8(n)
+}
+
 func mkType6(f Flag, rA, rB Reg, i Index8) Opcode {
-	return Type6Pfx | f.ToF() | rA.toA() | rB.toB() | i.ToM()
+	return Type6Pfx | f.encodeF() | rA.toA() | rB.toB() | i.encodeM()
 }
 
 // ==================================================================
@@ -228,7 +394,7 @@ func mkType6(f Flag, rA, rB Reg, i Index8) Opcode {
 // Receiving args
 
 func mkType0(f Flag, rA Reg) Opcode {
-	return f.ToF() | rA.toA()
+	return f.encodeF() | rA.toA()
 }
 
 // ==================================================================
@@ -243,45 +409,14 @@ const (
 	Off Flag = 0
 )
 
-// ToF encodes the flag into an opcode at the F position.
-func (f Flag) ToF() Opcode {
+// encodeF encodes the flag into an opcode at the F position.
+func (f Flag) encodeF() Opcode {
 	return Opcode(f) << 27
 }
 
-// Lit16 is a 16 bit literal used in several opcode types, used to represent
-// constant values, offsets or indexes into the constants table.
-type Lit16 uint16
-
-// ToN encodes l into an opcode at N position.
-func (l Lit16) ToN() Opcode {
-	return Opcode(l)
-}
-
-// ToInt16 converts l to an int16
-func (l Lit16) ToInt16() int16 {
-	return int16(l)
-}
-
-// ToKIndex converts l to a KIndex, an index into the constants table.
-func (l Lit16) ToKIndex() KIndex {
-	return KIndex(l)
-}
-
-// ToOffset converts l to an Offset, a relative position to jump to.
-func (l Lit16) ToOffset() Offset {
-	return Offset(l)
-}
-
-// ToStr2 converts a Lit16 to a slice of two bytes.
-func (l Lit16) ToStr2() []byte {
-	b := make([]byte, 2)
-	binary.LittleEndian.PutUint16(b, uint16(l))
-	return b
-}
-
-// Lit16FromStr2 converts a slice into a Lit16.  The slice must have length 2.
-func Lit16FromStr2(b []byte) Lit16 {
-	return Lit16(binary.LittleEndian.Uint16(b))
+// GetF decodes the flag and returns true if the flag is On.
+func (c Opcode) GetF() bool {
+	return c&(1<<27) != 0
 }
 
 //
@@ -312,107 +447,12 @@ func (c Opcode) GetC() Reg {
 	}
 }
 
-func (c Opcode) GetL() Lit8 {
-	return Lit8(c >> 8)
-}
-
-func (c Opcode) GetZ() UnOp {
-	return UnOp(c & 0xff)
-}
-
-func (c Opcode) GetN() Lit16 {
-	return Lit16(c)
-}
-
-func (c Opcode) SetN(n uint16) Opcode {
-	return Opcode(uint32(c)&0xffff0000 | uint32(n))
-}
-
 func (c Opcode) GetM() uint8 {
 	return uint8(c)
 }
 
-func (c Opcode) GetX() BinOp {
-	return BinOp((c >> 27) & 0xf)
-}
-
 func (c Opcode) getYorJ() uint8 {
 	return uint8((c >> 24) & 3)
-}
-func (c Opcode) GetY() UnOpK16 {
-	return UnOpK16(c.getYorJ())
-}
-
-func (c Opcode) GetJ() JumpOp {
-	return JumpOp(c.getYorJ())
-
-}
-func (c Opcode) GetF() bool {
-	return c&(1<<27) != 0
-}
-
-func (c Opcode) TypePfx() Opcode {
-	return Opcode(c) & 0xf0000000
-}
-
-func (c Opcode) HasType1() bool {
-	return c&(1<<31) != 0
-}
-
-func (c Opcode) HasType4a() bool {
-	return c&(1<<24) != 0
-}
-
-func (c Opcode) HasType0() bool {
-	return c&(0xf<<28) == 0
-}
-
-type Lit8 uint8
-
-func (l Lit8) ToL() Opcode {
-	return Opcode(l) << 8
-}
-
-func (l Lit8) ToM() Opcode {
-	return Opcode(l)
-}
-
-// ToStr1 converts a Lit8 to a slice of 1 byte.
-func (l Lit8) ToStr1() []byte {
-	return []byte{byte(l)}
-}
-
-func (l Lit8) ToInt() int {
-	return int(l)
-}
-func Lit8FromStr1(b []byte) Lit8 {
-	return Lit8(b[0])
-}
-
-func Index8FromInt(n int) Index8 {
-	if n < 0 || n > math.MaxUint8 {
-		panic("n out of range")
-	}
-	return Index8(n)
-}
-
-type KIndex uint16
-
-func (i KIndex) ToLit16() Lit16 {
-	return Lit16(i)
-}
-
-func KIndexFromInt(i int) KIndex {
-	if i < 0 || i > math.MaxUint16 {
-		panic("constant index out of range")
-	}
-	return KIndex(i)
-}
-
-type Offset int16
-
-func (d Offset) ToLit16() Lit16 {
-	return Lit16(d)
 }
 
 // OpcodeDisassembler is an interface that helps disassemble an opcode.
@@ -482,7 +522,7 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 			rB := c.GetB()
 			// Type4a
 			tpl := "??? %s"
-			switch c.GetZ() {
+			switch c.GetUnOp() {
 			case OpNeg:
 				tpl = "-%s"
 			case OpBitNot:
@@ -518,7 +558,7 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 			return fmt.Sprintf("%s <- "+tpl, rA, rB)
 		}
 		k := "??"
-		switch UnOpK(c.GetZ()) {
+		switch c.GetUnOpK() {
 		case OpCC:
 			k = "CC"
 		case OpTable:
@@ -553,7 +593,7 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 		case OpInt16:
 			tpl = fmt.Sprint(n)
 		case OpStr2:
-			tpl = fmt.Sprintf("%q", Lit16(n).ToStr2())
+			tpl = fmt.Sprintf("%q", n.ToStr2())
 		case OpK:
 			tpl = fmt.Sprintf("K%d (%s)", n, d.ShortKString(n.ToKIndex()))
 		case OpClosureK:
@@ -568,11 +608,11 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 		f := c.GetF()
 		switch c.GetJ() {
 		case OpJump:
-			j := int(c.GetN().ToOffset())
+			j := int(c.GetOffset())
 			dest := i + j
 			return fmt.Sprintf("jump %+d (%s)", j, d.GetLabel(dest))
 		case OpJumpIf:
-			j := int(c.GetN().ToOffset())
+			j := int(c.GetOffset())
 			dest := i + j
 			not := ""
 			if !f {

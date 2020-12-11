@@ -36,7 +36,7 @@ func (c *Builder) EmitJump(opcode Opcode, lbl Label, line int) {
 	jumpToAddr, ok := c.jumpTo[lbl]
 	addr := len(c.code)
 	if ok {
-		opcode |= Opcode(Lit16(jumpToAddr - addr).ToN())
+		opcode = opcode.SetOffset(Offset(jumpToAddr - addr))
 	} else {
 		c.jumpFrom[lbl] = append(c.jumpFrom[lbl], addr)
 	}
@@ -52,7 +52,7 @@ func (c *Builder) EmitLabel(lbl Label) {
 	}
 	c.jumpTo[lbl] = addr
 	for _, jumpFromAddr := range c.jumpFrom[lbl] {
-		c.code[jumpFromAddr] |= Opcode(Lit16(addr - jumpFromAddr).ToN())
+		c.code[jumpFromAddr] = c.code[jumpFromAddr].SetOffset(Offset(addr - jumpFromAddr))
 	}
 	delete(c.jumpFrom, lbl)
 }

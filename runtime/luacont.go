@@ -221,7 +221,7 @@ RunLoop:
 			var err *Error
 			if opcode.HasType4a() {
 				val := c.getReg(opcode.GetB())
-				switch opcode.GetZ() {
+				switch opcode.GetUnOp() {
 				case code.OpNeg:
 					res, err = unm(t, val)
 				case code.OpBitNot:
@@ -267,7 +267,7 @@ RunLoop:
 				}
 			} else {
 				// Type 4b
-				switch code.UnOpK(opcode.GetZ()) {
+				switch code.UnOpK(opcode.GetUnOp()) {
 				case code.OpCC:
 					res = c
 				case code.OpTable:
@@ -300,12 +300,12 @@ RunLoop:
 		case code.Type5Pfx:
 			switch opcode.GetJ() {
 			case code.OpJump:
-				pc += int16(opcode.GetN().ToOffset())
+				pc += int16(opcode.GetOffset())
 				continue RunLoop
 			case code.OpJumpIf:
 				test := Truth(c.getReg(opcode.GetA()))
 				if test == opcode.GetF() {
-					pc += int16(opcode.GetN().ToOffset())
+					pc += int16(opcode.GetOffset())
 				} else {
 					pc++
 				}
