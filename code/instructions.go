@@ -183,7 +183,7 @@ func ReceiveEtc(r Reg) Opcode {
 //
 // loads the (i + 1)-th element of r2 (as an etc vector) into r1.
 func LoadEtcLookup(r1, r2 Reg, i int) Opcode {
-	return mkType6(Off, r1, r2, Lit8FromInt(i))
+	return mkType6(Off, r1, r2, Index8FromInt(i))
 }
 
 // FillTable encodes fill r1, i, r2
@@ -191,5 +191,5 @@ func LoadEtcLookup(r1, r2 Reg, i int) Opcode {
 // This fills the table r1 with all values from r2 (as an etc vector) starting
 // from index i.
 func FillTable(r1, r2 Reg, i int) Opcode {
-	return mkType6(On, r1, r2, Lit8FromInt(i))
+	return mkType6(On, r1, r2, Index8FromInt(i))
 }

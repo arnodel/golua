@@ -28,7 +28,7 @@ func (c *Code) RefactorConsts() *Code {
 	constMap := map[code.KIndex]uint16{}
 	for i, op := range c.code {
 		if op.TypePfx() == code.Type3Pfx {
-			unop := code.UnOpK16(op.GetY())
+			unop := op.GetY()
 			if unop.LoadsK() {
 				// We are loading a constant
 				n := op.GetN().ToKIndex()

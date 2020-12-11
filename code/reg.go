@@ -48,16 +48,16 @@ func (r Reg) IsCell() bool {
 	return r.tp == CellRegType
 }
 
-func (r Reg) toA() uint32 {
-	return uint32(r.Idx())<<16 | uint32(r.RegType())<<26
+func (r Reg) toA() Opcode {
+	return Opcode(r.Idx())<<16 | Opcode(r.RegType())<<26
 }
 
-func (r Reg) toB() uint32 {
-	return uint32(r.Idx())<<8 | uint32(r.RegType())<<25
+func (r Reg) toB() Opcode {
+	return Opcode(r.Idx())<<8 | Opcode(r.RegType())<<25
 }
 
-func (r Reg) toC() uint32 {
-	return uint32(r.Idx()) | uint32(r.RegType())<<24
+func (r Reg) toC() Opcode {
+	return Opcode(r.Idx()) | Opcode(r.RegType())<<24
 }
 
 func (r Reg) String() string {

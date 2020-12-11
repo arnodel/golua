@@ -193,7 +193,7 @@ RunLoop:
 		case code.Type3Pfx:
 			n := opcode.GetN()
 			var val Value
-			switch code.UnOpK16(opcode.GetY()) {
+			switch opcode.GetY() {
 			case code.OpInt16:
 				val = Int(n)
 			case code.OpStr2:
@@ -275,7 +275,7 @@ RunLoop:
 				case code.OpStr0:
 					res = String("")
 				case code.OpStr1:
-					res = String(opcode.GetLit8().ToStr1())
+					res = String(opcode.GetL().ToStr1())
 				case code.OpNil:
 					res = nil
 				case code.OpClear:
@@ -298,7 +298,7 @@ RunLoop:
 			pc++
 			continue RunLoop
 		case code.Type5Pfx:
-			switch code.JumpOp(opcode.GetY()) {
+			switch opcode.GetJ() {
 			case code.OpJump:
 				pc += int16(opcode.GetN().ToOffset())
 				continue RunLoop

@@ -15,13 +15,13 @@ type Opcode uint32
 // Prefixes for the different types of opcodes.  Note: there is an unused prefix
 // (0001).
 const (
-	Type1Pfx uint32 = 1 << 31 // 1......
-	Type2Pfx uint32 = 7 << 28 // 0111...
-	Type3Pfx uint32 = 6 << 28 // 0110...
-	Type4Pfx uint32 = 5 << 28 // 0101...
-	Type5Pfx uint32 = 4 << 28 // 0100...
-	Type6Pfx uint32 = 3 << 28 // 0011...
-	Type0Pfx uint32 = 0 << 28 // 0000...
+	Type1Pfx Opcode = 1 << 31 // 1......
+	Type2Pfx Opcode = 7 << 28 // 0111...
+	Type3Pfx Opcode = 6 << 28 // 0110...
+	Type4Pfx Opcode = 5 << 28 // 0101...
+	Type5Pfx Opcode = 4 << 28 // 0100...
+	Type6Pfx Opcode = 3 << 28 // 0011...
+	Type0Pfx Opcode = 0 << 28 // 0000...
 )
 
 // ==================================================================
@@ -57,14 +57,14 @@ const (
 )
 
 // ToX encodes a BinOp into an opcode.
-func (op BinOp) ToX() uint32 {
-	return uint32(op) << 27
+func (op BinOp) ToX() Opcode {
+	return Opcode(op) << 27
 }
 
 // This functions builds the opcode for
 //    rA <- op(rB, rC)
 func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
-	return Opcode(Type1Pfx | rA.toA() | rB.toB() | rC.toC() | op.ToX())
+	return Type1Pfx | rA.toA() | rB.toB() | rC.toC() | op.ToX()
 }
 
 // ==================================================================
@@ -80,7 +80,7 @@ func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
 //     rA <- rB[rC]  if f is Off
 //     rB[rC] <- rA  if f is On
 func mkType2(f Flag, rA, rB, rC Reg) Opcode {
-	return Opcode(Type2Pfx | rA.toA() | rB.toB() | rC.toC() | f.ToF())
+	return Type2Pfx | rA.toA() | rB.toB() | rC.toC() | f.ToF()
 }
 
 // ==================================================================
@@ -100,8 +100,8 @@ const (
 )
 
 // ToY encodes an UnOpK16 into an opcode.
-func (op UnOpK16) ToY() uint32 {
-	return uint32(op) << 24
+func (op UnOpK16) ToY() Opcode {
+	return Opcode(op) << 24
 }
 
 // LoadsK returns true if it loads a constant from the constant vector (not a
@@ -112,11 +112,11 @@ func (op UnOpK16) LoadsK() bool {
 
 // Build a Type3 opcode from its constituents.
 func mkType3(f Flag, op UnOpK16, rA Reg, k Lit16) Opcode {
-	return Opcode(Type3Pfx | f.ToF() | op.ToY() | rA.toA() | k.ToN())
+	return Type3Pfx | f.ToF() | op.ToY() | rA.toA() | k.ToN()
 }
 
 // ==================================================================
-// Type4a: 0101Fab1 AAAAAAAA BBBBBBBB CCCCCCCC
+// Type4a: 0101Fab1 AAAAAAAA BBBBBBBB ZZZZZZZZ
 //
 // Unary ops + upvalues
 
@@ -140,17 +140,17 @@ const (
 	OpToNumber             // convert to number
 )
 
-// ToC enocodes an UnOp into an opcode.
-func (op UnOp) ToC() uint32 {
-	return uint32(op)
+// ToZ enocodes an UnOp into an opcode.
+func (op UnOp) ToZ() Opcode {
+	return Opcode(op)
 }
 
 func mkType4a(f Flag, op UnOp, rA, rB Reg) Opcode {
-	return Opcode(Type4Pfx | 1<<24 | f.ToF() | op.ToC() | rA.toA() | rB.toB())
+	return Type4Pfx | 1<<24 | f.ToF() | op.ToZ() | rA.toA() | rB.toB()
 }
 
 // ==================================================================
-// Type4b: 0101Fa00 AAAAAAAA BBBBBBBB CCCCCCCC
+// Type4b: 0101Fa00 AAAAAAAA LLLLLLLL ZZZZZZZZ
 //
 // Setting reg from constant (2)
 
@@ -171,18 +171,18 @@ const (
 	OpStrN  // Extra [n / 4] opcodes
 )
 
-// ToC encodes an UnOpK into an opcode.
-func (op UnOpK) ToC() uint32 {
-	return uint32(op)
+// ToZ encodes an UnOpK into an opcode.
+func (op UnOpK) ToZ() Opcode {
+	return Opcode(op)
 }
 
 // Build a Type4b opcode from its constituents
 func mkType4b(f Flag, op UnOpK, rA Reg, k Lit8) Opcode {
-	return Opcode(Type4Pfx | f.ToF() | rA.toA() | k.ToB() | op.ToC())
+	return Type4Pfx | f.ToF() | rA.toA() | k.ToL() | op.ToZ()
 }
 
 // ==================================================================
-// Type5:  0100FaYY AAAAAAAA NNNNNNNN NNNNNNNN
+// Type5:  0100FaJJ AAAAAAAA NNNNNNNN NNNNNNNN
 //
 // Jump / call
 
@@ -196,13 +196,13 @@ const (
 	OpJumpIf
 )
 
-// ToY encodes a jump type into and opcode.
-func (op JumpOp) ToY() uint32 {
-	return uint32(op) << 24
+// ToJ encodes a jump type into and opcode.
+func (op JumpOp) ToJ() Opcode {
+	return Opcode(op) << 24
 }
 
 func mkType5(f Flag, op JumpOp, rA Reg, k Lit16) Opcode {
-	return Opcode(Type5Pfx | f.ToF() | op.ToY() | rA.toA() | k.ToN())
+	return Type5Pfx | f.ToF() | op.ToJ() | rA.toA() | k.ToN()
 }
 
 // ==================================================================
@@ -210,8 +210,16 @@ func mkType5(f Flag, op JumpOp, rA Reg, k Lit16) Opcode {
 //
 // Load from etc
 
-func mkType6(f Flag, rA, rB Reg, k Lit8) Opcode {
-	return Opcode(Type6Pfx | f.ToF() | rA.toA() | rB.toB() | k.ToC())
+// Index8 is an 8 bit index (0 - 255).
+type Index8 uint8
+
+// ToM encodes an Index8 into an Opcode.
+func (i Index8) ToM() Opcode {
+	return Opcode(i)
+}
+
+func mkType6(f Flag, rA, rB Reg, i Index8) Opcode {
+	return Type6Pfx | f.ToF() | rA.toA() | rB.toB() | i.ToM()
 }
 
 // ==================================================================
@@ -220,7 +228,7 @@ func mkType6(f Flag, rA, rB Reg, k Lit8) Opcode {
 // Receiving args
 
 func mkType0(f Flag, rA Reg) Opcode {
-	return Opcode(f.ToF() | rA.toA())
+	return f.ToF() | rA.toA()
 }
 
 // ==================================================================
@@ -236,8 +244,8 @@ const (
 )
 
 // ToF encodes the flag into an opcode at the F position.
-func (f Flag) ToF() uint32 {
-	return uint32(f) << 27
+func (f Flag) ToF() Opcode {
+	return Opcode(f) << 27
 }
 
 // Lit16 is a 16 bit literal used in several opcode types, used to represent
@@ -245,8 +253,8 @@ func (f Flag) ToF() uint32 {
 type Lit16 uint16
 
 // ToN encodes l into an opcode at N position.
-func (l Lit16) ToN() uint32 {
-	return uint32(l)
+func (l Lit16) ToN() Opcode {
+	return Opcode(l)
 }
 
 // ToInt16 converts l to an int16
@@ -276,6 +284,11 @@ func Lit16FromStr2(b []byte) Lit16 {
 	return Lit16(binary.LittleEndian.Uint16(b))
 }
 
+//
+// Methods on opcodes to extract different constituents.
+//
+
+// GetA returns the register rA encoded in the opcode.
 func (c Opcode) GetA() Reg {
 	return Reg{
 		idx: uint8(c >> 16 & 0xff),
@@ -283,6 +296,7 @@ func (c Opcode) GetA() Reg {
 	}
 }
 
+// GetB returns the register rB encoded in the opcode.
 func (c Opcode) GetB() Reg {
 	return Reg{
 		idx: uint8(c >> 8 & 0xff),
@@ -290,6 +304,7 @@ func (c Opcode) GetB() Reg {
 	}
 }
 
+// GetC returns the register rC encoded in the opcode.
 func (c Opcode) GetC() Reg {
 	return Reg{
 		idx: uint8(c & 0xff),
@@ -297,7 +312,7 @@ func (c Opcode) GetC() Reg {
 	}
 }
 
-func (c Opcode) GetLit8() Lit8 {
+func (c Opcode) GetL() Lit8 {
 	return Lit8(c >> 8)
 }
 
@@ -321,44 +336,31 @@ func (c Opcode) GetX() BinOp {
 	return BinOp((c >> 27) & 0xf)
 }
 
-func (c Opcode) GetY() uint8 {
+func (c Opcode) getYorJ() uint8 {
 	return uint8((c >> 24) & 3)
 }
+func (c Opcode) GetY() UnOpK16 {
+	return UnOpK16(c.getYorJ())
+}
 
+func (c Opcode) GetJ() JumpOp {
+	return JumpOp(c.getYorJ())
+
+}
 func (c Opcode) GetF() bool {
 	return c&(1<<27) != 0
 }
 
-func (c Opcode) GetType() uint8 {
-	return uint8(c >> 28)
-}
-
-func (c Opcode) TypePfx() uint32 {
-	return uint32(c) & 0xf0000000
-}
-
-func (c Opcode) GetR() uint8 {
-	return uint8(c >> 28)
+func (c Opcode) TypePfx() Opcode {
+	return Opcode(c) & 0xf0000000
 }
 
 func (c Opcode) HasType1() bool {
 	return c&(1<<31) != 0
 }
 
-func (c Opcode) HasType2or4() bool {
-	return c&(5<<28) == 5<<28
-}
-
-func (c Opcode) HasSubtypeFlagSet() bool {
-	return c&(1<<29) != 0
-}
-
 func (c Opcode) HasType4a() bool {
 	return c&(1<<24) != 0
-}
-
-func (c Opcode) HasType6() bool {
-	return c&(3<<30) == 0
 }
 
 func (c Opcode) HasType0() bool {
@@ -367,12 +369,12 @@ func (c Opcode) HasType0() bool {
 
 type Lit8 uint8
 
-func (l Lit8) ToB() uint32 {
-	return uint32(l) << 8
+func (l Lit8) ToL() Opcode {
+	return Opcode(l) << 8
 }
 
-func (l Lit8) ToC() uint32 {
-	return uint32(l)
+func (l Lit8) ToM() Opcode {
+	return Opcode(l)
 }
 
 // ToStr1 converts a Lit8 to a slice of 1 byte.
@@ -387,11 +389,11 @@ func Lit8FromStr1(b []byte) Lit8 {
 	return Lit8(b[0])
 }
 
-func Lit8FromInt(n int) Lit8 {
-	if n < 0 || n > math.MaxInt8 {
+func Index8FromInt(n int) Index8 {
+	if n < 0 || n > math.MaxUint8 {
 		panic("n out of range")
 	}
-	return Lit8(n)
+	return Index8(n)
 }
 
 type KIndex uint16
@@ -524,7 +526,7 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 		case OpStr0:
 			k = `""`
 		case OpStr1:
-			k = fmt.Sprintf("%q", c.GetLit8().ToStr1())
+			k = fmt.Sprintf("%q", c.GetL().ToStr1())
 		case OpNil:
 			k = "nil"
 		case OpClear:
@@ -545,10 +547,9 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 		rA := c.GetA()
 		n := c.GetN()
 		f := c.GetF()
-		y := c.GetY()
 		// Type3
 		tpl := "???"
-		switch UnOpK16(y) {
+		switch c.GetY() {
 		case OpInt16:
 			tpl = fmt.Sprint(n)
 		case OpStr2:
@@ -565,8 +566,7 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 	case Type5Pfx:
 		rA := c.GetA()
 		f := c.GetF()
-		y := c.GetY()
-		switch JumpOp(y) {
+		switch c.GetJ() {
 		case OpJump:
 			j := int(c.GetN().ToOffset())
 			dest := i + j
