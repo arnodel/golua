@@ -22,6 +22,8 @@ const (
 	Type5Pfx Opcode = 4 << 28 // 0100...
 	Type6Pfx Opcode = 3 << 28 // 0011...
 	Type0Pfx Opcode = 0 << 28 // 0000...
+
+	type4aFlag Opcode = 1 << 24
 )
 
 // TypePfx returns the type prefix of the opcode. (valid for all types apart
@@ -35,9 +37,9 @@ func (c Opcode) HasType1() bool {
 	return c&(1<<31) != 0
 }
 
-// HasType4a returns true if the opcode is Type4a.
+// HasType4a returns true if the opcode is Type4a, assuming that it is Type4.
 func (c Opcode) HasType4a() bool {
-	return c&(1<<24) != 0
+	return c&type4aFlag != 0
 }
 
 // HasType0 returns true if the opcdoe is Type0.
@@ -125,8 +127,8 @@ const (
 	OpStr2
 )
 
-// ToY encodes an UnOpK16 into an opcode.
-func (op UnOpK16) ToY() Opcode {
+// encodeY encodes an UnOpK16 into an opcode.
+func (op UnOpK16) encodeY() Opcode {
 	return Opcode(op) << 24
 }
 
@@ -214,7 +216,7 @@ func (c Opcode) GetY() UnOpK16 {
 
 // Build a Type3 opcode from its constituents.
 func mkType3(f Flag, op UnOpK16, rA Reg, k encoderToN) Opcode {
-	return Type3Pfx | f.encodeF() | op.ToY() | rA.toA() | k.encodeN()
+	return Type3Pfx | f.encodeF() | op.encodeY() | rA.toA() | k.encodeN()
 }
 
 // ==================================================================
@@ -242,8 +244,8 @@ const (
 	OpToNumber             // convert to number
 )
 
-// ToZ enocodes an UnOp into an opcode.
-func (op UnOp) ToZ() Opcode {
+// encodeZ enocodes an UnOp into an opcode.
+func (op UnOp) encodeZ() Opcode {
 	return Opcode(op)
 }
 
@@ -253,7 +255,7 @@ func (c Opcode) GetUnOp() UnOp {
 }
 
 func mkType4a(f Flag, op UnOp, rA, rB Reg) Opcode {
-	return Type4Pfx | 1<<24 | f.encodeF() | op.ToZ() | rA.toA() | rB.toB()
+	return Type4Pfx | type4aFlag | f.encodeF() | op.encodeZ() | rA.toA() | rB.toB()
 }
 
 // ==================================================================
@@ -278,8 +280,8 @@ const (
 	OpStrN  // Extra [n / 4] opcodes
 )
 
-// ToZ encodes an UnOpK into an opcode.
-func (op UnOpK) ToZ() Opcode {
+// encodeZ encodes an UnOpK into an opcode.
+func (op UnOpK) encodeZ() Opcode {
 	return Opcode(op)
 }
 
@@ -313,7 +315,7 @@ func (c Opcode) GetUnOpK() UnOpK {
 
 // Build a Type4b opcode from its constituents
 func mkType4b(f Flag, op UnOpK, rA Reg, k Lit8) Opcode {
-	return Type4Pfx | f.encodeF() | rA.toA() | k.encodeL() | op.ToZ()
+	return Type4Pfx | f.encodeF() | rA.toA() | k.encodeL() | op.encodeZ()
 }
 
 // ==================================================================
@@ -384,6 +386,11 @@ func Index8FromInt(n int) Index8 {
 	return Index8(n)
 }
 
+// GetM decodes the Index8 from the opcode.
+func (c Opcode) GetM() Index8 {
+	return Index8(c)
+}
+
 func mkType6(f Flag, rA, rB Reg, i Index8) Opcode {
 	return Type6Pfx | f.encodeF() | rA.toA() | rB.toB() | i.encodeM()
 }
@@ -420,7 +427,7 @@ func (c Opcode) GetF() bool {
 }
 
 //
-// Methods on opcodes to extract different constituents.
+// Methods on opcodes to registers.
 //
 
 // GetA returns the register rA encoded in the opcode.
@@ -445,10 +452,6 @@ func (c Opcode) GetC() Reg {
 		idx: uint8(c & 0xff),
 		tp:  RegType(c >> 24 & 1),
 	}
-}
-
-func (c Opcode) GetM() uint8 {
-	return uint8(c)
 }
 
 func (c Opcode) getYorJ() uint8 {
