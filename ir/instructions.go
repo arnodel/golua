@@ -7,16 +7,20 @@ import (
 	"github.com/arnodel/golua/ops"
 )
 
+// Instruction is the interface that all ir instruction types must implement.
 type Instruction interface {
 	fmt.Stringer
 	ProcessInstr(InstrProcessor)
 }
 
+// SetRegInstruction is the interface that instructions that set the value of a
+// register must implement.
 type SetRegInstruction interface {
 	DestReg() Register
 	WithDestReg(Register) Instruction
 }
 
+// An InstrProcessor can process any instruction.
 type InstrProcessor interface {
 
 	// Real instructions
@@ -46,6 +50,8 @@ type InstrProcessor interface {
 	ProcessDeclareLabelInstr(DeclareLabel)
 }
 
+// A Register is an IR register.  The number of IR registers is not bounded
+// (other than the bounds of the underling type).
 type Register int
 
 func (r Register) String() string {
@@ -55,6 +61,7 @@ func (r Register) String() string {
 	return fmt.Sprintf("u%d", -r)
 }
 
+// A Label is a location in the IR code.
 type Label uint
 
 func (l Label) String() string {
@@ -70,10 +77,12 @@ type Combine struct {
 	Rsrc Register // Right operand register
 }
 
+// DestReg returns the destination register of this instruction.
 func (c Combine) DestReg() Register {
 	return c.Dst
 }
 
+// WithDestReg returns the same isntruction with a new destination register.
 func (c Combine) WithDestReg(r Register) Instruction {
 	c.Dst = r
 	return c
@@ -95,10 +104,12 @@ type Transform struct {
 	Src Register // Operand register
 }
 
+// DestReg returns the destination register of this instruction.
 func (t Transform) DestReg() Register {
 	return t.Dst
 }
 
+// WithDestReg returns the same isntruction with a new destination register.
 func (t Transform) WithDestReg(r Register) Instruction {
 	t.Dst = r
 	return t
@@ -119,10 +130,12 @@ type LoadConst struct {
 	Kidx uint     // Index of the constant to load
 }
 
+// DestReg returns the destination register of this instruction.
 func (l LoadConst) DestReg() Register {
 	return l.Dst
 }
 
+// WithDestReg returns the same isntruction with a new destination register.
 func (l LoadConst) WithDestReg(r Register) Instruction {
 	l.Dst = r
 	return l
@@ -205,10 +218,12 @@ type MkClosure struct {
 	Upvalues []Register
 }
 
+// DestReg returns the destination register of this instruction.
 func (m MkClosure) DestReg() Register {
 	return m.Dst
 }
 
+// WithDestReg returns the same isntruction with a new destination register.
 func (m MkClosure) WithDestReg(r Register) Instruction {
 	m.Dst = r
 	return m
@@ -238,10 +253,12 @@ type MkCont struct {
 	Tail    bool
 }
 
+// DestReg returns the destination register of this instruction.
 func (m MkCont) DestReg() Register {
 	return m.Dst
 }
 
+// WithDestReg returns the same isntruction with a new destination register.
 func (m MkCont) WithDestReg(r Register) Instruction {
 	m.Dst = r
 	return m
@@ -293,10 +310,12 @@ type Lookup struct {
 	Index Register
 }
 
+// DestReg returns the destination register of this instruction.
 func (s Lookup) DestReg() Register {
 	return s.Dst
 }
 
+// WithDestReg returns the same isntruction with a new destination register.
 func (s Lookup) WithDestReg(r Register) Instruction {
 	s.Dst = r
 	return s
@@ -365,10 +384,12 @@ type EtcLookup struct {
 	Idx int
 }
 
+// DestReg returns the destination register of this instruction.
 func (l EtcLookup) DestReg() Register {
 	return l.Dst
 }
 
+// WithDestReg returns the same isntruction with a new destination register.
 func (l EtcLookup) WithDestReg(r Register) Instruction {
 	l.Dst = r
 	return l
@@ -400,6 +421,9 @@ func (f FillTable) ProcessInstr(p InstrProcessor) {
 	p.ProcessFillTableInstr(f)
 }
 
+// TakeRegister is not a real instruction.  It is a hint to the next stage that
+// the value in this register will need to be used, so not to overwrite it.  A
+// ReleaseRegister for the same register should be emitted some time later.
 type TakeRegister struct {
 	Reg Register
 }
@@ -408,10 +432,14 @@ func (t TakeRegister) String() string {
 	return fmt.Sprintf("take %s", t.Reg)
 }
 
+// ProcessInstr makes the InstrProcessor process this instruction.
 func (t TakeRegister) ProcessInstr(p InstrProcessor) {
 	p.ProcessTakeRegisterInstr(t)
 }
 
+// ReleaseRegister is not a real instruction.  It is a hint to the next stage
+// that the value in this register no longer needs to be used, so can be
+// overwritten.  It should be preceded by a TakeRegister for the same register.
 type ReleaseRegister struct {
 	Reg Register
 }
@@ -420,10 +448,14 @@ func (r ReleaseRegister) String() string {
 	return fmt.Sprintf("release %s", r.Reg)
 }
 
+// ProcessInstr makes the InstrProcessor process this instruction.
 func (r ReleaseRegister) ProcessInstr(p InstrProcessor) {
 	p.ProcessReleaseRegisterInstr(r)
 }
 
+// DeclareLabel is not a real IR instruction.  It is a placeholder for the
+// destination location of a jump label.  Being an instruction makes it easier
+// to perform IR code transformations and keep the labels in correct locations.
 type DeclareLabel struct {
 	Label Label
 }
@@ -432,6 +464,7 @@ func (l DeclareLabel) String() string {
 	return fmt.Sprintf("L%d:", l.Label)
 }
 
+// ProcessInstr makes the InstrProcessor process this instruction.
 func (l DeclareLabel) ProcessInstr(p InstrProcessor) {
 	p.ProcessDeclareLabelInstr(l)
 }
