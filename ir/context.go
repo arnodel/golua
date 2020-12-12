@@ -2,7 +2,7 @@ package ir
 
 import "fmt"
 
-type lexicalMap struct {
+type lexicalScope struct {
 	reg   map[Name]taggedReg
 	label map[Name]Label
 }
@@ -11,9 +11,16 @@ type taggedReg struct {
 	reg  Register
 	tags uint
 }
-type LexicalContext []lexicalMap
 
-func (c LexicalContext) GetRegister(name Name, tags uint) (reg Register, ok bool) {
+// A lexicalContext maintains nested mappings of names to registers and jump
+// labels corresponding to nested lexical scopes.  It facilitates accessing the
+// register of label associated with a given name at a given point in the code.
+type lexicalContext []lexicalScope
+
+// getRegister returns the register associated with the given name if it exists
+// in one of the accessible lexical scopes.  Otherwise it sets ok to false.
+// TODO: explain tags.
+func (c lexicalContext) getRegister(name Name, tags uint) (reg Register, ok bool) {
 	for i := len(c) - 1; i >= 0; i-- {
 		var tr taggedReg
 		tr, ok = c[i].reg[name]
@@ -29,7 +36,10 @@ func (c LexicalContext) GetRegister(name Name, tags uint) (reg Register, ok bool
 	return
 }
 
-func (c LexicalContext) GetLabel(name Name) (label Label, ok bool) {
+// getLabel returns the label associated with the given name if it has been
+// defined in one of the accessible scopes, in which case ok is true, otherwise
+// ok is false.
+func (c lexicalContext) getLabel(name Name) (label Label, ok bool) {
 	for i := len(c) - 1; i >= 0; i-- {
 		label, ok = c[i].label[name]
 		if ok {
@@ -39,7 +49,8 @@ func (c LexicalContext) GetLabel(name Name) (label Label, ok bool) {
 	return
 }
 
-func (c LexicalContext) AddToRoot(name Name, reg Register) (ok bool) {
+// addToRoot adds name => reg mapping to the root lexical scope of this context.
+func (c lexicalContext) addToRoot(name Name, reg Register) (ok bool) {
 	ok = len(c) > 0
 	if ok {
 		c[0].reg[name] = taggedReg{reg, 0}
@@ -47,7 +58,9 @@ func (c LexicalContext) AddToRoot(name Name, reg Register) (ok bool) {
 	return
 }
 
-func (c LexicalContext) AddToTop(name Name, reg Register) (ok bool) {
+// addToTop adds name => reg mapping to the topmost lexical scope in this
+// context.
+func (c lexicalContext) addToTop(name Name, reg Register) (ok bool) {
 	ok = len(c) > 0
 	if ok {
 		c[len(c)-1].reg[name] = taggedReg{reg, 0}
@@ -55,7 +68,9 @@ func (c LexicalContext) AddToTop(name Name, reg Register) (ok bool) {
 	return
 }
 
-func (c LexicalContext) AddLabel(name Name, label Label) (ok bool) {
+// addLabel adds a name => label mapping to the topmost lexical scope in this
+// context.
+func (c lexicalContext) addLabel(name Name, label Label) (ok bool) {
 	ok = len(c) > 0
 	if ok {
 		c[len(c)-1].label[name] = label
@@ -63,28 +78,33 @@ func (c LexicalContext) AddLabel(name Name, label Label) (ok bool) {
 	return
 }
 
-func (c LexicalContext) PushNew() LexicalContext {
-	return append(c, lexicalMap{
+// pushNew returns a new LexicalContext that extends the receive with a new
+// blank lexical scope.
+func (c lexicalContext) pushNew() lexicalContext {
+	return append(c, lexicalScope{
 		reg:   make(map[Name]taggedReg),
 		label: make(map[Name]Label),
 	})
 }
 
-func (c LexicalContext) Pop() (LexicalContext, lexicalMap) {
+// pop returns a new LexicalContext that has the topmost lexical scope missing,
+// and also returns that topmost scope.
+func (c lexicalContext) pop() (lexicalContext, lexicalScope) {
 	if len(c) == 0 {
-		return c, lexicalMap{}
+		return c, lexicalScope{}
 	}
 	return c[:len(c)-1], c[len(c)-1]
 }
 
-func (c LexicalContext) Top() lexicalMap {
+// top returns the topmost lexical scope in the context.
+func (c lexicalContext) top() lexicalScope {
 	if len(c) > 0 {
 		return c[len(c)-1]
 	}
-	return lexicalMap{}
+	return lexicalScope{}
 }
 
-func (c LexicalContext) Dump() {
+func (c lexicalContext) dump() {
 	for i, ns := range c {
 		fmt.Printf("NS %d:\n", i)
 		for name, tr := range ns.reg {

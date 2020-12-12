@@ -18,7 +18,7 @@ const regHasUpvalue uint = 1
 type CodeBuilder struct {
 	chunkName    string
 	registers    []RegData
-	context      LexicalContext
+	context      lexicalContext
 	parent       *CodeBuilder
 	upvalues     []Register
 	upvalueDests []Register
@@ -32,7 +32,7 @@ type CodeBuilder struct {
 func NewCodeBuilder(chunkName string, constantPool *ConstantPool) *CodeBuilder {
 	return &CodeBuilder{
 		chunkName:    chunkName,
-		context:      LexicalContext{}.PushNew(),
+		context:      lexicalContext{}.pushNew(),
 		constantPool: constantPool,
 	}
 }
@@ -40,7 +40,7 @@ func NewCodeBuilder(chunkName string, constantPool *ConstantPool) *CodeBuilder {
 func (c *CodeBuilder) NewChild(chunkName string) *CodeBuilder {
 	return &CodeBuilder{
 		chunkName:    chunkName,
-		context:      LexicalContext{}.PushNew(),
+		context:      lexicalContext{}.pushNew(),
 		constantPool: c.constantPool,
 		parent:       c,
 	}
@@ -48,7 +48,7 @@ func (c *CodeBuilder) NewChild(chunkName string) *CodeBuilder {
 
 func (c *CodeBuilder) Dump() {
 	fmt.Println("--context")
-	c.context.Dump()
+	c.context.dump()
 	fmt.Println("--constants")
 	for i, k := range c.constantPool.Constants() {
 		fmt.Printf("k%d: %s\n", i, k)
@@ -61,12 +61,12 @@ func (c *CodeBuilder) Dump() {
 
 func (c *CodeBuilder) DeclareGotoLabel(name Name) Label {
 	lbl := c.GetNewLabel()
-	c.context.AddLabel(name, lbl)
+	c.context.addLabel(name, lbl)
 	return lbl
 }
 
 func (c *CodeBuilder) getGotoLabel(name Name) (Label, bool) {
-	return c.context.GetLabel(name)
+	return c.context.getLabel(name)
 }
 
 func (c *CodeBuilder) EmitGotoLabel(name Name) {
@@ -96,7 +96,7 @@ func (c *CodeBuilder) GetRegister(name Name) (Register, bool) {
 }
 
 func (c *CodeBuilder) getRegister(name Name, tags uint) (reg Register, ok bool) {
-	reg, ok = c.context.GetRegister(name, tags)
+	reg, ok = c.context.getRegister(name, tags)
 	if ok || c.parent == nil {
 		return
 	}
@@ -108,7 +108,7 @@ func (c *CodeBuilder) getRegister(name Name, tags uint) (reg Register, ok bool) 
 		reg = c.GetFreeRegister()
 		c.upvalueDests = append(c.upvalueDests, reg)
 		c.registers[reg].IsCell = true
-		c.context.AddToRoot(name, reg)
+		c.context.addToRoot(name, reg)
 	}
 	return
 }
@@ -134,12 +134,12 @@ func (c *CodeBuilder) ReleaseRegister(reg Register) {
 
 func (c *CodeBuilder) PushContext() {
 	// fmt.Println("PUSH")
-	c.context = c.context.PushNew()
+	c.context = c.context.pushNew()
 }
 
 func (c *CodeBuilder) PopContext() {
 	// fmt.Println("POP")
-	context, top := c.context.Pop()
+	context, top := c.context.pop()
 	if top.reg == nil {
 		panic("Cannot pop empty context")
 	}
@@ -150,7 +150,7 @@ func (c *CodeBuilder) PopContext() {
 	}
 }
 
-func (c *CodeBuilder) emitClearReg(m lexicalMap) {
+func (c *CodeBuilder) emitClearReg(m lexicalScope) {
 	for _, tr := range m.reg {
 		if tr.tags&regHasUpvalue != 0 && tr.reg >= 0 {
 			c.EmitNoLine(ClearReg{Dst: tr.reg})
@@ -160,9 +160,9 @@ func (c *CodeBuilder) emitClearReg(m lexicalMap) {
 
 func (c *CodeBuilder) EmitJump(lblName Name, line int) {
 	lc := c.context
-	var top lexicalMap
+	var top lexicalScope
 	for len(lc) > 0 {
-		lc, top = lc.Pop()
+		lc, top = lc.pop()
 		if lbl, ok := top.label[lblName]; ok {
 			c.Emit(Jump{Label: lbl}, line)
 			return
@@ -176,7 +176,7 @@ func (c *CodeBuilder) DeclareLocal(name Name, reg Register) {
 	// fmt.Printf("Declare %s %s\n", name, reg)
 
 	c.TakeRegister(reg)
-	c.context.AddToTop(name, reg)
+	c.context.addToTop(name, reg)
 }
 
 func (c *CodeBuilder) EmitNoLine(instr Instruction) {
