@@ -133,12 +133,10 @@ func (c *CodeBuilder) ReleaseRegister(reg Register) {
 }
 
 func (c *CodeBuilder) PushContext() {
-	// fmt.Println("PUSH")
 	c.context = c.context.pushNew()
 }
 
 func (c *CodeBuilder) PopContext() {
-	// fmt.Println("POP")
 	context, top := c.context.pop()
 	if top.reg == nil {
 		panic("Cannot pop empty context")
@@ -173,14 +171,11 @@ func (c *CodeBuilder) EmitJump(lblName Name, line int) {
 }
 
 func (c *CodeBuilder) DeclareLocal(name Name, reg Register) {
-	// fmt.Printf("Declare %s %s\n", name, reg)
-
 	c.TakeRegister(reg)
 	c.context.addToTop(name, reg)
 }
 
 func (c *CodeBuilder) EmitNoLine(instr Instruction) {
-	// fmt.Printf("Emit %s\n", instr)
 	c.Emit(instr, 0)
 }
 
@@ -190,11 +185,11 @@ func (c *CodeBuilder) Emit(instr Instruction, line int) {
 }
 
 func (c *CodeBuilder) Close() (uint, []Register) {
-	return c.getConstant(c.getCode()), c.upvalues
+	return c.getConstantIndex(c.getCode()), c.upvalues
 }
 
-func (c *CodeBuilder) getConstant(k Constant) uint {
-	return c.constantPool.GetConstant(k)
+func (c *CodeBuilder) getConstantIndex(k Constant) uint {
+	return c.constantPool.GetConstantIndex(k)
 }
 
 func (c *CodeBuilder) getCode() *Code {
@@ -210,7 +205,7 @@ func (c *CodeBuilder) getCode() *Code {
 }
 
 func EmitConstant(c *CodeBuilder, k Constant, reg Register, line int) {
-	c.Emit(LoadConst{Dst: reg, Kidx: c.getConstant(k)}, line)
+	c.Emit(LoadConst{Dst: reg, Kidx: c.getConstantIndex(k)}, line)
 }
 
 func EmitMoveNoLine(c *CodeBuilder, dst Register, src Register) {

@@ -52,13 +52,10 @@ type InstrProcessor interface {
 
 // A Register is an IR register.  The number of IR registers is not bounded
 // (other than the bounds of the underling type).
-type Register int
+type Register uint
 
 func (r Register) String() string {
-	if r >= 0 {
-		return fmt.Sprintf("r%d", r)
-	}
-	return fmt.Sprintf("u%d", -r)
+	return fmt.Sprintf("r%d", r)
 }
 
 // A Label is a location in the IR code.
