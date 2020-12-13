@@ -11,40 +11,40 @@ import (
 //
 
 // Static check that no statement is overlooked.
-var _ ast.StatProcessor = (*Compiler)(nil)
+var _ ast.StatProcessor = (*compiler)(nil)
 
 // ProcessAssignStat compiles a AssignStat.
-func (c *Compiler) ProcessAssignStat(s ast.AssignStat) {
+func (c *compiler) ProcessAssignStat(s ast.AssignStat) {
 
 	// Evaluate the right hand side
 	resultRegs := make([]ir.Register, len(s.Dest))
-	c.CompileExpList(s.Src, resultRegs)
+	c.compileExpList(s.Src, resultRegs)
 
 	// Compile the lvalues and assignments
-	c.CompileAssignments(s.Dest, resultRegs)
+	c.compileAssignments(s.Dest, resultRegs)
 }
 
 // ProcessBlockStat compiles a BlockStat.
-func (c *Compiler) ProcessBlockStat(s ast.BlockStat) {
+func (c *compiler) ProcessBlockStat(s ast.BlockStat) {
 	c.PushContext()
-	c.CompileBlock(s)
+	c.compileBlock(s)
 	c.PopContext()
 }
 
 // ProcessBreakStat compiles a BreakStat.
-func (c *Compiler) ProcessBreakStat(s ast.BreakStat) {
-	c.EmitJump(s, breakLblName)
+func (c *compiler) ProcessBreakStat(s ast.BreakStat) {
+	c.emitJump(s, breakLblName)
 }
 
 // ProcessEmptyStat compiles a EmptyStat.
-func (c *Compiler) ProcessEmptyStat(s ast.EmptyStat) {
+func (c *compiler) ProcessEmptyStat(s ast.EmptyStat) {
 	// Nothing to compile!
 }
 
 // ProcessForInStat compiles a ForInStat.
-func (c *Compiler) ProcessForInStat(s ast.ForInStat) {
+func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 	initRegs := make([]ir.Register, 3)
-	c.CompileExpList(s.Params, initRegs)
+	c.compileExpList(s.Params, initRegs)
 	fReg := initRegs[0]
 	sReg := initRegs[1]
 	varReg := initRegs[2]
@@ -73,19 +73,19 @@ func (c *Compiler) ProcessForInStat(s ast.ForInStat) {
 	var1, _ := c.GetRegister(ir.Name(s.Vars[0].Val))
 
 	testReg := c.GetFreeRegister()
-	c.EmitLoadConst(s, ir.NilType{}, testReg)
-	c.EmitInstr(s, ir.Combine{
+	c.emitLoadConst(s, ir.NilType{}, testReg)
+	c.emitInstr(s, ir.Combine{
 		Dst:  testReg,
 		Op:   ops.OpEq,
 		Lsrc: var1,
 		Rsrc: testReg,
 	})
 	endLbl := c.DeclareGotoLabel(breakLblName)
-	c.EmitInstr(s, ir.JumpIf{Cond: testReg, Label: endLbl})
-	c.EmitInstr(s, ir.Transform{Dst: varReg, Op: ops.OpId, Src: var1})
-	c.CompileBlock(s.Body)
+	c.emitInstr(s, ir.JumpIf{Cond: testReg, Label: endLbl})
+	c.emitInstr(s, ir.Transform{Dst: varReg, Op: ops.OpId, Src: var1})
+	c.compileBlock(s.Body)
 
-	c.EmitInstr(s, ir.Jump{Label: loopLbl})
+	c.emitInstr(s, ir.Jump{Label: loopLbl})
 
 	c.EmitGotoLabel(breakLblName)
 	c.PopContext()
@@ -93,9 +93,9 @@ func (c *Compiler) ProcessForInStat(s ast.ForInStat) {
 }
 
 // ProcessForStat compiles a ForStat.
-func (c *Compiler) ProcessForStat(s ast.ForStat) {
+func (c *compiler) ProcessForStat(s ast.ForStat) {
 	startReg := c.GetFreeRegister()
-	r := c.CompileExp(s.Start, startReg)
+	r := c.compileExp(s.Start, startReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, startReg, r)
 	if !ast.IsNumber(s.Start) {
 		c.EmitNoLine(ir.Transform{
@@ -107,7 +107,7 @@ func (c *Compiler) ProcessForStat(s ast.ForStat) {
 	c.TakeRegister(startReg)
 
 	stopReg := c.GetFreeRegister()
-	r = c.CompileExp(s.Stop, stopReg)
+	r = c.compileExp(s.Stop, stopReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, stopReg, r)
 	if !ast.IsNumber(s.Stop) {
 		c.EmitNoLine(ir.Transform{
@@ -119,7 +119,7 @@ func (c *Compiler) ProcessForStat(s ast.ForStat) {
 	c.TakeRegister(stopReg)
 
 	stepReg := c.GetFreeRegister()
-	r = c.CompileExp(s.Step, stepReg)
+	r = c.compileExp(s.Step, stepReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, stepReg, r)
 	if !ast.IsNumber(s.Step) {
 		c.EmitNoLine(ir.Transform{
@@ -132,7 +132,7 @@ func (c *Compiler) ProcessForStat(s ast.ForStat) {
 
 	zReg := c.GetFreeRegister()
 	c.TakeRegister(zReg)
-	c.EmitLoadConst(nil, ir.Int(0), zReg)
+	c.emitLoadConst(nil, ir.Int(0), zReg)
 	c.EmitNoLine(ir.Combine{
 		Op:   ops.OpLt,
 		Dst:  zReg,
@@ -181,7 +181,7 @@ func (c *Compiler) ProcessForStat(s ast.ForStat) {
 	iterReg := c.GetFreeRegister()
 	ir.EmitMoveNoLine(c.CodeBuilder, iterReg, startReg)
 	c.DeclareLocal(ir.Name(s.Var.Val), iterReg)
-	c.CompileBlock(s.Body)
+	c.compileBlock(s.Body)
 	c.PopContext()
 
 	c.EmitNoLine(ir.Combine{
@@ -202,29 +202,29 @@ func (c *Compiler) ProcessForStat(s ast.ForStat) {
 }
 
 // ProcessFunctionCallStat compiles a FunctionCallStat.
-func (c *Compiler) ProcessFunctionCallStat(f ast.FunctionCall) {
+func (c *compiler) ProcessFunctionCallStat(f ast.FunctionCall) {
 	c.compileCall(*f.BFunctionCall, false)
-	c.EmitInstr(f, ir.Receive{})
+	c.emitInstr(f, ir.Receive{})
 }
 
 // ProcessGotoStat compiles a GotoStat.
-func (c *Compiler) ProcessGotoStat(s ast.GotoStat) {
-	c.EmitJump(s, ir.Name(s.Label.Val))
+func (c *compiler) ProcessGotoStat(s ast.GotoStat) {
+	c.emitJump(s, ir.Name(s.Label.Val))
 }
 
 // ProcessIfStat compiles a IfStat.
-func (c *Compiler) ProcessIfStat(s ast.IfStat) {
+func (c *compiler) ProcessIfStat(s ast.IfStat) {
 	endLbl := c.GetNewLabel()
 	lbl := c.GetNewLabel()
 	c.compileCond(s.If, lbl)
 	for _, s := range s.ElseIfs {
-		c.EmitInstr(s.Cond, ir.Jump{Label: endLbl}) // TODO: better location
+		c.emitInstr(s.Cond, ir.Jump{Label: endLbl}) // TODO: better location
 		c.EmitLabel(lbl)
 		lbl = c.GetNewLabel()
 		c.compileCond(s, lbl)
 	}
 	if s.Else != nil {
-		c.EmitInstr(s, ir.Jump{Label: endLbl}) // TODO: better location
+		c.emitInstr(s, ir.Jump{Label: endLbl}) // TODO: better location
 		c.EmitLabel(lbl)
 		c.CompileStat(s.Else)
 	} else {
@@ -233,28 +233,28 @@ func (c *Compiler) ProcessIfStat(s ast.IfStat) {
 	c.EmitLabel(endLbl)
 }
 
-func (c *Compiler) compileCond(s ast.CondStat, lbl ir.Label) {
-	condReg := c.CompileExpNoDestHint(s.Cond)
-	c.EmitInstr(s.Cond, ir.JumpIf{Cond: condReg, Label: lbl, Not: true})
+func (c *compiler) compileCond(s ast.CondStat, lbl ir.Label) {
+	condReg := c.compileExpNoDestHint(s.Cond)
+	c.emitInstr(s.Cond, ir.JumpIf{Cond: condReg, Label: lbl, Not: true})
 	c.CompileStat(s.Body)
 }
 
 // ProcessLabelStat compiles a LabelStat.
-func (c *Compiler) ProcessLabelStat(s ast.LabelStat) {
+func (c *compiler) ProcessLabelStat(s ast.LabelStat) {
 	c.EmitGotoLabel(ir.Name(s.Name.Val))
 }
 
 // ProcessLocalFunctionStat compiles a LocalFunctionStat.
-func (c *Compiler) ProcessLocalFunctionStat(s ast.LocalFunctionStat) {
+func (c *compiler) ProcessLocalFunctionStat(s ast.LocalFunctionStat) {
 	fReg := c.GetFreeRegister()
 	c.DeclareLocal(ir.Name(s.Name.Val), fReg)
-	c.CompileExpInto(s.Function, fReg)
+	c.compileExpInto(s.Function, fReg)
 }
 
 // ProcessLocalStat compiles a LocalStat.
-func (c *Compiler) ProcessLocalStat(s ast.LocalStat) {
+func (c *compiler) ProcessLocalStat(s ast.LocalStat) {
 	localRegs := make([]ir.Register, len(s.Names))
-	c.CompileExpList(s.Values, localRegs)
+	c.compileExpList(s.Values, localRegs)
 	for i, reg := range localRegs {
 		c.ReleaseRegister(reg)
 		c.DeclareLocal(ir.Name(s.Names[i].Val), reg)
@@ -262,22 +262,22 @@ func (c *Compiler) ProcessLocalStat(s ast.LocalStat) {
 }
 
 // ProcessRepeatStat compiles a RepeatStat.
-func (c *Compiler) ProcessRepeatStat(s ast.RepeatStat) {
+func (c *compiler) ProcessRepeatStat(s ast.RepeatStat) {
 	c.PushContext()
 	c.DeclareGotoLabel(breakLblName)
 
 	loopLbl := c.GetNewLabel()
 	c.EmitLabel(loopLbl)
-	pop := c.CompileBlockNoPop(s.Body)
-	condReg := c.CompileExpNoDestHint(s.Cond)
+	pop := c.compileBlockNoPop(s.Body)
+	condReg := c.compileExpNoDestHint(s.Cond)
 	negReg := c.GetFreeRegister()
-	c.EmitInstr(s.Cond, ir.Transform{
+	c.emitInstr(s.Cond, ir.Transform{
 		Op:  ops.OpNot,
 		Dst: negReg,
 		Src: condReg,
 	})
 	pop()
-	c.EmitInstr(s.Cond, ir.JumpIf{
+	c.emitInstr(s.Cond, ir.JumpIf{
 		Cond:  negReg,
 		Label: loopLbl,
 	})
@@ -287,7 +287,7 @@ func (c *Compiler) ProcessRepeatStat(s ast.RepeatStat) {
 }
 
 // ProcessWhileStat compiles a WhileStat.
-func (c *Compiler) ProcessWhileStat(s ast.WhileStat) {
+func (c *compiler) ProcessWhileStat(s ast.WhileStat) {
 	c.PushContext()
 	stopLbl := c.DeclareGotoLabel(breakLblName)
 
@@ -296,13 +296,13 @@ func (c *Compiler) ProcessWhileStat(s ast.WhileStat) {
 
 	c.compileCond(s.CondStat, stopLbl)
 
-	c.EmitInstr(s, ir.Jump{Label: loopLbl}) // TODO: better location
+	c.emitInstr(s, ir.Jump{Label: loopLbl}) // TODO: better location
 
 	c.EmitGotoLabel(breakLblName)
 	c.PopContext()
 }
 
-func (c *Compiler) CompileStat(s ast.Stat) {
+func (c *compiler) CompileStat(s ast.Stat) {
 	s.ProcessStat(c)
 }
 
@@ -310,11 +310,11 @@ func (c *Compiler) CompileStat(s ast.Stat) {
 // Helper functions
 //
 
-func (c *Compiler) CompileBlock(s ast.BlockStat) {
-	c.CompileBlockNoPop(s)()
+func (c *compiler) compileBlock(s ast.BlockStat) {
+	c.compileBlockNoPop(s)()
 }
 
-func (c *Compiler) CompileBlockNoPop(s ast.BlockStat) func() {
+func (c *compiler) compileBlockNoPop(s ast.BlockStat) func() {
 	totalDepth := 0
 	getLabels(c.CodeBuilder, s.Stats)
 	truncLen := len(s.Stats) - getBackLabels(c.CodeBuilder, s.Stats)
@@ -337,7 +337,7 @@ func (c *Compiler) CompileBlockNoPop(s ast.BlockStat) func() {
 			if len(s.Return) > 0 {
 				loc = s.Return[0]
 			}
-			c.EmitInstr(loc, ir.Call{
+			c.emitInstr(loc, ir.Call{
 				Cont: contReg,
 				Tail: true,
 			})

@@ -11,7 +11,7 @@ import (
 //
 
 type expCompiler struct {
-	*Compiler
+	*compiler
 	dst ir.Register
 }
 
@@ -20,7 +20,7 @@ var _ ast.ExpProcessor = (*expCompiler)(nil)
 // ProcessBFunctionCallExp compiles a BFunctionCall
 func (c *expCompiler) ProcessBFunctionCallExp(f ast.BFunctionCall) {
 	c.compileCall(f, false)
-	c.EmitInstr(f, ir.Receive{Dst: []ir.Register{c.dst}})
+	c.emitInstr(f, ir.Receive{Dst: []ir.Register{c.dst}})
 }
 
 // ProcessBinOpExp compiles a BinOpExp.
@@ -33,27 +33,27 @@ func (c *expCompiler) ProcessBinOpExp(b ast.BinOp) {
 		c.compileLogicalOp(b, false)
 		return
 	}
-	lsrc := c.CompileExpNoDestHint(b.Left)
+	lsrc := c.compileExpNoDestHint(b.Left)
 	for _, r := range b.Right {
 		c.TakeRegister(lsrc)
-		rsrc := c.CompileExpNoDestHint(r.Operand)
+		rsrc := c.compileExpNoDestHint(r.Operand)
 		switch r.Op {
 		case ops.OpNeq:
 			// x ~= y ==> ~(x = y)
-			c.EmitInstr(b, ir.Combine{
+			c.emitInstr(b, ir.Combine{
 				Op:   ops.OpEq,
 				Dst:  c.dst,
 				Lsrc: lsrc,
 				Rsrc: rsrc,
 			})
-			c.EmitInstr(b, ir.Transform{
+			c.emitInstr(b, ir.Transform{
 				Op:  ops.OpNot,
 				Dst: c.dst,
 				Src: c.dst,
 			})
 		case ops.OpGt:
 			// x > y ==> y < x
-			c.EmitInstr(b, ir.Combine{
+			c.emitInstr(b, ir.Combine{
 				Op:   ops.OpLt,
 				Dst:  c.dst,
 				Lsrc: rsrc,
@@ -61,14 +61,14 @@ func (c *expCompiler) ProcessBinOpExp(b ast.BinOp) {
 			})
 		case ops.OpGeq:
 			// x >= y ==> y <= x
-			c.EmitInstr(b, ir.Combine{
+			c.emitInstr(b, ir.Combine{
 				Op:   ops.OpLeq,
 				Dst:  c.dst,
 				Lsrc: rsrc,
 				Rsrc: lsrc,
 			})
 		default:
-			c.EmitInstr(b, ir.Combine{
+			c.emitInstr(b, ir.Combine{
 				Op:   r.Op,
 				Dst:  c.dst,
 				Lsrc: lsrc,
@@ -84,12 +84,12 @@ func (c *expCompiler) ProcessBinOpExp(b ast.BinOp) {
 // This implements short-circuiting in logical expressions.
 func (c *expCompiler) compileLogicalOp(b ast.BinOp, not bool) {
 	doneLbl := c.GetNewLabel()
-	c.CompileExpInto(b.Left, c.dst)
-	c.EmitInstr(b.Left, ir.JumpIf{Cond: c.dst, Label: doneLbl, Not: not})
+	c.compileExpInto(b.Left, c.dst)
+	c.emitInstr(b.Left, ir.JumpIf{Cond: c.dst, Label: doneLbl, Not: not})
 	for i, r := range b.Right {
-		c.CompileExpInto(r.Operand, c.dst)
+		c.compileExpInto(r.Operand, c.dst)
 		if i < len(b.Right) {
-			c.EmitInstr(r.Operand, ir.JumpIf{Cond: c.dst, Label: doneLbl, Not: not})
+			c.emitInstr(r.Operand, ir.JumpIf{Cond: c.dst, Label: doneLbl, Not: not})
 		}
 	}
 	c.EmitLabel(doneLbl)
@@ -97,13 +97,13 @@ func (c *expCompiler) compileLogicalOp(b ast.BinOp, not bool) {
 
 // ProcesBoolExp compiles a oolExp.
 func (c *expCompiler) ProcesBoolExp(b ast.Bool) {
-	c.EmitLoadConst(b, ir.Bool(b.Val), c.dst)
+	c.emitLoadConst(b, ir.Bool(b.Val), c.dst)
 }
 
 // ProcessEtcExp compiles a EtcExp.
 func (c *expCompiler) ProcessEtcExp(e ast.Etc) {
 	reg := c.getEllipsisReg()
-	c.EmitInstr(e, ir.EtcLookup{Dst: c.dst, Etc: reg})
+	c.emitInstr(e, ir.EtcLookup{Dst: c.dst, Etc: reg})
 }
 
 // ProcessFunctionExp compiles a Function.
@@ -111,7 +111,7 @@ func (c *expCompiler) ProcessFunctionExp(f ast.Function) {
 	fc := c.NewChild(f.Name)
 	fc.compileFunctionBody(f)
 	kidx, upvalues := fc.Close()
-	c.EmitInstr(f, ir.MkClosure{
+	c.emitInstr(f, ir.MkClosure{
 		Dst:      c.dst,
 		Code:     kidx,
 		Upvalues: upvalues,
@@ -125,10 +125,10 @@ func (c *expCompiler) ProcessFunctionCallExp(f ast.FunctionCall) {
 
 // ProcessIndexExp compiles a IndexExp.
 func (c *expCompiler) ProcessIndexExp(e ast.IndexExp) {
-	tReg := c.CompileExpNoDestHint(e.Coll)
+	tReg := c.compileExpNoDestHint(e.Coll)
 	c.TakeRegister(tReg)
-	iReg := c.CompileExpNoDestHint(e.Idx)
-	c.EmitInstr(e, ir.Lookup{
+	iReg := c.compileExpNoDestHint(e.Idx)
+	c.emitInstr(e, ir.Lookup{
 		Dst:   c.dst,
 		Table: tReg,
 		Index: iReg,
@@ -150,27 +150,27 @@ func (c *expCompiler) ProcessNameExp(n ast.Name) {
 
 // ProcessNilExp compiles a NilExp.
 func (c *expCompiler) ProcessNilExp(n ast.Nil) {
-	c.EmitLoadConst(n, ir.NilType{}, c.dst)
+	c.emitLoadConst(n, ir.NilType{}, c.dst)
 }
 
 // ProcessIntExp compiles a IntExp.
 func (c *expCompiler) ProcessIntExp(n ast.Int) {
-	c.EmitLoadConst(n, ir.Int(n.Val), c.dst)
+	c.emitLoadConst(n, ir.Int(n.Val), c.dst)
 }
 
 // ProcessFloatExp compiles a FloatExp.
 func (c *expCompiler) ProcessFloatExp(f ast.Float) {
-	c.EmitLoadConst(f, ir.Float(f.Val), c.dst)
+	c.emitLoadConst(f, ir.Float(f.Val), c.dst)
 }
 
 // ProcessStringExp compiles a StringExp.
 func (c *expCompiler) ProcessStringExp(s ast.String) {
-	c.EmitLoadConst(s, ir.String(s.Val), c.dst)
+	c.emitLoadConst(s, ir.String(s.Val), c.dst)
 }
 
 // ProcessTableConstructorExp compiles a TableConstructorExp.
 func (c *expCompiler) ProcessTableConstructorExp(t ast.TableConstructor) {
-	c.EmitInstr(t, ir.MkTable{Dst: c.dst})
+	c.emitInstr(t, ir.MkTable{Dst: c.dst})
 	c.TakeRegister(c.dst)
 	currImplicitKey := 1
 	for i, field := range t.Fields {
@@ -179,8 +179,8 @@ func (c *expCompiler) ProcessTableConstructorExp(t ast.TableConstructor) {
 		if i == len(t.Fields)-1 && noKey {
 			tailExp, ok := field.Value.(ast.TailExpNode)
 			if ok {
-				etc := c.CompileEtcExp(tailExp, c.GetFreeRegister())
-				c.EmitInstr(field.Value, ir.FillTable{
+				etc := c.compileEtcExp(tailExp, c.GetFreeRegister())
+				c.emitInstr(field.Value, ir.FillTable{
 					Dst: c.dst,
 					Idx: currImplicitKey,
 					Etc: etc,
@@ -188,14 +188,14 @@ func (c *expCompiler) ProcessTableConstructorExp(t ast.TableConstructor) {
 				break
 			}
 		}
-		valReg := c.CompileExpNoDestHint(field.Value)
+		valReg := c.compileExpNoDestHint(field.Value)
 		c.TakeRegister(valReg)
 		if noKey {
 			keyExp = ast.Int{Val: uint64(currImplicitKey)}
 			currImplicitKey++
 		}
-		keyReg := c.CompileExpNoDestHint(keyExp)
-		c.EmitInstr(field.Value, ir.SetIndex{
+		keyReg := c.compileExpNoDestHint(keyExp)
+		c.emitInstr(field.Value, ir.SetIndex{
 			Table: c.dst,
 			Index: keyReg,
 			Src:   valReg,
@@ -207,10 +207,10 @@ func (c *expCompiler) ProcessTableConstructorExp(t ast.TableConstructor) {
 
 // ProcessUnOpExp compiles a UnOpExp.
 func (c *expCompiler) ProcessUnOpExp(u ast.UnOp) {
-	c.EmitInstr(u, ir.Transform{
+	c.emitInstr(u, ir.Transform{
 		Op:  u.Op,
 		Dst: c.dst,
-		Src: c.CompileExpNoDestHint(u.Operand),
+		Src: c.compileExpNoDestHint(u.Operand),
 	})
 }
 
@@ -218,8 +218,12 @@ func (c *expCompiler) CompileExp(e ast.ExpNode) {
 	e.ProcessExp(c)
 }
 
+//
+// Tail Expression compilation
+//
+
 type tailExpCompiler struct {
-	*Compiler
+	*compiler
 	dsts []ir.Register
 }
 
@@ -229,7 +233,7 @@ var _ ast.TailExpProcessor = tailExpCompiler{}
 func (c tailExpCompiler) ProcessEtcTailExp(e ast.Etc) {
 	reg := c.getEllipsisReg()
 	for i, dst := range c.dsts {
-		c.EmitInstr(e, ir.EtcLookup{
+		c.emitInstr(e, ir.EtcLookup{
 			Dst: dst,
 			Etc: reg,
 			Idx: i,
@@ -240,15 +244,19 @@ func (c tailExpCompiler) ProcessEtcTailExp(e ast.Etc) {
 // ProcessFunctionCallTailExp compiles a FunctionCall tail expression.
 func (c tailExpCompiler) ProcessFunctionCallTailExp(f ast.FunctionCall) {
 	c.compileCall(*f.BFunctionCall, false)
-	c.EmitInstr(f, ir.Receive{Dst: c.dsts})
+	c.emitInstr(f, ir.Receive{Dst: c.dsts})
 }
 
 func (c tailExpCompiler) CompileTailExp(e ast.TailExpNode) {
 	e.ProcessTailExp(c)
 }
 
+//
+// Etc Expression compilation
+//
+
 type etcExpCompiler struct {
-	*Compiler
+	*compiler
 	dst ir.Register
 }
 
@@ -260,7 +268,7 @@ func (c *etcExpCompiler) ProcessEtcTailExp(e ast.Etc) {
 
 func (c *etcExpCompiler) ProcessFunctionCallTailExp(f ast.FunctionCall) {
 	c.compileCall(*f.BFunctionCall, false)
-	c.EmitInstr(f, ir.ReceiveEtc{Etc: c.dst})
+	c.emitInstr(f, ir.ReceiveEtc{Etc: c.dst})
 }
 
 func (c *etcExpCompiler) CompileTailExp(e ast.TailExpNode) {
@@ -271,51 +279,51 @@ func (c *etcExpCompiler) CompileTailExp(e ast.TailExpNode) {
 // Helper functions
 //
 
-// CompileExp compiles the given expression into a register and returns it.
-func (c *Compiler) CompileExp(e ast.ExpNode, dst ir.Register) ir.Register {
+// compileExp compiles the given expression into a register and returns it.
+func (c *compiler) compileExp(e ast.ExpNode, dst ir.Register) ir.Register {
 	ec := expCompiler{
-		Compiler: c,
+		compiler: c,
 		dst:      dst,
 	}
 	ec.CompileExp(e)
 	return ec.dst
 }
 
-// CompileExpNoDestHint compiles the given expression into any register (perhaps a
+// compileExpNoDestHint compiles the given expression into any register (perhaps a
 // new free one) and returns it.
-func (c *Compiler) CompileExpNoDestHint(e ast.ExpNode) ir.Register {
-	return c.CompileExp(e, c.GetFreeRegister())
+func (c *compiler) compileExpNoDestHint(e ast.ExpNode) ir.Register {
+	return c.compileExp(e, c.GetFreeRegister())
 }
 
-// CompileExpInto compiles the given expression into the given register.
-func (c *Compiler) CompileExpInto(e ast.ExpNode, dst ir.Register) {
-	c.EmitMove(e, dst, c.CompileExp(e, dst))
+// compileExpInto compiles the given expression into the given register.
+func (c *compiler) compileExpInto(e ast.ExpNode, dst ir.Register) {
+	c.emitMove(e, dst, c.compileExp(e, dst))
 }
 
-// CompileTailExp compiles the given tail expression into the register slice.
-func (c *Compiler) CompileTailExp(e ast.TailExpNode, dsts []ir.Register) {
+// compileTailExp compiles the given tail expression into the register slice.
+func (c *compiler) compileTailExp(e ast.TailExpNode, dsts []ir.Register) {
 	tailExpCompiler{
-		Compiler: c,
+		compiler: c,
 		dsts:     dsts,
 	}.CompileTailExp(e)
 }
 
-// CompileEtcExp compiles the given tail expression as an etc and returns the
+// compileEtcExp compiles the given tail expression as an etc and returns the
 // register the result lives in.
-func (c *Compiler) CompileEtcExp(e ast.TailExpNode, dst ir.Register) ir.Register {
+func (c *compiler) compileEtcExp(e ast.TailExpNode, dst ir.Register) ir.Register {
 	ec := etcExpCompiler{
-		Compiler: c,
+		compiler: c,
 		dst:      dst,
 	}
 	ec.CompileTailExp(e)
 	return ec.dst
 }
 
-// CompileExpList compiles the given expressions into free registers, which are
+// compileExpList compiles the given expressions into free registers, which are
 // recorded into dstRegs (hence exps and dstRegs must have the same length).
 // Those registers are taken so need to be released by the caller when no longer
 // needed.
-func (c *Compiler) CompileExpList(exps []ast.ExpNode, dstRegs []ir.Register) {
+func (c *compiler) compileExpList(exps []ast.ExpNode, dstRegs []ir.Register) {
 	commonCount := len(exps)
 	if commonCount > len(dstRegs) {
 		commonCount = len(dstRegs)
@@ -330,7 +338,7 @@ func (c *Compiler) CompileExpList(exps []ast.ExpNode, dstRegs []ir.Register) {
 	}
 	for i, exp := range exps[:commonCount] {
 		dst := c.GetFreeRegister()
-		c.CompileExpInto(exp, dst)
+		c.compileExpInto(exp, dst)
 		c.TakeRegister(dst)
 		dstRegs[i] = dst
 	}
@@ -340,16 +348,16 @@ func (c *Compiler) CompileExpList(exps []ast.ExpNode, dstRegs []ir.Register) {
 		dstRegs[i] = dst
 	}
 	if doTailExp {
-		c.CompileTailExp(tailExp, dstRegs[commonCount:])
+		c.compileTailExp(tailExp, dstRegs[commonCount:])
 	} else if len(dstRegs) > len(exps) {
 		nilK := ir.NilType{}
 		for _, dst := range dstRegs[len(exps):] {
-			c.EmitLoadConst(nil, nilK, dst)
+			c.emitLoadConst(nil, nilK, dst)
 		}
 	}
 }
 
-func (c *Compiler) compileFunctionBody(f ast.Function) {
+func (c *compiler) compileFunctionBody(f ast.Function) {
 	recvRegs := make([]ir.Register, len(f.Params))
 	callerReg := c.GetFreeRegister()
 	c.DeclareLocal(callerRegName, callerReg)
@@ -359,11 +367,11 @@ func (c *Compiler) compileFunctionBody(f ast.Function) {
 		recvRegs[i] = reg
 	}
 	if !f.HasDots {
-		c.EmitInstr(f, ir.Receive{Dst: recvRegs})
+		c.emitInstr(f, ir.Receive{Dst: recvRegs})
 	} else {
 		reg := c.GetFreeRegister()
 		c.DeclareLocal(ellipsisRegName, reg)
-		c.EmitInstr(f, ir.ReceiveEtc{Dst: recvRegs, Etc: reg})
+		c.emitInstr(f, ir.ReceiveEtc{Dst: recvRegs, Etc: reg})
 	}
 
 	// Need to make sure there is a return instruction emitted at the
@@ -372,11 +380,11 @@ func (c *Compiler) compileFunctionBody(f ast.Function) {
 	if body.Return == nil {
 		body.Return = []ast.ExpNode{}
 	}
-	c.CompileBlock(body)
+	c.compileBlock(body)
 
 }
 
-func (c *Compiler) getEllipsisReg() ir.Register {
+func (c *compiler) getEllipsisReg() ir.Register {
 	reg, ok := c.GetRegister(ellipsisRegName)
 	if !ok {
 		panic("... not defined")
@@ -384,7 +392,7 @@ func (c *Compiler) getEllipsisReg() ir.Register {
 	return reg
 }
 
-func (c *Compiler) getCallerReg() ir.Register {
+func (c *compiler) getCallerReg() ir.Register {
 	reg, ok := c.GetRegister(callerRegName)
 	if !ok {
 		panic("no caller register")
@@ -392,48 +400,48 @@ func (c *Compiler) getCallerReg() ir.Register {
 	return reg
 }
 
-func (c *Compiler) compileCall(f ast.BFunctionCall, tail bool) {
-	fReg := c.CompileExpNoDestHint(f.Target)
+func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
+	fReg := c.compileExpNoDestHint(f.Target)
 	var contReg ir.Register
 	if f.Method.Val != "" {
 		self := fReg
 		c.TakeRegister(self)
 		fReg = c.GetFreeRegister()
 		mReg := c.GetFreeRegister()
-		c.EmitLoadConst(f.Method, ir.String(f.Method.Val), mReg)
-		c.EmitInstr(f.Target, ir.Lookup{
+		c.emitLoadConst(f.Method, ir.String(f.Method.Val), mReg)
+		c.emitInstr(f.Target, ir.Lookup{
 			Dst:   fReg,
 			Table: self,
 			Index: mReg,
 		})
 		contReg = c.GetFreeRegister()
-		c.EmitInstr(f, ir.MkCont{
+		c.emitInstr(f, ir.MkCont{
 			Dst:     contReg,
 			Closure: fReg,
 			Tail:    tail,
 		})
-		c.EmitInstr(f, ir.Push{
+		c.emitInstr(f, ir.Push{
 			Cont: fReg,
 			Item: self,
 		})
 		c.ReleaseRegister(self)
 	} else {
 		contReg = c.GetFreeRegister()
-		c.EmitInstr(f, ir.MkCont{
+		c.emitInstr(f, ir.MkCont{
 			Dst:     contReg,
 			Closure: fReg,
 			Tail:    tail,
 		})
 	}
 	c.compilePushArgs(f.Args, contReg)
-	c.EmitInstr(f, ir.Call{
+	c.emitInstr(f, ir.Call{
 		Cont: contReg,
 		Tail: tail,
 	})
 }
 
 // TODO: move this to somewhere better
-func (c *Compiler) compilePushArgs(args []ast.ExpNode, contReg ir.Register) {
+func (c *compiler) compilePushArgs(args []ast.ExpNode, contReg ir.Register) {
 	c.TakeRegister(contReg)
 	for i, arg := range args {
 		var argReg ir.Register
@@ -442,13 +450,13 @@ func (c *Compiler) compilePushArgs(args []ast.ExpNode, contReg ir.Register) {
 			var tailArg ast.TailExpNode
 			tailArg, isTailArg = arg.(ast.TailExpNode)
 			if isTailArg {
-				argReg = c.CompileEtcExp(tailArg, c.GetFreeRegister())
+				argReg = c.compileEtcExp(tailArg, c.GetFreeRegister())
 			}
 		}
 		if !isTailArg {
-			argReg = c.CompileExpNoDestHint(arg)
+			argReg = c.compileExpNoDestHint(arg)
 		}
-		c.EmitInstr(arg, ir.Push{
+		c.emitInstr(arg, ir.Push{
 			Cont: contReg,
 			Item: argReg,
 			Etc:  isTailArg,

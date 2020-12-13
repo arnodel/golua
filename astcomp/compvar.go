@@ -5,27 +5,27 @@ import (
 	"github.com/arnodel/golua/ir"
 )
 
-type Assign func(ir.Register)
+type assignFunc func(ir.Register)
 
-type AssignCompiler struct {
-	*Compiler
-	assigns []Assign
+type assignCompiler struct {
+	*compiler
+	assigns []assignFunc
 }
 
-var _ ast.VarProcessor = (*AssignCompiler)(nil)
+var _ ast.VarProcessor = (*assignCompiler)(nil)
 
 // ProcessIndexExpVar compiles the expression as an L-value.
-func (c *AssignCompiler) ProcessIndexExpVar(e ast.IndexExp) {
+func (c *assignCompiler) ProcessIndexExpVar(e ast.IndexExp) {
 	tReg := c.GetFreeRegister()
-	c.CompileExpInto(e.Coll, tReg)
+	c.compileExpInto(e.Coll, tReg)
 	c.TakeRegister(tReg)
 	iReg := c.GetFreeRegister()
-	c.CompileExpInto(e.Idx, iReg)
+	c.compileExpInto(e.Idx, iReg)
 	c.TakeRegister(iReg)
 	c.assigns = append(c.assigns, func(src ir.Register) {
 		c.ReleaseRegister(tReg)
 		c.ReleaseRegister(iReg)
-		c.EmitInstr(e, ir.SetIndex{
+		c.emitInstr(e, ir.SetIndex{
 			Table: tReg,
 			Index: iReg,
 			Src:   src,
@@ -34,20 +34,20 @@ func (c *AssignCompiler) ProcessIndexExpVar(e ast.IndexExp) {
 }
 
 // ProcessNameVar compiles the expression as an L-value.
-func (c *AssignCompiler) ProcessNameVar(n ast.Name) {
+func (c *assignCompiler) ProcessNameVar(n ast.Name) {
 	reg, ok := c.GetRegister(ir.Name(n.Val))
 	if ok {
 		c.assigns = append(c.assigns, func(src ir.Register) {
-			c.EmitMove(n, reg, src)
+			c.emitMove(n, reg, src)
 		})
 	} else {
 		c.ProcessIndexExpVar(globalVar(n))
 	}
 }
 
-// CompileAssignments compiles a slice of ast.Var (L-values).
-func (c *Compiler) CompileAssignments(lvals []ast.Var, dsts []ir.Register) {
-	ac := AssignCompiler{Compiler: c, assigns: make([]Assign, 0, len(lvals))}
+// compileAssignments compiles a slice of ast.Var (L-values).
+func (c *compiler) compileAssignments(lvals []ast.Var, dsts []ir.Register) {
+	ac := assignCompiler{compiler: c, assigns: make([]assignFunc, 0, len(lvals))}
 	for _, lval := range lvals {
 		lval.ProcessVar(&ac)
 	}

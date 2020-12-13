@@ -5,19 +5,22 @@ import (
 	"github.com/arnodel/golua/ir"
 )
 
-func (c *Compiler) EmitInstr(l ast.Locator, instr ir.Instruction) {
+// These methods offer the convenience of not having to calculate the line
+// number when emitting instructions.
+
+func (c *compiler) emitInstr(l ast.Locator, instr ir.Instruction) {
 	c.CodeBuilder.Emit(instr, getLine(l))
 }
 
-func (c *Compiler) EmitJump(l ast.Locator, lbl ir.Name) {
+func (c *compiler) emitJump(l ast.Locator, lbl ir.Name) {
 	c.CodeBuilder.EmitJump(lbl, getLine(l))
 }
 
-func (c *Compiler) EmitLoadConst(l ast.Locator, k ir.Constant, reg ir.Register) {
+func (c *compiler) emitLoadConst(l ast.Locator, k ir.Constant, reg ir.Register) {
 	ir.EmitConstant(c.CodeBuilder, k, reg, getLine(l))
 }
 
-func (c *Compiler) EmitMove(l ast.Locator, dst, src ir.Register) {
+func (c *compiler) emitMove(l ast.Locator, dst, src ir.Register) {
 	ir.EmitMove(c.CodeBuilder, dst, src, getLine(l))
 }
 
