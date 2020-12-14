@@ -276,6 +276,8 @@ RunLoop:
 					res = String("")
 				case code.OpStr1:
 					res = String(opcode.GetL().ToStr1())
+				case code.OpBool:
+					res = Bool(opcode.GetL().ToBool())
 				case code.OpNil:
 					res = nil
 				case code.OpClear:

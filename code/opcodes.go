@@ -297,10 +297,23 @@ func (l Lit8) ToStr1() []byte {
 	return []byte{byte(l)}
 }
 
+// ToBool converts a Lit8 to a boolean.
+func (l Lit8) ToBool() bool {
+	return l != 0
+}
+
 // Lit8FromStr1 encodes a Lit8 from a byte string of length 1.  Panics if b has
 // length 0.
 func Lit8FromStr1(b []byte) Lit8 {
 	return Lit8(b[0])
+}
+
+// Lit8FromBool encodes a Lit8 from a bool.
+func Lit8FromBool(b bool) Lit8 {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // GetL decodes the L field of the opcode.
@@ -570,6 +583,8 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 			k = `""`
 		case OpStr1:
 			k = fmt.Sprintf("%q", c.GetL().ToStr1())
+		case OpBool:
+			k = fmt.Sprintf("%t", c.GetL().ToBool())
 		case OpNil:
 			k = "nil"
 		case OpClear:

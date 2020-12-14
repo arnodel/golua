@@ -86,9 +86,10 @@ func (ic instrCompiler) ProcessLoadConstInstr(l ir.LoadConst) {
 		opcode, inlined = code.LoadSmallInt(dst, int(kk))
 	case ir.String:
 		opcode, inlined = code.LoadShortString(dst, []byte(kk))
+	case ir.Bool:
+		opcode, inlined = code.LoadBool(dst, bool(kk)), true
 	case ir.NilType:
-		opcode = code.LoadNil(dst)
-		inlined = true
+		opcode, inlined = code.LoadNil(dst), true
 	}
 	if !inlined {
 		ckidx := ic.QueueConstant(l.Kidx)

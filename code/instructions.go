@@ -64,6 +64,11 @@ func LoadShortString(r Reg, b []byte) (Opcode, bool) {
 	return 0, false
 }
 
+// LoadBool encodes r <- true or r <- false.
+func LoadBool(r Reg, b bool) Opcode {
+	return mkType4b(Off, OpBool, r, Lit8FromBool(b))
+}
+
 // LoadEmptyTable encodes r <- {}
 func LoadEmptyTable(r Reg) Opcode {
 	return mkType4b(Off, OpTable, r, 0)
