@@ -232,12 +232,10 @@ const (
 	OpNeg      UnOp = iota // numerical negation
 	OpBitNot               // bitwise negation
 	OpLen                  // length
-	OpClosure              // make a closure for the code
 	OpCont                 // make a continuation for the closure
 	OpTailCont             // make a "tail continuation" for the closure (its next is cc's next)
 	OpId                   // identity
 	OpTruth                // Turn operand to boolean
-	OpCell                 // ?
 	OpNot                  // Added afterwards - why did I not have it in the first place?
 	OpUpvalue              // get an upvalue
 	OpEtcId                // etc identity
@@ -545,8 +543,6 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 				tpl = "~%s"
 			case OpLen:
 				tpl = "#%s"
-			case OpClosure:
-				tpl = "clos(%s)"
 			case OpCont:
 				tpl = "cont(%s)"
 			case OpTailCont:
@@ -557,8 +553,6 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 				tpl = "...%s"
 			case OpTruth:
 				tpl = "bool(%s)"
-			case OpCell:
-				tpl = "cell(%s)"
 			case OpNot:
 				tpl = "not %s"
 			case OpToNumber:

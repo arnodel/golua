@@ -228,9 +228,6 @@ RunLoop:
 					res, err = bnot(t, val)
 				case code.OpLen:
 					res, err = Len(t, val)
-				case code.OpClosure:
-					// TODO: Decide if needed
-					panic("unimplemented")
 				case code.OpCont:
 					res, err = Continue(t, val, c)
 				case code.OpTailCont:
@@ -251,9 +248,6 @@ RunLoop:
 					if tp == NaN {
 						err = NewErrorS("expected numeric value")
 					}
-				case code.OpCell:
-					// TODO: decide whether we need that
-					panic("unimplemented")
 				case code.OpNot:
 					res = Bool(!Truth(val))
 				case code.OpUpvalue:
