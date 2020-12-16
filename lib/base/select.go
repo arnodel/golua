@@ -10,16 +10,16 @@ func selectF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	n, err := c.IntArg(0)
 	if err != nil {
-		var s rt.String
+		var s string
 		s, err = c.StringArg(0)
 		if err != nil || s != "#" {
 			return nil, rt.NewErrorS("#1 must be an integer or '#'").AddContext(c)
 		}
-		return c.PushingNext(rt.Int(len(c.Etc()))), nil
+		return c.PushingNext(rt.IntValue(int64(len(c.Etc())))), nil
 	}
 	etc := c.Etc()
 	if n < 0 {
-		n += rt.Int(len(etc) + 1)
+		n += int64(len(etc)) + 1
 	}
 	if n < 1 {
 		return nil, rt.NewErrorS("#1 out of range").AddContext(c)

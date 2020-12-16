@@ -17,47 +17,66 @@ const (
 )
 
 // ToNumber returns x as a Float or Int, and the type (IsFloat, IsInt or NaN).
-func ToNumber(x Value) (Value, NumberType) {
-	switch xx := x.(type) {
-	case Int:
-		return x, IsInt
-	case Float:
-		return x, IsFloat
-	case String:
-		return String(strings.Trim(string(xx), " ")).ToNumber()
+func ToNumber(v Value) (int64, float64, NumberType) {
+	switch v.Type() {
+	case IntType:
+		return v.AsInt(), 0, IsInt
+	case FloatType:
+		return 0, v.AsFloat(), IsFloat
+	case StringType:
+		return stringToNumber(strings.Trim(v.AsString(), " "))
 	}
-	return x, NaN
+	return 0, 0, NaN
+}
+
+// ToNumberValue returns x as a Float or Int, and if it is a number.
+func ToNumberValue(v Value) (Value, NumberType) {
+	switch v.Type() {
+	case IntType:
+		return v, IsInt
+	case FloatType:
+		return v, IsFloat
+	case StringType:
+		n, f, tp := stringToNumber(strings.Trim(v.AsString(), " "))
+		switch tp {
+		case IsInt:
+			return IntValue(n), IsInt
+		case IsFloat:
+			return FloatValue(f), IsFloat
+		}
+	}
+	return NilValue, NaN
 }
 
 // ToInt returns v as an Int and true if v is actually a valid integer.
-func ToInt(v Value) (Int, bool) {
-	switch x := v.(type) {
-	case Int:
-		return x, true
-	case Float:
-		n, tp := x.ToInt()
+func ToInt(v Value) (int64, bool) {
+	switch v.Type() {
+	case IntType:
+		return v.AsInt(), true
+	case FloatType:
+		n, tp := floatToInt(v.AsFloat())
 		return n, tp == IsInt
-	case String:
-		n, tp := x.ToInt()
+	case StringType:
+		n, tp := stringToInt(v.AsString())
 		return n, tp == IsInt
 	}
 	return 0, false
 }
 
 // ToFloat returns v as a FLoat and true if v is a valid float.
-func ToFloat(v Value) (Float, bool) {
-	switch x := v.(type) {
-	case Int:
-		return Float(x), true
-	case Float:
-		return x, true
-	case String:
-		vv, tp := x.ToNumber()
+func ToFloat(v Value) (float64, bool) {
+	switch v.Type() {
+	case IntType:
+		return float64(v.AsInt()), true
+	case FloatType:
+		return v.AsFloat(), true
+	case StringType:
+		n, f, tp := stringToNumber(v.AsString())
 		switch tp {
 		case IsInt:
-			return Float(vv.(Int)), true
+			return float64(n), true
 		case IsFloat:
-			return vv.(Float), true
+			return f, true
 		}
 	}
 	return 0, false

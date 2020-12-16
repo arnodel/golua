@@ -5,9 +5,6 @@ import (
 	"strings"
 )
 
-// Value is a runtime value.
-type Value interface{}
-
 // Callable is the interface for callable values.
 type Callable interface {
 	Continuation(Cont) Cont
@@ -23,26 +20,13 @@ func ContWithArgs(c Callable, args []Value, next Cont) Cont {
 }
 
 //
-// Bool
-//
-
-// Bool is a runtime boolean value.
-type Bool bool
-
-// Int is a runtime integral numeric value.
-type Int int64
-
-//
 // Float
 //
 
-// Float is a runtime floating point numeric value.
-type Float float64
-
-// ToInt turns a Float into an Int if possible.
-func (f Float) ToInt() (Int, NumberType) {
-	n := Int(f)
-	if Float(n) == f {
+// floatToInt turns a float64 into an int64 if possible.
+func floatToInt(f float64) (int64, NumberType) {
+	n := int64(f)
+	if float64(n) == f {
 		return n, IsInt
 	}
 	return 0, NaI
@@ -52,45 +36,43 @@ func (f Float) ToInt() (Int, NumberType) {
 // String
 //
 
-// String is a runtime string value.
-type String string
-
-// ToInt turns a String into and Int if possible.
-func (s String) ToInt() (Int, NumberType) {
-	v, tp := s.ToNumber()
+// stringToInt turns a string into and int64 if possible.
+func stringToInt(s string) (int64, NumberType) {
+	n, f, tp := stringToNumber(s)
 	switch tp {
 	case IsInt:
-		return v.(Int), IsInt
+		return n, IsInt
 	case IsFloat:
-		return v.(Float).ToInt()
+		return floatToInt(f)
 	}
 	return 0, NaN
 }
 
-// ToNumber turns a String into a numeric value (Int or Float) if
-// possible.
-func (s String) ToNumber() (Value, NumberType) {
-	nstring := string(s)
-	if strings.ContainsAny(nstring, ".eE") {
-		f, err := strconv.ParseFloat(nstring, 64)
+func stringToNumber(s string) (n int64, f float64, tp NumberType) {
+	var err error
+	if strings.ContainsAny(s, ".eE") {
+		f, err = strconv.ParseFloat(s, 64)
 		if err != nil {
-			return nil, NaN
+			tp = NaN
+			return
 		}
-		return Float(f), IsFloat
+		tp = IsFloat
+		return
 	}
-	n, err := strconv.ParseInt(nstring, 0, 64)
+	n, err = strconv.ParseInt(s, 0, 64)
 	if err != nil {
-		return nil, NaN
+		tp = NaN
+		return
 	}
-	return Int(n), IsInt
+	tp = IsInt
+	return
 }
 
-// NormPos returns a normalised position in the string
+// stringNormPos returns a normalised position in the string
 // i.e. -1 -> len(s)
 //      -2 -> len(s) - 1
 // etc
-func (s String) NormPos(n Int) int {
-	p := int(n)
+func stringNormPos(s string, p int) int {
 	if p < 0 {
 		p = len(s) + 1 + p
 	}

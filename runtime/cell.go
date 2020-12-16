@@ -31,19 +31,3 @@ func (c Cell) Get() Value {
 func (c Cell) Set(v Value) {
 	*c.ref = v
 }
-
-func asCell(v Value) Cell {
-	c, ok := v.(Cell)
-	if ok {
-		return c
-	}
-	return Cell{&v}
-}
-
-func asValue(v Value) Value {
-	c, ok := v.(Cell)
-	if ok {
-		return *c.ref
-	}
-	return v
-}

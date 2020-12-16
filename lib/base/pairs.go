@@ -17,6 +17,6 @@ func pairs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		rt.Push(next, res.Etc()...)
 		return next, nil
 	}
-	rt.Push(next, nextGoFunc, coll, nil)
+	rt.Push(next, rt.FunctionValue(nextGoFunc), coll, rt.NilValue)
 	return next, nil
 }

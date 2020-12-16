@@ -39,7 +39,7 @@ func (c *Code) RefactorConsts() *Code {
 					newConst := c.consts[n]
 					if unop == code.OpClosureK {
 						// It's a closure so we need to refactor its consts
-						newConst = newConst.(*Code).RefactorConsts()
+						newConst = CodeValue(newConst.Value().AsCode().RefactorConsts())
 					}
 					consts = append(consts, newConst)
 				}
@@ -120,17 +120,17 @@ func LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 	for i, ck := range unit.Constants {
 		switch k := ck.(type) {
 		case code.Int:
-			constants[i] = Int(k)
+			constants[i] = IntValue(int64(k))
 		case code.Float:
-			constants[i] = Float(k)
+			constants[i] = FloatValue(float64(k))
 		case code.String:
-			constants[i] = String(k)
+			constants[i] = StringValue(string(k))
 		case code.Bool:
-			constants[i] = Bool(k)
+			constants[i] = BoolValue(bool(k))
 		case code.NilType:
 			// Do nothing as constants[i] == nil
 		case code.Code:
-			constants[i] = &Code{
+			constants[i] = CodeValue(&Code{
 				source:       unit.Source,
 				name:         k.Name,
 				code:         unit.Code[k.StartOffset:k.EndOffset],
@@ -140,12 +140,12 @@ func LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 				UpNames:      k.UpNames,
 				RegCount:     k.RegCount,
 				CellCount:    k.CellCount,
-			}
+			})
 		default:
 			panic("Unsupported constant type")
 		}
 	}
-	mainCode := constants[0].(*Code) // It must be some code
+	mainCode := constants[0].Value().AsCode() // It must be some code
 	clos := NewClosure(mainCode)
 	if mainCode.UpvalueCount > 0 {
 		clos.AddUpvalue(Cell{&env})

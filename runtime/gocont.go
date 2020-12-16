@@ -134,8 +134,8 @@ func (c *GoCont) CheckNArgs(n int) *Error {
 
 // StringArg returns the n-th argument as a string if possible, otherwise a
 // non-nil *Error.  No range check!
-func (c *GoCont) StringArg(n int) (String, *Error) {
-	s, ok := c.Arg(n).(String)
+func (c *GoCont) StringArg(n int) (string, *Error) {
+	s, ok := c.Arg(n).TryString()
 	if !ok {
 		return "", NewErrorF("#%d must be a string", n+1)
 	}
@@ -145,7 +145,7 @@ func (c *GoCont) StringArg(n int) (String, *Error) {
 // CallableArg returns the n-th argument as a callable if possible, otherwise a
 // non-nil *Error.  No range check!
 func (c *GoCont) CallableArg(n int) (Callable, *Error) {
-	f, ok := c.Arg(n).(Callable)
+	f, ok := c.Arg(n).TryCallable()
 	if !ok {
 		return nil, NewErrorF("#%d must be a callable", n+1)
 	}
@@ -155,7 +155,7 @@ func (c *GoCont) CallableArg(n int) (Callable, *Error) {
 // ClosureArg returns the n-th argument as a closure if possible, otherwise a
 // non-nil *Error.  No range check!
 func (c *GoCont) ClosureArg(n int) (*Closure, *Error) {
-	f, ok := c.Arg(n).(*Closure)
+	f, ok := c.Arg(n).TryClosure()
 	if !ok {
 		return nil, NewErrorF("#%d must be a lua function", n+1)
 	}
@@ -165,7 +165,7 @@ func (c *GoCont) ClosureArg(n int) (*Closure, *Error) {
 // ThreadArg returns the n-th argument as a thread if possible, otherwise a
 // non-nil *Error.  No range check!
 func (c *GoCont) ThreadArg(n int) (*Thread, *Error) {
-	t, ok := c.Arg(n).(*Thread)
+	t, ok := c.Arg(n).TryThread()
 	if !ok {
 		return nil, NewErrorF("#%d must be a thread", n+1)
 	}
@@ -174,7 +174,7 @@ func (c *GoCont) ThreadArg(n int) (*Thread, *Error) {
 
 // IntArg returns the n-th argument as an Int if possible, otherwise a
 // non-nil *Error.  No range check!
-func (c *GoCont) IntArg(n int) (Int, *Error) {
+func (c *GoCont) IntArg(n int) (int64, *Error) {
 	i, ok := ToInt(c.Arg(n))
 	if !ok {
 		return 0, NewErrorF("#%d must be an integer", n+1)
@@ -184,7 +184,7 @@ func (c *GoCont) IntArg(n int) (Int, *Error) {
 
 // FloatArg returns the n-th argument as a Float if possible, otherwise a
 // non-nil *Error.  No range check!
-func (c *GoCont) FloatArg(n int) (Float, *Error) {
+func (c *GoCont) FloatArg(n int) (float64, *Error) {
 	x, ok := ToFloat(c.Arg(n))
 	if !ok {
 		return 0, NewErrorF("#%d must be a number", n+1)
@@ -195,7 +195,7 @@ func (c *GoCont) FloatArg(n int) (Float, *Error) {
 // TableArg returns the n-th argument as a table if possible, otherwise a
 // non-nil *Error.  No range check!
 func (c *GoCont) TableArg(n int) (*Table, *Error) {
-	t, ok := c.Arg(n).(*Table)
+	t, ok := c.Arg(n).TryTable()
 	if !ok {
 		return nil, NewErrorF("#%d must be a table", n+1)
 	}
@@ -205,7 +205,7 @@ func (c *GoCont) TableArg(n int) (*Table, *Error) {
 // UserDataArg returns the n-th argument as a UserData if possible, otherwise a
 // non-nil *Error.  No range check!
 func (c *GoCont) UserDataArg(n int) (*UserData, *Error) {
-	t, ok := c.Arg(n).(*UserData)
+	t, ok := c.Arg(n).TryUserData()
 	if !ok {
 		return nil, NewErrorF("#%d must be userdata", n+1)
 	}

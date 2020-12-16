@@ -6,14 +6,14 @@ func RawEqual(x, y Value) (bool, bool) {
 	if x == y {
 		return true, true
 	}
-	switch xx := x.(type) {
-	case Int:
-		if yy, ok := y.(Float); ok {
-			return Float(xx) == yy, true
+	switch x.Type() {
+	case IntType:
+		if y.Type() == FloatType {
+			return float64(x.AsInt()) == y.AsFloat(), true
 		}
-	case Float:
-		if yy, ok := y.(Int); ok {
-			return xx == Float(yy), true
+	case FloatType:
+		if y.Type() == IntType {
+			return x.AsFloat() == float64(y.AsInt()), true
 		}
 	}
 	return false, false
@@ -23,12 +23,11 @@ func eq(t *Thread, x, y Value) (bool, *Error) {
 	if res, ok := RawEqual(x, y); ok {
 		return res, nil
 	}
-	switch x.(type) {
-	case *Table:
-		if _, ok := y.(*Table); !ok {
+	switch x.Type() {
+	case TableType:
+		if y.Type() != TableType {
 			return false, nil
 		}
-
 	// case *UserData:
 	//     deal with that!
 	default:
@@ -44,24 +43,24 @@ func eq(t *Thread, x, y Value) (bool, *Error) {
 // Lt returns whether x < y is true (and an error if it's not possible to
 // compare them).
 func Lt(t *Thread, x, y Value) (bool, *Error) {
-	switch xx := x.(type) {
-	case Int:
-		switch yy := y.(type) {
-		case Int:
-			return xx < yy, nil
-		case Float:
-			return Float(xx) < yy, nil
+	switch x.Type() {
+	case IntType:
+		switch y.Type() {
+		case IntType:
+			return x.AsInt() < y.AsInt(), nil
+		case FloatType:
+			return float64(x.AsInt()) < y.AsFloat(), nil
 		}
-	case Float:
-		switch yy := y.(type) {
-		case Int:
-			return xx < Float(yy), nil
-		case Float:
-			return xx < yy, nil
+	case FloatType:
+		switch y.Type() {
+		case IntType:
+			return x.AsFloat() < float64(y.AsInt()), nil
+		case FloatType:
+			return x.AsFloat() < y.AsFloat(), nil
 		}
-	case String:
-		if yy, ok := y.(String); ok {
-			return xx < yy, nil
+	case StringType:
+		if y.Type() == StringType {
+			return x.AsString() < y.AsString(), nil
 		}
 	}
 	res, err, ok := metabin(t, "__lt", x, y)
@@ -72,24 +71,24 @@ func Lt(t *Thread, x, y Value) (bool, *Error) {
 }
 
 func le(t *Thread, x, y Value) (bool, *Error) {
-	switch xx := x.(type) {
-	case Int:
-		switch yy := y.(type) {
-		case Int:
-			return xx <= yy, nil
-		case Float:
-			return Float(xx) <= yy, nil
+	switch x.Type() {
+	case IntType:
+		switch y.Type() {
+		case IntType:
+			return x.AsInt() <= y.AsInt(), nil
+		case FloatType:
+			return float64(x.AsInt()) <= y.AsFloat(), nil
 		}
-	case Float:
-		switch yy := y.(type) {
-		case Int:
-			return xx <= Float(yy), nil
-		case Float:
-			return xx <= yy, nil
+	case FloatType:
+		switch y.Type() {
+		case IntType:
+			return x.AsFloat() <= float64(y.AsInt()), nil
+		case FloatType:
+			return x.AsFloat() <= y.AsFloat(), nil
 		}
-	case String:
-		if yy, ok := y.(String); ok {
-			return xx <= yy, nil
+	case StringType:
+		if y.Type() == StringType {
+			return x.AsString() <= y.AsString(), nil
 		}
 	}
 	res, err, ok := metabin(t, "__le", x, y)

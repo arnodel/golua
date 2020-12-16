@@ -21,7 +21,7 @@ func NewError(message Value) *Error {
 
 // NewErrorS returns a new error with a string message and no context.
 func NewErrorS(msg string) *Error {
-	return NewError(String(msg))
+	return NewError(StringValue(msg))
 }
 
 // NewErrorE returns a new error with a string message (the error message) and

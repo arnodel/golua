@@ -30,11 +30,11 @@ func NewLuaCont(clos *Closure, next Cont) *LuaCont {
 		cells = globalRegPool.getCells(int(clos.CellCount))
 		copy(cells, clos.Upvalues)
 		for i := clos.UpvalueCount; i < clos.CellCount; i++ {
-			cells[i] = NewCell(nil)
+			cells[i] = NewCell(NilValue)
 		}
 	}
 	registers := globalRegPool.getRegs(int(clos.RegCount))
-	registers[0] = next
+	registers[0] = ContValue(next)
 	cont := globalLuaContPool.get()
 	*cont = LuaCont{
 		Closure:       clos,
@@ -77,7 +77,7 @@ func (c *LuaCont) PushEtc(vals []Value) {
 
 // Next implements Cont.Next.
 func (c *LuaCont) Next() Cont {
-	next, ok := c.registers[0].(Cont)
+	next, ok := c.registers[0].TryCont()
 	if !ok {
 		return nil
 	}
@@ -137,15 +137,15 @@ RunLoop:
 			case code.OpEq:
 				var r bool
 				r, err = eq(t, x, y)
-				res = Bool(r)
+				res = BoolValue(r)
 			case code.OpLt:
 				var r bool
 				r, err = Lt(t, x, y)
-				res = Bool(r)
+				res = BoolValue(r)
 			case code.OpLeq:
 				var r bool
 				r, err = le(t, x, y)
-				res = Bool(r)
+				res = BoolValue(r)
 
 			// Concatenation
 
@@ -166,9 +166,9 @@ RunLoop:
 			dst := opcode.GetA()
 			if opcode.GetF() {
 				// It's an etc
-				c.setReg(dst, c.acc)
+				c.setReg(dst, ArrayValue(c.acc))
 			} else {
-				c.setReg(dst, nil)
+				c.setReg(dst, NilValue)
 			}
 			pc++
 			continue RunLoop
@@ -195,20 +195,20 @@ RunLoop:
 			var val Value
 			switch opcode.GetY() {
 			case code.OpInt16:
-				val = Int(n)
+				val = IntValue(int64(n))
 			case code.OpStr2:
-				val = String(code.Lit16(n).ToStr2())
+				val = StringValue(string(code.Lit16(n).ToStr2()))
 			case code.OpK:
-				val = consts[n]
+				val = consts[n].Value()
 			case code.OpClosureK:
-				val = NewClosure(consts[n].(*Code))
+				val = FunctionValue(NewClosure(consts[n].Value().AsCode()))
 			default:
 				panic("Unsupported opcode")
 			}
 			dst := opcode.GetA()
 			if opcode.GetF() {
 				// dst must contain a continuation
-				cont := c.getReg(dst).(Cont)
+				cont := c.getReg(dst).AsCont()
 				cont.Push(val)
 			} else {
 				c.setReg(dst, val)
@@ -229,31 +229,35 @@ RunLoop:
 				case code.OpLen:
 					res, err = Len(t, val)
 				case code.OpCont:
-					res, err = Continue(t, val, c)
+					var cont Cont
+					cont, err = Continue(t, val, c)
+					res = ContValue(cont)
 				case code.OpTailCont:
-					res, err = Continue(t, val, c.Next())
+					var cont Cont
+					cont, err = Continue(t, val, c.Next())
+					res = ContValue(cont)
 				case code.OpId:
 					res = val
 				case code.OpEtcId:
 					// We assume it's a push?
-					cont := c.getReg(dst).(Cont)
-					cont.PushEtc(val.([]Value))
+					cont := c.getReg(dst).AsCont()
+					cont.PushEtc(val.AsArray())
 					pc++
 					continue RunLoop
 				case code.OpTruth:
-					res = Bool(Truth(val))
+					res = BoolValue(Truth(val))
 				case code.OpToNumber:
 					var tp NumberType
-					res, tp = ToNumber(val)
+					res, tp = ToNumberValue(val)
 					if tp == NaN {
 						err = NewErrorS("expected numeric value")
 					}
 				case code.OpNot:
-					res = Bool(!Truth(val))
+					res = BoolValue(!Truth(val))
 				case code.OpUpvalue:
 					// TODO: wasteful as we already have got getReg
 					cell := c.getRegCell(opcode.GetB())
-					c.getReg(dst).(*Closure).AddUpvalue(cell)
+					c.getReg(dst).AsClosure().AddUpvalue(cell)
 					pc++
 					continue RunLoop
 				default:
@@ -263,17 +267,17 @@ RunLoop:
 				// Type 4b
 				switch code.UnOpK(opcode.GetUnOp()) {
 				case code.OpCC:
-					res = c
+					res = ContValue(c)
 				case code.OpTable:
-					res = NewTable()
+					res = TableValue(NewTable())
 				case code.OpStr0:
-					res = String("")
+					res = StringValue("")
 				case code.OpStr1:
-					res = String(opcode.GetL().ToStr1())
+					res = StringValue(string(opcode.GetL().ToStr1()))
 				case code.OpBool:
-					res = Bool(opcode.GetL().ToBool())
+					res = BoolValue(opcode.GetL().ToBool())
 				case code.OpNil:
-					res = nil
+					res = NilValue
 				case code.OpClear:
 					// Special case: clear reg
 					c.clearReg(dst)
@@ -287,7 +291,7 @@ RunLoop:
 				return nil, err.AddContext(c)
 			}
 			if opcode.GetF() {
-				c.getReg(dst).(Cont).Push(res)
+				c.getReg(dst).AsCont().Push(res)
 			} else {
 				c.setReg(dst, res)
 			}
@@ -312,7 +316,7 @@ RunLoop:
 				c.acc = nil
 				c.running = false
 				contReg := opcode.GetA()
-				next := c.getReg(contReg).(Cont)
+				next := c.getReg(contReg).AsCont()
 				// We clear the register containing the continuation to allow
 				// garbage collection.  A continuation can only be called once
 				// anyway, so that's ok semantically.
@@ -327,16 +331,16 @@ RunLoop:
 			}
 		case code.Type6Pfx:
 			dst := opcode.GetA()
-			etc := c.getReg(opcode.GetB()).([]Value)
+			etc := c.getReg(opcode.GetB()).AsArray()
 			idx := int(opcode.GetM())
 			var val Value
 			if idx < len(etc) {
 				val = etc[idx]
 			}
 			if opcode.GetF() {
-				tbl := c.getReg(dst).(*Table)
+				tbl := c.getReg(dst).AsTable()
 				for i, v := range etc {
-					tbl.Set(Int(i+idx), v)
+					tbl.Set(IntValue(int64(i+idx)), v)
 				}
 			} else {
 				c.setReg(dst, val)
@@ -394,8 +398,8 @@ func (c *LuaCont) getRegCell(reg code.Reg) Cell {
 
 func (c *LuaCont) clearReg(reg code.Reg) {
 	if reg.IsCell() {
-		c.cells[reg.Idx()] = NewCell(nil)
+		c.cells[reg.Idx()] = NewCell(NilValue)
 	} else {
-		c.registers[reg.Idx()] = nil
+		c.registers[reg.Idx()] = NilValue
 	}
 }

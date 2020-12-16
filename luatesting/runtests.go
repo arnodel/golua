@@ -17,12 +17,12 @@ import (
 func RunSource(r *runtime.Runtime, source []byte) {
 	t := r.MainThread()
 	// TODO: use the file name
-	clos, err := runtime.CompileAndLoadLuaChunk("luatest", source, r.GlobalEnv())
+	clos, err := runtime.CompileAndLoadLuaChunk("luatest", source, runtime.TableValue(r.GlobalEnv()))
 	if err != nil {
 		fmt.Fprintf(r.Stdout, "!!! parsing: %s", err)
 		return
 	}
-	cerr := runtime.Call(t, clos, nil, runtime.NewTerminationWith(0, false))
+	cerr := runtime.Call(t, runtime.FunctionValue(clos), nil, runtime.NewTerminationWith(0, false))
 	if cerr != nil {
 		fmt.Fprintf(r.Stdout, "!!! runtime: %s", cerr)
 	}

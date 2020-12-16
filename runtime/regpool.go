@@ -65,7 +65,7 @@ func (p *regPool) releaseRegs(r []Value) {
 	for i := 0; i < regPoolSize; i++ {
 		if p.regExps[i] < p.regGen {
 			for i := range r {
-				r[i] = nil
+				r[i] = NilValue
 			}
 			p.regs[i] = r
 			p.regExps[i] = p.regGen + maxAge
