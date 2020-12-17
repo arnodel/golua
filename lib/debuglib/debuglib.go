@@ -50,7 +50,7 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		cont = arg.AsFunction().Continuation(term)
 	case rt.FloatType:
 		var tp rt.NumberType
-		idx, tp = arg.ToInt()
+		idx, tp = rt.FloatToInt(arg.AsFloat())
 		if tp != rt.IsInt {
 			return nil, rt.NewErrorS("f should be an integer or function").AddContext(c)
 		}

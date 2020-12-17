@@ -24,6 +24,6 @@ func main() {
 	regexlib.LibLoader.Run(r)   // Load our example lib
 
 	// Now compile and run the lua code
-	chunk, _ := rt.CompileAndLoadLuaChunk("test", []byte(code), r.GlobalEnv())
-	_, _ = rt.Call1(r.MainThread(), chunk)
+	chunk, _ := rt.CompileAndLoadLuaChunk("test", []byte(code), rt.TableValue(r.GlobalEnv()))
+	_, _ = rt.Call1(r.MainThread(), rt.FunctionValue(chunk))
 }

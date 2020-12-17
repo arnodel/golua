@@ -54,7 +54,7 @@ func ToInt(v Value) (int64, bool) {
 	case IntType:
 		return v.AsInt(), true
 	case FloatType:
-		n, tp := floatToInt(v.AsFloat())
+		n, tp := FloatToInt(v.AsFloat())
 		return n, tp == IsInt
 	case StringType:
 		n, tp := stringToInt(v.AsString())

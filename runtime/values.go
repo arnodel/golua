@@ -23,8 +23,8 @@ func ContWithArgs(c Callable, args []Value, next Cont) Cont {
 // Float
 //
 
-// floatToInt turns a float64 into an int64 if possible.
-func floatToInt(f float64) (int64, NumberType) {
+// FloatToInt turns a float64 into an int64 if possible.
+func FloatToInt(f float64) (int64, NumberType) {
 	n := int64(f)
 	if float64(n) == f {
 		return n, IsInt
@@ -43,7 +43,7 @@ func stringToInt(s string) (int64, NumberType) {
 	case IsInt:
 		return n, IsInt
 	case IsFloat:
-		return floatToInt(f)
+		return FloatToInt(f)
 	}
 	return 0, NaN
 }

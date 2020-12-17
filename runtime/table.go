@@ -44,7 +44,7 @@ func (t *Table) SetMetatable(m *Table) {
 // Get returns t[k].
 func (t *Table) Get(k Value) Value {
 	if x, ok := k.TryFloat(); ok {
-		if n, tp := floatToInt(x); tp == IsInt {
+		if n, tp := FloatToInt(x); tp == IsInt {
 			k = IntValue(n)
 		}
 	}
@@ -58,7 +58,7 @@ func (t *Table) Set(k, v Value) {
 		t.setInt(k.AsInt(), v)
 		return
 	case FloatType:
-		if n, tp := floatToInt(k.AsFloat()); tp == IsInt {
+		if n, tp := FloatToInt(k.AsFloat()); tp == IsInt {
 			t.setInt(n, v)
 			return
 		}
