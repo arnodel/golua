@@ -13,6 +13,7 @@ const (
 	BoolType
 	StringType
 	TableType
+	CodeType
 	FunctionType
 	ThreadType
 	UserDataType
@@ -137,6 +138,8 @@ func (v Value) Type() ValueType {
 		return StringType
 	case *Table:
 		return TableType
+	case *Code:
+		return CodeType
 	case Callable:
 		return FunctionType
 	case *Thread:

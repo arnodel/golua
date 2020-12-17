@@ -52,7 +52,7 @@ func LoadConst(r io.Reader) (Konst, error) {
 		}
 		return BoolValue(x), nil
 	case constTypeNil:
-		return nil, nil
+		return NilValue, nil
 	case constTypeCode:
 		x := new(Code)
 		if err := x.loadKonst(r); err != nil {
@@ -92,7 +92,12 @@ func (v Value) writeKonst(w io.Writer) error {
 		if err == nil {
 			err = swrite(w, v.AsString())
 		}
-
+	case NilType:
+		_, err = w.Write([]byte{constTypeNil})
+	case CodeType:
+		err = v.AsCode().writeKonst(w)
+	default:
+		panic("invalid value type")
 	}
 	return err
 }
