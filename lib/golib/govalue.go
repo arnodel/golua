@@ -286,8 +286,9 @@ func valueToType(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, erro
 			}
 		}
 	case reflect.Interface:
-		if reflect.TypeOf(v).Implements(tp) {
-			return reflect.ValueOf(v), nil
+		iface := v.Interface()
+		if reflect.TypeOf(iface).Implements(tp) {
+			return reflect.ValueOf(iface), nil
 		}
 	}
 	return reflect.Value{}, fmt.Errorf("%+v cannot be converted to %s", v, tp.Name())
