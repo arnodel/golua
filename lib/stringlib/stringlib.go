@@ -9,6 +9,7 @@ import (
 
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
+	pkgVal := rt.TableValue(pkg)
 	rt.SetEnvGoFunc(pkg, "byte", bytef, 3, false)
 	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
 	rt.SetEnvGoFunc(pkg, "dump", dump, 2, false)
@@ -28,10 +29,10 @@ func load(r *rt.Runtime) rt.Value {
 	rt.SetEnvGoFunc(pkg, "unpack", unpack, 3, false)
 
 	stringMeta := rt.NewTable()
-	rt.SetEnv(stringMeta, "__index", pkg)
+	rt.SetEnv(stringMeta, "__index", pkgVal)
 	r.SetStringMeta(stringMeta)
 
-	return pkg
+	return pkgVal
 }
 
 // LibLoader specifies how to load the string lib
@@ -68,7 +69,7 @@ func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil {
 			return nil, err.AddContext(c)
 		}
-		i = s.NormPos(ii)
+		i = rt.StringNormPos(s, int(ii))
 		j = i
 	}
 	if c.NArgs() >= 3 {
@@ -76,13 +77,13 @@ func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil {
 			return nil, err.AddContext(c)
 		}
-		j = s.NormPos(jj)
+		j = rt.StringNormPos(s, int(jj))
 	}
 	next := c.Next()
 	i = maxpos(1, i)
 	j = minpos(len(s), j)
 	for i <= j {
-		next.Push(rt.Int(s[i-1]))
+		next.Push(rt.IntValue(int64(s[i-1])))
 		i++
 	}
 	return next, nil
@@ -101,7 +102,7 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		buf[i] = byte(x)
 	}
-	return c.PushingNext(rt.String(buf)), nil
+	return c.PushingNext(rt.StringValue(string(buf))), nil
 }
 
 func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -112,7 +113,7 @@ func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	return c.PushingNext(rt.Int(len(s))), nil
+	return c.PushingNext(rt.IntValue(int64(len(s)))), nil
 }
 
 func lower(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -123,8 +124,8 @@ func lower(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	s = rt.String(strings.ToLower(string(s)))
-	return c.PushingNext(s), nil
+	s = strings.ToLower(string(s))
+	return c.PushingNext(rt.StringValue(s)), nil
 }
 
 func upper(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -135,8 +136,8 @@ func upper(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	s = rt.String(strings.ToUpper(string(s)))
-	return c.PushingNext(s), nil
+	s = strings.ToUpper(string(s))
+	return c.PushingNext(rt.StringValue(s)), nil
 }
 
 func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -164,17 +165,17 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		sep = []byte(lsep)
 	}
 	if n == 0 {
-		return c.PushingNext(rt.String("")), nil
+		return c.PushingNext(rt.StringValue("")), nil
 	}
 	if n == 1 {
-		return c.PushingNext(ls), nil
+		return c.PushingNext(rt.StringValue(ls)), nil
 	}
 	if sep == nil {
 		if len(ls)*n/n != len(ls) {
 			// Overflow
 			return nil, rt.NewErrorS("rep causes overflow").AddContext(c)
 		}
-		return c.PushingNext(rt.String(strings.Repeat(string(ls), n))), nil
+		return c.PushingNext(rt.StringValue(strings.Repeat(string(ls), n))), nil
 	}
 	s := []byte(ls)
 	builder := strings.Builder{}
@@ -194,7 +195,7 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		builder.Write(sep)
 		builder.Write(s)
 	}
-	return c.PushingNext(rt.String(builder.String())), nil
+	return c.PushingNext(rt.StringValue(builder.String())), nil
 }
 
 func reverse(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -210,7 +211,7 @@ func reverse(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	for i := 0; 2*i <= l; i++ {
 		sb[i], sb[l-i] = sb[l-i], sb[i]
 	}
-	return c.PushingNext(rt.String(sb)), nil
+	return c.PushingNext(rt.StringValue(string(sb))), nil
 }
 
 func sub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -225,20 +226,20 @@ func sub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	i := s.NormPos(ii)
+	i := rt.StringNormPos(s, int(ii))
 	j := len(s)
 	if c.NArgs() >= 3 {
 		jj, err := c.IntArg(2)
 		if err != nil {
 			return nil, err.AddContext(c)
 		}
-		j = s.NormPos(jj)
+		j = rt.StringNormPos(s, int(jj))
 	}
-	var slice rt.String
+	var slice string
 	i = maxpos(1, i)
 	j = minpos(len(s), j)
 	if i <= len(s) && i <= j {
 		slice = s[i-1 : j]
 	}
-	return c.PushingNext(slice), nil
+	return c.PushingNext(rt.StringValue(slice)), nil
 }

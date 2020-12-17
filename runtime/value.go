@@ -30,6 +30,44 @@ var (
 	dummyBool    interface{} = false
 )
 
+func AsValue(i interface{}) Value {
+	if i == nil {
+		return NilValue
+	}
+	switch x := i.(type) {
+	case int64:
+		return IntValue(x)
+	case int:
+		return IntValue(int64(x))
+	case float64:
+		return FloatValue(x)
+	case float32:
+		return FloatValue(float64(x))
+	case bool:
+		return BoolValue(x)
+	case Value:
+		return x
+	default:
+		return Value{iface: i}
+	}
+}
+
+func (v Value) Interface() interface{} {
+	if v.iface == nil {
+		return nil
+	}
+	switch v.iface.(type) {
+	case int64:
+		return v.AsInt()
+	case float64:
+		return v.AsFloat()
+	case bool:
+		return v.AsBool()
+	default:
+		return v.iface
+	}
+}
+
 func IntValue(n int64) Value {
 	return Value{uint64(n), dummyInt64}
 }
@@ -70,6 +108,18 @@ func CodeValue(c *Code) Value {
 	return Value{iface: c}
 }
 
+func ThreadValue(t *Thread) Value {
+	return Value{iface: t}
+}
+
+func LightUserDataValue(d LightUserData) Value {
+	return Value{iface: d}
+}
+
+func UserDataValue(u *UserData) Value {
+	return Value{iface: u}
+}
+
 var NilValue = Value{}
 
 func (v Value) Type() ValueType {
@@ -96,6 +146,16 @@ func (v Value) Type() ValueType {
 	default:
 		return UnknownType
 	}
+}
+
+func (v Value) NumberType() ValueType {
+	switch v.iface.(type) {
+	case int64:
+		return IntType
+	case float64:
+		return FloatType
+	}
+	return UnknownType
 }
 
 func (v Value) AsInt() int64 {
@@ -136,6 +196,10 @@ func (v Value) AsCode() *Code {
 
 func (v Value) AsUserData() *UserData {
 	return v.iface.(*UserData)
+}
+
+func (v Value) AsFunction() Callable {
+	return v.iface.(Callable)
 }
 
 func (v Value) TryInt() (n int64, ok bool) {

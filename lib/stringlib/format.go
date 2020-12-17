@@ -19,7 +19,7 @@ func format(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	return c.PushingNext(s), nil
+	return c.PushingNext(rt.StringValue(s)), nil
 }
 
 var errNotEnoughValues = rt.NewErrorS("not enough values for format string")
@@ -29,7 +29,7 @@ var errNotEnoughValues = rt.NewErrorS("not enough values for format string")
 // It works by scanning the verbs in the format string and converting
 // the argument corresponding to this verb to the correct type, then
 // calling Go's fmt.Sprintf().
-func Format(t *rt.Thread, format rt.String, values []rt.Value) (rt.String, *rt.Error) {
+func Format(t *rt.Thread, format string, values []rt.Value) (string, *rt.Error) {
 	args := make([]interface{}, len(values))
 	j := 0
 	outFormat := []byte(format)
@@ -44,11 +44,11 @@ OuterLoop:
 					continue OuterLoop
 				case 'c':
 					if len(args) <= j {
-						return rt.String(""), errNotEnoughValues
+						return "", errNotEnoughValues
 					}
 					n, ok := rt.ToInt(values[j])
 					if !ok {
-						return rt.String(""), rt.NewErrorS("invalid value for integer format")
+						return "", rt.NewErrorS("invalid value for integer format")
 					}
 					arg = []byte{byte(n)}
 					outFormat[i] = 's'
@@ -56,11 +56,11 @@ OuterLoop:
 				case 'b', 'd', 'o', 'x', 'X', 'U', 'i', 'u':
 					// integer verbs
 					if len(args) <= j {
-						return rt.String(""), errNotEnoughValues
+						return "", errNotEnoughValues
 					}
 					n, ok := rt.ToInt(values[j])
 					if !ok {
-						return rt.String(""), rt.NewErrorS("invalid value for integer format")
+						return "", rt.NewErrorS("invalid value for integer format")
 					}
 					switch format[i] {
 					case 'u':
@@ -80,17 +80,17 @@ OuterLoop:
 				case 'e', 'E', 'f', 'F', 'g', 'G':
 					// float verbs
 					if len(args) <= j {
-						return rt.String(""), errNotEnoughValues
+						return "", errNotEnoughValues
 					}
 					f, ok := rt.ToFloat(values[j])
 					if !ok {
-						return rt.String(""), rt.NewErrorS("invalid value for float format")
+						return "", rt.NewErrorS("invalid value for float format")
 					}
 					arg = float64(f)
 					break ArgLoop
 				case 's':
 					if len(args) <= j {
-						return rt.String(""), errNotEnoughValues
+						return "", errNotEnoughValues
 					}
 					s, err := base.ToString(t, values[j])
 					if err != nil {
@@ -101,10 +101,10 @@ OuterLoop:
 				case 'q':
 					// quote, only for literals I think
 					if len(args) <= j {
-						return rt.String(""), errNotEnoughValues
+						return "", errNotEnoughValues
 					}
 					v := values[j]
-					if s, ok := v.(rt.String); ok {
+					if s, ok := v.TryString(); ok {
 						arg = string(s)
 					} else {
 						s, ok := rt.AsString(v)
@@ -119,11 +119,11 @@ OuterLoop:
 				case 't':
 					// boolean verb
 					if len(args) <= j {
-						return rt.String(""), errNotEnoughValues
+						return "", errNotEnoughValues
 					}
-					b, ok := values[j].(rt.Bool)
+					b, ok := values[j].TryBool()
 					if !ok {
-						return rt.String(""), rt.NewErrorS("invalid value for boolean format")
+						return "", rt.NewErrorS("invalid value for boolean format")
 					}
 					arg = bool(b)
 					break ArgLoop
@@ -132,7 +132,7 @@ OuterLoop:
 					continue
 				default:
 					// Unrecognised verbs
-					return rt.String(""), rt.NewErrorS("invalid format string")
+					return "", rt.NewErrorS("invalid format string")
 				}
 			}
 			args[j] = arg
@@ -142,5 +142,5 @@ OuterLoop:
 	if j < len(args) {
 		args = args[:j]
 	}
-	return rt.String(fmt.Sprintf(string(outFormat), args...)), nil
+	return fmt.Sprintf(string(outFormat), args...), nil
 }

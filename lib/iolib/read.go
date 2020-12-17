@@ -50,7 +50,7 @@ func getFormatReader(fmt rt.Value) (reader formatReader, err error) {
 			return nil, errFormatOutOfRange
 		}
 		reader = func(f *File) (rt.Value, error) { return f.Read(int(n)) }
-	} else if s, ok := fmt.(rt.String); ok && len(s) > 0 {
+	} else if s, ok := fmt.TryString(); ok && len(s) > 0 {
 		switch s[0] {
 		case 'n':
 			reader = (*File).ReadNumber

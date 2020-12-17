@@ -33,7 +33,7 @@ func twice(f func(int) int) func(int) int {
 
 func setup(r *rt.Runtime) {
 	g := r.GlobalEnv()
-	rt.SetEnv(g, "hello", rt.String("world"))
+	rt.SetEnv(g, "hello", rt.StringValue("world"))
 	rt.SetEnv(g, "double", golib.NewGoValue(r, func(x int) int { return 2 * x }))
 	rt.SetEnv(g, "polly", golib.NewGoValue(r, TestStruct{Age: 10, Name: "Polly"}))
 	rt.SetEnv(g, "ben", golib.NewGoValue(r, &TestStruct{Age: 5, Name: "Ben"}))

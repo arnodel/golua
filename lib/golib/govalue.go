@@ -32,35 +32,35 @@ func goIndex(t *rt.Thread, u *rt.UserData, key rt.Value) (rt.Value, error) {
 	case reflect.Ptr:
 		gv = gv.Elem()
 		if gv.Kind() != reflect.Struct {
-			return nil, errors.New("can only index a pointer when to a struct")
+			return rt.NilValue, errors.New("can only index a pointer when to a struct")
 		}
 		fallthrough
 	case reflect.Struct:
 		if !ok {
-			return nil, errors.New("can only index a struct with a string")
+			return rt.NilValue, errors.New("can only index a struct with a string")
 		}
 		f := gv.FieldByName(string(field))
 		if f != (reflect.Value{}) {
 			return reflectToValue(f, meta), nil
 		}
-		return nil, fmt.Errorf("no field or method with name %q", field)
+		return rt.NilValue, fmt.Errorf("no field or method with name %q", field)
 	case reflect.Map:
 		goV, err := valueToType(t, key, gv.Type().Key())
 		if err != nil {
-			return nil, fmt.Errorf("map index or incorrect type: %s", err)
+			return rt.NilValue, fmt.Errorf("map index or incorrect type: %s", err)
 		}
 		return reflectToValue(gv.MapIndex(goV), meta), nil
 	case reflect.Slice:
 		i, ok := rt.ToInt(key)
 		if !ok {
-			return nil, errors.New("slice index must be an integer")
+			return rt.NilValue, errors.New("slice index must be an integer")
 		}
 		if i < 0 || int(i) >= gv.Len() {
-			return nil, errors.New("index out of slice bounds")
+			return rt.NilValue, errors.New("index out of slice bounds")
 		}
 		return reflectToValue(gv.Index(int(i)), meta), nil
 	}
-	return nil, errors.New("unable to index")
+	return rt.NilValue, errors.New("unable to index")
 }
 
 // SetIndex tries to set the value of the index given by key to val.  This could
@@ -179,17 +179,17 @@ func goCall(t *rt.Thread, u *rt.UserData, args []rt.Value) (res []rt.Value, err 
 
 func fillStruct(t *rt.Thread, s reflect.Value, v rt.Value) error {
 	var ok bool
-	tbl, ok := v.(*rt.Table)
+	tbl, ok := v.TryTable()
 	if !ok {
 		return errors.New("fillStruct: can only fill from a table")
 	}
 	var fk, fv rt.Value
 	for {
 		fk, fv, ok = tbl.Next(fk)
-		if !ok || fk == nil {
+		if !ok || fk.IsNil() {
 			break
 		}
-		name, ok := fk.(rt.String)
+		name, ok := fk.TryString()
 		if !ok {
 			return errors.New("fillStruct: table fields must be strings")
 		}
@@ -233,7 +233,7 @@ func valueToFunc(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, erro
 
 func valueToType(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, error) {
 	// Fist we deal with UserData
-	if u, ok := v.(*rt.UserData); ok {
+	if u, ok := v.TryUserData(); ok {
 		gv := reflect.ValueOf(u.Value())
 		if gv.Type().AssignableTo(tp) {
 			return gv, nil
@@ -280,7 +280,7 @@ func valueToType(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, erro
 		return reflect.ValueOf(rt.Truth(v)), nil
 	case reflect.Slice:
 		if tp.Elem().Kind() == reflect.Uint8 {
-			s, ok := v.(rt.String)
+			s, ok := v.TryString()
 			if ok {
 				return reflect.ValueOf([]byte(s)), nil
 			}
@@ -295,30 +295,30 @@ func valueToType(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, erro
 
 func reflectToValue(v reflect.Value, meta *rt.Table) rt.Value {
 	if v == (reflect.Value{}) {
-		return nil
+		return rt.NilValue
 	}
 	switch v.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return rt.Int(v.Int())
+		return rt.IntValue(v.Int())
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return rt.Int(v.Uint())
+		return rt.IntValue(int64(v.Uint()))
 	case reflect.Float32, reflect.Float64:
-		return rt.Float(v.Float())
+		return rt.FloatValue(v.Float())
 	case reflect.String:
-		return rt.String(v.String())
+		return rt.StringValue(v.String())
 	case reflect.Bool:
-		return rt.Bool(v.Bool())
+		return rt.BoolValue(v.Bool())
 	case reflect.Slice:
 		if v.Type().Elem().Kind() == reflect.Uint8 {
-			return rt.String(v.Interface().([]byte))
+			return rt.StringValue(string(v.Interface().([]byte)))
 		}
 	case reflect.Ptr:
 		switch x := v.Interface().(type) {
 		case *rt.Table:
-			return x
+			return rt.TableValue(x)
 		case *rt.UserData:
-			return x
+			return rt.UserDataValue(x)
 		}
 	}
-	return rt.NewUserData(v.Interface(), meta)
+	return rt.UserDataValue(rt.NewUserData(v.Interface(), meta))
 }

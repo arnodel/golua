@@ -93,16 +93,18 @@ func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if perr != nil {
 		return nil, rt.NewErrorE(perr).AddContext(c)
 	}
-	return c.PushingNext(rt.String(res)), nil
+	return c.PushingNext(rt.StringValue(res)), nil
 }
 
 func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err.AddContext(c)
 	}
-	var format, pack rt.String
-	var n rt.Int = 1
-	var err *rt.Error
+	var (
+		format, pack string
+		n            int64 = 1
+		err          *rt.Error
+	)
 	format, err = c.StringArg(0)
 	if err == nil {
 		pack, err = c.StringArg(1)
@@ -110,7 +112,7 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err == nil && c.NArgs() >= 3 {
 		n, err = c.IntArg(2)
 	}
-	i := pack.NormPos(n) - 1
+	i := rt.StringNormPos(pack, int(n)) - 1
 	if i < 0 || i > len(pack) {
 		err = rt.NewErrorS("#3 out of string")
 	}
@@ -123,7 +125,7 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	next := c.Next()
 	rt.Push(next, vals...)
-	next.Push(rt.Int(m) + 1)
+	next.Push(rt.IntValue(int64(m + 1)))
 	return next, nil
 }
 
@@ -139,7 +141,7 @@ func packsize(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if serr != nil {
 		return nil, rt.NewErrorE(serr).AddContext(c)
 	}
-	return c.PushingNext(rt.Int(size)), nil
+	return c.PushingNext(rt.IntValue(int64(size))), nil
 }
 
 func isLittleEndian() bool {
@@ -162,19 +164,21 @@ func init() {
 	}
 }
 
-var errBadOptionArg = errors.New("arg out of limits: must be between 1 and 16")
-var errMissingSize = errors.New("missing size")
-var errBadType = errors.New("bad value type") // TODO: better error
-var errOutOfBounds = errors.New("overflow")   // TODO: better error
-var errExpectedOption = errors.New("invalid next option after 'X'")
-var errBadAlignment = errors.New("alignment not power of 2")
-var errUnexpectedPackEnd = errors.New("packed string too short: unexpected end")
-var errDoesNotFit = errors.New("does not fit into Lua integer")
-var errStringLongerThanFormat = errors.New("string longer than format spec")
-var errStringDoesNotFit = errors.New("string does not fit")
-var errVariableLength = errors.New("variable-length format") // For packsize only
-var errOverflow = errors.New("invalid format: option size overflow")
-var errStringContainsZeros = errors.New("string contains zeros")
+var (
+	errBadOptionArg           = errors.New("arg out of limits: must be between 1 and 16")
+	errMissingSize            = errors.New("missing size")
+	errBadType                = errors.New("bad value type") // TODO: better error
+	errOutOfBounds            = errors.New("overflow")       // TODO: better error
+	errExpectedOption         = errors.New("invalid next option after 'X'")
+	errBadAlignment           = errors.New("alignment not power of 2")
+	errUnexpectedPackEnd      = errors.New("packed string too short: unexpected end")
+	errDoesNotFit             = errors.New("does not fit into Lua integer")
+	errStringLongerThanFormat = errors.New("string longer than format spec")
+	errStringDoesNotFit       = errors.New("string does not fit")
+	errVariableLength         = errors.New("variable-length format") // For packsize only
+	errOverflow               = errors.New("invalid format: option size overflow")
+	errStringContainsZeros    = errors.New("string contains zeros")
+)
 
 func errBadFormatString(c byte) error {
 	return fmt.Errorf("invalid format option %q", c)

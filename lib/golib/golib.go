@@ -19,7 +19,8 @@ var LibLoader = packagelib.Loader{
 
 type govalueKeyType struct{}
 
-var govalueKey = govalueKeyType{}
+// TODO: a better value?
+var govalueKey = rt.AsValue(govalueKeyType{})
 
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
@@ -31,18 +32,18 @@ func load(r *rt.Runtime) rt.Value {
 	rt.SetEnvGoFunc(meta, "__call", goValueCall, 1, true)
 	rt.SetEnvGoFunc(meta, "__tostring", goValueToString, 1, false)
 
-	r.SetRegistry(govalueKey, meta)
+	r.SetRegistry(govalueKey, rt.TableValue(meta))
 
-	return pkg
+	return rt.TableValue(pkg)
 }
 
 func getMeta(r *rt.Runtime) *rt.Table {
-	return r.Registry(govalueKey).(*rt.Table)
+	return r.Registry(govalueKey).AsTable()
 }
 
 // NewGoValue will return a UserData representing the go value.
-func NewGoValue(r *rt.Runtime, x interface{}) *rt.UserData {
-	return rt.NewUserData(x, getMeta(r))
+func NewGoValue(r *rt.Runtime, x interface{}) rt.Value {
+	return rt.UserDataValue(rt.NewUserData(x, getMeta(r)))
 }
 
 func goValueToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -53,7 +54,7 @@ func goValueToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	return c.PushingNext(rt.String(fmt.Sprintf("%#v", u.Value()))), nil
+	return c.PushingNext(rt.StringValue(fmt.Sprintf("%#v", u.Value()))), nil
 }
 
 func goValueIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -103,7 +104,7 @@ func goValueCall(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func goimport(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if pluginsRoot == "" {
-		return nil, rt.NewError("cannot import go packages: plugins root not set")
+		return nil, rt.NewError(rt.StringValue("cannot import go packages: plugins root not set"))
 	}
 	if err := c.Check1Arg(); err != nil {
 		return nil, err.AddContext(c)
