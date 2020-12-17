@@ -167,7 +167,7 @@ func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	i := rt.StringNormPos(ss, int(ii))
+	i := rt.StringNormPos(ss, int(ii)) - 1
 	s := string(ss)
 	if i < 0 || i > len(s) {
 		return nil, rt.NewErrorS("position out of range").AddContext(c)

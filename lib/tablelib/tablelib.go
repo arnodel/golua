@@ -263,8 +263,8 @@ func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, rt.NewErrorS("#2 out of range").AddContext(c)
 	default:
 		var newVal rt.Value
-		tblLenVal := rt.IntValue(tblLen)
 		for pos <= tblLen {
+			tblLenVal := rt.IntValue(tblLen)
 			val, err = rt.Index(t, tblVal, tblLenVal)
 			if err == nil {
 				err = rt.SetIndex(t, tblVal, tblLenVal, newVal)
