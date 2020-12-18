@@ -15,12 +15,12 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(env, "collectgarbage", collectgarbage, 2, false)
 	rt.SetEnvGoFunc(env, "dofile", dofile, 1, false)
 	rt.SetEnvGoFunc(env, "error", errorF, 2, false)
-	rt.SetEnv(env, "_G", env)
+	rt.SetEnv(env, "_G", rt.TableValue(env))
 	rt.SetEnvGoFunc(env, "getmetatable", getmetatable, 1, false)
 	rt.SetEnvGoFunc(env, "ipairs", ipairs, 1, false)
 	rt.SetEnvGoFunc(env, "load", load, 4, false)
 	rt.SetEnvGoFunc(env, "loadfile", loadfile, 3, false)
-	rt.SetEnv(env, "next", nextGoFunc)
+	rt.SetEnv(env, "next", rt.FunctionValue(nextGoFunc))
 	rt.SetEnvGoFunc(env, "pairs", pairs, 1, false)
 	rt.SetEnvGoFunc(env, "pcall", pcall, 1, true)
 	rt.SetEnvGoFunc(env, "print", print, 0, true)
@@ -33,27 +33,27 @@ func Load(r *rt.Runtime) {
 	rt.SetEnvGoFunc(env, "tonumber", tonumber, 2, false)
 	rt.SetEnvGoFunc(env, "tostring", tostring, 1, false)
 	rt.SetEnvGoFunc(env, "type", typeString, 1, false)
-	rt.SetEnv(env, "_VERSION", rt.String("Golua 5.3"))
+	rt.SetEnv(env, "_VERSION", rt.StringValue("Golua 5.3"))
 	// TODO: xpcall
 }
 
-func ToString(t *rt.Thread, v rt.Value) (rt.String, *rt.Error) {
+func ToString(t *rt.Thread, v rt.Value) (string, *rt.Error) {
 	next := rt.NewTerminationWith(1, false)
 	err, ok := rt.Metacall(t, v, "__tostring", []rt.Value{v}, next)
 	if err != nil {
 		return "", err
 	}
 	if ok {
-		s, ok := rt.AsString(next.Get(0))
+		s, ok := rt.ToString(next.Get(0))
 		if !ok {
 			return "", rt.NewErrorS("'__tostring' must return a string")
 		}
 		return s, nil
 	}
-	s, ok := rt.AsString(v)
+	s, ok := rt.ToString(v)
 	// TODO: fix this hack
 	if s == "" && !ok {
-		s = rt.String(fmt.Sprintf("%s: <addr>", rt.Type(v)))
+		s = fmt.Sprintf("%s: <addr>", rt.Type(v))
 	}
 	return s, nil
 }
@@ -66,7 +66,7 @@ func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	return c.PushingNext(s), nil
+	return c.PushingNext(rt.StringValue(s)), nil
 }
 
 func loadChunk(args []rt.Value) (chunk []byte, chunkName string, err error) {
@@ -74,7 +74,7 @@ func loadChunk(args []rt.Value) (chunk []byte, chunkName string, err error) {
 		chunkName = "stdin"
 		chunk, err = ioutil.ReadAll(os.Stdin)
 	} else {
-		path, ok := args[0].(rt.String)
+		path, ok := args[0].TryString()
 		if !ok {
 			err = errors.New("#1 must be a string")
 			return

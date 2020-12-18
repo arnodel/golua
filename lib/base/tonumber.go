@@ -14,11 +14,11 @@ func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
 	n := c.Arg(0)
 	if nargs == 1 {
-		n, tp := rt.ToNumber(n)
+		n, tp := rt.ToNumberValue(n)
 		if tp != rt.NaN {
 			next.Push(n)
 		} else {
-			next.Push(nil)
+			next.Push(rt.NilValue)
 		}
 		return next, nil
 	}
@@ -29,7 +29,7 @@ func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if base < 2 || base > 36 {
 		return nil, rt.NewErrorS("#2 out of range").AddContext(c)
 	}
-	s, ok := n.(rt.String)
+	s, ok := n.TryString()
 	if !ok {
 		return nil, rt.NewErrorS("#1 must be a string").AddContext(c)
 	}
@@ -37,8 +37,8 @@ func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if len(digits) == 0 {
 		return next, nil
 	}
-	var number rt.Int
-	var sign rt.Int = 1
+	var number int64
+	var sign int64 = 1
 	if digits[0] == '-' {
 		sign = -1
 		digits = digits[1:]
@@ -47,14 +47,14 @@ func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 	}
 	for _, digit := range digits {
-		var d rt.Int
+		var d int64
 		switch {
 		case '0' <= digit && digit <= '9':
-			d = rt.Int(digit - '0')
+			d = int64(digit - '0')
 		case 'a' <= digit && digit <= 'z':
-			d = rt.Int(digit - 'a' + 10)
+			d = int64(digit - 'a' + 10)
 		case 'A' <= digit && digit <= 'Z':
-			d = rt.Int(digit - 'A' + 10)
+			d = int64(digit - 'A' + 10)
 		default:
 			return next, nil
 		}
@@ -63,6 +63,6 @@ func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		number = number*base + d
 	}
-	next.Push(sign * number)
+	next.Push(rt.IntValue(sign * number))
 	return next, nil
 }

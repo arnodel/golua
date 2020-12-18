@@ -10,12 +10,14 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-var pkgKey = rt.String("package")
-var preloadKey = rt.String("preload")
-var pathKey = rt.String("path")
-var configKey = rt.String("config")
-var loadedKey = rt.String("loaded")
-var searchersKey = rt.String("searchers")
+var (
+	pkgKey       = rt.StringValue("package")
+	preloadKey   = rt.StringValue("preload")
+	pathKey      = rt.StringValue("path")
+	configKey    = rt.StringValue("config")
+	loadedKey    = rt.StringValue("loaded")
+	searchersKey = rt.StringValue("searchers")
+)
 
 const defaultPath = `./?.lua;./?/init.lua`
 
@@ -32,11 +34,11 @@ type Loader struct {
 // cache it.
 func (l Loader) Run(r *rt.Runtime) {
 	pkg := l.Load(r)
-	if l.Name == "" || pkg == nil {
+	if l.Name == "" || pkg.IsNil() {
 		return
 	}
 	rt.SetEnv(r.GlobalEnv(), l.Name, pkg)
-	err := SavePackage(r.MainThread(), rt.String(l.Name), pkg)
+	err := SavePackage(r.MainThread(), l.Name, pkg)
 	if err != nil {
 		panic("Unable to load " + l.Name)
 	}
@@ -51,18 +53,19 @@ var LibLoader = Loader{
 func load(r *rt.Runtime) rt.Value {
 	env := r.GlobalEnv()
 	pkg := rt.NewTable()
-	r.SetRegistry(pkgKey, pkg)
-	pkg.Set(loadedKey, rt.NewTable())
-	pkg.Set(preloadKey, rt.NewTable())
+	pkgVal := rt.TableValue(pkg)
+	r.SetRegistry(pkgKey, pkgVal)
+	pkg.Set(loadedKey, rt.TableValue(rt.NewTable()))
+	pkg.Set(preloadKey, rt.TableValue(rt.NewTable()))
 	searchers := rt.NewTable()
-	searchers.Set(rt.Int(1), searchPreloadGoFunc)
-	searchers.Set(rt.Int(2), searchLuaGoFunc)
-	pkg.Set(searchersKey, searchers)
-	pkg.Set(pathKey, rt.String(defaultPath))
-	pkg.Set(configKey, rt.String(defaultConfig.String()))
+	searchers.Set(rt.IntValue(1), rt.FunctionValue(searchPreloadGoFunc))
+	searchers.Set(rt.IntValue(2), rt.FunctionValue(searchLuaGoFunc))
+	pkg.Set(searchersKey, rt.TableValue(searchers))
+	pkg.Set(pathKey, rt.StringValue(defaultPath))
+	pkg.Set(configKey, rt.StringValue(defaultConfig.String()))
 	rt.SetEnvGoFunc(pkg, "searchpath", searchpath, 4, false)
 	rt.SetEnvGoFunc(env, "require", require, 1, false)
-	return pkg
+	return pkgVal
 }
 
 type config struct {
@@ -84,7 +87,7 @@ var defaultConfig = config{"/", ";", "?", "!", "-"}
 func getConfig(pkg *rt.Table) *config {
 	conf := new(config)
 	*conf = defaultConfig
-	confStr, ok := pkg.Get(configKey).(rt.String)
+	confStr, ok := pkg.Get(configKey).TryString()
 	if !ok {
 		return conf
 	}
@@ -115,47 +118,49 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
+	nameVal := c.Arg(0)
 	pkg := pkgTable(t)
 
 	// First check is the module is already loaded
-	loaded, ok := pkg.Get(loadedKey).(*rt.Table)
+	loaded, ok := pkg.Get(loadedKey).TryTable()
 	if !ok {
 		return nil, rt.NewErrorS("package.loaded must be a table").AddContext(c)
 	}
 	next := c.Next()
-	if mod := loaded.Get(name); !rt.IsNil(mod) {
+	if mod := loaded.Get(nameVal); !mod.IsNil() {
 		next.Push(mod)
 		return next, nil
 	}
 
 	// If not, then go through the searchers
-	searchers, ok := pkg.Get(searchersKey).(*rt.Table)
+	searchers, ok := pkg.Get(searchersKey).TryTable()
 	if !ok {
 		return nil, rt.NewErrorS("package.searchers must be a table").AddContext(c)
 	}
 
-	for i := rt.Int(1); ; i++ {
-		searcher := searchers.Get(i)
+	for i := int64(1); ; i++ {
+		searcher := searchers.Get(rt.IntValue(i))
 		if rt.IsNil(searcher) {
 			err = rt.NewErrorF("could not find package '%s'", name)
 			break
 		}
 		res := rt.NewTerminationWith(2, false)
-		if err = rt.Call(t, searcher, []rt.Value{name}, res); err != nil {
+		if err = rt.Call(t, searcher, []rt.Value{nameVal}, res); err != nil {
 			break
 		}
+		loader := res.Get(0)
 		// We got a loader, so call it
-		if loader, ok := res.Get(0).(rt.Callable); ok {
+		if _, ok := loader.TryCallable(); ok {
 			val := res.Get(1)
 			res = rt.NewTerminationWith(2, false)
-			if err = rt.Call(t, loader, []rt.Value{name, val}, res); err != nil {
+			if err = rt.Call(t, loader, []rt.Value{nameVal, val}, res); err != nil {
 				break
 			}
-			var mod rt.Value = rt.Bool(true)
-			if r0 := res.Get(0); !rt.IsNil(r0) {
+			mod := rt.BoolValue(true)
+			if r0 := res.Get(0); !r0.IsNil() {
 				mod = r0
 			}
-			loaded.Set(name, mod)
+			loaded.Set(nameVal, mod)
 			next.Push(mod)
 			return next, nil
 		}
@@ -164,10 +169,12 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func searchpath(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var name, path rt.String
-	sep := rt.String(".")
-	conf := *getConfig(pkgTable(t))
-	rep := rt.String(conf.dirSep)
+	var (
+		name, path string
+		sep        = "."
+		conf       = *getConfig(pkgTable(t))
+		rep        = conf.dirSep
+	)
 
 	err := c.CheckNArgs(2)
 	if err == nil {
@@ -189,9 +196,9 @@ func searchpath(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	found, templates := searchPath(string(name), string(path), string(sep), &conf)
 	next := c.Next()
 	if found != "" {
-		next.Push(rt.String(found))
+		next.Push(rt.StringValue(found))
 	} else {
-		rt.Push(next, nil, rt.String("tried: "+strings.Join(templates, "\n")))
+		rt.Push(next, rt.NilValue, rt.StringValue("tried: "+strings.Join(templates, "\n")))
 	}
 	return next, nil
 }
@@ -219,7 +226,7 @@ func searchPreload(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	loader := pkgTable(t).Get(preloadKey).(*rt.Table).Get(s)
+	loader := pkgTable(t).Get(preloadKey).AsTable().Get(rt.StringValue(s))
 	c.Next().Push(loader)
 	return c.Next(), nil
 }
@@ -233,7 +240,7 @@ func searchLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	pkg := pkgTable(t)
-	path, ok := pkg.Get(pathKey).(rt.String)
+	path, ok := pkg.Get(pathKey).TryString()
 	if !ok {
 		return nil, rt.NewErrorS("package.path must be a string").AddContext(c)
 	}
@@ -241,17 +248,19 @@ func searchLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	found, templates := searchPath(string(s), string(path), ".", conf)
 	next := c.Next()
 	if found == "" {
-		next.Push(rt.String(strings.Join(templates, "\n")))
+		next.Push(rt.StringValue(strings.Join(templates, "\n")))
 	} else {
-		next.Push(loadLuaGoFunc)
-		next.Push(rt.String(found))
+		next.Push(rt.FunctionValue(loadLuaGoFunc))
+		next.Push(rt.StringValue(found))
 	}
 	return next, nil
 }
 
-var loadLuaGoFunc = rt.NewGoFunction(loadLua, "loadlua", 2, false)
-var searchLuaGoFunc = rt.NewGoFunction(searchLua, "searchlua", 1, false)
-var searchPreloadGoFunc = rt.NewGoFunction(searchPreload, "searchpreload", 1, false)
+var (
+	loadLuaGoFunc       = rt.NewGoFunction(loadLua, "loadlua", 2, false)
+	searchLuaGoFunc     = rt.NewGoFunction(searchLua, "searchlua", 1, false)
+	searchPreloadGoFunc = rt.NewGoFunction(searchPreload, "searchpreload", 1, false)
+)
 
 func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
@@ -267,25 +276,25 @@ func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if readErr != nil {
 		return nil, rt.NewErrorF("error reading file: %s", readErr)
 	}
-	clos, compErr := rt.CompileAndLoadLuaChunk(string(filePath), src, t.GlobalEnv())
+	clos, compErr := rt.CompileAndLoadLuaChunk(string(filePath), src, rt.TableValue(t.GlobalEnv()))
 	if compErr != nil {
 		return nil, rt.NewErrorF("error compiling file: %s", compErr)
 	}
-	return rt.Continue(t, clos, c.Next())
+	return rt.Continue(t, rt.FunctionValue(clos), c.Next())
 }
 
 func pkgTable(t *rt.Thread) *rt.Table {
-	return t.Registry(pkgKey).(*rt.Table)
+	return t.Registry(pkgKey).AsTable()
 }
 
-func SavePackage(t *rt.Thread, name rt.String, val rt.Value) error {
+func SavePackage(t *rt.Thread, name string, val rt.Value) error {
 	pkg := pkgTable(t)
 
 	// First check is the module is already loaded
-	loaded, ok := pkg.Get(loadedKey).(*rt.Table)
+	loaded, ok := pkg.Get(loadedKey).TryTable()
 	if !ok {
 		return errors.New("package.loaded must be a table")
 	}
-	loaded.Set(name, val)
+	loaded.Set(rt.StringValue(name), val)
 	return nil
 }

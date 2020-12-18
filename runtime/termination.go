@@ -79,7 +79,7 @@ func (c *Termination) DebugInfo() *DebugInfo {
 // Get returns the n-th arg pushed to the termination.
 func (c *Termination) Get(n int) Value {
 	if n >= c.pushIndex {
-		return nil
+		return NilValue
 	}
 	return c.args[n]
 }

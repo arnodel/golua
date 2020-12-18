@@ -1,3 +1,5 @@
+// +build !nocontpool
+
 package runtime
 
 var globalLuaContPool = luaContPool{}

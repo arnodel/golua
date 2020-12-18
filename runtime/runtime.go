@@ -57,20 +57,20 @@ func (r *Runtime) SetStringMeta(meta *Table) {
 // RawMetatable returns the raw metatable for a value (that is, not looking at
 // the metatable's '__metatable' key).
 func (r *Runtime) RawMetatable(v Value) *Table {
-	if v == nil {
+	if v.IsNil() {
 		return r.nilMeta
 	}
-	switch x := v.(type) {
-	case String:
+	switch v.Type() {
+	case StringType:
 		return r.stringMeta
-	case Float, Int:
+	case FloatType, IntType:
 		return r.numberMeta
-	case Bool:
+	case BoolType:
 		return r.boolMeta
-	case *Table:
-		return x.Metatable()
-	case *UserData:
-		return x.Metatable()
+	case TableType:
+		return v.AsTable().Metatable()
+	case UserDataType:
+		return v.AsUserData().Metatable()
 	default:
 		return nil
 	}
@@ -78,20 +78,20 @@ func (r *Runtime) RawMetatable(v Value) *Table {
 
 // SetRawMetatable sets the metatable for value v to meta.
 func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
-	if v == nil {
+	if v.IsNil() {
 		r.nilMeta = meta
 	}
-	switch x := v.(type) {
-	case String:
+	switch v.Type() {
+	case StringType:
 		r.stringMeta = meta
-	case Float, Int:
+	case FloatType, IntType:
 		r.numberMeta = meta
-	case Bool:
+	case BoolType:
 		r.boolMeta = meta
-	case *Table:
-		x.SetMetatable(meta)
-	case *UserData:
-		x.SetMetatable(meta)
+	case TableType:
+		v.AsTable().SetMetatable(meta)
+	case UserDataType:
+		v.AsUserData().SetMetatable(meta)
 	default:
 		// Shoul there be an error here?
 	}
@@ -102,16 +102,16 @@ func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
 func (r *Runtime) Metatable(v Value) Value {
 	meta := r.RawMetatable(v)
 	if meta == nil {
-		return nil
+		return NilValue
 	}
-	metam := RawGet(meta, String("__metatable"))
-	if metam != nil {
+	metam := RawGet(meta, StringValue("__metatable"))
+	if metam != NilValue {
 		return metam
 	}
-	return meta
+	return TableValue(meta)
 }
 
 func (r *Runtime) metaGetS(v Value, k string) Value {
 	meta := r.RawMetatable(v)
-	return RawGet(meta, String(k))
+	return RawGet(meta, StringValue(k))
 }

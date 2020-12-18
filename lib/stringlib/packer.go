@@ -173,7 +173,7 @@ func (p *packer) nextStringValue() bool {
 	if !p.nextValue() {
 		return false
 	}
-	s, ok := rt.AsString(p.val)
+	s, ok := rt.ToString(p.val)
 	if !ok {
 		p.err = errBadType
 		return false

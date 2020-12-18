@@ -17,16 +17,16 @@ import (
 //
 // It returns the next continuation on success, else an error.
 func addints(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var x, y rt.Int
+	var x, y int64
 
 	// First check there are two arguments
 	err := c.CheckNArgs(2)
 	if err == nil {
-		// Ok then try to convert the first argument to a lua integer (rt.Int).
+		// Ok then try to convert the first argument to a lua integer.
 		x, err = c.IntArg(0)
 	}
 	if err == nil {
-		// Ok then try to convert the first argument to a lua integer (rt.Int).
+		// Ok then try to convert the first argument to a lua integer.
 		y, err = c.IntArg(1)
 	}
 	if err != nil {
@@ -37,7 +37,7 @@ func addints(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
 
 	// Then compute the result and push it to the continuation.
-	next.Push(x + y)
+	next.Push(rt.IntValue(x + y))
 
 	// Finally return the next continuation.
 	return next, nil
@@ -61,8 +61,8 @@ func main() {
 	source := []byte(`print("hello", addints(40, 2))`)
 
 	// Compile the chunk.
-	chunk, _ := rt.CompileAndLoadLuaChunk("test", source, r.GlobalEnv())
+	chunk, _ := rt.CompileAndLoadLuaChunk("test", source, rt.TableValue(r.GlobalEnv()))
 
 	// Run the chunk in the runtime's main thread.  It should output 42!
-	_, _ = rt.Call1(r.MainThread(), chunk)
+	_, _ = rt.Call1(r.MainThread(), rt.FunctionValue(chunk))
 }

@@ -16,15 +16,16 @@ import (
 const maxIndexChainLength = 100
 
 // IsNil returns true if v is a nil value.
+// TODO: remove
 func IsNil(v Value) bool {
-	return v == nil
+	return v.IsNil()
 }
 
 // RawGet returns the item in a table for the given key, or nil if t is nil.  It
 // doesn't check the metatable of t.
 func RawGet(t *Table, k Value) Value {
 	if t == nil {
-		return nil
+		return NilValue
 	}
 	return t.Get(k)
 }
@@ -33,36 +34,35 @@ func RawGet(t *Table, k Value) Value {
 // '__index' metamethod if appropriate.
 func Index(t *Thread, coll Value, k Value) (Value, *Error) {
 	for i := 0; i < maxIndexChainLength; i++ {
-		if tbl, ok := coll.(*Table); ok {
-			if val := RawGet(tbl, k); val != nil {
+		if tbl, ok := coll.TryTable(); ok {
+			if val := RawGet(tbl, k); !val.IsNil() {
 				return val, nil
 			}
 		}
 		metaIdx := t.metaGetS(coll, "__index")
-		if metaIdx == nil {
-			return nil, nil
+		if metaIdx.IsNil() {
+			return NilValue, nil
 		}
-		switch metaIdx.(type) {
-		case *Table:
+		if _, ok := metaIdx.TryTable(); ok {
 			coll = metaIdx
-		default:
+		} else {
 			res := NewTerminationWith(1, false)
 			if err := Call(t, metaIdx, []Value{coll, k}, res); err != nil {
-				return nil, err
+				return NilValue, err
 			}
 			return res.Get(0), nil
 		}
 	}
-	return nil, NewErrorF("'__index' chain too long; possible loop")
+	return NilValue, NewErrorF("'__index' chain too long; possible loop")
 }
 
 // SetIndex sets the item in a collection for the given key, using the
 // '__newindex' metamethod if appropriate.
 func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
 	for i := 0; i < maxIndexChainLength; i++ {
-		tbl, ok := coll.(*Table)
+		tbl, ok := coll.TryTable()
 		if ok {
-			if tbl.Get(idx) != nil {
+			if tbl.Get(idx) != NilValue {
 				if err := tbl.SetCheck(idx, val); err != nil {
 					return NewErrorE(err)
 				}
@@ -70,7 +70,7 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
 			}
 		}
 		metaNewIndex := t.metaGetS(coll, "__newindex")
-		if metaNewIndex == nil {
+		if metaNewIndex == NilValue {
 			if ok {
 				if err := tbl.SetCheck(idx, val); err != nil {
 					return NewErrorE(err)
@@ -78,10 +78,9 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
 			}
 			return nil
 		}
-		switch metaNewIndex.(type) {
-		case *Table:
+		if _, ok := metaNewIndex.TryTable(); ok {
 			coll = metaNewIndex
-		default:
+		} else {
 			return Call(t, metaNewIndex, []Value{coll, idx, val}, NewTermination(nil, nil))
 		}
 	}
@@ -90,17 +89,17 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
 
 // Truth returns true if v is neither nil nor a false boolean.
 func Truth(v Value) bool {
-	if v == nil {
+	if v.IsNil() {
 		return false
 	}
-	b, ok := v.(Bool)
-	return !ok || bool(b)
+	b, ok := v.TryBool()
+	return !ok || b
 }
 
 // Metacall calls the metamethod called method on obj with the given arguments
 // args, pushing the result to the continuation next.
 func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (*Error, bool) {
-	if f := t.metaGetS(obj, method); f != nil {
+	if f := t.metaGetS(obj, method); !f.IsNil() {
 		return Call(t, f, args, next), true
 	}
 	return nil, false
@@ -110,7 +109,7 @@ func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (*Er
 // metamethod and returns the continuations that needs to be run to get the
 // results.
 func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
-	callable, ok := f.(Callable)
+	callable, ok := f.TryCallable()
 	if ok {
 		return callable.Continuation(next), nil
 	}
@@ -127,10 +126,10 @@ func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
 // Call calls f with arguments args, pushing the results on next.  It may use
 // the metamethod '__call' if f is not callable.
 func Call(t *Thread, f Value, args []Value, next Cont) *Error {
-	if f == nil {
+	if f.IsNil() {
 		return NewErrorS("attempt to call a nil value")
 	}
-	callable, ok := f.(Callable)
+	callable, ok := f.TryCallable()
 	if ok {
 		return t.call(callable, args, next)
 	}
@@ -146,59 +145,58 @@ func Call(t *Thread, f Value, args []Value, next Cont) *Error {
 func Call1(t *Thread, f Value, args ...Value) (Value, *Error) {
 	term := NewTerminationWith(1, false)
 	if err := Call(t, f, args, term); err != nil {
-		return nil, err
+		return NilValue, err
 	}
 	return term.Get(0), nil
 }
 
-// AsString returns x as a String and a boolean which is true if this is a
+// ToString returns x as a String and a boolean which is true if this is a
 // 'good' conversion. TODO: refactor or explain the meaning of the boolean
 // better.
-func AsString(x Value) (String, bool) {
-	if x == nil {
-		return String("nil"), true
-	}
-	switch xx := x.(type) {
-	case String:
-		return xx, true
-	case Int:
-		return String(strconv.Itoa(int(xx))), true
-	case Float:
-		return String(strconv.FormatFloat(float64(xx), 'g', -1, 64)), true
-	case Bool:
-		if xx {
-			return String("true"), false
+func ToString(x Value) (string, bool) {
+	switch x.Type() {
+	case NilType:
+		return "nil", true
+	case StringType:
+		return x.AsString(), true
+	case IntType:
+		return strconv.Itoa(int(x.AsInt())), true
+	case FloatType:
+		return strconv.FormatFloat(x.AsFloat(), 'g', -1, 64), true
+	case BoolType:
+		if x.AsBool() {
+			return "true", false
 		}
-		return String("false"), false
+		return "false", false
 	}
-	return String(""), false
+	return "", false
 }
 
 // Concat returns x .. y, possibly calling the '__concat' metamethod.
 func Concat(t *Thread, x, y Value) (Value, *Error) {
-	if sx, ok := AsString(x); ok {
-		if sy, ok := AsString(y); ok {
-			return sx + sy, nil
+	if sx, ok := ToString(x); ok {
+		if sy, ok := ToString(y); ok {
+			return StringValue(sx + sy), nil
 		}
 	}
 	res, err, ok := metabin(t, "__concat", x, y)
 	if ok {
 		return res, err
 	}
-	return nil, NewErrorS("concat expects concatable values")
+	return NilValue, NewErrorS("concat expects concatable values")
 }
 
-// IntLen returns the length of v as an Int, possibly calling the '__len'
+// IntLen returns the length of v as an int64, possibly calling the '__len'
 // metamethod.  This is an optimization of Len for an integer output.
-func IntLen(t *Thread, v Value) (Int, *Error) {
-	if s, ok := v.(String); ok {
-		return Int(len(s)), nil
+func IntLen(t *Thread, v Value) (int64, *Error) {
+	if s, ok := v.TryString(); ok {
+		return int64(len(s)), nil
 	}
 	res := NewTerminationWith(1, false)
 	err, ok := Metacall(t, v, "__len", []Value{v}, res)
 	if ok {
 		if err != nil {
-			return Int(0), err
+			return 0, err
 		}
 		l, ok := ToInt(res.Get(0))
 		if !ok {
@@ -206,70 +204,69 @@ func IntLen(t *Thread, v Value) (Int, *Error) {
 		}
 		return l, err
 	}
-	if tbl, ok := v.(*Table); ok {
+	if tbl, ok := v.TryTable(); ok {
 		return tbl.Len(), nil
 	}
-	return Int(0), NewErrorS("Cannot compute len")
+	return 0, NewErrorS("Cannot compute len")
 }
 
 // Len returns the length of v, possibly calling the '__len' metamethod.
 func Len(t *Thread, v Value) (Value, *Error) {
-	if s, ok := v.(String); ok {
-		return Int(len(s)), nil
+	if s, ok := v.TryString(); ok {
+		return IntValue(int64(len(s))), nil
 	}
 	res := NewTerminationWith(1, false)
 	err, ok := Metacall(t, v, "__len", []Value{v}, res)
 	if ok {
 		if err != nil {
-			return nil, err
+			return NilValue, err
 		}
 		return res.Get(0), nil
 	}
-	if tbl, ok := v.(*Table); ok {
-		return tbl.Len(), nil
+	if tbl, ok := v.TryTable(); ok {
+		return IntValue(tbl.Len()), nil
 	}
-	return nil, NewErrorS("Cannot compute len")
+	return NilValue, NewErrorS("Cannot compute len")
 }
 
-// Type returns a String describing the Lua type of v.
-func Type(v Value) String {
-	if v == nil {
-		return String("nil")
+// Type returns a string describing the Lua type of v.
+func Type(v Value) string {
+	switch v.Type() {
+	case NilType:
+		return "nil"
+	case StringType:
+		return "string"
+	case IntType, FloatType:
+		return "number"
+	case TableType:
+		return "table"
+	case BoolType:
+		return "boolean"
+	case FunctionType:
+		return "function"
+	case ThreadType:
+		return "thread"
+	case UserDataType:
+		return "userdata"
 	}
-	switch v.(type) {
-	case String:
-		return String("string")
-	case Int, Float:
-		return String("number")
-	case *Table:
-		return String("table")
-	case Bool:
-		return String("boolean")
-	case *Closure, *GoFunction:
-		return String("function")
-	case *Thread:
-		return String("thread")
-	case *UserData:
-		return String("userdata")
-	}
-	return String(fmt.Sprintf("unknown(%+v)", v))
+	return fmt.Sprintf("unknown(%+v)", v)
 }
 
 // SetEnv sets the item in the table t for a string key.  Useful when writing
 // libraries
 func SetEnv(t *Table, name string, v Value) {
-	t.Set(String(name), v)
+	t.Set(StringValue(name), v)
 }
 
 // SetEnvGoFunc sets the item in the table t for a string key to be a GoFunction
 // defined by f.  Useful when writing libraries
 func SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, *Error), nArgs int, hasEtc bool) {
-	t.Set(String(name), &GoFunction{
+	t.Set(StringValue(name), FunctionValue(&GoFunction{
 		f:      f,
 		name:   name,
 		nArgs:  nArgs,
 		hasEtc: hasEtc,
-	})
+	}))
 }
 
 // ParseLuaChunk parses a string as a Lua statement and returns the AST.
@@ -337,7 +334,7 @@ func metabin(t *Thread, f string, x Value, y Value) (Value, *Error, bool) {
 	if ok {
 		return res.Get(0), err, true
 	}
-	return nil, nil, false
+	return NilValue, nil, false
 }
 
 func metaun(t *Thread, f string, x Value) (Value, *Error, bool) {
@@ -346,5 +343,5 @@ func metaun(t *Thread, f string, x Value) (Value, *Error, bool) {
 	if ok {
 		return res.Get(0), err, true
 	}
-	return nil, nil, false
+	return NilValue, nil, false
 }

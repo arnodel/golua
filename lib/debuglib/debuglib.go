@@ -13,14 +13,15 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	rt.SetEnv(r.GlobalEnv(), "debug", pkg)
+	pkgVal := rt.TableValue(pkg)
+	rt.SetEnv(r.GlobalEnv(), "debug", pkgVal)
 	rt.SetEnvGoFunc(pkg, "getinfo", getinfo, 3, false)
 	rt.SetEnvGoFunc(pkg, "getupvalue", getupvalue, 2, false)
 	rt.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false)
 	rt.SetEnvGoFunc(pkg, "upvaluejoin", upvaluejoin, 4, false)
 	rt.SetEnvGoFunc(pkg, "setmetatable", setmetatable, 2, false)
 	rt.SetEnvGoFunc(pkg, "upvalueid", upvalueid, 2, false)
-	return pkg
+	return pkgVal
 }
 
 func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -29,27 +30,27 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	var (
 		thread *rt.Thread = t
-		idx    rt.Int
+		idx    int64
 		cont   rt.Cont
-		what   rt.String
+		what   string
 		fIdx   int
 	)
-	thread, ok := c.Arg(0).(*rt.Thread)
+	thread, ok := c.Arg(0).TryThread()
 	if !ok {
 		thread = t
 	}
 	if c.NArgs() < 1+fIdx {
 		return nil, rt.NewErrorS("missing argument: f")
 	}
-	switch arg := c.Arg(fIdx).(type) {
-	case rt.Int:
-		idx = arg
-	case rt.Callable:
+	switch arg := c.Arg(fIdx); arg.Type() {
+	case rt.IntType:
+		idx = arg.AsInt()
+	case rt.FunctionType:
 		term := rt.NewTerminationWith(0, false)
-		cont = arg.Continuation(term)
-	case rt.Float:
+		cont = arg.AsFunction().Continuation(term)
+	case rt.FloatType:
 		var tp rt.NumberType
-		idx, tp = arg.ToInt()
+		idx, tp = rt.FloatToInt(arg.AsFloat())
 		if tp != rt.IsInt {
 			return nil, rt.NewErrorS("f should be an integer or function").AddContext(c)
 		}
@@ -67,15 +68,15 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	_ = what
 	next := c.Next()
 	if cont == nil {
-		next.Push(nil)
+		next.Push(rt.NilValue)
 	} else if info := cont.DebugInfo(); info == nil {
-		next.Push(nil)
+		next.Push(rt.NilValue)
 	} else {
 		res := rt.NewTable()
-		rt.SetEnv(res, "name", rt.String(info.Name))
-		rt.SetEnv(res, "currentline", rt.Int(info.CurrentLine))
-		rt.SetEnv(res, "source", rt.String(info.Source))
-		next.Push(res)
+		rt.SetEnv(res, "name", rt.StringValue(info.Name))
+		rt.SetEnv(res, "currentline", rt.IntValue(int64(info.CurrentLine)))
+		rt.SetEnv(res, "source", rt.StringValue(info.Source))
+		next.Push(rt.TableValue(res))
 	}
 	return next, nil
 }
@@ -95,9 +96,9 @@ func getupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	up := int(upv) - 1
 	next := c.Next()
 	if up < 0 || up >= int(f.Code.UpvalueCount) {
-		next.Push(nil)
+		next.Push(rt.NilValue)
 	} else {
-		rt.Push(next, rt.String(f.Code.UpNames[up]), f.GetUpvalue(up))
+		rt.Push(next, rt.StringValue(f.Code.UpNames[up]), f.GetUpvalue(up))
 	}
 	return next, nil
 }
@@ -117,9 +118,9 @@ func setupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	up := int(upv) - 1
 	next := c.Next()
 	if up < 0 || up >= int(f.Code.UpvalueCount) {
-		next.Push(nil)
+		next.Push(rt.NilValue)
 	} else {
-		next.Push(rt.String(f.Code.UpNames[up]))
+		next.Push(rt.StringValue(f.Code.UpNames[up]))
 		f.SetUpvalue(up, c.Arg(2))
 	}
 	return next, nil
@@ -170,7 +171,7 @@ func upvalueid(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if up < 0 || up >= int(f.Code.UpvalueCount) {
 		return nil, rt.NewErrorS("Invalid upvalue index").AddContext(c)
 	}
-	return c.PushingNext(rt.LightUserData{Data: f.Upvalues[up]}), nil
+	return c.PushingNext(rt.LightUserDataValue(rt.LightUserData{Data: f.Upvalues[up]})), nil
 }
 
 func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -180,7 +181,7 @@ func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	v := c.Arg(0)
 	var meta *rt.Table
-	if c.Arg(1) != nil {
+	if !c.Arg(1).IsNil() {
 		meta, err = c.TableArg(1)
 		if err != nil {
 			return nil, err.AddContext(c)

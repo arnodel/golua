@@ -10,10 +10,11 @@ import (
 )
 
 func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var s, ptn rt.String
-	var init rt.Int = 1
-	var plain bool
-
+	var (
+		s, ptn string
+		init   int64 = 1
+		plain  bool
+	)
 	err := c.CheckNArgs(2)
 	if err == nil {
 		s, err = c.StringArg(0)
@@ -30,18 +31,18 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	si := s.NormPos(init) - 1
+	si := rt.StringNormPos(s, int(init)) - 1
 	next := c.Next()
 	switch {
 	case si < 0 || si > len(s):
-		next.Push(nil)
+		next.Push(rt.NilValue)
 	case plain || len(ptn) == 0:
 		i := strings.Index(string(s)[si:], string(ptn))
 		if i == -1 {
-			next.Push(nil)
+			next.Push(rt.NilValue)
 		} else {
-			next.Push(rt.Int(i + 1))
-			next.Push(rt.Int(i + len(ptn)))
+			next.Push(rt.IntValue(int64(i + 1)))
+			next.Push(rt.IntValue(int64(i + len(ptn))))
 		}
 	default:
 		pat, err := pattern.New(string(ptn))
@@ -50,11 +51,11 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		captures := pat.MatchFromStart(string(s), si)
 		if len(captures) == 0 {
-			next.Push(nil)
+			next.Push(rt.NilValue)
 		} else {
 			first := captures[0]
-			next.Push(rt.Int(first.Start() + 1))
-			next.Push(rt.Int(first.End()))
+			next.Push(rt.IntValue(int64(first.Start() + 1)))
+			next.Push(rt.IntValue(int64(first.End())))
 			pushExtraCaptures(captures, s, next)
 		}
 	}
@@ -62,8 +63,10 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var s, ptn rt.String
-	var init rt.Int = 1
+	var (
+		s, ptn string
+		init   int64 = 1
+	)
 	err := c.CheckNArgs(2)
 	if err == nil {
 		s, err = c.StringArg(0)
@@ -77,7 +80,7 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	si := s.NormPos(init) - 1
+	si := rt.StringNormPos(s, int(init)) - 1
 	next := c.Next()
 	pat, ptnErr := pattern.New(string(ptn))
 	if ptnErr != nil {
@@ -87,18 +90,18 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
-func pushCaptures(captures []pattern.Capture, s rt.String, next rt.Cont) {
+func pushCaptures(captures []pattern.Capture, s string, next rt.Cont) {
 	if len(captures) == 0 {
-		next.Push(nil)
+		next.Push(rt.NilValue)
 	} else if len(captures) == 1 {
 		c := captures[0]
-		next.Push(s[c.Start():c.End()])
+		next.Push(rt.StringValue(s[c.Start():c.End()]))
 	} else {
 		pushExtraCaptures(captures, s, next)
 	}
 }
 
-func pushExtraCaptures(captures []pattern.Capture, s rt.String, next rt.Cont) {
+func pushExtraCaptures(captures []pattern.Capture, s string, next rt.Cont) {
 	if len(captures) < 2 {
 		return
 	}
@@ -107,15 +110,15 @@ func pushExtraCaptures(captures []pattern.Capture, s rt.String, next rt.Cont) {
 	}
 }
 
-func captureValue(c pattern.Capture, s rt.String) rt.Value {
+func captureValue(c pattern.Capture, s string) rt.Value {
 	if c.IsEmpty() {
-		return rt.Int(c.Start() + 1)
+		return rt.IntValue(int64(c.Start() + 1))
 	}
-	return s[c.Start():c.End()]
+	return rt.StringValue(s[c.Start():c.End()])
 }
 
 func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var s, ptn rt.String
+	var s, ptn string
 	err := c.CheckNArgs(2)
 	if err == nil {
 		s, err = c.StringArg(0)
@@ -157,13 +160,15 @@ func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		pushCaptures(captures, s, next)
 		return next, nil
 	}
-	return c.PushingNext(rt.NewGoFunction(iterator, "gmatchiterator", 0, false)), nil
+	return c.PushingNext(rt.FunctionValue(rt.NewGoFunction(iterator, "gmatchiterator", 0, false))), nil
 }
 
 func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var s, ptn rt.String
-	var n rt.Int = -1
-	var repl rt.Value
+	var (
+		s, ptn string
+		n      int64 = -1
+		repl   rt.Value
+	)
 	err := c.CheckNArgs(3)
 	if err == nil {
 		s, err = c.StringArg(0)
@@ -184,17 +189,17 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	var replF func([]pattern.Capture) (string, *rt.Error)
 
-	if replString, ok := repl.(rt.String); ok {
+	if replString, ok := repl.TryString(); ok {
 		replF = func(captures []pattern.Capture) (string, *rt.Error) {
 			cStrings := [10]string{}
 			maxIndex := len(captures) - 1
 			for i, c := range captures {
 				v := captureValue(c, s)
-				switch vv := v.(type) {
-				case rt.String:
-					cStrings[i] = string(vv)
-				case rt.Int:
-					cStrings[i] = strconv.Itoa(int(vv))
+				switch v.Type() {
+				case rt.StringType:
+					cStrings[i] = v.AsString()
+				case rt.IntType:
+					cStrings[i] = strconv.Itoa(int(v.AsInt()))
 				}
 			}
 			if len(captures) == 1 {
@@ -223,7 +228,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				return x[1:]
 			}), err
 		}
-	} else if replTable, ok := repl.(*rt.Table); ok {
+	} else if replTable, ok := repl.TryTable(); ok {
 		replF = func(captures []pattern.Capture) (string, *rt.Error) {
 			gc := captures[0]
 			i := 0
@@ -231,14 +236,13 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				i = 1
 			}
 			c := captures[i]
-			val, err := rt.Index(t, replTable, captureValue(c, s))
+			val, err := rt.Index(t, rt.TableValue(replTable), captureValue(c, s))
 			if err != nil {
 				return "", err
 			}
 			return subToString(s[gc.Start():gc.End()], val)
-
 		}
-	} else if replC, ok := repl.(rt.Callable); ok {
+	} else if replC, ok := repl.TryCallable(); ok {
 		replF = func(captures []pattern.Capture) (string, *rt.Error) {
 			term := rt.NewTerminationWith(1, false)
 			cont := replC.Continuation(term)
@@ -259,10 +263,12 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	} else {
 		return nil, rt.NewErrorS("#3 must be a string, table or function").AddContext(c)
 	}
-	si := 0
-	var sb strings.Builder
-	var matchCount rt.Int
-	allowEmpty := true
+	var (
+		si         int
+		sb         strings.Builder
+		matchCount int64
+		allowEmpty = true
+	)
 	for ; matchCount != n; matchCount++ {
 		captures := pat.Match(string(s), si)
 		if len(captures) == 0 {
@@ -292,18 +298,18 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		_, _ = sb.WriteString(string(s)[si:])
 	}
 	next := c.Next()
-	next.Push(rt.String(sb.String()))
-	next.Push(matchCount)
+	next.Push(rt.StringValue(sb.String()))
+	next.Push(rt.IntValue(matchCount))
 	return next, nil
 }
 
 var gsubPtn = regexp.MustCompile("%.")
 
-func subToString(key rt.String, val rt.Value) (string, *rt.Error) {
+func subToString(key string, val rt.Value) (string, *rt.Error) {
 	if !rt.Truth(val) {
-		return string(key), nil
+		return key, nil
 	}
-	res, ok := rt.AsString(val)
+	res, ok := rt.ToString(val)
 	if ok {
 		return string(res), nil
 	}

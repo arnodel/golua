@@ -38,12 +38,12 @@ func load(r *rt.Runtime) rt.Value {
 	rt.SetEnvGoFunc(pkg, "new", newRegex, 1, false)
 
 	// Return the package table
-	return pkg
+	return rt.TableValue(pkg)
 }
 
 // Creates a new regex userdata from a string.
 func newRegex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var s rt.String
+	var s string
 	err := c.Check1Arg()
 	if err == nil {
 		s, err = c.StringArg(0)
@@ -55,13 +55,13 @@ func newRegex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if compErr != nil {
 		return nil, rt.NewErrorE(compErr).AddContext(c)
 	}
-	return c.PushingNext(rt.NewUserData(re, regexMeta)), nil
+	return c.PushingNext(rt.UserDataValue(rt.NewUserData(re, regexMeta))), nil
 }
 
 // Hepler function that turns a Lua value to a Go regexp.
 func valueToRegex(v rt.Value) (re *regexp.Regexp, ok bool) {
 	var u *rt.UserData
-	u, ok = v.(*rt.UserData)
+	u, ok = v.TryUserData()
 	if ok {
 		re, ok = u.Value().(*regexp.Regexp)
 	}
@@ -79,9 +79,10 @@ func regexArg(c *rt.GoCont, n int) (*regexp.Regexp, *rt.Error) {
 
 // This implements the 'find' method of a regexp.
 func regexFind(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var re *regexp.Regexp
-	var s rt.String
-
+	var (
+		re *regexp.Regexp
+		s  string
+	)
 	// Check there are two arguments.
 	err := c.CheckNArgs(2)
 	if err == nil {
@@ -98,7 +99,7 @@ func regexFind(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	// Find the pattern in the string and return it.
 	match := re.FindString(string(s))
-	return c.PushingNext(rt.String(match)), nil
+	return c.PushingNext(rt.StringValue(match)), nil
 }
 
 // Implementation of the regex's '__tostring' metamethod.
@@ -111,7 +112,7 @@ func regexToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	s := rt.String(fmt.Sprintf("regex(%q)", re.String()))
+	s := rt.StringValue(fmt.Sprintf("regex(%q)", re.String()))
 	return c.PushingNext(s), nil
 }
 
@@ -123,6 +124,6 @@ func init() {
 
 	// Build the metatable
 	regexMeta = rt.NewTable()
-	rt.SetEnv(regexMeta, "__index", regexMethods)
+	rt.SetEnv(regexMeta, "__index", rt.TableValue(regexMethods))
 	rt.SetEnvGoFunc(regexMeta, "__tostring", regexToString, 1, false)
 }

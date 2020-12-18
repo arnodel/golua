@@ -28,10 +28,10 @@ func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	// TODO: use mode
 	_ = chunkMode
-	clos, err := rt.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv)
+	clos, err := rt.CompileAndLoadLuaChunk(chunkName, chunk, rt.TableValue(chunkEnv))
 	if err != nil {
 		return nil, rt.NewErrorE(err).AddContext(c)
 	}
-	c.Next().Push(clos)
+	c.Next().Push(rt.FunctionValue(clos))
 	return c.Next(), nil
 }

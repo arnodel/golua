@@ -29,7 +29,7 @@ func FileArg(c *rt.GoCont, n int) (*File, *rt.Error) {
 
 // ValueToFile turns a lua value to a *File if possible.
 func ValueToFile(v rt.Value) (*File, bool) {
-	u, ok := v.(*rt.UserData)
+	u, ok := v.TryUserData()
 	if ok {
 		return u.Value().(*File), true
 	}
@@ -107,7 +107,7 @@ func (f *File) ReadLine(withEnd bool) (rt.Value, error) {
 		_, err := file.Read(b)
 		if err != nil {
 			if err != io.EOF || buf.Len() == 0 {
-				return nil, err
+				return rt.NilValue, err
 			}
 			break
 		}
@@ -119,7 +119,7 @@ func (f *File) ReadLine(withEnd bool) (rt.Value, error) {
 			break
 		}
 	}
-	return rt.String(buf.String()), nil
+	return rt.StringValue(buf.String()), nil
 }
 
 // Read return a lua string made of up to n bytes.
@@ -127,9 +127,9 @@ func (f *File) Read(n int) (rt.Value, error) {
 	b := make([]byte, n)
 	n, err := f.file.Read(b)
 	if err == nil || err == io.EOF && n > 0 {
-		return rt.String(b[:n]), nil
+		return rt.StringValue(string(b[:n])), nil
 	}
-	return nil, err
+	return rt.NilValue, err
 }
 
 // ReadAll attempts to read the whole file and return a lua string containing
@@ -137,14 +137,14 @@ func (f *File) Read(n int) (rt.Value, error) {
 func (f *File) ReadAll() (rt.Value, error) {
 	b, err := ioutil.ReadAll(f.file)
 	if err != nil {
-		return nil, err
+		return rt.NilValue, err
 	}
-	return rt.String(b), nil
+	return rt.StringValue(string(b)), nil
 }
 
 // ReadNumber tries to read a number from the file.
 func (f *File) ReadNumber() (rt.Value, error) {
-	return nil, errors.New("readNumber unimplemented")
+	return rt.NilValue, errors.New("readNumber unimplemented")
 }
 
 // WriteString writes a string to the file.

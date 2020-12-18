@@ -11,7 +11,7 @@ func print(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func Print(t *rt.Thread, args []rt.Value) *rt.Error {
-	tostring := t.GlobalEnv().Get(rt.String("tostring"))
+	tostring := t.GlobalEnv().Get(rt.StringValue("tostring"))
 	for i, v := range args {
 		if i > 0 {
 			t.Stdout.Write([]byte{'\t'})
@@ -20,7 +20,7 @@ func Print(t *rt.Thread, args []rt.Value) *rt.Error {
 		if err != nil {
 			return err
 		}
-		if s, ok := vs.(rt.String); ok {
+		if s, ok := vs.TryString(); ok {
 			t.Stdout.Write([]byte(s))
 		} else {
 			return rt.NewErrorS("tostring must return a string")

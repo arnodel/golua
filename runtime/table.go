@@ -18,7 +18,7 @@ type Table struct {
 	// == nil.  If there is none such, it should be 0.  It is expensive to keep
 	// it up to date so it might not always be correct, in which case
 	// borderState gives a clue to finding its true value.
-	border Int
+	border int64
 
 	// If borderState == borderOK, then border is correct.  Otherwise you need
 	// to look up or down depending on its value (borderCheckUp or
@@ -43,9 +43,9 @@ func (t *Table) SetMetatable(m *Table) {
 
 // Get returns t[k].
 func (t *Table) Get(k Value) Value {
-	if x, ok := k.(Float); ok {
-		if n, tp := x.ToInt(); tp == IsInt {
-			k = n
+	if x, ok := k.TryFloat(); ok {
+		if n, tp := FloatToInt(x); tp == IsInt {
+			k = IntValue(n)
 		}
 	}
 	return t.content[k].value
@@ -53,12 +53,12 @@ func (t *Table) Get(k Value) Value {
 
 // Set implements t[k] = v (doesn't check if k is nil).
 func (t *Table) Set(k, v Value) {
-	switch x := k.(type) {
-	case Int:
-		t.setInt(x, v)
+	switch k.Type() {
+	case IntType:
+		t.setInt(k.AsInt(), v)
 		return
-	case Float:
-		if n, tp := x.ToInt(); tp == IsInt {
+	case FloatType:
+		if n, tp := FloatToInt(k.AsFloat()); tp == IsInt {
 			t.setInt(n, v)
 			return
 		}
@@ -76,15 +76,15 @@ func (t *Table) SetCheck(k, v Value) error {
 }
 
 // Len returns a length for t (see lua docs for details).
-func (t *Table) Len() Int {
+func (t *Table) Len() int64 {
 	switch t.borderState {
 	case borderCheckDown:
-		for t.border > 0 && t.content[t.border].value == nil {
+		for t.border > 0 && t.content[IntValue(t.border)].value.IsNil() {
 			t.border--
 		}
 		t.borderState = borderOK
 	case borderCheckUp:
-		for t.content[t.border+1].value != nil {
+		for !t.content[IntValue(t.border+1)].value.IsNil() {
 			t.border++ // I don't know if that ever happens (can't test it!)
 		}
 		t.borderState = borderOK
@@ -95,7 +95,7 @@ func (t *Table) Len() Int {
 // Next returns the key-value pair that comes after k in the table t.
 func (t *Table) Next(k Value) (next Value, val Value, ok bool) {
 	var tv tableValue
-	if k == nil {
+	if k.IsNil() {
 		next = t.first
 		ok = true
 	} else {
@@ -107,9 +107,9 @@ func (t *Table) Next(k Value) (next Value, val Value, ok bool) {
 	}
 	// Because we may have removed entries by setting values to nil, we loop
 	// until we find a non-nil value.
-	for next != nil {
+	for !next.IsNil() {
 		tv = t.content[next]
-		if val = tv.value; val != nil {
+		if val = tv.value; !val.IsNil() {
 			return
 		}
 		next = tv.next
@@ -127,21 +127,21 @@ type tableValue struct {
 	value, next Value
 }
 
-func (t *Table) setInt(n Int, v Value) {
+func (t *Table) setInt(n int64, v Value) {
 	switch {
-	case n > t.border && v != nil:
+	case n > t.border && !v.IsNil():
 		t.border = n
 		t.borderState = borderCheckUp
-	case v == nil && t.border > 0 && n == t.border:
+	case v.IsNil() && t.border > 0 && n == t.border:
 		t.border--
 		t.borderState = borderCheckDown
 	}
-	t.set(n, v)
+	t.set(IntValue(n), v)
 }
 
 func (t *Table) set(k Value, v Value) {
 	tv, ok := t.content[k]
-	if v == nil && !ok {
+	if v.IsNil() && !ok {
 		return
 	}
 	tv.value = v

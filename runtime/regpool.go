@@ -1,3 +1,5 @@
+// +build !noregpool
+
 package runtime
 
 var globalRegPool = regPool{}
@@ -59,13 +61,13 @@ func (p *regPool) getCells(sz int) []Cell {
 	return make([]Cell, sz)
 }
 
-// Return the regiter set to the pool if there is a slot available (i.e. empty
+// Return the register set to the pool if there is a slot available (i.e. empty
 // slot or expired register set).
 func (p *regPool) releaseRegs(r []Value) {
 	for i := 0; i < regPoolSize; i++ {
 		if p.regExps[i] < p.regGen {
 			for i := range r {
-				r[i] = nil
+				r[i] = Value{}
 			}
 			p.regs[i] = r
 			p.regExps[i] = p.regGen + maxAge
@@ -74,7 +76,7 @@ func (p *regPool) releaseRegs(r []Value) {
 	}
 }
 
-// Return the cell regiter set to the pool if there is a slot available (i.e.
+// Return the cell register set to the pool if there is a slot available (i.e.
 // empty slot or expired register set).
 func (p *regPool) releaseCells(c []Cell) {
 	for i := 0; i < regPoolSize; i++ {

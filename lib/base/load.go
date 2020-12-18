@@ -14,7 +14,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	var chunk []byte
 	chunkName := "chunk"
 	chunkMode := "bt"
-	var chunkEnv rt.Value = t.GlobalEnv()
+	var chunkEnv rt.Value = rt.TableValue(t.GlobalEnv())
 	next := c.Next()
 
 	switch nargs := c.NArgs(); {
@@ -22,7 +22,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		chunkEnv = c.Arg(3)
 		fallthrough
 	case nargs >= 3:
-		if c.Arg(2) != nil {
+		if !c.Arg(2).IsNil() {
 			mode, err := c.StringArg(2)
 			if err != nil {
 				return nil, err.AddContext(c)
@@ -31,7 +31,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		fallthrough
 	case nargs >= 2:
-		if c.Arg(1) != nil {
+		if !c.Arg(1).IsNil() {
 			name, err := c.StringArg(1)
 			if err != nil {
 				return nil, err.AddContext(c)
@@ -40,24 +40,24 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		fallthrough
 	case nargs >= 1:
-		switch x := c.Arg(0).(type) {
-		case rt.String:
-			chunk = []byte(x)
-		case rt.Callable:
+		switch x := c.Arg(0); x.Type() {
+		case rt.StringType:
+			chunk = []byte(x.AsString())
+		case rt.FunctionType:
 			var buf bytes.Buffer
 			for {
 				bit, err := rt.Call1(t, x)
 				if err != nil {
-					next.Push(nil)
-					next.Push(rt.String(err.Error()))
+					next.Push(rt.NilValue)
+					next.Push(rt.StringValue(err.Error()))
 					return next, nil
 				}
-				if bit == nil {
+				if bit.IsNil() {
 					break
 				}
-				bitString, ok := bit.(rt.String)
+				bitString, ok := bit.TryString()
 				if !ok {
-					rt.Push(next, nil, rt.String("reader must return a string"))
+					rt.Push(next, rt.NilValue, rt.StringValue("reader must return a string"))
 					return next, nil
 				}
 				if len(bitString) == 0 {
@@ -75,7 +75,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if len(chunk) > 0 && chunk[0] < rt.ConstTypeMaj {
 		// binary chunk
 		if !canBeBinary {
-			rt.Push(next, nil, rt.String("attempt to load a binary chunk"))
+			rt.Push(next, rt.NilValue, rt.StringValue("attempt to load a binary chunk"))
 			return next, nil
 		}
 		r := bytes.NewBuffer(chunk)
@@ -83,7 +83,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil {
 			return nil, rt.NewErrorE(err).AddContext(c)
 		}
-		code, ok := k.(*rt.Code)
+		code, ok := k.Value().TryCode()
 		if !ok {
 			return nil, rt.NewErrorF("Expected function to load").AddContext(c)
 		}
@@ -92,19 +92,19 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			envVal := chunkEnv
 			clos.AddUpvalue(rt.NewCell(envVal))
 			for i := int16(1); i < code.UpvalueCount; i++ {
-				clos.AddUpvalue(rt.NewCell(nil))
+				clos.AddUpvalue(rt.NewCell(rt.NilValue))
 			}
 		}
-		return c.PushingNext(clos), nil
+		return c.PushingNext(rt.FunctionValue(clos)), nil
 	} else if !canBeText {
-		rt.Push(next, nil, rt.String("attempt to load a text chunk"))
+		rt.Push(next, rt.NilValue, rt.StringValue("attempt to load a text chunk"))
 		return next, nil
 	}
 	clos, err := rt.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv)
 	if err != nil {
-		rt.Push(next, nil, rt.String(err.Error()))
+		rt.Push(next, rt.NilValue, rt.StringValue(err.Error()))
 	} else {
-		next.Push(clos)
+		next.Push(rt.FunctionValue(clos))
 	}
 	return next, nil
 }

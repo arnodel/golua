@@ -15,8 +15,8 @@ type unpacker struct {
 	pack   []byte     // The packed data
 	j      int        // Current index in the packed data
 	values []rt.Value // Values unpacked so far
-	intVal rt.Int     // Last unpacked integral value (for options 'i' and 'I')
-	strVal rt.String  // Last unpacked string value
+	intVal int64      // Last unpacked integral value (for options 'i' and 'I')
+	strVal string     // Last unpacked string value
 }
 
 func UnpackString(format, pack string, j int) ([]rt.Value, int, error) {
@@ -45,53 +45,57 @@ func UnpackString(format, pack string, j int) ([]rt.Value, int, error) {
 			var x int8
 			_ = u.align(0) &&
 				u.read(&x) &&
-				u.add(rt.Int(x))
+				u.add(rt.IntValue(int64(x)))
 		case 'B':
 			var x uint8
 			_ = u.align(0) &&
 				u.read(&x) &&
-				u.add(rt.Int(x))
+				u.add(rt.IntValue(int64(x)))
 		case 'h':
 			var x int16
 			_ = u.align(2) &&
 				u.read(&x) &&
-				u.add(rt.Int(x))
+				u.add(rt.IntValue(int64(x)))
 		case 'H':
 			var x uint16
 			_ = u.align(2) &&
 				u.read(&x) &&
-				u.add(rt.Int(x))
+				u.add(rt.IntValue(int64(x)))
 		case 'l', 'j':
 			var x int64
 			_ = u.align(8) &&
 				u.read(&x) &&
-				u.add(rt.Int(x))
+				u.add(rt.IntValue(x))
 		case 'L', 'J', 'T':
 			var x uint64
 			_ = u.align(8) &&
 				u.read(&x) &&
-				u.add(rt.Int(x))
+				u.add(rt.IntValue(int64(x)))
 		case 'i':
 			_ = u.smallOptSize(4) &&
 				u.align(u.optSize) &&
 				u.readVarInt() &&
-				u.add(u.intVal)
+				u.add(rt.IntValue(u.intVal))
 		case 'I':
 			_ = u.smallOptSize(4) &&
 				u.align(u.optSize) &&
 				u.readVarUint() &&
-				u.add(u.intVal)
+				u.add(rt.IntValue(u.intVal))
 		case 'f':
 			var x float32
-			_ = u.align(4) && u.read(&x) && u.add(rt.Float(x))
+			_ = u.align(4) &&
+				u.read(&x) &&
+				u.add(rt.FloatValue(float64(x)))
 		case 'd', 'n':
 			var x float64
-			_ = u.align(8) && u.read(&x) && u.add(rt.Float(x))
+			_ = u.align(8) &&
+				u.read(&x) &&
+				u.add(rt.FloatValue(x))
 		case 'c':
 			_ = u.align(0) &&
 				u.mustGetOptSize() &&
 				u.readStr(int(u.optSize)) &&
-				u.add(u.strVal)
+				u.add(rt.StringValue(u.strVal))
 		case 'z':
 			if !u.align(0) {
 				u.err = errExpectedOption
@@ -108,13 +112,15 @@ func UnpackString(format, pack string, j int) ([]rt.Value, int, error) {
 				zi++
 			}
 			b := make([]byte, zi-u.j)
-			_ = u.read(b) && u.add(rt.String(b)) && u.skip(1)
+			_ = u.read(b) &&
+				u.add(rt.StringValue(string(b))) &&
+				u.skip(1)
 		case 's':
 			_ = u.smallOptSize(8) &&
 				u.align(u.optSize) &&
 				u.readVarUint() &&
 				u.readStr(int(u.intVal)) &&
-				u.add(u.strVal)
+				u.add(rt.StringValue(u.strVal))
 		case 'x':
 			_ = u.skip(1)
 		case 'X':
@@ -183,7 +189,7 @@ func (u *unpacker) readStr(n int) (ok bool) {
 	b := make([]byte, n)
 	ok = u.read(b)
 	if ok {
-		u.strVal = rt.String(b)
+		u.strVal = string(b)
 	}
 	return
 }
@@ -193,16 +199,16 @@ func (u *unpacker) readVarUint() (ok bool) {
 	case n == 4:
 		var x uint32
 		ok = u.read(&x) &&
-			u.setIntVal(rt.Int(x))
+			u.setIntVal(int64(x))
 	case n == 8:
 		var x uint64
 		ok = u.read(&x) &&
-			u.setIntVal(rt.Int(x))
+			u.setIntVal(int64(x))
 	case n > 8:
 		var x uint64
 		ok = (u.byteOrder == binary.LittleEndian || u.skip0(n-8)) &&
 			u.read(&x) &&
-			u.setIntVal(rt.Int(x)) &&
+			u.setIntVal(int64(x)) &&
 			(u.byteOrder == binary.BigEndian || u.skip0(n-8))
 	default:
 		// n < 8 so truncated
@@ -223,7 +229,7 @@ func (u *unpacker) readVarUint() (ok bool) {
 		r := bytes.NewReader(b[:])
 		var x uint64
 		_ = binary.Read(r, u.byteOrder, &x) // There should be no error!
-		u.intVal = rt.Int(x)
+		u.intVal = int64(x)
 		return true
 	}
 	return
@@ -234,11 +240,11 @@ func (u *unpacker) readVarInt() (ok bool) {
 	case n == 4:
 		var x int32
 		ok = u.read(&x) &&
-			u.setIntVal(rt.Int(x))
+			u.setIntVal(int64(x))
 	case n == 8:
 		var x int64
 		ok = u.read(&x) &&
-			u.setIntVal(rt.Int(x))
+			u.setIntVal(x)
 	case n > 8:
 		var x uint64
 		var signExt uint8
@@ -256,11 +262,11 @@ func (u *unpacker) readVarInt() (ok bool) {
 				u.err = errDoesNotFit
 				return
 			}
-			u.intVal = rt.Int(x)
+			u.intVal = int64(x)
 		} else {
 			if ok = x > math.MaxInt64; ok {
 				xx := *(*int64)(unsafe.Pointer(&x))
-				u.intVal = rt.Int(xx)
+				u.intVal = xx
 			} else {
 				u.err = errDoesNotFit
 			}
@@ -300,7 +306,7 @@ func (u *unpacker) readVarInt() (ok bool) {
 		r := bytes.NewReader(b[:])
 		var x int64
 		_ = binary.Read(r, u.byteOrder, &x) // There should be no error!
-		u.intVal = rt.Int(x)
+		u.intVal = x
 		return true
 	}
 	return
@@ -357,7 +363,7 @@ func (u *unpacker) readSignExt(n uint, sign *uint8) (ok bool) {
 	return
 }
 
-func (u *unpacker) setIntVal(v rt.Int) bool {
+func (u *unpacker) setIntVal(v int64) bool {
 	u.intVal = v
 	return true
 }

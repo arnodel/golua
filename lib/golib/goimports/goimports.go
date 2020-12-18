@@ -79,14 +79,45 @@ func buildPlugin(pkg string, pluginPath string) error {
 	if err := buildLib(pkg, f); err != nil {
 		return err
 	}
-	cmd := exec.Command("go", "build", "-o", pluginFile, "-buildmode=plugin")
-	cmd.Dir = pluginDir
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return errors.New(string(stderr.Bytes()))
+	runner := cmdRunner{dir: pluginDir}
+
+	// Since go 1.16 we need a go.mod file
+	runner.
+		run("go", "mod", "init", "github.com/arnode/goluaplugins/"+pkg).
+		andRun("go", "mod", "tidy").
+		andRun("go", "build", "-o", pluginFile, "-buildmode=plugin")
+
+	if runner.err != nil {
+		return errors.New(runner.errMsg())
 	}
 	return nil
+}
+
+type cmdRunner struct {
+	dir    string
+	err    error
+	errBuf bytes.Buffer
+}
+
+func (r *cmdRunner) run(name string, args ...string) *cmdRunner {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = r.dir
+	r.errBuf = bytes.Buffer{}
+	cmd.Stderr = &r.errBuf
+	r.err = cmd.Run()
+	return r
+}
+
+// Run if no previous error
+func (r *cmdRunner) andRun(name string, args ...string) *cmdRunner {
+	if r.err != nil {
+		return r
+	}
+	return r.run(name, args...)
+}
+
+func (r *cmdRunner) errMsg() string {
+	return string(r.errBuf.Bytes())
 }
 
 func buildLib(pkg string, out io.Writer) error {

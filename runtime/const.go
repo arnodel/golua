@@ -28,13 +28,13 @@ func LoadConst(r io.Reader) (Konst, error) {
 		if err := bread(r, &x); err != nil {
 			return nil, err
 		}
-		return Int(x), nil
+		return IntValue(x), nil
 	case constTypeFloat:
 		var x float64
 		if err := bread(r, &x); err != nil {
 			return nil, err
 		}
-		return Float(x), nil
+		return FloatValue(x), nil
 	case constTypeString:
 		var l uint64
 		if err := bread(r, &l); err != nil {
@@ -44,45 +44,66 @@ func LoadConst(r io.Reader) (Konst, error) {
 		if _, err := r.Read(b); err != nil {
 			return nil, err
 		}
-		return String(b), nil
+		return StringValue(string(b)), nil
 	case constTypeBool:
 		var x bool
 		if err := bread(r, &x); err != nil {
 			return nil, err
 		}
-		return Bool(x), nil
+		return BoolValue(x), nil
 	case constTypeNil:
-		return nil, nil
+		return NilValue, nil
 	case constTypeCode:
 		x := new(Code)
 		if err := x.loadKonst(r); err != nil {
 			return nil, err
 		}
-		return x, nil
+		return CodeValue(x), nil
 	}
 	return nil, nil
 }
 
 // Konst is a runtime value that is a constant
 type Konst interface {
-	Value
 	writeKonst(io.Writer) error
+	Value() Value
 }
 
-func (n Int) writeKonst(w io.Writer) error {
-	_, err := w.Write([]byte{constTypeInt})
-	if err == nil {
-		err = bwrite(w, int64(n))
+func (v Value) writeKonst(w io.Writer) error {
+	var err error
+	switch v.Type() {
+	case IntType:
+		_, err = w.Write([]byte{constTypeInt})
+		if err == nil {
+			err = bwrite(w, v.AsInt())
+		}
+	case FloatType:
+		_, err := w.Write([]byte{constTypeFloat})
+		if err == nil {
+			err = bwrite(w, v.AsFloat())
+		}
+	case BoolType:
+		_, err = w.Write([]byte{constTypeBool})
+		if err == nil {
+			err = bwrite(w, v.AsBool())
+		}
+	case StringType:
+		_, err = w.Write([]byte{constTypeString})
+		if err == nil {
+			err = swrite(w, v.AsString())
+		}
+	case NilType:
+		_, err = w.Write([]byte{constTypeNil})
+	case CodeType:
+		err = v.AsCode().writeKonst(w)
+	default:
+		panic("invalid value type")
 	}
 	return err
 }
 
-func (f Float) writeKonst(w io.Writer) error {
-	_, err := w.Write([]byte{constTypeFloat})
-	if err == nil {
-		err = bwrite(w, float64(f))
-	}
-	return err
+func (v Value) Value() Value {
+	return v
 }
 
 func swrite(w io.Writer, s string) (err error) {
@@ -104,22 +125,6 @@ func sread(r io.Reader, s *string) (err error) {
 		}
 	}
 	return
-}
-
-func (s String) writeKonst(w io.Writer) error {
-	_, err := w.Write([]byte{constTypeString})
-	if err == nil {
-		err = swrite(w, string(s))
-	}
-	return err
-}
-
-func (b Bool) writeKonst(w io.Writer) error {
-	_, err := w.Write([]byte{constTypeBool})
-	if err == nil {
-		err = bwrite(w, bool(b))
-	}
-	return err
 }
 
 const (

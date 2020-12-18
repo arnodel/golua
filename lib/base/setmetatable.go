@@ -12,7 +12,7 @@ func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	if rt.RawGet(tbl.Metatable(), rt.String("__metatable")) != nil {
+	if !rt.RawGet(tbl.Metatable(), rt.StringValue("__metatable")).IsNil() {
 		return nil, rt.NewErrorS("cannot set metatable").AddContext(c)
 	}
 	if rt.IsNil(c.Arg(1)) {

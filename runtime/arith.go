@@ -5,125 +5,125 @@ import (
 )
 
 func unm(t *Thread, x Value) (Value, *Error) {
-	nx, kx := ToNumber(x)
+	nx, fx, kx := ToNumber(x)
 	switch kx {
 	case IsInt:
-		return -nx.(Int), nil
+		return IntValue(-nx), nil
 	case IsFloat:
-		return -nx.(Float), nil
+		return FloatValue(-fx), nil
 	}
 	res, err, ok := metaun(t, "__unm", x)
 	if ok {
 		return res, err
 	}
-	return nil, NewErrorS("cannot neg")
+	return NilValue, NewErrorS("cannot neg")
 }
 
 func add(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, kx := ToNumber(x)
-	ny, ky := ToNumber(y)
+	nx, fx, kx := ToNumber(x)
+	ny, fy, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return nx.(Int) + ny.(Int), nil
+			return IntValue(nx + ny), nil
 		case IsFloat:
-			return Float(nx.(Int)) + ny.(Float), nil
+			return FloatValue(float64(nx) + fy), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return nx.(Float) + Float(ny.(Int)), nil
+			return FloatValue(fx + float64(ny)), nil
 		case IsFloat:
-			return nx.(Float) + ny.(Float), nil
+			return FloatValue(fx + fy), nil
 		}
 	}
 	res, err, ok := metabin(t, "__add", x, y)
 	if ok {
 		return res, err
 	}
-	return nil, NewErrorS("add expects addable values")
+	return NilValue, NewErrorS("add expects addable values")
 }
 
 func sub(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, kx := ToNumber(x)
-	ny, ky := ToNumber(y)
+	nx, fx, kx := ToNumber(x)
+	ny, fy, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return nx.(Int) - ny.(Int), nil
+			return IntValue(nx - ny), nil
 		case IsFloat:
-			return Float(nx.(Int)) - ny.(Float), nil
+			return FloatValue(float64(nx) - fy), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return nx.(Float) - Float(ny.(Int)), nil
+			return FloatValue(fx - float64(ny)), nil
 		case IsFloat:
-			return nx.(Float) - ny.(Float), nil
+			return FloatValue(fx - fy), nil
 		}
 	}
 	res, err, ok := metabin(t, "__sub", x, y)
 	if ok {
 		return res, err
 	}
-	return nil, NewErrorS("sub expects subtractable values")
+	return NilValue, NewErrorS("sub expects subtractable values")
 }
 
 func mul(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, kx := ToNumber(x)
-	ny, ky := ToNumber(y)
+	nx, fx, kx := ToNumber(x)
+	ny, fy, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return nx.(Int) * ny.(Int), nil
+			return IntValue(nx * ny), nil
 		case IsFloat:
-			return Float(nx.(Int)) * ny.(Float), nil
+			return FloatValue(float64(nx) * fy), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return nx.(Float) * Float(ny.(Int)), nil
+			return FloatValue(fx * float64(ny)), nil
 		case IsFloat:
-			return nx.(Float) * ny.(Float), nil
+			return FloatValue(fx * fy), nil
 		}
 	}
 	res, err, ok := metabin(t, "__mul", x, y)
 	if ok {
 		return res, err
 	}
-	return nil, NewErrorS("mul expects multipliable values")
+	return NilValue, NewErrorS("mul expects multipliable values")
 }
 
 func div(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, kx := ToNumber(x)
-	y, ky := ToNumber(y)
+	nx, fx, kx := ToNumber(x)
+	ny, fy, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return Float(nx.(Int)) / Float(y.(Int)), nil
+			return FloatValue(float64(nx) / float64(ny)), nil
 		case IsFloat:
-			return Float(nx.(Int)) / y.(Float), nil
+			return FloatValue(float64(nx) / fy), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return nx.(Float) / Float(y.(Int)), nil
+			return FloatValue(fx / float64(ny)), nil
 		case IsFloat:
-			return nx.(Float) / y.(Float), nil
+			return FloatValue(fx / fy), nil
 		}
 	}
 	res, err, ok := metabin(t, "__div", x, y)
 	if ok {
 		return res, err
 	}
-	return nil, NewErrorS("div expects dividable values")
+	return NilValue, NewErrorS("div expects dividable values")
 }
 
-func floordivInt(x, y Int) Int {
+func floordivInt(x, y int64) int64 {
 	r := x % y
 	q := x / y
 	if (r < 0) != (y < 0) {
@@ -132,37 +132,37 @@ func floordivInt(x, y Int) Int {
 	return q
 }
 
-func floordivFloat(x, y Float) Float {
-	return Float(math.Floor(float64(x / y)))
+func floordivFloat(x, y float64) float64 {
+	return math.Floor(x / y)
 }
 
 func idiv(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, kx := ToNumber(x)
-	ny, ky := ToNumber(y)
+	nx, fx, kx := ToNumber(x)
+	ny, fy, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return floordivInt(nx.(Int), ny.(Int)), nil
+			return IntValue(floordivInt(nx, ny)), nil
 		case IsFloat:
-			return floordivFloat(Float(nx.(Int)), ny.(Float)), nil
+			return FloatValue(floordivFloat(float64(nx), fy)), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return floordivFloat(nx.(Float), Float(ny.(Int))), nil
+			return FloatValue(floordivFloat(fx, float64(ny))), nil
 		case IsFloat:
-			return floordivFloat(nx.(Float), ny.(Float)), nil
+			return FloatValue(floordivFloat(fx, fy)), nil
 		}
 	}
 	res, err, ok := metabin(t, "__idiv", x, y)
 	if ok {
 		return res, err
 	}
-	return nil, NewErrorS("idiv expects idividable values")
+	return NilValue, NewErrorS("idiv expects idividable values")
 }
 
-func modInt(x, y Int) Int {
+func modInt(x, y int64) int64 {
 	r := x % y
 	if (r < 0) != (y < 0) {
 		r += y
@@ -170,9 +170,8 @@ func modInt(x, y Int) Int {
 	return r
 }
 
-func modFloat(x, y Float) Float {
-	r := Float(math.Mod(float64(x), float64(y)))
-
+func modFloat(x, y float64) float64 {
+	r := math.Mod(x, y)
 	if (r < 0) != (y < 0) {
 		r += y
 	}
@@ -181,57 +180,57 @@ func modFloat(x, y Float) Float {
 
 // Mod returns x % y.
 func Mod(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, kx := ToNumber(x)
-	ny, ky := ToNumber(y)
+	nx, fx, kx := ToNumber(x)
+	ny, fy, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return modInt(nx.(Int), ny.(Int)), nil
+			return IntValue(modInt(nx, ny)), nil
 		case IsFloat:
-			return modFloat(Float(nx.(Int)), ny.(Float)), nil
+			return FloatValue(modFloat(float64(nx), fy)), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return modFloat(nx.(Float), Float(ny.(Int))), nil
+			return FloatValue(modFloat(fx, float64(ny))), nil
 		case IsFloat:
-			return modFloat(nx.(Float), ny.(Float)), nil
+			return FloatValue(modFloat(fx, fy)), nil
 		}
 	}
 	res, err, ok := metabin(t, "__mod", x, y)
 	if ok {
 		return res, err
 	}
-	return nil, NewErrorS("mod expects modable values")
+	return NilValue, NewErrorS("mod expects modable values")
 }
 
-func powFloat(x, y Float) Float {
-	return Float(math.Pow(float64(x), float64(y)))
+func powFloat(x, y float64) float64 {
+	return math.Pow(x, y)
 }
 
 func pow(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, kx := ToNumber(x)
-	ny, ky := ToNumber(y)
+	nx, fx, kx := ToNumber(x)
+	ny, fy, ky := ToNumber(y)
 	switch kx {
 	case IsInt:
 		switch ky {
 		case IsInt:
-			return powFloat(Float(nx.(Int)), Float(ny.(Int))), nil
+			return FloatValue(powFloat(float64(nx), float64(ny))), nil
 		case IsFloat:
-			return powFloat(Float(nx.(Int)), ny.(Float)), nil
+			return FloatValue(powFloat(float64(nx), fy)), nil
 		}
 	case IsFloat:
 		switch ky {
 		case IsInt:
-			return powFloat(nx.(Float), Float(ny.(Int))), nil
+			return FloatValue(powFloat(fx, float64(ny))), nil
 		case IsFloat:
-			return powFloat(nx.(Float), ny.(Float)), nil
+			return FloatValue(powFloat(fx, fy)), nil
 		}
 	}
 	res, err, ok := metabin(t, "__pow", x, y)
 	if ok {
 		return res, err
 	}
-	return nil, NewErrorS("pow expects powidable values")
+	return NilValue, NewErrorS("pow expects powidable values")
 }
