@@ -331,7 +331,7 @@ func write(vf rt.Value, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		default:
 			return nil, rt.NewErrorS("argument must be a string or a number").AddContext(c)
 		}
-		s, _ := rt.AsString(val)
+		s, _ := rt.ToString(val)
 		if err = f.WriteString(string(s)); err != nil {
 			break
 		}

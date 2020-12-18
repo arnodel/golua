@@ -44,13 +44,13 @@ func ToString(t *rt.Thread, v rt.Value) (string, *rt.Error) {
 		return "", err
 	}
 	if ok {
-		s, ok := rt.AsString(next.Get(0))
+		s, ok := rt.ToString(next.Get(0))
 		if !ok {
 			return "", rt.NewErrorS("'__tostring' must return a string")
 		}
 		return s, nil
 	}
-	s, ok := rt.AsString(v)
+	s, ok := rt.ToString(v)
 	// TODO: fix this hack
 	if s == "" && !ok {
 		s = fmt.Sprintf("%s: <addr>", rt.Type(v))

@@ -309,7 +309,7 @@ func subToString(key string, val rt.Value) (string, *rt.Error) {
 	if !rt.Truth(val) {
 		return key, nil
 	}
-	res, ok := rt.AsString(val)
+	res, ok := rt.ToString(val)
 	if ok {
 		return string(res), nil
 	}

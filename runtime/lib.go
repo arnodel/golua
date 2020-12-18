@@ -150,10 +150,10 @@ func Call1(t *Thread, f Value, args ...Value) (Value, *Error) {
 	return term.Get(0), nil
 }
 
-// AsString returns x as a String and a boolean which is true if this is a
+// ToString returns x as a String and a boolean which is true if this is a
 // 'good' conversion. TODO: refactor or explain the meaning of the boolean
 // better.
-func AsString(x Value) (string, bool) {
+func ToString(x Value) (string, bool) {
 	switch x.Type() {
 	case NilType:
 		return "nil", true
@@ -174,8 +174,8 @@ func AsString(x Value) (string, bool) {
 
 // Concat returns x .. y, possibly calling the '__concat' metamethod.
 func Concat(t *Thread, x, y Value) (Value, *Error) {
-	if sx, ok := AsString(x); ok {
-		if sy, ok := AsString(y); ok {
+	if sx, ok := ToString(x); ok {
+		if sy, ok := ToString(y); ok {
 			return StringValue(sx + sy), nil
 		}
 	}

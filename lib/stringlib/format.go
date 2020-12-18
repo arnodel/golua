@@ -107,7 +107,7 @@ OuterLoop:
 					if s, ok := v.TryString(); ok {
 						arg = string(s)
 					} else {
-						s, ok := rt.AsString(v)
+						s, ok := rt.ToString(v)
 						if !ok && s == "" {
 							return "", rt.NewErrorS("no literal")
 						}
