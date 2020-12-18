@@ -41,24 +41,25 @@ func eq(t *Thread, x, y Value) (bool, *Error) {
 // Lt returns whether x < y is true (and an error if it's not possible to
 // compare them).
 func Lt(t *Thread, x, y Value) (bool, *Error) {
-	switch x.Type() {
+	switch x.NumberType() {
 	case IntType:
-		switch y.Type() {
+		switch y.NumberType() {
 		case IntType:
 			return x.AsInt() < y.AsInt(), nil
 		case FloatType:
 			return float64(x.AsInt()) < y.AsFloat(), nil
 		}
 	case FloatType:
-		switch y.Type() {
+		switch y.NumberType() {
 		case IntType:
 			return x.AsFloat() < float64(y.AsInt()), nil
 		case FloatType:
 			return x.AsFloat() < y.AsFloat(), nil
 		}
-	case StringType:
-		if y.Type() == StringType {
-			return x.AsString() < y.AsString(), nil
+	}
+	if sx, ok := x.TryString(); ok {
+		if sy, ok := y.TryString(); ok {
+			return sx < sy, nil
 		}
 	}
 	res, err, ok := metabin(t, "__lt", x, y)
@@ -69,24 +70,25 @@ func Lt(t *Thread, x, y Value) (bool, *Error) {
 }
 
 func le(t *Thread, x, y Value) (bool, *Error) {
-	switch x.Type() {
+	switch x.NumberType() {
 	case IntType:
-		switch y.Type() {
+		switch y.NumberType() {
 		case IntType:
 			return x.AsInt() <= y.AsInt(), nil
 		case FloatType:
 			return float64(x.AsInt()) <= y.AsFloat(), nil
 		}
 	case FloatType:
-		switch y.Type() {
+		switch y.NumberType() {
 		case IntType:
 			return x.AsFloat() <= float64(y.AsInt()), nil
 		case FloatType:
 			return x.AsFloat() <= y.AsFloat(), nil
 		}
-	case StringType:
-		if y.Type() == StringType {
-			return x.AsString() <= y.AsString(), nil
+	}
+	if sx, ok := x.TryString(); ok {
+		if sy, ok := y.TryString(); ok {
+			return sx <= sy, nil
 		}
 	}
 	res, err, ok := metabin(t, "__le", x, y)
