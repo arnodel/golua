@@ -6,14 +6,14 @@ func RawEqual(x, y Value) (bool, bool) {
 	if x == y {
 		return true, true
 	}
-	switch x.Type() {
+	switch x.NumberType() {
 	case IntType:
-		if y.Type() == FloatType {
-			return float64(x.AsInt()) == y.AsFloat(), true
+		if fy, ok := y.TryFloat(); ok {
+			return float64(x.AsInt()) == fy, true
 		}
 	case FloatType:
-		if y.Type() == IntType {
-			return x.AsFloat() == float64(y.AsInt()), true
+		if ny, ok := y.TryInt(); ok {
+			return x.AsFloat() == float64(ny), true
 		}
 	}
 	return false, false
@@ -23,14 +23,12 @@ func eq(t *Thread, x, y Value) (bool, *Error) {
 	if res, ok := RawEqual(x, y); ok {
 		return res, nil
 	}
-	switch x.Type() {
-	case TableType:
-		if y.Type() != TableType {
+	if _, ok := x.TryTable(); ok {
+		if _, ok := y.TryTable(); !ok {
 			return false, nil
 		}
-	// case *UserData:
-	//     deal with that!
-	default:
+	} else {
+		// TODO: deal with UserData
 		return false, nil
 	}
 	res, err, ok := metabin(t, "__eq", x, y)
