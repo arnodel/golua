@@ -304,7 +304,7 @@ func CompileLuaChunk(name string, source []byte) (*code.Unit, error) {
 
 // CompileAndLoadLuaChunk parses, compiles and loads a Lua chunk from source and
 // returns the closure that runs the chunk in the given global environment.
-func CompileAndLoadLuaChunk(name string, source []byte, env Value) (*Closure, error) {
+func CompileAndLoadLuaChunk(name string, source []byte, env *Table) (*Closure, error) {
 	unit, err := CompileLuaChunk(name, source)
 	if err != nil {
 		return nil, err

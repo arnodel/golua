@@ -115,7 +115,7 @@ func (c *Code) loadKonst(r io.Reader) (err error) {
 }
 
 // LoadLuaUnit turns a code unit into a closure given an environment env.
-func LoadLuaUnit(unit *code.Unit, env Value) *Closure {
+func LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 	constants := make([]Konst, len(unit.Constants))
 	for i, ck := range unit.Constants {
 		switch k := ck.(type) {
@@ -148,7 +148,8 @@ func LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 	mainCode := constants[0].Value().AsCode() // It must be some code
 	clos := NewClosure(mainCode)
 	if mainCode.UpvalueCount > 0 {
-		clos.AddUpvalue(Cell{&env})
+		envVal := TableValue(env)
+		clos.AddUpvalue(Cell{&envVal})
 	}
 	return clos
 }

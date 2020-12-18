@@ -17,7 +17,7 @@ import (
 func RunSource(r *runtime.Runtime, source []byte) {
 	t := r.MainThread()
 	// TODO: use the file name
-	clos, err := runtime.CompileAndLoadLuaChunk("luatest", source, runtime.TableValue(r.GlobalEnv()))
+	clos, err := runtime.CompileAndLoadLuaChunk("luatest", source, r.GlobalEnv())
 	if err != nil {
 		fmt.Fprintf(r.Stdout, "!!! parsing: %s", err)
 		return
@@ -28,6 +28,8 @@ func RunSource(r *runtime.Runtime, source []byte) {
 	}
 }
 
+// RunLuaTest runs the lua test code in source, running setup if non-nil
+// beforehand (with the Runtime instance that will be used in the test).
 func RunLuaTest(source []byte, setup func(*runtime.Runtime)) error {
 	outputBuf := new(bytes.Buffer)
 	r := runtime.New(outputBuf)
@@ -40,6 +42,7 @@ func RunLuaTest(source []byte, setup func(*runtime.Runtime)) error {
 	return CheckLines(outputBuf.Bytes(), checkers)
 }
 
+// RunLuaTestsInDir runs a test for each .lua file in the directory provided.
 func RunLuaTestsInDir(t *testing.T, dirpath string, setup func(*runtime.Runtime)) {
 	runTest := func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) != ".lua" {

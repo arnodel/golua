@@ -38,7 +38,7 @@ func (l Loader) Run(r *rt.Runtime) {
 		return
 	}
 	rt.SetEnv(r.GlobalEnv(), l.Name, pkg)
-	err := SavePackage(r.MainThread(), l.Name, pkg)
+	err := savePackage(r.MainThread(), l.Name, pkg)
 	if err != nil {
 		panic("Unable to load " + l.Name)
 	}
@@ -276,7 +276,7 @@ func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if readErr != nil {
 		return nil, rt.NewErrorF("error reading file: %s", readErr)
 	}
-	clos, compErr := rt.CompileAndLoadLuaChunk(string(filePath), src, rt.TableValue(t.GlobalEnv()))
+	clos, compErr := rt.CompileAndLoadLuaChunk(string(filePath), src, t.GlobalEnv())
 	if compErr != nil {
 		return nil, rt.NewErrorF("error compiling file: %s", compErr)
 	}
@@ -287,7 +287,7 @@ func pkgTable(t *rt.Thread) *rt.Table {
 	return t.Registry(pkgKey).AsTable()
 }
 
-func SavePackage(t *rt.Thread, name string, val rt.Value) error {
+func savePackage(t *rt.Thread, name string, val rt.Value) error {
 	pkg := pkgTable(t)
 
 	// First check is the module is already loaded
