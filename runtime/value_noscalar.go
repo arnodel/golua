@@ -1,74 +1,32 @@
-//+build !noscalar
+// +build noscalar
+//
+// This implementation of Value disables special casing of ints, floats and
+// bools.  It causes more memory allocations.
 
 package runtime
 
-import (
-	"unsafe"
-)
-
 type Value struct {
-	scalar uint64
-	iface  interface{}
+	iface interface{}
 }
 
-var (
-	dummyInt64   interface{} = int64(0)
-	dummyFloat64 interface{} = float64(0)
-	dummyBool    interface{} = false
-)
-
 func AsValue(i interface{}) Value {
-	if i == nil {
-		return NilValue
-	}
-	switch x := i.(type) {
-	case int64:
-		return IntValue(x)
-	case int:
-		return IntValue(int64(x))
-	case float64:
-		return FloatValue(x)
-	case float32:
-		return FloatValue(float64(x))
-	case bool:
-		return BoolValue(x)
-	case Value:
-		return x
-	default:
-		return Value{iface: i}
-	}
+	return Value{iface: i}
 }
 
 func (v Value) Interface() interface{} {
-	if v.iface == nil {
-		return nil
-	}
-	switch v.iface.(type) {
-	case int64:
-		return v.AsInt()
-	case float64:
-		return v.AsFloat()
-	case bool:
-		return v.AsBool()
-	default:
-		return v.iface
-	}
+	return v.iface
 }
 
 func IntValue(n int64) Value {
-	return Value{uint64(n), dummyInt64}
+	return Value{iface: n}
 }
 
 func FloatValue(f float64) Value {
-	return Value{*(*uint64)(unsafe.Pointer(&f)), dummyFloat64}
+	return Value{iface: f}
 }
 
 func BoolValue(b bool) Value {
-	var s uint64
-	if b {
-		s = 1
-	}
-	return Value{s, dummyBool}
+	return Value{iface: b}
 }
 
 func StringValue(s string) Value {
@@ -148,15 +106,15 @@ func (v Value) NumberType() ValueType {
 }
 
 func (v Value) AsInt() int64 {
-	return int64(v.scalar)
+	return v.iface.(int64)
 }
 
 func (v Value) AsFloat() float64 {
-	return *(*float64)(unsafe.Pointer(&v.scalar))
+	return v.iface.(float64)
 }
 
 func (v Value) AsBool() bool {
-	return v.scalar != 0
+	return v.iface.(bool)
 }
 
 func (v Value) AsString() string {
@@ -192,18 +150,12 @@ func (v Value) AsFunction() Callable {
 }
 
 func (v Value) TryInt() (n int64, ok bool) {
-	_, ok = v.iface.(int64)
-	if ok {
-		n = v.AsInt()
-	}
+	n, ok = v.iface.(int64)
 	return
 }
 
 func (v Value) TryFloat() (n float64, ok bool) {
-	_, ok = v.iface.(float64)
-	if ok {
-		n = v.AsFloat()
-	}
+	n, ok = v.iface.(float64)
 	return
 }
 
@@ -238,10 +190,7 @@ func (v Value) TryUserData() (u *UserData, ok bool) {
 }
 
 func (v Value) TryBool() (b bool, ok bool) {
-	_, ok = v.iface.(bool)
-	if ok {
-		b = v.scalar != 0
-	}
+	b, ok = v.iface.(bool)
 	return
 }
 
