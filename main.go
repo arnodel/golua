@@ -70,8 +70,8 @@ func main() {
 		return
 	}
 
-	clos := rt.LoadLuaUnit(unit, r.GlobalEnv())
-	cerr := rt.Call(r.MainThread(), clos, nil, rt.NewTerminationWith(0, false))
+	clos := rt.LoadLuaUnit(unit, rt.TableValue(r.GlobalEnv()))
+	cerr := rt.Call(r.MainThread(), rt.FunctionValue(clos), nil, rt.NewTerminationWith(0, false))
 	if cerr != nil {
 		fatal("!!! %s", cerr.Traceback())
 	}
@@ -122,7 +122,7 @@ func repl(r *rt.Runtime) {
 }
 
 func runChunk(r *rt.Runtime, source []byte) (bool, error) {
-	clos, err := rt.CompileAndLoadLuaChunk("<stdin>", source, r.GlobalEnv())
+	clos, err := rt.CompileAndLoadLuaChunk("<stdin>", source, rt.TableValue(r.GlobalEnv()))
 	if err != nil {
 		snErr, ok := err.(*rt.SyntaxError)
 		if !ok {
@@ -132,7 +132,7 @@ func runChunk(r *rt.Runtime, source []byte) (bool, error) {
 	}
 	t := r.MainThread()
 	term := rt.NewTerminationWith(0, true)
-	cerr := rt.Call(t, clos, nil, term)
+	cerr := rt.Call(t, rt.FunctionValue(clos), nil, term)
 	if cerr == nil {
 		if len(term.Etc()) > 0 {
 			cerr = base.Print(t, term.Etc())
