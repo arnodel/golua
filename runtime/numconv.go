@@ -18,26 +18,28 @@ const (
 
 // ToNumber returns x as a Float or Int, and the type (IsFloat, IsInt or NaN).
 func ToNumber(v Value) (int64, float64, NumberType) {
-	switch v.Type() {
-	case IntType:
-		return v.AsInt(), 0, IsInt
-	case FloatType:
-		return 0, v.AsFloat(), IsFloat
-	case StringType:
-		return stringToNumber(strings.Trim(v.AsString(), " "))
+	if n, ok := v.TryInt(); ok {
+		return n, 0, IsInt
+	}
+	if f, ok := v.TryFloat(); ok {
+		return 0, f, IsFloat
+	}
+	if s, ok := v.TryString(); ok {
+		return stringToNumber(strings.Trim(s, " "))
 	}
 	return 0, 0, NaN
 }
 
 // ToNumberValue returns x as a Float or Int, and if it is a number.
 func ToNumberValue(v Value) (Value, NumberType) {
-	switch v.Type() {
+	switch v.NumberType() {
 	case IntType:
 		return v, IsInt
 	case FloatType:
 		return v, IsFloat
-	case StringType:
-		n, f, tp := stringToNumber(strings.Trim(v.AsString(), " "))
+	}
+	if s, ok := v.TryString(); ok {
+		n, f, tp := stringToNumber(strings.Trim(s, " "))
 		switch tp {
 		case IsInt:
 			return IntValue(n), IsInt
@@ -50,14 +52,15 @@ func ToNumberValue(v Value) (Value, NumberType) {
 
 // ToInt returns v as an Int and true if v is actually a valid integer.
 func ToInt(v Value) (int64, bool) {
-	switch v.Type() {
-	case IntType:
-		return v.AsInt(), true
-	case FloatType:
-		n, tp := FloatToInt(v.AsFloat())
+	if n, ok := v.TryInt(); ok {
+		return n, true
+	}
+	if f, ok := v.TryFloat(); ok {
+		n, tp := FloatToInt(f)
 		return n, tp == IsInt
-	case StringType:
-		n, tp := stringToInt(v.AsString())
+	}
+	if s, ok := v.TryString(); ok {
+		n, tp := stringToInt(s)
 		return n, tp == IsInt
 	}
 	return 0, false
@@ -65,13 +68,14 @@ func ToInt(v Value) (int64, bool) {
 
 // ToFloat returns v as a FLoat and true if v is a valid float.
 func ToFloat(v Value) (float64, bool) {
-	switch v.Type() {
-	case IntType:
-		return float64(v.AsInt()), true
-	case FloatType:
-		return v.AsFloat(), true
-	case StringType:
-		n, f, tp := stringToNumber(v.AsString())
+	if n, ok := v.TryInt(); ok {
+		return float64(n), true
+	}
+	if f, ok := v.TryFloat(); ok {
+		return f, true
+	}
+	if s, ok := v.TryString(); ok {
+		n, f, tp := stringToNumber(s)
 		switch tp {
 		case IsInt:
 			return float64(n), true
