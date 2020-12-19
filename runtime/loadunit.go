@@ -1,8 +1,6 @@
 package runtime
 
 import (
-	"io"
-
 	"github.com/arnodel/golua/code"
 )
 
@@ -12,7 +10,7 @@ type Code struct {
 	source, name string
 	code         []code.Opcode
 	lines        []int32
-	consts       []Konst
+	consts       []Value
 	UpvalueCount int16
 	UpNames      []string
 	RegCount     int16
@@ -24,7 +22,7 @@ type Code struct {
 // required for the function.
 func (c *Code) RefactorConsts() *Code {
 	opcodes := make([]code.Opcode, len(c.code))
-	var consts []Konst
+	var consts []Value
 	constMap := map[code.KIndex]code.KIndex{}
 	for i, op := range c.code {
 		if op.TypePfx() == code.Type3Pfx {
@@ -39,7 +37,7 @@ func (c *Code) RefactorConsts() *Code {
 					newConst := c.consts[n]
 					if unop == code.OpClosureK {
 						// It's a closure so we need to refactor its consts
-						newConst = CodeValue(newConst.Value().AsCode().RefactorConsts())
+						newConst = CodeValue(newConst.AsCode().RefactorConsts())
 					}
 					consts = append(consts, newConst)
 				}
@@ -54,69 +52,9 @@ func (c *Code) RefactorConsts() *Code {
 	return &cc
 }
 
-func (c *Code) writeKonst(w io.Writer) (err error) {
-	_, err = w.Write([]byte{constTypeCode})
-	if err != nil {
-		return
-	}
-	swrite(w, c.source)
-	swrite(w, c.name)
-	bwrite(w, int64(len(c.code)))
-	for _, opcode := range c.code {
-		bwrite(w, int32(opcode))
-	}
-	bwrite(w, int64(len(c.lines)))
-	bwrite(w, c.lines)
-	bwrite(w, int64(len(c.consts)))
-	for _, k := range c.consts {
-		WriteConst(w, k)
-	}
-	bwrite(w, c.UpvalueCount)
-	bwrite(w, c.RegCount)
-	bwrite(w, c.CellCount)
-	bwrite(w, int64(len(c.UpNames)))
-	for _, n := range c.UpNames {
-		swrite(w, n)
-	}
-	return
-}
-
-func (c *Code) loadKonst(r io.Reader) (err error) {
-	sread(r, &c.source)
-	sread(r, &c.name)
-	var sz int64
-	bread(r, &sz)
-	c.code = make([]code.Opcode, sz)
-	for i := range c.code {
-		var op int32
-		bread(r, &op)
-		c.code[i] = code.Opcode(op)
-	}
-	bread(r, &sz)
-	c.lines = make([]int32, sz)
-	bread(r, c.lines)
-	bread(r, &sz)
-	c.consts = make([]Konst, sz)
-	for i := range c.consts {
-		c.consts[i], err = LoadConst(r)
-		if err != nil {
-			return
-		}
-	}
-	bread(r, &c.UpvalueCount)
-	bread(r, &c.RegCount)
-	bread(r, &c.CellCount)
-	bread(r, &sz)
-	c.UpNames = make([]string, sz)
-	for i := range c.UpNames {
-		sread(r, &c.UpNames[i])
-	}
-	return
-}
-
 // LoadLuaUnit turns a code unit into a closure given an environment env.
 func LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
-	constants := make([]Konst, len(unit.Constants))
+	constants := make([]Value, len(unit.Constants))
 	for i, ck := range unit.Constants {
 		switch k := ck.(type) {
 		case code.Int:
@@ -145,7 +83,7 @@ func LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 			panic("Unsupported constant type")
 		}
 	}
-	mainCode := constants[0].Value().AsCode() // It must be some code
+	mainCode := constants[0].AsCode() // It must be some code
 	clos := NewClosure(mainCode)
 	if mainCode.UpvalueCount > 0 {
 		envVal := TableValue(env)

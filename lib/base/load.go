@@ -89,7 +89,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil {
 			return nil, rt.NewErrorE(err).AddContext(c)
 		}
-		code, ok := k.Value().TryCode()
+		code, ok := k.TryCode()
 		if !ok {
 			return nil, rt.NewErrorF("Expected function to load").AddContext(c)
 		}

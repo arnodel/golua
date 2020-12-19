@@ -199,9 +199,9 @@ RunLoop:
 			case code.OpStr2:
 				val = StringValue(string(code.Lit16(n).ToStr2()))
 			case code.OpK:
-				val = consts[n].Value()
+				val = consts[n]
 			case code.OpClosureK:
-				val = FunctionValue(NewClosure(consts[n].Value().AsCode()))
+				val = FunctionValue(NewClosure(consts[n].AsCode()))
 			default:
 				panic("Unsupported opcode")
 			}
