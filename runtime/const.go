@@ -11,29 +11,20 @@ import (
 func WriteConst(w io.Writer, c Value) (err error) {
 	switch c.Type() {
 	case IntType:
-		_, err = w.Write([]byte{constTypeInt})
-		if err == nil {
-			err = bwrite(w, c.AsInt())
-		}
+		err = bwrite(w, IntType, c.AsInt())
 	case FloatType:
-		_, err := w.Write([]byte{constTypeFloat})
-		if err == nil {
-			err = bwrite(w, c.AsFloat())
-		}
+		err = bwrite(w, FloatType, c.AsFloat())
 	case BoolType:
-		_, err = w.Write([]byte{constTypeBool})
-		if err == nil {
-			err = bwrite(w, c.AsBool())
-		}
+		err = bwrite(w, BoolType, c.AsBool())
 	case StringType:
-		_, err = w.Write([]byte{constTypeString})
+		err = bwrite(w, StringType)
 		if err == nil {
 			err = swrite(w, c.AsString())
 		}
 	case NilType:
-		_, err = w.Write([]byte{constTypeNil})
+		err = bwrite(w, NilType)
 	case CodeType:
-		err = c.AsCode().write(w)
+		err = writeCode(w, c.AsCode())
 	default:
 		panic("invalid value type")
 	}
@@ -41,63 +32,58 @@ func WriteConst(w io.Writer, c Value) (err error) {
 }
 
 // LoadConst reads from r to deserialize a const value.
-func LoadConst(r io.Reader) (Value, error) {
-	var tp = make([]byte, 1)
-	_, err := r.Read(tp)
-	if err != nil {
-		return Value{}, err
-	}
-	switch tp[0] {
-	case constTypeInt:
-		var x int64
-		if err := bread(r, &x); err != nil {
-			return Value{}, err
-		}
-		return IntValue(x), nil
-	case constTypeFloat:
-		var x float64
-		if err := bread(r, &x); err != nil {
-			return Value{}, err
-		}
-		return FloatValue(x), nil
-	case constTypeString:
-		var l uint64
-		if err := bread(r, &l); err != nil {
-			return Value{}, err
-		}
-		var b = make([]byte, l)
-		if _, err := r.Read(b); err != nil {
-			return Value{}, err
-		}
-		return StringValue(string(b)), nil
-	case constTypeBool:
-		var x bool
-		if err := bread(r, &x); err != nil {
-			return Value{}, err
-		}
-		return BoolValue(x), nil
-	case constTypeNil:
-		return NilValue, nil
-	case constTypeCode:
-		x := new(Code)
-		if err := x.load(r); err != nil {
-			return Value{}, err
-		}
-		return CodeValue(x), nil
-	}
-	return Value{}, nil
-}
-
-func (c *Code) write(w io.Writer) (err error) {
-	_, err = w.Write([]byte{constTypeCode})
+func LoadConst(r io.Reader) (v Value, err error) {
+	var tp ValueType
+	err = bread(r, &tp)
 	if err != nil {
 		return
 	}
+	switch tp {
+	case IntType:
+		var x int64
+		err = bread(r, &x)
+		if err == nil {
+			v = IntValue(x)
+		}
+	case FloatType:
+		var x float64
+		err = bread(r, &x)
+		if err == nil {
+			v = FloatValue(x)
+		}
+	case StringType:
+		var s string
+		err = sread(r, &s)
+		if err == nil {
+			v = StringValue(s)
+		}
+	case BoolType:
+		var x bool
+		err = bread(r, x)
+		if err == nil {
+			v = BoolValue(x)
+		}
+	case NilType:
+		return NilValue, nil
+	case CodeType:
+		x := new(Code)
+		err = loadCode(r, x)
+		if err == nil {
+			v = CodeValue(x)
+		}
+	default:
+		panic("invalid value type")
+	}
+	return
+}
+
+func writeCode(w io.Writer, c *Code) (err error) {
+	bwrite(w, CodeType)
 	swrite(w, c.source)
 	swrite(w, c.name)
 	bwrite(w, int64(len(c.code)))
 	for _, opcode := range c.code {
-		bwrite(w, int32(opcode))
+		bwrite(w, opcode)
 	}
 	bwrite(w, int64(len(c.lines)))
 	bwrite(w, c.lines)
@@ -115,16 +101,14 @@ func (c *Code) write(w io.Writer) (err error) {
 	return
 }
 
-func (c *Code) load(r io.Reader) (err error) {
+func loadCode(r io.Reader, c *Code) (err error) {
 	sread(r, &c.source)
 	sread(r, &c.name)
 	var sz int64
 	bread(r, &sz)
 	c.code = make([]code.Opcode, sz)
 	for i := range c.code {
-		var op int32
-		bread(r, &op)
-		c.code[i] = code.Opcode(op)
+		bread(r, &c.code[i])
 	}
 	bread(r, &sz)
 	c.lines = make([]int32, sz)
@@ -148,6 +132,10 @@ func (c *Code) load(r io.Reader) (err error) {
 	return
 }
 
+//
+//  Helper functions
+//
+
 func swrite(w io.Writer, s string) (err error) {
 	err = bwrite(w, int64(len(s)))
 	if err == nil {
@@ -169,23 +157,22 @@ func sread(r io.Reader, s *string) (err error) {
 	return
 }
 
-const (
-	constTypeInt = iota
-	constTypeFloat
-	constTypeString
-	constTypeBool
-	constTypeNil
-	constTypeCode
-
-	// ConstTypeMaj is bigger than any const type
-	ConstTypeMaj
-)
-
-func bwrite(w io.Writer, x interface{}) (err error) {
-	err = binary.Write(w, binary.LittleEndian, x)
+func bwrite(w io.Writer, xs ...interface{}) (err error) {
+	for _, x := range xs {
+		err = binary.Write(w, binary.LittleEndian, x)
+		if err != nil {
+			break
+		}
+	}
 	return
 }
 
-func bread(r io.Reader, x interface{}) error {
-	return binary.Read(r, binary.LittleEndian, x)
+func bread(r io.Reader, xs ...interface{}) (err error) {
+	for _, x := range xs {
+		err = binary.Read(r, binary.LittleEndian, x)
+		if err != nil {
+			break
+		}
+	}
+	return
 }

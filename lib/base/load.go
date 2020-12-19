@@ -78,7 +78,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	canBeBinary := strings.IndexByte(chunkMode, 'b') >= 0
 	canBeText := strings.IndexByte(chunkMode, 't') >= 0
-	if len(chunk) > 0 && chunk[0] < rt.ConstTypeMaj {
+	if len(chunk) > 0 && chunk[0] < byte(rt.ConstTypeMaj) {
 		// binary chunk
 		if !canBeBinary {
 			rt.Push(next, rt.NilValue, rt.StringValue("attempt to load a binary chunk"))

@@ -10,10 +10,13 @@ const (
 	FloatType
 	BoolType
 	StringType
-	TableType
 	CodeType
+	TableType
 	FunctionType
 	ThreadType
 	UserDataType
 	UnknownType
 )
+
+// ConstantTypeMaj Constant types must be less that this.
+const ConstTypeMaj = CodeType + 1
