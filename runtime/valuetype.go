@@ -18,5 +18,5 @@ const (
 	UnknownType
 )
 
-// ConstantTypeMaj Constant types must be less that this.
+// ConstTypeMaj Constant types must be less that this.
 const ConstTypeMaj = CodeType + 1

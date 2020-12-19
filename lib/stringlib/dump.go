@@ -21,7 +21,7 @@ func dump(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	// TODO: support strip
 	_ = strip
 	var w bytes.Buffer
-	if err := rt.WriteConst(&w, rt.CodeValue(cl.Code.RefactorConsts())); err != nil {
+	if err := rt.MarshalConst(&w, rt.CodeValue(cl.Code.RefactorConsts())); err != nil {
 		return nil, rt.NewError(rt.StringValue(err.Error())).AddContext(c)
 	}
 	return c.PushingNext(rt.StringValue(w.String())), nil

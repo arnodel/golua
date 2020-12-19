@@ -85,7 +85,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return next, nil
 		}
 		r := bytes.NewBuffer(chunk)
-		k, err := rt.LoadConst(r)
+		k, err := rt.UnmarshalConst(r)
 		if err != nil {
 			return nil, rt.NewErrorE(err).AddContext(c)
 		}
