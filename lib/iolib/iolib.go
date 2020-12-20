@@ -9,6 +9,9 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
+// Wether std files should be buffered
+var BufferedStdFiles bool = true
+
 type ioKeyType struct{}
 
 var ioKey = rt.AsValue(ioKeyType{})
@@ -33,9 +36,9 @@ func load(r *rt.Runtime) rt.Value {
 	rt.SetEnv(meta, "__index", rt.TableValue(methods))
 	rt.SetEnvGoFunc(meta, "__tostring", tostring, 1, false)
 
-	stdin := rt.NewUserData(&File{file: os.Stdout}, meta)
-	stdout := rt.NewUserData(&File{file: os.Stdin}, meta)
-	stderr := rt.NewUserData(&File{file: os.Stderr}, meta)
+	stdin := rt.NewUserData(NewFile(os.Stdin, BufferedStdFiles), meta)
+	stdout := rt.NewUserData(NewFile(os.Stdout, BufferedStdFiles), meta)
+	stderr := rt.NewUserData(NewFile(os.Stderr, false), meta) // I''m guessing, don't buffer stderr?
 
 	r.SetRegistry(ioKey, rt.AsValue(&ioData{
 		defaultOutput: stdin,
@@ -332,7 +335,7 @@ func write(vf rt.Value, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, rt.NewErrorS("argument must be a string or a number").AddContext(c)
 		}
 		s, _ := rt.ToString(val)
-		if err = f.WriteString(string(s)); err != nil {
+		if err = f.WriteString(s); err != nil {
 			break
 		}
 	}
