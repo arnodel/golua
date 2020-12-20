@@ -19,13 +19,15 @@ import (
 )
 
 type luaCmd struct {
-	disFlag bool
-	astFlag bool
+	disFlag        bool
+	astFlag        bool
+	unbufferedFlag bool
 }
 
 func (c *luaCmd) setFlags() {
 	flag.BoolVar(&c.disFlag, "dis", false, "Disassemble source instead of running it")
 	flag.BoolVar(&c.astFlag, "ast", false, "Print AST instead of running code")
+	flag.BoolVar(&c.unbufferedFlag, "u", false, "Force unbuffered output")
 }
 
 func (c *luaCmd) run() {
@@ -36,16 +38,14 @@ func (c *luaCmd) run() {
 		args      []string
 	)
 
-	buffered := !isaTTY(os.Stdin)
+	buffered := !isaTTY(os.Stdin) || flag.NArg() > 0
+	if c.unbufferedFlag {
+		buffered = false
+	}
 	iolib.BufferedStdFiles = buffered
 
-	var stdout io.Writer = os.Stdout
-	if buffered {
-		stdout = bufio.NewWriter(stdout)
-	}
-
 	// Get a Lua runtime
-	r := rt.New(stdout)
+	r := rt.New(os.Stdout)
 	lib.Load(r)
 
 	// Run finalizers before we exit

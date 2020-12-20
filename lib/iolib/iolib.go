@@ -36,13 +36,17 @@ func load(r *rt.Runtime) rt.Value {
 	rt.SetEnv(meta, "__index", rt.TableValue(methods))
 	rt.SetEnvGoFunc(meta, "__tostring", tostring, 1, false)
 
+	stdoutFile := NewFile(os.Stdout, BufferedStdFiles)
+	if r.Stdout == nil {
+		r.Stdout = stdoutFile.writer
+	}
 	stdin := rt.NewUserData(NewFile(os.Stdin, BufferedStdFiles), meta)
-	stdout := rt.NewUserData(NewFile(os.Stdout, BufferedStdFiles), meta)
+	stdout := rt.NewUserData(stdoutFile, meta)
 	stderr := rt.NewUserData(NewFile(os.Stderr, false), meta) // I''m guessing, don't buffer stderr?
 
 	r.SetRegistry(ioKey, rt.AsValue(&ioData{
-		defaultOutput: stdin,
-		defaultInput:  stdout,
+		defaultOutput: stdout,
+		defaultInput:  stdin,
 		metatable:     meta,
 	}))
 	pkg := rt.NewTable()

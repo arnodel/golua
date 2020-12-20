@@ -16,6 +16,8 @@ import (
 type bufReader interface {
 	io.Reader
 	Reset(r io.Reader)
+	Buffered() int
+	Discard(int) (int, error)
 }
 
 type bufWriter interface {
@@ -38,6 +40,17 @@ func (u *nobufReader) Reset(r io.Reader) {
 	u.Reader = r
 }
 
+func (u *nobufReader) Buffered() int {
+	return 0
+}
+
+func (u *nobufReader) Discard(n int) (int, error) {
+	if n > 0 {
+		return 0, errors.New("nobufReader cannot discard")
+	}
+	return 0, nil
+}
+
 type nobufWriter struct {
 	io.Writer
 }
@@ -56,18 +69,27 @@ type File struct {
 	closed bool
 	reader bufReader
 	writer bufWriter
+	temp   bool
 }
 
 // NewFile returns a new *File from an *os.File.
 func NewFile(file *os.File, buffered bool) *File {
 	f := &File{file: file}
 	if buffered {
-		f.reader = &nobufReader{file}
-		f.writer = &nobufWriter{file}
-	} else {
 		f.reader = bufio.NewReader(file)
 		f.writer = bufio.NewWriter(file)
+	} else {
+		f.reader = &nobufReader{file}
+		f.writer = &nobufWriter{file}
 	}
+	runtime.SetFinalizer(f, func(f *File) {
+		_ = f.Close()
+		// This is meant to remove the file when it becomes unreachable.
+		// In fact that is done when it is garbage collected.
+		if f.temp {
+			_ = os.Remove(f.Name())
+		}
+	})
 	return f
 }
 
@@ -96,14 +118,8 @@ func TempFile() (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	ff := &File{file: f}
-
-	// This is meant to remove the file when it becomes unreachable.
-	// In fact that is done when it is garbage collected.
-	runtime.SetFinalizer(ff, func(ff *File) {
-		_ = ff.file.Close()
-		_ = os.Remove(ff.Name())
-	})
+	ff := NewFile(f, true)
+	ff.temp = true
 	return ff, nil
 }
 
@@ -115,7 +131,11 @@ func (f *File) IsClosed() bool {
 // Close attempts to close the file, returns an error if not successful.
 func (f *File) Close() error {
 	f.closed = true
+	errFlush := f.writer.Flush()
 	err := f.file.Close()
+	if err == nil {
+		return errFlush
+	}
 	return err
 }
 
@@ -211,9 +231,28 @@ func (f *File) WriteString(s string) error {
 
 // Seek seeks from the file.
 func (f *File) Seek(offset int64, whence int) (n int64, err error) {
-	n, err = f.file.Seek(offset, whence)
-	f.reader.Reset(f.file)
-	f.writer.Reset(f.file)
+	err = f.writer.Flush()
+	if err != nil {
+		return
+	}
+	switch whence {
+	case io.SeekStart, io.SeekEnd:
+		n, err = f.file.Seek(offset, whence)
+		f.reader.Reset(f.file)
+		f.writer.Reset(f.file)
+	case io.SeekCurrent:
+		var n0 int64
+		n0, err = f.file.Seek(0, whence)
+		bufCount := int64(f.reader.Buffered())
+		n = n0 - bufCount + offset
+		if err != nil {
+			return
+		}
+		if offset < 0 || bufCount < offset {
+			return f.Seek(n, io.SeekStart)
+		}
+		f.reader.Discard(int(offset))
+	}
 	return
 }
 
