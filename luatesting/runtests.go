@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/arnodel/golua/lib"
 	"github.com/arnodel/golua/runtime"
 )
 
@@ -30,12 +29,12 @@ func RunSource(r *runtime.Runtime, source []byte) {
 
 // RunLuaTest runs the lua test code in source, running setup if non-nil
 // beforehand (with the Runtime instance that will be used in the test).
-func RunLuaTest(source []byte, setup func(*runtime.Runtime)) error {
+func RunLuaTest(source []byte, setup func(*runtime.Runtime) func()) error {
 	outputBuf := new(bytes.Buffer)
 	r := runtime.New(outputBuf)
-	lib.Load(r)
 	if setup != nil {
-		setup(r)
+		cleanup := setup(r)
+		defer cleanup()
 	}
 	checkers := ExtractLineCheckers(source)
 	RunSource(r, source)
@@ -43,7 +42,7 @@ func RunLuaTest(source []byte, setup func(*runtime.Runtime)) error {
 }
 
 // RunLuaTestsInDir runs a test for each .lua file in the directory provided.
-func RunLuaTestsInDir(t *testing.T, dirpath string, setup func(*runtime.Runtime)) {
+func RunLuaTestsInDir(t *testing.T, dirpath string, setup func(*runtime.Runtime) func()) {
 	runTest := func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) != ".lua" {
 			return nil

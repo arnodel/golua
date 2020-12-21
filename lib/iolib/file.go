@@ -7,11 +7,54 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"runtime"
 	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
 )
+
+// NewFile returns a new *File from an *os.File.
+func NewFile(file *os.File, buffered bool) *File {
+	f := &File{file: file}
+	if buffered {
+		f.reader = bufio.NewReader(file)
+		f.writer = bufio.NewWriterSize(file, 65536)
+	} else {
+		f.reader = &nobufReader{file}
+		f.writer = &nobufWriter{file}
+	}
+	currentFiles[f] = struct{}{}
+	return f
+}
+
+// FileArg turns a continuation argument into a *File.
+func FileArg(c *rt.GoCont, n int) (*File, *rt.Error) {
+	f, ok := ValueToFile(c.Arg(n))
+	if ok {
+		return f, nil
+	}
+	return nil, rt.NewErrorF("#%d must be a file", n+1)
+}
+
+// ValueToFile turns a lua value to a *File if possible.
+func ValueToFile(v rt.Value) (*File, bool) {
+	u, ok := v.TryUserData()
+	if ok {
+		return u.Value().(*File), true
+	}
+	return nil, false
+}
+
+// TempFile tries to make a temporary file, and if successful schedules the file
+// to be removed when the process dies.
+func TempFile() (*File, error) {
+	f, err := ioutil.TempFile("", "golua")
+	if err != nil {
+		return nil, err
+	}
+	ff := NewFile(f, true)
+	ff.temp = true
+	return ff, nil
+}
 
 type bufReader interface {
 	io.Reader
@@ -72,55 +115,24 @@ type File struct {
 	temp   bool
 }
 
-// NewFile returns a new *File from an *os.File.
-func NewFile(file *os.File, buffered bool) *File {
-	f := &File{file: file}
-	if buffered {
-		f.reader = bufio.NewReader(file)
-		f.writer = bufio.NewWriter(file)
-	} else {
-		f.reader = &nobufReader{file}
-		f.writer = &nobufWriter{file}
+var currentFiles = map[*File]struct{}{}
+
+func cleanupCurrentFiles() {
+	for f := range currentFiles {
+		f.cleanup()
 	}
-	runtime.SetFinalizer(f, func(f *File) {
-		_ = f.Close()
-		// This is meant to remove the file when it becomes unreachable.
-		// In fact that is done when it is garbage collected.
-		if f.temp {
-			_ = os.Remove(f.Name())
-		}
-	})
-	return f
 }
 
-// FileArg turns a continuation argument into a *File.
-func FileArg(c *rt.GoCont, n int) (*File, *rt.Error) {
-	f, ok := ValueToFile(c.Arg(n))
-	if ok {
-		return f, nil
-	}
-	return nil, rt.NewErrorF("#%d must be a file", n+1)
+func (f *File) release() {
+	delete(currentFiles, f)
+	f.cleanup()
 }
 
-// ValueToFile turns a lua value to a *File if possible.
-func ValueToFile(v rt.Value) (*File, bool) {
-	u, ok := v.TryUserData()
-	if ok {
-		return u.Value().(*File), true
+func (f *File) cleanup() {
+	_ = f.Close()
+	if f.temp {
+		_ = os.Remove(f.Name())
 	}
-	return nil, false
-}
-
-// TempFile tries to make a temporary file, and if successful schedules the file
-// to be removed when the process dies.
-func TempFile() (*File, error) {
-	f, err := ioutil.TempFile("", "golua")
-	if err != nil {
-		return nil, err
-	}
-	ff := NewFile(f, true)
-	ff.temp = true
-	return ff, nil
 }
 
 // IsClosed returns true if the file is close.

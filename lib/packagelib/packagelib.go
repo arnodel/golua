@@ -26,6 +26,9 @@ type Loader struct {
 	// Function that creates the package and returns it
 	Load func(r *rt.Runtime) rt.Value
 
+	// Function that cleans up at the end (optional)
+	Cleanup func(r *rt.Runtime)
+
 	// Name of the package
 	Name string
 }

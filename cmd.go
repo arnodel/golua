@@ -30,7 +30,7 @@ func (c *luaCmd) setFlags() {
 	flag.BoolVar(&c.unbufferedFlag, "u", false, "Force unbuffered output")
 }
 
-func (c *luaCmd) run() {
+func (c *luaCmd) run() int {
 	var (
 		chunkName string
 		chunk     []byte
@@ -45,8 +45,9 @@ func (c *luaCmd) run() {
 	iolib.BufferedStdFiles = buffered
 
 	// Get a Lua runtime
-	r := rt.New(os.Stdout)
-	lib.Load(r)
+	r := rt.New(nil)
+	cleanup := lib.LoadAll(r)
+	defer cleanup()
 
 	// Run finalizers before we exit
 	defer runtime.GC()
@@ -55,8 +56,7 @@ func (c *luaCmd) run() {
 	case 0:
 		chunkName = "<stdin>"
 		if isaTTY(os.Stdin) {
-			repl(r)
-			return
+			return repl(r)
 		}
 		chunk, err = ioutil.ReadAll(os.Stdin)
 		if err != nil {
@@ -66,28 +66,28 @@ func (c *luaCmd) run() {
 		chunkName = flag.Arg(0)
 		chunk, err = ioutil.ReadFile(chunkName)
 		if err != nil {
-			fatal("Error reading '%s': %s", chunkName, err)
+			return fatal("Error reading '%s': %s", chunkName, err)
 		}
 		args = flag.Args()[1:]
 	}
 	if c.astFlag {
 		stat, err := rt.ParseLuaChunk(chunkName, chunk)
 		if err != nil {
-			fatal("Error parsing %s: %s", chunkName, err)
+			return fatal("Error parsing %s: %s", chunkName, err)
 		}
 		w := ast.NewIndentWriter(os.Stdout)
 		stat.HWrite(w)
-		return
+		return 0
 	}
 	chunk = removeSlashBangLine(chunk)
 	unit, err := rt.CompileLuaChunk(chunkName, chunk)
 	if err != nil {
-		fatal("Error parsing %s: %s", chunkName, err)
+		return fatal("Error parsing %s: %s", chunkName, err)
 	}
 
 	if c.disFlag {
 		unit.Disassemble(os.Stdout)
-		return
+		return 0
 	}
 
 	var argVals []rt.Value
@@ -105,13 +105,14 @@ func (c *luaCmd) run() {
 	clos := rt.LoadLuaUnit(unit, r.GlobalEnv())
 	cerr := rt.Call(r.MainThread(), rt.FunctionValue(clos), argVals, rt.NewTerminationWith(0, false))
 	if cerr != nil {
-		fatal("!!! %s", cerr.Traceback())
+		return fatal("!!! %s", cerr.Traceback())
 	}
+	return 0
 }
 
-func fatal(tpl string, args ...interface{}) {
+func fatal(tpl string, args ...interface{}) int {
 	fmt.Fprintf(os.Stderr, tpl, args...)
-	os.Exit(1)
+	return 1
 }
 
 func isaTTY(f *os.File) bool {
@@ -135,7 +136,7 @@ func removeSlashBangLine(chunk []byte) []byte {
 	return nil
 }
 
-func repl(r *rt.Runtime) {
+func repl(r *rt.Runtime) int {
 	reader := bufio.NewReader(os.Stdin)
 	w := new(bytes.Buffer)
 	for {
@@ -149,11 +150,11 @@ func repl(r *rt.Runtime) {
 		if err == io.EOF {
 			w.WriteTo(os.Stdout)
 			fmt.Print(string(line))
-			return
+			return 0
 		}
 		_, err = w.Write(line)
 		if err != nil {
-			return
+			return fatal("error: %s", err)
 		}
 		// This is a trick to be able to evaluate lua expressions in the repl
 		more, err := runChunk(r, append([]byte("return "), w.Bytes()...))
