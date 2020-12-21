@@ -66,6 +66,18 @@ func ToInt(v Value) (int64, bool) {
 	return 0, false
 }
 
+// ToIntNoString returns v as an Int and true if v is actually a valid integer.
+func ToIntNoString(v Value) (int64, bool) {
+	if n, ok := v.TryInt(); ok {
+		return n, true
+	}
+	if f, ok := v.TryFloat(); ok {
+		n, tp := FloatToInt(f)
+		return n, tp == IsInt
+	}
+	return 0, false
+}
+
 // ToFloat returns v as a FLoat and true if v is a valid float.
 func ToFloat(v Value) (float64, bool) {
 	if n, ok := v.TryInt(); ok {
