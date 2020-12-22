@@ -56,7 +56,9 @@ func ExtractLineCheckers(source []byte) []LineChecker {
 		line = bytes.TrimLeft(line, " ")
 		switch line[4] {
 		case '=':
-			lc = LiteralLineChecker(line[5:])
+			lit := make([]byte, len(line)-5)
+			copy(lit, line[5:])
+			lc = LiteralLineChecker(lit)
 		case '~':
 			lc = (*RegexLineChecker)(regexp.MustCompile(string(line[5:])))
 		default:
