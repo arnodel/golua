@@ -39,6 +39,7 @@ func load(r *rt.Runtime) rt.Value {
 	rt.SetEnvGoFunc(meta, "__tostring", tostring, 1, false)
 
 	stdoutFile := NewFile(os.Stdout, BufferedStdFiles)
+	// This is not a good pattern - it has to do for now.
 	if r.Stdout == nil {
 		r.Stdout = stdoutFile.writer
 	}

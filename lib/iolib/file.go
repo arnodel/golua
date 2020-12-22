@@ -118,9 +118,19 @@ type File struct {
 var currentFiles = map[*File]struct{}{}
 
 func cleanupCurrentFiles() {
+	// We don't want to close the std files, that breaks testing.  In normal
+	// operation it's the end of the program so that' OK too.
 	for f := range currentFiles {
-		f.cleanup()
+		switch f.file {
+		case os.Stdout, os.Stderr:
+			f.Flush()
+		case os.Stdin:
+			// Nothing to do?
+		default:
+			f.cleanup()
+		}
 	}
+	currentFiles = map[*File]struct{}{}
 }
 
 func (f *File) release() {
