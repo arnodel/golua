@@ -146,6 +146,12 @@ do
     --> =[abc
     --> =]
 
+    f:seek("end", -2)
+    f:seek("cur", -2)
+    wp(f:read("L"))
+    --> =[abc
+    --> =]
+    
     print(pcall(f.seek))
     --> ~false\t.*value needed
 

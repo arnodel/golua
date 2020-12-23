@@ -21,12 +21,12 @@ print(1 == 1.0)
 error("hello")
 --> ~!!! runtime:.*
 `
-	err := luatesting.RunLuaTest([]byte(src), lib.Load)
+	err := luatesting.RunLuaTest([]byte(src), lib.LoadAll)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestLua(t *testing.T) {
-	luatesting.RunLuaTestsInDir(t, "lua", lib.Load)
+	luatesting.RunLuaTestsInDir(t, "lua", lib.LoadAll)
 }

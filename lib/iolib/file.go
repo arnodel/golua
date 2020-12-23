@@ -1,21 +1,29 @@
 package iolib
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"io"
 	"io/ioutil"
 	"os"
-	"runtime"
 	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
 )
 
-// A File wraps an os.File for manipulation by iolib.
-type File struct {
-	file   *os.File
-	closed bool
+// NewFile returns a new *File from an *os.File.
+func NewFile(file *os.File, buffered bool) *File {
+	f := &File{file: file}
+	if buffered {
+		f.reader = bufio.NewReader(file)
+		f.writer = bufio.NewWriterSize(file, 65536)
+	} else {
+		f.reader = &nobufReader{file}
+		f.writer = &nobufWriter{file}
+	}
+	currentFiles[f] = struct{}{}
+	return f
 }
 
 // FileArg turns a continuation argument into a *File.
@@ -43,15 +51,98 @@ func TempFile() (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	ff := &File{file: f}
-
-	// This is meant to remove the file when it becomes unreachable.
-	// In fact that is done when it is garbage collected.
-	runtime.SetFinalizer(ff, func(ff *File) {
-		_ = ff.file.Close()
-		_ = os.Remove(ff.Name())
-	})
+	ff := NewFile(f, true)
+	ff.temp = true
 	return ff, nil
+}
+
+type bufReader interface {
+	io.Reader
+	Reset(r io.Reader)
+	Buffered() int
+	Discard(int) (int, error)
+}
+
+type bufWriter interface {
+	io.Writer
+	Reset(w io.Writer)
+	Flush() error
+}
+type nobufReader struct {
+	io.Reader
+}
+
+var (
+	_ bufReader = (*nobufReader)(nil)
+	_ bufReader = (*bufio.Reader)(nil)
+	_ bufWriter = (*nobufWriter)(nil)
+	_ bufWriter = (*bufio.Writer)(nil)
+)
+
+func (u *nobufReader) Reset(r io.Reader) {
+	u.Reader = r
+}
+
+func (u *nobufReader) Buffered() int {
+	return 0
+}
+
+func (u *nobufReader) Discard(n int) (int, error) {
+	if n > 0 {
+		return 0, errors.New("nobufReader cannot discard")
+	}
+	return 0, nil
+}
+
+type nobufWriter struct {
+	io.Writer
+}
+
+func (u *nobufWriter) Reset(w io.Writer) {
+	u.Writer = w
+}
+
+func (u *nobufWriter) Flush() error {
+	return nil
+}
+
+// A File wraps an os.File for manipulation by iolib.
+type File struct {
+	file   *os.File
+	closed bool
+	reader bufReader
+	writer bufWriter
+	temp   bool
+}
+
+var currentFiles = map[*File]struct{}{}
+
+func cleanupCurrentFiles() {
+	// We don't want to close the std files, that breaks testing.  In normal
+	// operation it's the end of the program so that' OK too.
+	for f := range currentFiles {
+		switch f.file {
+		case os.Stdout, os.Stderr:
+			f.Flush()
+		case os.Stdin:
+			// Nothing to do?
+		default:
+			f.cleanup()
+		}
+	}
+	currentFiles = map[*File]struct{}{}
+}
+
+func (f *File) release() {
+	delete(currentFiles, f)
+	f.cleanup()
+}
+
+func (f *File) cleanup() {
+	_ = f.Close()
+	if f.temp {
+		_ = os.Remove(f.Name())
+	}
 }
 
 // IsClosed returns true if the file is close.
@@ -62,12 +153,19 @@ func (f *File) IsClosed() bool {
 // Close attempts to close the file, returns an error if not successful.
 func (f *File) Close() error {
 	f.closed = true
+	errFlush := f.writer.Flush()
 	err := f.file.Close()
+	if err == nil {
+		return errFlush
+	}
 	return err
 }
 
 // Flush attempts to sync the file, returns an error if a problem occurs.
 func (f *File) Flush() error {
+	if err := f.writer.Flush(); err != nil {
+		return err
+	}
 	return f.file.Sync()
 }
 
@@ -94,7 +192,7 @@ func OpenFile(name, mode string) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &File{file: f}, nil
+	return NewFile(f, true), nil
 }
 
 // ReadLine reads a line from the file.  If withEnd is true, it will include the
@@ -125,7 +223,7 @@ func (f *File) ReadLine(withEnd bool) (rt.Value, error) {
 // Read return a lua string made of up to n bytes.
 func (f *File) Read(n int) (rt.Value, error) {
 	b := make([]byte, n)
-	n, err := f.file.Read(b)
+	n, err := f.reader.Read(b)
 	if err == nil || err == io.EOF && n > 0 {
 		return rt.StringValue(string(b[:n])), nil
 	}
@@ -135,7 +233,7 @@ func (f *File) Read(n int) (rt.Value, error) {
 // ReadAll attempts to read the whole file and return a lua string containing
 // it.
 func (f *File) ReadAll() (rt.Value, error) {
-	b, err := ioutil.ReadAll(f.file)
+	b, err := ioutil.ReadAll(f.reader)
 	if err != nil {
 		return rt.NilValue, err
 	}
@@ -149,14 +247,35 @@ func (f *File) ReadNumber() (rt.Value, error) {
 
 // WriteString writes a string to the file.
 func (f *File) WriteString(s string) error {
-	_, err := f.file.Write([]byte(s))
+	_, err := f.writer.Write([]byte(s))
 	return err
 }
 
 // Seek seeks from the file.
-func (f *File) Seek(offset int64, whence int) (int64, error) {
-	return f.file.Seek(offset, whence)
-
+func (f *File) Seek(offset int64, whence int) (n int64, err error) {
+	err = f.writer.Flush()
+	if err != nil {
+		return
+	}
+	switch whence {
+	case io.SeekStart, io.SeekEnd:
+		n, err = f.file.Seek(offset, whence)
+		f.reader.Reset(f.file)
+		f.writer.Reset(f.file)
+	case io.SeekCurrent:
+		var n0 int64
+		n0, err = f.file.Seek(0, whence)
+		bufCount := int64(f.reader.Buffered())
+		n = n0 - bufCount + offset
+		if err != nil {
+			return
+		}
+		if offset < 0 || bufCount < offset {
+			return f.Seek(n, io.SeekStart)
+		}
+		f.reader.Discard(int(offset))
+	}
+	return
 }
 
 // Name returns the file name.

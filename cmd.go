@@ -14,29 +14,40 @@ import (
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/lib"
 	"github.com/arnodel/golua/lib/base"
+	"github.com/arnodel/golua/lib/iolib"
 	rt "github.com/arnodel/golua/runtime"
 )
 
 type luaCmd struct {
-	disFlag bool
-	astFlag bool
+	disFlag        bool
+	astFlag        bool
+	unbufferedFlag bool
 }
 
 func (c *luaCmd) setFlags() {
 	flag.BoolVar(&c.disFlag, "dis", false, "Disassemble source instead of running it")
 	flag.BoolVar(&c.astFlag, "ast", false, "Print AST instead of running code")
+	flag.BoolVar(&c.unbufferedFlag, "u", false, "Force unbuffered output")
 }
 
-func (c *luaCmd) run() {
+func (c *luaCmd) run() int {
 	var (
 		chunkName string
 		chunk     []byte
 		err       error
+		args      []string
 	)
 
+	buffered := !isaTTY(os.Stdin) || flag.NArg() > 0
+	if c.unbufferedFlag {
+		buffered = false
+	}
+	iolib.BufferedStdFiles = buffered
+
 	// Get a Lua runtime
-	r := rt.New(os.Stdout)
-	lib.Load(r)
+	r := rt.New(nil)
+	cleanup := lib.LoadAll(r)
+	defer cleanup()
 
 	// Run finalizers before we exit
 	defer runtime.GC()
@@ -45,51 +56,63 @@ func (c *luaCmd) run() {
 	case 0:
 		chunkName = "<stdin>"
 		if isaTTY(os.Stdin) {
-			repl(r)
-			return
+			return repl(r)
 		}
 		chunk, err = ioutil.ReadAll(os.Stdin)
 		if err != nil {
 			fatal("Error reading <stdin>: %s", err)
 		}
-	case 1:
+	default:
 		chunkName = flag.Arg(0)
 		chunk, err = ioutil.ReadFile(chunkName)
 		if err != nil {
-			fatal("Error reading '%s': %s", chunkName, err)
+			return fatal("Error reading '%s': %s", chunkName, err)
 		}
-	default:
-		fatal("At most 1 argument (lua file name)")
+		args = flag.Args()[1:]
 	}
 	if c.astFlag {
 		stat, err := rt.ParseLuaChunk(chunkName, chunk)
 		if err != nil {
-			fatal("Error parsing %s: %s", chunkName, err)
+			return fatal("Error parsing %s: %s", chunkName, err)
 		}
 		w := ast.NewIndentWriter(os.Stdout)
 		stat.HWrite(w)
-		return
+		return 0
 	}
+	chunk = removeSlashBangLine(chunk)
 	unit, err := rt.CompileLuaChunk(chunkName, chunk)
 	if err != nil {
-		fatal("Error parsing %s: %s", chunkName, err)
+		return fatal("Error parsing %s: %s", chunkName, err)
 	}
 
 	if c.disFlag {
 		unit.Disassemble(os.Stdout)
-		return
+		return 0
+	}
+
+	var argVals []rt.Value
+	if len(args) > 0 {
+		argTable := rt.NewTable()
+		argVals = make([]rt.Value, len(args))
+		for i, arg := range args {
+			argVal := rt.StringValue(arg)
+			argTable.Set(rt.IntValue(int64(i+1)), argVal)
+			argVals[i] = argVal
+		}
+		r.GlobalEnv().Set(rt.StringValue("arg"), rt.TableValue(argTable))
 	}
 
 	clos := rt.LoadLuaUnit(unit, r.GlobalEnv())
-	cerr := rt.Call(r.MainThread(), rt.FunctionValue(clos), nil, rt.NewTerminationWith(0, false))
+	cerr := rt.Call(r.MainThread(), rt.FunctionValue(clos), argVals, rt.NewTerminationWith(0, false))
 	if cerr != nil {
-		fatal("!!! %s", cerr.Traceback())
+		return fatal("!!! %s", cerr.Traceback())
 	}
+	return 0
 }
 
-func fatal(tpl string, args ...interface{}) {
+func fatal(tpl string, args ...interface{}) int {
 	fmt.Fprintf(os.Stderr, tpl, args...)
-	os.Exit(1)
+	return 1
 }
 
 func isaTTY(f *os.File) bool {
@@ -97,7 +120,23 @@ func isaTTY(f *os.File) bool {
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
-func repl(r *rt.Runtime) {
+func removeSlashBangLine(chunk []byte) []byte {
+	if len(chunk) < 2 {
+		return chunk
+	}
+	if chunk[0] != '#' || chunk[1] != '!' {
+		return chunk
+	}
+	i := 3
+	for i < len(chunk) {
+		if chunk[i] == '\n' || chunk[i] == '\r' {
+			return chunk[i+1:]
+		}
+	}
+	return nil
+}
+
+func repl(r *rt.Runtime) int {
 	reader := bufio.NewReader(os.Stdin)
 	w := new(bytes.Buffer)
 	for {
@@ -111,11 +150,11 @@ func repl(r *rt.Runtime) {
 		if err == io.EOF {
 			w.WriteTo(os.Stdout)
 			fmt.Print(string(line))
-			return
+			return 0
 		}
 		_, err = w.Write(line)
 		if err != nil {
-			return
+			return fatal("error: %s", err)
 		}
 		// This is a trick to be able to evaluate lua expressions in the repl
 		more, err := runChunk(r, append([]byte("return "), w.Bytes()...))

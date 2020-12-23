@@ -4,10 +4,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 )
+
+// BufferedStdFiles sets wether std files should be buffered
+var BufferedStdFiles bool = true
 
 type ioKeyType struct{}
 
@@ -15,8 +19,9 @@ var ioKey = rt.AsValue(ioKeyType{})
 
 // LibLoader can load the io lib.
 var LibLoader = packagelib.Loader{
-	Load: load,
-	Name: "io",
+	Load:    load,
+	Name:    "io",
+	Cleanup: func(*rt.Runtime) { cleanupCurrentFiles() },
 }
 
 func load(r *rt.Runtime) rt.Value {
@@ -33,13 +38,18 @@ func load(r *rt.Runtime) rt.Value {
 	rt.SetEnv(meta, "__index", rt.TableValue(methods))
 	rt.SetEnvGoFunc(meta, "__tostring", tostring, 1, false)
 
-	stdin := rt.NewUserData(&File{file: os.Stdout}, meta)
-	stdout := rt.NewUserData(&File{file: os.Stdin}, meta)
-	stderr := rt.NewUserData(&File{file: os.Stderr}, meta)
+	stdoutFile := NewFile(os.Stdout, BufferedStdFiles)
+	// This is not a good pattern - it has to do for now.
+	if r.Stdout == nil {
+		r.Stdout = stdoutFile.writer
+	}
+	stdin := newFileUserData(NewFile(os.Stdin, BufferedStdFiles), meta)
+	stdout := newFileUserData(stdoutFile, meta)
+	stderr := newFileUserData(NewFile(os.Stderr, false), meta) // I''m guessing, don't buffer stderr?
 
 	r.SetRegistry(ioKey, rt.AsValue(&ioData{
-		defaultOutput: stdin,
-		defaultInput:  stdout,
+		defaultOutput: stdout,
+		defaultInput:  stdin,
 		metatable:     meta,
 	}))
 	pkg := rt.NewTable()
@@ -163,7 +173,7 @@ func input(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if ioErr != nil {
 			return nil, rt.NewErrorE(ioErr).AddContext(c)
 		}
-		fv = rt.NewUserData(f, ioData.metatable)
+		fv = newFileUserData(f, ioData.metatable)
 	case rt.UserDataType:
 		_, err := FileArg(c, 0)
 		if err != nil {
@@ -192,7 +202,7 @@ func output(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if ioErr != nil {
 			return nil, rt.NewErrorE(ioErr).AddContext(c)
 		}
-		fv = rt.NewUserData(f, ioData.metatable)
+		fv = newFileUserData(f, ioData.metatable)
 	case rt.UserDataType:
 		_, err := FileArg(c, 0)
 		if err != nil {
@@ -286,7 +296,7 @@ func open(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if ioErr != nil {
 		return nil, rt.NewErrorE(ioErr).AddContext(c)
 	}
-	u := rt.NewUserData(f, getIoData(t).metatable)
+	u := newFileUserData(f, getIoData(t).metatable)
 	return c.PushingNext(rt.UserDataValue(u)), nil
 }
 
@@ -332,7 +342,7 @@ func write(vf rt.Value, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, rt.NewErrorS("argument must be a string or a number").AddContext(c)
 		}
 		s, _ := rt.ToString(val)
-		if err = f.WriteString(string(s)); err != nil {
+		if err = f.WriteString(s); err != nil {
 			break
 		}
 	}
@@ -395,7 +405,7 @@ func tmpfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, rt.NewErrorE(err).AddContext(c)
 	}
-	fv := rt.NewUserData(f, getIoData(t).metatable)
+	fv := newFileUserData(f, getIoData(t).metatable)
 	return c.PushingNext(rt.UserDataValue(fv)), nil
 }
 
@@ -409,4 +419,15 @@ func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	s := rt.StringValue(fmt.Sprintf("file(%q)", f.Name()))
 	return c.PushingNext(s), nil
+}
+
+func newFileUserData(f *File, meta *rt.Table) *rt.UserData {
+	u := rt.NewUserData(f, meta)
+	runtime.SetFinalizer(u, finalizeFileUserData)
+	return u
+}
+
+func finalizeFileUserData(u *rt.UserData) {
+	f := u.Value().(*File)
+	f.release()
 }

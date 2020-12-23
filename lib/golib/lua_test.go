@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/arnodel/golua/lib"
 	"github.com/arnodel/golua/lib/golib"
 	"github.com/arnodel/golua/luatesting"
 	rt "github.com/arnodel/golua/runtime"
@@ -31,7 +32,8 @@ func twice(f func(int) int) func(int) int {
 	}
 }
 
-func setup(r *rt.Runtime) {
+func setup(r *rt.Runtime) func() {
+	cleanup := lib.LoadAll(r)
 	g := r.GlobalEnv()
 	rt.SetEnv(g, "hello", rt.StringValue("world"))
 	rt.SetEnv(g, "double", golib.NewGoValue(r, func(x int) int { return 2 * x }))
@@ -42,6 +44,7 @@ func setup(r *rt.Runtime) {
 	rt.SetEnv(g, "sprintf", golib.NewGoValue(r, fmt.Sprintf))
 	rt.SetEnv(g, "twice", golib.NewGoValue(r, twice))
 	rt.SetEnv(g, "panic", golib.NewGoValue(r, func() { panic("OMG") }))
+	return cleanup
 }
 
 func TestGoLib(t *testing.T) {

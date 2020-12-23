@@ -1,14 +1,20 @@
 package luatesting
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"regexp"
 )
 
-var expectedPtn = regexp.MustCompile(`(?m)^ *--> [=~].*$`)
+var expectedPtn = regexp.MustCompile(`^ *--> [=~].*$`)
 
-type LineChecker interface {
+type LineChecker struct {
+	SourceLineno int
+	lineChecker
+}
+
+type lineChecker interface {
 	CheckLine([]byte) error
 }
 
@@ -33,18 +39,32 @@ func (c *RegexLineChecker) CheckLine(output []byte) error {
 }
 
 func ExtractLineCheckers(source []byte) []LineChecker {
-	expected := expectedPtn.FindAll(source, -1)
-	checkers := make([]LineChecker, len(expected))
-	for i, l := range expected {
-		l = bytes.TrimLeft(l, " ")
-		switch l[4] {
+	var (
+		scanner  = bufio.NewScanner(bytes.NewReader(source))
+		lineno   = 0
+		checkers []LineChecker
+	)
+	for scanner.Scan() {
+		lineno++
+		var (
+			line = scanner.Bytes()
+			lc   lineChecker
+		)
+		if !expectedPtn.Match(line) {
+			continue
+		}
+		line = bytes.TrimLeft(line, " ")
+		switch line[4] {
 		case '=':
-			checkers[i] = LiteralLineChecker(l[5:])
+			lit := make([]byte, len(line)-5)
+			copy(lit, line[5:])
+			lc = LiteralLineChecker(lit)
 		case '~':
-			checkers[i] = (*RegexLineChecker)(regexp.MustCompile(string(l[5:])))
+			lc = (*RegexLineChecker)(regexp.MustCompile(string(line[5:])))
 		default:
 			panic("We shouldn't get there")
 		}
+		checkers = append(checkers, LineChecker{SourceLineno: lineno, lineChecker: lc})
 	}
 	return checkers
 }
@@ -59,7 +79,7 @@ func CheckLines(output []byte, checkers []LineChecker) error {
 			return fmt.Errorf("Extra output line #%d: %q", i+1, line)
 		}
 		if err := checkers[i].CheckLine(line); err != nil {
-			return err
+			return fmt.Errorf("[output line %d, source line %d] %s", i+1, checkers[i].SourceLineno, err)
 		}
 	}
 	if len(checkers) > len(lines) {

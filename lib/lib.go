@@ -15,7 +15,7 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func Load(r *rt.Runtime) {
+func LoadAll(r *rt.Runtime) func() {
 	base.Load(r)
 	packagelib.LibLoader.Run(r)
 	coroutine.LibLoader.Run(r)
@@ -27,4 +27,7 @@ func Load(r *rt.Runtime) {
 	oslib.LibLoader.Run(r)
 	debuglib.LibLoader.Run(r)
 	golib.LibLoader.Run(r)
+	return func() {
+		iolib.LibLoader.Cleanup(r)
+	}
 }
