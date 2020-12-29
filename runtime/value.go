@@ -194,9 +194,19 @@ func (v Value) AsTable() *Table {
 	return v.iface.(*Table)
 }
 
-// AsCont returns v as a Cont (or panics).
+// AsCont returns v as a Cont, by looking at the concrete type (or panics).  It
+// is an optimisation as type assertion in Go seems to have a significant cost.
 func (v Value) AsCont() Cont {
-	return v.iface.(Cont)
+	switch cont := v.iface.(type) {
+	case *GoCont:
+		return cont
+	case *LuaCont:
+		return cont
+	case *Termination:
+		return cont
+	default:
+		panic("value is not a continuation")
+	}
 }
 
 // AsArray returns v as a [] (or panics).
@@ -219,9 +229,18 @@ func (v Value) AsUserData() *UserData {
 	return v.iface.(*UserData)
 }
 
-// AsFunction returns v as a Callable (or panics).
+// AsFunction returns v as a Callable if possible by looking at the
+// possible concrete types (ok is false otherwise).  It is an optimisation as
+// type assertion in Go seems to have a significant cost.
 func (v Value) AsFunction() Callable {
-	return v.iface.(Callable)
+	switch c := v.iface.(type) {
+	case *Closure:
+		return c
+	case *GoFunction:
+		return c
+	default:
+		panic("value is not a Callable")
+	}
 }
 
 // TryInt converts v to type int64 if possible (ok is false otherwise).
@@ -248,10 +267,18 @@ func (v Value) TryString() (s string, ok bool) {
 	return
 }
 
-// TryCallable converts v to type Callable if possible (ok is false otherwise).
+// TryCallable converts v to type Callable if possible by looking at the
+// possible concrete types (ok is false otherwise).  It is an optimisation as
+// type assertion in Go seems to have a significant cost.
 func (v Value) TryCallable() (c Callable, ok bool) {
-	c, ok = v.iface.(Callable)
-	return
+	switch c := v.iface.(type) {
+	case *Closure:
+		return c, true
+	case *GoFunction:
+		return c, true
+	default:
+		return nil, false
+	}
 }
 
 // TryClosure converts v to type *Closure if possible (ok is false otherwise).
@@ -287,10 +314,20 @@ func (v Value) TryBool() (b bool, ok bool) {
 	return
 }
 
-// TryCont converts v to type Cont if possible (ok is false otherwise).
+// TryCont returns v as a Cont, by looking at the concrete type (ok is false if
+// it doesn't implement the Cont interface).  It is an optimisation as type
+// assertion in Go seems to have a significant cost.
 func (v Value) TryCont() (c Cont, ok bool) {
-	c, ok = v.iface.(Cont)
-	return
+	switch cont := v.iface.(type) {
+	case *GoCont:
+		return cont, true
+	case *LuaCont:
+		return cont, true
+	case *Termination:
+		return cont, true
+	default:
+		return nil, false
+	}
 }
 
 // TryCode converts v to type *Code if possible (ok is false otherwise).
