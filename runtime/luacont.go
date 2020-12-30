@@ -376,22 +376,6 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 	}
 }
 
-// func (c *LuaCont) setReg(reg code.Reg, val Value) {
-// 	idx := reg.Idx()
-// 	if reg.IsCell() {
-// 		c.cells[idx].Set(val)
-// 	} else {
-// 		c.registers[idx] = val
-// 	}
-// }
-
-// func (c *LuaCont) getReg(reg code.Reg) Value {
-// 	if reg.IsCell() {
-// 		return *c.cells[reg.Idx()].ref
-// 	}
-// 	return c.registers[reg.Idx()]
-// }
-
 func (c *LuaCont) getRegCell(reg code.Reg) Cell {
 	if reg.IsCell() {
 		return c.cells[reg.Idx()]
