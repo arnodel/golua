@@ -2,6 +2,93 @@ package runtime
 
 import "math/bits"
 
+type mixedTable struct {
+	hashTable
+	array    []Value
+	arraylen uintptr
+}
+
+func (t *mixedTable) insert(k, v Value) {
+	i, ok := ToIntNoString(k)
+	if ok && 1 <= i && i <= int64(len(t.array)) {
+		t.array[i-1] = v
+		t.arraylen++
+		return
+	}
+	if t.hashTable.base == 0 || t.hashTable.len > 1<<(t.hashTable.base-1) {
+		t.grow()
+		if ok && 0 < i && i <= int64(len(t.array)) {
+			t.array[i-1] = v
+			t.arraylen++
+			return
+		}
+	}
+	t.hashTable.insert(k, v)
+}
+
+func (t *mixedTable) grow() {
+	var idxCountByLen [64]uintptr
+	var keyCount uintptr
+
+	// Classify the keys in the hashtable
+	for _, it := range t.hashTable.items {
+		if it.value.IsNil() {
+			continue
+		}
+		if i, ok := it.key.TryInt(); ok && i > 0 {
+			idxCountByLen[bits.Len(uint(i-1))]++
+		} else {
+			keyCount++
+		}
+	}
+
+	// If there are no possible index values, just grow the hash table
+	if keyCount == t.hashTable.len {
+		t.hashTable.grow()
+		return
+	}
+
+	// Find out if we should grow the array
+	for i, v := range t.array {
+		if v.IsNil() {
+			continue
+		}
+		idxCountByLen[bits.Len(uint(i))]++
+	}
+
+	var idxCount uintptr
+	var base = -1
+	var arrlen int
+	for l, c := range idxCountByLen {
+		idxCount += c
+		if c != 0 && idxCount>>l != 0 {
+			base = l
+		}
+	}
+	if base >= 0 {
+		arrlen = 1 << base
+	}
+
+	// If the array shouldn't grow, grow the hash table
+	if arrlen <= len(t.array) {
+		t.hashTable.grow()
+		return
+	}
+
+	// Grow the array.  That should free capacity in the hashtable
+	array := append(t.array, make([]Value, arrlen-len(t.array))...)
+	for i, it := range t.hashTable.items {
+		if it.value.IsNil() {
+			continue
+		}
+		j, ok := it.key.TryInt()
+		if ok && j > 0 && j <= int64(arrlen) {
+			array[j-1] = it.value
+			t.hashTable.items[i].value = NilValue
+		}
+	}
+}
+
 type hashTableItem struct {
 	key, value Value
 }
@@ -16,22 +103,18 @@ func (it hashTableItem) nilKey() bool {
 }
 
 type hashTable struct {
-	items  []hashTableItem
-	array  []Value
-	length int
-	base   uint8
+	items []hashTableItem
+	free  uintptr
+	base  uint8
 }
 
 func (t *hashTable) insert(k, v Value) {
-	if t.length>>t.base != 0 {
-		t.grow()
-	}
 	it := hashTableItem{
 		key:   k,
 		value: v,
 	}
 	if insert(t.items, t.base, (1<<t.base)-1, it) {
-		t.length++
+		t.free--
 	}
 }
 
@@ -40,80 +123,49 @@ func (t *hashTable) find(k Value) Value {
 }
 
 func (t *hashTable) delete(k Value) (v Value) {
-	v = delete(t.items, t.base, (1<<t.base)-1, k)
-	if !v.IsNil() {
-		t.length--
-	}
+	delete(t.items, t.base, (1<<t.base)-1, k)
 	return
 }
 
 func (t *hashTable) grow() {
 	var (
-		bySize    [64]uintptr
-		otherKeys uintptr
-	)
-
-	// Count positive integer keys by order of magnitude
-	for i, v := range t.array {
-		if !v.IsNil() {
-			bySize[bits.Len(uint(i))]++
-		}
-	}
-	for _, it := range t.items {
-		if it.value.IsNil() {
-			continue
-		}
-		if n, ok := it.key.TryInt(); ok && n > 0 {
-			bySize[bits.Len(uint(n-1))]++
-		} else {
-			otherKeys++
-		}
-	}
-
-	// Find the size of the array
-	var (
-		acc    = bySize[0]
-		arrlen uintptr
-		l      uintptr
-	)
-	otherKeys += acc
-	for i, c := range bySize[1:] {
-		acc += c
-		if acc>>uintptr(i) != 0 {
-			l = uintptr(i) + 1
-		}
-	}
-	if l > 0 {
-		arrlen = 1 << l
-	}
-
-	var (
 		base          = t.base + 1
-		mask  uintptr = (1 << base) - 1
-		items         = make([]hashTableItem, 1<<base)
+		sz    uintptr = 1 << base
+		mask  uintptr = sz - 1
+		items         = make([]hashTableItem, sz)
 	)
 
 	// Populate the new
-	for _, it := range t.items {
-		if !it.value.IsNil() {
-			insert(items, base, mask, it)
-		}
-	}
+	t.free = sz - copy(items, t.items, base, mask)
 	t.base = base
 	t.items = items
 }
 
-func (t *hashTable) get(k Value)
+func copy(items, from []hashTableItem, base uint8, mask uintptr) (count uintptr) {
+	for _, it := range from {
+		if !it.value.IsNil() {
+			if insert(items, base, mask, it) {
+				count++
+			}
+		}
+	}
+	return
+}
 
 func insert(items []hashTableItem, base uint8, mask uintptr, it hashTableItem) (isNew bool) {
 	var (
 		i, d   = it.hashKey(base, mask)
-		cit    = items[i] // current item
-		c      uintptr    // cost of inserting item
-		sc     = mask     // cost of swapping
-		si, sj uintptr    // swap index
+		cit    hashTableItem // current item
+		c      uintptr       // cost of inserting item
+		sc     = mask        // cost of swapping
+		si, sj uintptr       // swap index
 	)
-	for cit.key != it.key && !it.nilKey() {
+	for {
+		cit = items[i]
+		isNew = cit.key.IsNil()
+		if isNew || cit.key == it.key {
+			break
+		}
 		if c >= 2 {
 			if scc, sjc := shiftCost(items, base, mask, i); c+scc < sc {
 				sc = c + scc
@@ -125,8 +177,7 @@ func insert(items []hashTableItem, base uint8, mask uintptr, it hashTableItem) (
 		i = (i + d) & mask
 		cit = items[i]
 	}
-	isNew = cit.value.IsNil()
-	if cit.key.IsNil() && c > sc {
+	if isNew && c > sc {
 		items[sj] = items[si]
 		i = si
 	}
@@ -135,8 +186,10 @@ func insert(items []hashTableItem, base uint8, mask uintptr, it hashTableItem) (
 }
 
 func find(items []hashTableItem, base uint8, mask uintptr, k Value) Value {
-	i, d := hashTableItem{key: k}.hashKey(base, mask)
-	it := items[i]
+	var (
+		i, d = hashTableItem{key: k}.hashKey(base, mask)
+		it   = items[i]
+	)
 	for it.key != k && !it.value.IsNil() {
 		i = (i + d) & mask
 	}
@@ -144,8 +197,10 @@ func find(items []hashTableItem, base uint8, mask uintptr, k Value) Value {
 }
 
 func delete(items []hashTableItem, base uint8, mask uintptr, k Value) Value {
-	i, d := hashTableItem{key: k}.hashKey(base, mask)
-	it := items[i]
+	var (
+		i, d = hashTableItem{key: k}.hashKey(base, mask)
+		it   = items[i]
+	)
 	for it.key != k && !it.value.IsNil() {
 		i = (i + d) & mask
 	}
