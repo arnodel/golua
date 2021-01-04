@@ -54,7 +54,7 @@ func RunLuaTestsInDir(t *testing.T, dirpath string, setup func(*runtime.Runtime)
 			}
 			err = RunLuaTest(src, setup)
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 		})
 		return nil

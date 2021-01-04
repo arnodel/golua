@@ -147,11 +147,24 @@ do
     --> ~^false\t.*out of range
 
     local t = {1, 2, 3, 4, 5}
-    print(table.remove(t))
+
+    print(#t)
     --> =5
 
     print(table.remove(t))
+    --> =5
+
+    print(#t)
     --> =4
+
+    print(table.remove(t))
+    --> =4
+
+    print(t[4])
+    --> =nil
+
+    print(#t)
+    --> =3
 
     print(table.remove(t, 2))
     --> =2

@@ -73,6 +73,7 @@ Switch:
 		if err != nil {
 			break
 		}
+		// log.Printf("CONCAT: j = %d, j = %d", i, j)
 		for {
 			if i == math.MaxInt64 {
 				break
