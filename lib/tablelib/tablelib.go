@@ -3,6 +3,7 @@ package tablelib
 import (
 	"math"
 	"sort"
+	"strings"
 
 	"github.com/arnodel/golua/lib/packagelib"
 
@@ -65,15 +66,20 @@ Switch:
 		}
 		fallthrough
 	default:
-		var res rt.Value
+		var item rt.Value
 		if i > j {
 			return c.PushingNext(rt.StringValue("")), nil
 		}
-		res, err = rt.Index(t, tblVal, rt.IntValue(i))
+		item, err = rt.Index(t, tblVal, rt.IntValue(i))
 		if err != nil {
 			break
 		}
-		// log.Printf("CONCAT: j = %d, j = %d", i, j)
+		var sb strings.Builder
+		s, ok := rt.ToString(item)
+		if !ok {
+			return nil, rt.NewErrorS("concat needs strings or numbers")
+		}
+		sb.WriteString(s)
 		for {
 			if i == math.MaxInt64 {
 				break
@@ -82,21 +88,18 @@ Switch:
 			if i > j {
 				break
 			}
-			res, err = rt.Concat(t, res, rt.StringValue(sep))
+			sb.WriteString(sep)
+			item, err = rt.Index(t, tblVal, rt.IntValue(i))
 			if err != nil {
 				break Switch
 			}
-			var v rt.Value
-			v, err = rt.Index(t, tblVal, rt.IntValue(i))
-			if err != nil {
-				break Switch
+			s, ok = rt.ToString(item)
+			if !ok {
+				return nil, rt.NewErrorS("concat needs strings or numbers")
 			}
-			res, err = rt.Concat(t, res, v)
-			if err != nil {
-				break Switch
-			}
+			sb.WriteString(s)
 		}
-		return c.PushingNext(res), nil
+		return c.PushingNext1(rt.StringValue(sb.String())), nil
 	}
 	return nil, err.AddContext(c)
 }
