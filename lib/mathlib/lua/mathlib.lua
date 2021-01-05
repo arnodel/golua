@@ -118,8 +118,9 @@ do
     checknumarg(math.randomseed)
     --> =ok
 
-    checknumarg(math.random)
-    --> =ok
+    local r = math.random()
+    print(r >= 0 and r <= 1)
+    --> =true
 
     local rands = {}
     math.randomseed(5)
