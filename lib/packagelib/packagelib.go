@@ -43,7 +43,7 @@ func (l Loader) Run(r *rt.Runtime) {
 	rt.SetEnv(r.GlobalEnv(), l.Name, pkg)
 	err := savePackage(r.MainThread(), l.Name, pkg)
 	if err != nil {
-		panic("Unable to load " + l.Name)
+		panic(fmt.Sprintf("Unable to load %s: %s", l.Name, err))
 	}
 }
 

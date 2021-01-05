@@ -36,6 +36,8 @@ func AsValue(i interface{}) Value {
 		return FloatValue(float64(x))
 	case bool:
 		return BoolValue(x)
+	case string:
+		return StringValue(x)
 	case Value:
 		return x
 	default:
@@ -61,6 +63,22 @@ func (v Value) Interface() interface{} {
 	}
 }
 
+//go:linkname goRuntimeInt64Hash runtime.int64Hash
+//go:noescape
+func goRuntimeInt64Hash(i uint64, seed uintptr) uintptr
+
+//go:linkname goRuntimeEfaceHash runtime.efaceHash
+//go:noescape
+func goRuntimeEfaceHash(i interface{}, seed uintptr) uintptr
+
+// Hash returns a hash for the value.
+func (v Value) Hash() uintptr {
+	if v.scalar != 0 {
+		return goRuntimeInt64Hash(v.scalar, 0)
+	}
+	return goRuntimeEfaceHash(v.iface, 0)
+}
+
 // IntValue returns a Value holding the given arg.
 func IntValue(n int64) Value {
 	return Value{uint64(n), dummyInt64}
@@ -81,8 +99,19 @@ func BoolValue(b bool) Value {
 }
 
 // StringValue returns a Value holding the given arg.
-func StringValue(s string) Value {
-	return Value{iface: s}
+func StringValue(s string) (v Value) {
+	v.iface = s
+	ls := len(s)
+	if ls <= 7 {
+		// Put a scalar value for short strings.  This speeds up hashing
+		// (because it uses the scalar value) and equality tests for unequal
+		// strings.
+		bs := make([]byte, 8)
+		copy(bs, s)
+		bs[7] = byte(ls)
+		v.scalar = *(*uint64)(unsafe.Pointer(&bs[0]))
+	}
+	return
 }
 
 // TableValue returns a Value holding the given arg.

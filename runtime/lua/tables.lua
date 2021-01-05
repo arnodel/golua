@@ -32,7 +32,7 @@ print(t[500])
 --> =hi
 
 print(#t)
---> =500
+--> =3
 
 t.xxx = nil
 print(t.xxx)
