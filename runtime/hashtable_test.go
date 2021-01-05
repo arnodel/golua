@@ -1,6 +1,8 @@
 package runtime
 
-import "testing"
+import (
+	"testing"
+)
 
 func v(i interface{}) Value {
 	return AsValue(i)
@@ -37,12 +39,12 @@ func TestMixedTable1To20(t *testing.T) {
 		}
 	}
 	asz := mt.array.size()
-	if asz != 16 {
-		t.Errorf("expected array size to be 16, got %d", asz)
+	if asz != 32 {
+		t.Errorf("expected array size to be 32, got %d", asz)
 	}
 	alen := mt.array.getLen()
-	if alen != 16 {
-		t.Errorf("Expected array length to be 16, got %d", alen)
+	if alen != 20 {
+		t.Errorf("Expected array length to be 20, got %d", alen)
 	}
 	mtlen := mt.len()
 	if mtlen != 20 {
@@ -64,5 +66,111 @@ func TestMixedTableRemove(t *testing.T) {
 	mtlen := mt.len()
 	if mtlen != 3 {
 		t.Errorf("Expected mt length to be 3, got %d", mtlen)
+	}
+}
+
+func Test_calculateArraySize(t *testing.T) {
+	type args struct {
+		idxCountByLen *[uintptrLen]uintptr
+	}
+	var counts = func(cs ...uintptr) *[uintptrLen]uintptr {
+		counts := new([uintptrLen]uintptr)
+		for i, c := range cs {
+			counts[i] = c
+		}
+		return counts
+	}
+
+	tests := []struct {
+		name string
+		args args
+		want uintptr
+	}{
+		{
+			name: "empty",
+			args: args{
+				idxCountByLen: counts(),
+			},
+			want: 0,
+		},
+		{
+			name: "0",
+			args: args{
+				idxCountByLen: counts(1),
+			},
+			want: 1,
+		},
+		{
+			name: "0 1",
+			args: args{
+				idxCountByLen: counts(1, 1),
+			},
+			want: 2,
+		},
+		{
+			name: "1",
+			args: args{
+				idxCountByLen: counts(0, 1),
+			},
+			want: 2,
+		},
+		{
+			name: "0 1 2",
+			args: args{
+				idxCountByLen: counts(1, 1, 1),
+			},
+			want: 4,
+		},
+		{
+			name: "0 1 2 3",
+			args: args{
+				idxCountByLen: counts(1, 1, 2),
+			},
+			want: 4,
+		},
+		{
+			name: "1 2 3 4",
+			args: args{
+				idxCountByLen: counts(0, 1, 2, 1),
+			},
+			want: 8,
+		},
+
+		{
+			name: "0..15",
+			args: args{
+				idxCountByLen: counts(1, 1, 2, 4, 8),
+			},
+			want: 16,
+		},
+		{
+			name: "0..16",
+			args: args{
+				idxCountByLen: counts(1, 1, 2, 4, 8, 1),
+			},
+			want: 32,
+		},
+		{
+			name: "3..18",
+			args: args{
+				idxCountByLen: counts(0, 0, 1, 4, 8, 3),
+			},
+			want: 32,
+		},
+		{
+			name: "10..49",
+			args: args{
+				idxCountByLen: counts(0, 0, 0, 0, 6, 16, 18),
+			},
+			want: 64,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := calculateArraySize(tt.args.idxCountByLen); got != tt.want {
+				t.Errorf("calculateArraySize() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

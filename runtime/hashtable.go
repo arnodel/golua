@@ -137,6 +137,8 @@ func (t *mixedTable) grow() {
 // Hash table implementation
 //
 
+const smallHashTableSize = 8
+
 const (
 	hasNextFlag uintptr = 1
 	chainedFlag uintptr = 2
@@ -303,11 +305,17 @@ func setKeyValue(items []hashTableItem, mask uintptr, k, v Value, nextFree uintp
 }
 
 func insertNewKeyValue(items []hashTableItem, mask uintptr, k, v Value, nextFree uintptr) bool {
+	it := hashTableItem{key: k, value: v}
+
+	// Just fill a small table, it's faster than calculating hashes.
+	if mask < smallHashTableSize {
+		items[nextFree] = it
+		return true
+	}
 	var (
 		i   = k.Hash() & mask // primary position for the new item
 		cit = items[i]        // item currently at primary position
 	)
-	it := hashTableItem{key: k, value: v}
 	switch {
 	case cit.isEmpty():
 		// The simple case.
@@ -342,11 +350,20 @@ func updateNextFree(items []hashTableItem, nextFree uintptr) uintptr {
 	return nextFree
 }
 
-func findItem(items []hashTableItem, mask uintptr, k Value) (*hashTableItem, uintptr) {
-	var (
-		i  = k.Hash() & mask
-		it = &items[i]
-	)
+func findItem(items []hashTableItem, mask uintptr, k Value) (it *hashTableItem, i uintptr) {
+	// For a small table, it's cheaper not to calculate the hash
+	if mask < smallHashTableSize {
+		for j := int(mask); j >= 0; j-- {
+			it = &items[j]
+			if it.key == k {
+				i = uintptr(j)
+				return
+			}
+		}
+		return nil, 0
+	}
+	i = k.Hash() & mask
+	it = &items[i]
 	for it.key != k {
 		if !it.hasNext() {
 			return nil, 0
@@ -354,7 +371,7 @@ func findItem(items []hashTableItem, mask uintptr, k Value) (*hashTableItem, uin
 		i = it.nextIndex()
 		it = &items[i]
 	}
-	return it, i
+	return
 }
 
 func removeKey(items []hashTableItem, mask uintptr, k Value) {
@@ -465,7 +482,7 @@ func calculateArraySize(idxCountByLen *[uintptrLen]uintptr) uintptr {
 	var idxCount uintptr
 	for l, c := range idxCountByLen {
 		idxCount += c
-		if c != 0 && idxCount>>l != 0 {
+		if c != 0 && (l == 0 || idxCount >= 1<<(l-1)) {
 			base = l
 		}
 	}

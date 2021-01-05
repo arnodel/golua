@@ -36,6 +36,8 @@ func AsValue(i interface{}) Value {
 		return FloatValue(float64(x))
 	case bool:
 		return BoolValue(x)
+	case string:
+		return StringValue(x)
 	case Value:
 		return x
 	default:
@@ -97,8 +99,19 @@ func BoolValue(b bool) Value {
 }
 
 // StringValue returns a Value holding the given arg.
-func StringValue(s string) Value {
-	return Value{iface: s}
+func StringValue(s string) (v Value) {
+	v.iface = s
+	ls := len(s)
+	if ls <= 7 {
+		// Put a scalar value for short strings.  This speeds up hashing
+		// (because it uses the scalar value) and equality tests for unequal
+		// strings.
+		bs := make([]byte, 8)
+		copy(bs, s)
+		bs[7] = byte(ls)
+		v.scalar = *(*uint64)(unsafe.Pointer(&bs[0]))
+	}
+	return
 }
 
 // TableValue returns a Value holding the given arg.
