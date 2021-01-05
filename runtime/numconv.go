@@ -18,13 +18,13 @@ const (
 
 // ToNumber returns x as a Float or Int, and the type (IsFloat, IsInt or NaN).
 func ToNumber(v Value) (int64, float64, NumberType) {
-	if n, ok := v.TryInt(); ok {
-		return n, 0, IsInt
-	}
-	if f, ok := v.TryFloat(); ok {
-		return 0, f, IsFloat
-	}
-	if s, ok := v.TryString(); ok {
+	switch v.iface.(type) {
+	case int64:
+		return v.AsInt(), 0, IsInt
+	case float64:
+		return 0, v.AsFloat(), IsFloat
+	case string:
+		s := v.AsString()
 		return stringToNumber(strings.Trim(s, " "))
 	}
 	return 0, 0, NaN
@@ -68,11 +68,11 @@ func ToInt(v Value) (int64, bool) {
 
 // ToIntNoString returns v as an Int and true if v is actually a valid integer.
 func ToIntNoString(v Value) (int64, bool) {
-	if n, ok := v.TryInt(); ok {
-		return n, true
-	}
-	if f, ok := v.TryFloat(); ok {
-		n, tp := FloatToInt(f)
+	switch v.iface.(type) {
+	case int64:
+		return v.AsInt(), true
+	case float64:
+		n, tp := FloatToInt(v.AsFloat())
 		return n, tp == IsInt
 	}
 	return 0, false
