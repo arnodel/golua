@@ -2,7 +2,6 @@ package iolib
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -61,6 +60,7 @@ type bufReader interface {
 	Reset(r io.Reader)
 	Buffered() int
 	Discard(int) (int, error)
+	ReadString(delim byte) (string, error)
 }
 
 type bufWriter interface {
@@ -92,6 +92,10 @@ func (u *nobufReader) Discard(n int) (int, error) {
 		return 0, errors.New("nobufReader cannot discard")
 	}
 	return 0, nil
+}
+
+func (u *nobufReader) ReadString(delim byte) (string, error) {
+	panic("unimplemented")
 }
 
 type nobufWriter struct {
@@ -198,26 +202,18 @@ func OpenFile(name, mode string) (*File, error) {
 // ReadLine reads a line from the file.  If withEnd is true, it will include the
 // end of the line in the returned value.
 func (f *File) ReadLine(withEnd bool) (rt.Value, error) {
-	file := f.file
-	var buf bytes.Buffer
-	b := []byte{0}
-	for {
-		_, err := file.Read(b)
-		if err != nil {
-			if err != io.EOF || buf.Len() == 0 {
-				return rt.NilValue, err
-			}
-			break
-		}
-		end := b[0] == '\n'
-		if withEnd || !end {
-			buf.Write(b)
-		}
-		if end {
-			break
-		}
+	s, err := f.reader.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return rt.NilValue, err
 	}
-	return rt.StringValue(buf.String()), nil
+	l := len(s)
+	if l == 0 {
+		return rt.NilValue, err
+	}
+	if !withEnd && l > 0 && s[l-1] == '\n' {
+		s = s[:l-1]
+	}
+	return rt.StringValue(s), err
 }
 
 // Read return a lua string made of up to n bytes.
