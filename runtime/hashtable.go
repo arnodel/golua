@@ -355,7 +355,7 @@ func findItem(items []hashTableItem, mask uintptr, k Value) (it *hashTableItem, 
 	if mask < smallHashTableSize {
 		for j := int(mask); j >= 0; j-- {
 			it = &items[j]
-			if it.key == k {
+			if it.key.Equals(k) {
 				i = uintptr(j)
 				return
 			}
@@ -364,7 +364,7 @@ func findItem(items []hashTableItem, mask uintptr, k Value) (it *hashTableItem, 
 	}
 	i = k.Hash() & mask
 	it = &items[i]
-	for it.key != k {
+	for !it.key.Equals(k) {
 		if !it.hasNext() {
 			return nil, 0
 		}

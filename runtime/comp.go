@@ -3,7 +3,7 @@ package runtime
 // RawEqual returns two values.  The second one is true if raw equality makes
 // sense for x and y.  The first one returns whether x and y are raw equal.
 func RawEqual(x, y Value) (bool, bool) {
-	if x == y {
+	if x.Equals(y) {
 		return true, true
 	}
 	switch x.NumberType() {

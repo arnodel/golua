@@ -63,6 +63,31 @@ func (v Value) Interface() interface{} {
 	}
 }
 
+// Some unsafe function to determine quickly if two interfaces have the same
+// type.
+func ifaceType(iface interface{}) uintptr {
+	return *(*uintptr)(unsafe.Pointer(&iface))
+}
+
+// Equals returns true if v is equal to v2.  Provided that v and v2 have been
+// built with the official constructor functions, it is equivalent to but
+// slightly faster than '=='.
+func (v Value) Equals(v2 Value) bool {
+	if v.scalar != v2.scalar || ifaceType(v.iface) != ifaceType(v2.iface) {
+		return false
+	}
+	switch v.iface.(type) {
+	case int64, float64:
+		return true
+	case string:
+		// Short strings are equal if their scalar are
+		if v.scalar != 0 {
+			return true
+		}
+	}
+	return v.iface == v2.iface
+}
+
 //go:linkname goRuntimeInt64Hash runtime.int64Hash
 //go:noescape
 func goRuntimeInt64Hash(i uint64, seed uintptr) uintptr
