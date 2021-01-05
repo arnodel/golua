@@ -47,6 +47,14 @@ func (c *GoCont) PushingNext(vals ...Value) Cont {
 	return next
 }
 
+// PushingNext1 is convenient when implementing go functions.  It pushes the
+// given value to c.Next() and returns it.
+func (c *GoCont) PushingNext1(val Value) Cont {
+	next := c.Next()
+	next.Push(val)
+	return next
+}
+
 // PushEtc pushes a slice of values to the continutation. TODO: find why this is
 // not used.
 func (c *GoCont) PushEtc(etc []Value) {

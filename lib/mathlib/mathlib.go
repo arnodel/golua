@@ -273,8 +273,8 @@ func rad(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 // TODO: have a per runtime random generator
 func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+	if c.NArgs() == 0 {
+		return c.PushingNext1(rt.FloatValue(rand.Float64())), nil
 	}
 	var (
 		err *rt.Error
@@ -296,7 +296,7 @@ func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, rt.NewErrorS("#2 must be >= #1").AddContext(c)
 	}
 	r := rt.IntValue(m + int64(rand.Intn(int(n-m))))
-	return c.PushingNext(r), nil
+	return c.PushingNext1(r), nil
 }
 
 func randomseed(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
