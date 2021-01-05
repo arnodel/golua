@@ -53,14 +53,16 @@ func LoadStr2(r Reg, b []byte) Opcode {
 // LoadShortString attempts to encode loading a short string.  Currently succees
 // when len(b) <= 2.
 func LoadShortString(r Reg, b []byte) (Opcode, bool) {
-	switch len(b) {
-	case 0:
-		return LoadStr0(r), true
-	case 1:
-		return LoadStr1(r, b), true
-	case 2:
-		return LoadStr2(r, b), true
-	}
+	// This code is commented out because it turns out that it causes many
+	// allocations, slowing down the runtime considerably in some cases.
+	//
+	// switch len(b) {case 0:
+	//  return LoadStr0(r), true
+	// case 1:
+	//  return LoadStr1(r, b), true
+	// case 2:
+	//  return LoadStr2(r, b), true
+	// }
 	return 0, false
 }
 
