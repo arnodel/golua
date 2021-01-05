@@ -45,16 +45,30 @@ func (t *mixedTable) insert(k, v Value) {
 	t.hashTable.set(k, v)
 }
 
-func (t *mixedTable) remove(k Value) {
+func (t *mixedTable) reset(k, v Value) (wasSet bool) {
 	i, ok := ToIntNoString(k)
 	if ok {
-		if t.array.remove(i) {
+		ok, wasSet = t.array.resetValue(i, v)
+		if ok {
+			return
+		}
+	}
+	if ok {
+		k = IntValue(i)
+	}
+	return t.hashTable.reset(k, v)
+}
+
+func (t *mixedTable) remove(k Value) (wasSet bool) {
+	i, ok := ToIntNoString(k)
+	if ok {
+		if ok, wasSet = t.array.remove(i); ok {
 			return
 		}
 		k = IntValue(i)
 	}
 
-	t.hashTable.removeKey(k)
+	return t.hashTable.removeKey(k)
 }
 
 func (t *mixedTable) len() uintptr {
@@ -188,6 +202,13 @@ func (t *hashTable) set(k, v Value) {
 	}
 }
 
+func (t *hashTable) reset(k, v Value) bool {
+	if t == nil {
+		return false
+	}
+	return resetKeyValue(t.items, (1<<t.base)-1, k, v)
+}
+
 func (t *hashTable) find(k Value) Value {
 	if t == nil {
 		return NilValue
@@ -199,11 +220,11 @@ func (t *hashTable) find(k Value) Value {
 	return it.value
 }
 
-func (t *hashTable) removeKey(k Value) {
+func (t *hashTable) removeKey(k Value) (wasSet bool) {
 	if t == nil {
-		return
+		return false
 	}
-	removeKey(t.items, (1<<t.base)-1, k)
+	return removeKey(t.items, (1<<t.base)-1, k)
 }
 
 func (t *hashTable) full() bool {
@@ -304,6 +325,15 @@ func setKeyValue(items []hashTableItem, mask uintptr, k, v Value, nextFree uintp
 	return insertNewKeyValue(items, mask, k, v, nextFree)
 }
 
+func resetKeyValue(items []hashTableItem, mask uintptr, k, v Value) (wasSet bool) {
+	it, _ := findItem(items, mask, k)
+	wasSet = it != nil && !it.value.IsNil()
+	if wasSet {
+		it.value = v
+	}
+	return
+}
+
 func insertNewKeyValue(items []hashTableItem, mask uintptr, k, v Value, nextFree uintptr) bool {
 	it := hashTableItem{key: k, value: v}
 
@@ -374,10 +404,12 @@ func findItem(items []hashTableItem, mask uintptr, k Value) (it *hashTableItem, 
 	return
 }
 
-func removeKey(items []hashTableItem, mask uintptr, k Value) {
+func removeKey(items []hashTableItem, mask uintptr, k Value) (wasSet bool) {
 	if it, _ := findItem(items, mask, k); it != nil {
+		wasSet = !it.value.IsNil()
 		it.value = NilValue
 	}
+	return
 }
 
 //
@@ -408,18 +440,33 @@ func (a *array) setValue(i int64, v Value) (ok bool) {
 	return
 }
 
-func (a *array) remove(i int64) (ok bool) {
+func (a *array) resetValue(i int64, v Value) (ok bool, wasSet bool) {
 	ok = a != nil && 1 <= i && i <= int64(len(a.values))
-	if ok && int64(a.len) >= i {
-
-		a.values[i-1] = NilValue
-		l := uintptr(i)
-		if a.len == l {
-			for l >= 1 && a.values[l-1].IsNil() {
-				l--
-			}
-			a.len = l
+	if ok {
+		wasSet = !a.values[i-1].IsNil()
+		if wasSet {
+			a.values[i-1] = v
 		}
+	}
+	return
+}
+
+func (a *array) remove(i int64) (ok bool, wasSet bool) {
+	ok = a != nil && 1 <= i && i <= int64(len(a.values))
+	if !ok {
+		return
+	}
+	wasSet = int64(a.len) >= i && !a.values[i-1].IsNil()
+	if !wasSet {
+		return
+	}
+	a.values[i-1] = NilValue
+	l := uintptr(i)
+	if a.len == l {
+		for l >= 1 && a.values[l-1].IsNil() {
+			l--
+		}
+		a.len = l
 	}
 	return
 }

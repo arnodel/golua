@@ -40,6 +40,14 @@ func (t *Table) Set(k, v Value) {
 	t.mixedTable.insert(k, v)
 }
 
+// Reset implements t[k] = v only if t[k] was already non-nil.
+func (t *Table) Reset(k, v Value) (wasSet bool) {
+	if v.IsNil() {
+		return t.mixedTable.remove(k)
+	}
+	return t.mixedTable.reset(k, v)
+}
+
 // SetCheck implements t[k] = v, returns an error if k is nil.
 func (t *Table) SetCheck(k, v Value) error {
 	if k.IsNil() {

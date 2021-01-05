@@ -39,7 +39,7 @@ print(t.xxx)
 --> =nil
 
 print(pcall(function() t[nil] = 2 end))
---> ~false\ttable index is nil
+--> ~false\t.*index is nil
 
 do
     local t = {"x", "y"}

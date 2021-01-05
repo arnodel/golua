@@ -59,19 +59,17 @@ func Index(t *Thread, coll Value, k Value) (Value, *Error) {
 // SetIndex sets the item in a collection for the given key, using the
 // '__newindex' metamethod if appropriate.
 func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
+	if idx.IsNil() {
+		return NewErrorS("index is nil")
+	}
 	for i := 0; i < maxIndexChainLength; i++ {
-		tbl, ok := coll.TryTable()
-		if ok {
-			if tbl.Get(idx) != NilValue {
-				if err := tbl.SetCheck(idx, val); err != nil {
-					return NewErrorE(err)
-				}
-				return nil
-			}
+		tbl, isTable := coll.TryTable()
+		if isTable && tbl.Reset(idx, val) {
+			return nil
 		}
 		metaNewIndex := t.metaGetS(coll, "__newindex")
-		if metaNewIndex == NilValue {
-			if ok {
+		if metaNewIndex.IsNil() {
+			if isTable {
 				if err := tbl.SetCheck(idx, val); err != nil {
 					return NewErrorE(err)
 				}
