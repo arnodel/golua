@@ -200,7 +200,7 @@ func (v Value) Type() ValueType {
 		return TableType
 	case *Code:
 		return CodeType
-	case Callable:
+	case *GoFunction, *Closure:
 		return FunctionType
 	case *Thread:
 		return ThreadType
