@@ -1,23 +1,29 @@
 // +build noregpool
-// This version disables the register pool
+// This version disables the register pool.
+// TODO: remove it, as it is proved to be a fair amount slower.
 
 package runtime
 
-var globalRegPool = dummyRegPool{}
+var (
+	globalRegPool  = dummyRegPool{}
+	globalCellPool = dummyCellPool{}
+	globalArgsPool = dummyRegPool{}
+)
 
-// Dummy register pool
-type dummyRegPool struct{}
+type dummyValuePool struct{}
 
-func (p dummyRegPool) getRegs(sz int) []Value {
+func (p dummyValuePool) get(sz int) []Value {
 	return make([]Value, sz)
 }
 
-func (p dummyRegPool) getCells(sz int) []Cell {
+func (p dummyValuePool) release(r []Value) {
+}
+
+type dummyCellPool struct{}
+
+func (p dummyCellPool) get(sz int) []Cell {
 	return make([]Cell, sz)
 }
 
-func (p dummyRegPool) releaseRegs(r []Value) {
-}
-
-func (p dummyRegPool) releaseCells(c []Cell) {
+func (p dummyCellPool) release(c []Cell) {
 }

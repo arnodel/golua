@@ -2,10 +2,17 @@
 
 package runtime
 
-var globalRegPool = regPool{}
+var (
+	globalRegPool  = newValuePool(regPoolSize, regSetMaxAge) // Register set pool for Lua continuations
+	globalCellPool = newCellPool(regPoolSize, regSetMaxAge)  // Cell set pool for Lua continuations
 
-const regPoolSize = 10 // Size of a pool of cell of value register sets.
-const maxAge = 10      // Age at which it's OK to discard a register set in the pool.
+	globalArgsPool = newValuePool(regPoolSize, regSetMaxAge) // Value set pool for Go continuations
+)
+
+const (
+	regPoolSize  = 10 // Size of a pool of cell of value register sets.
+	regSetMaxAge = 10 // Age at which it's OK to discard a register set in the pool.
+)
 
 // This is an experimental pool for re-using allocated sets of registers across
 // different Lua continuations.  Profiling showed allocating register sets for
@@ -19,73 +26,87 @@ const maxAge = 10      // Age at which it's OK to discard a register set in the 
 // register set is requested.  The idea is that in the common case where the
 // same function keeps being called, the same register set can be re-used.
 //
-// Setting regPoolSize to 0 makes regPool.getCells / regPool.getRegs allocate
-// a new register set each time, and regPool.releaseRegs / regPool.releaseCells
+// Setting regPoolSize to 0 makes cellPool.get / valuePool.get allocate
+// a new register set each time, and cellPool.release / valuePool.release
 // be no-ops.
-type regPool struct {
-	cells    [regPoolSize][]Cell  // Pool of cell register sets
-	regs     [regPoolSize][]Value // Pool of value register sets
-	cellExps [regPoolSize]uint64  // Expiry generation of cell register sets
-	regExps  [regPoolSize]uint64  // Expiry generation of value register sets
-	cellGen  uint64               // Current cell register set generation
-	regGen   uint64               // current value register set generation
+
+type cellPool struct {
+	cells  [][]Cell // Pool of cell sets
+	exps   []uint   // Expiry generation of cell sets
+	gen    uint     // Current cell register set generation
+	maxAge uint
 }
 
-// Get a register set of size sz, taken from the pool if possible (and
-// increase the current generation).
-func (p *regPool) getRegs(sz int) []Value {
-	p.regGen++
-	for i := 0; i < regPoolSize; i++ {
-		r := p.regs[i]
-		if len(r) == sz {
-			p.regs[i] = nil
-			p.regExps[i] = 0
-			return r
-		}
+func newCellPool(size, maxAge uint) *cellPool {
+	return &cellPool{
+		cells:  make([][]Cell, size),
+		exps:   make([]uint, size),
+		maxAge: maxAge,
 	}
-	return make([]Value, sz)
 }
 
-// Get a cell register set of size sz, taken from the pool if possible (and
-// increase the current generation).
-func (p *regPool) getCells(sz int) []Cell {
-	p.cellGen++
+func (p *cellPool) get(sz int) []Cell {
+	p.gen++
 	for i := 0; i < regPoolSize; i++ {
 		c := p.cells[i]
 		if len(c) == sz {
 			p.cells[i] = nil
-			p.cellExps[i] = 0
+			p.exps[i] = 0
 			return c
 		}
 	}
 	return make([]Cell, sz)
 }
 
-// Return the register set to the pool if there is a slot available (i.e. empty
-// slot or expired register set).
-func (p *regPool) releaseRegs(r []Value) {
+func (p *cellPool) release(c []Cell) {
 	for i := 0; i < regPoolSize; i++ {
-		if p.regExps[i] < p.regGen {
-			for i := range r {
-				r[i] = Value{}
+		if p.exps[i] < p.gen {
+			for i := range c {
+				c[i] = Cell{}
 			}
-			p.regs[i] = r
-			p.regExps[i] = p.regGen + maxAge
+			p.cells[i] = c
+			p.exps[i] = p.gen + p.maxAge
 			return
 		}
 	}
 }
 
-// Return the cell register set to the pool if there is a slot available (i.e.
-// empty slot or expired register set).
-func (p *regPool) releaseCells(c []Cell) {
+type valuePool struct {
+	values [][]Value // Pool of value sets
+	exps   []uint    // Expiry generation of value sets
+	gen    uint      // Current cell register set generation
+	maxAge uint
+}
+
+func newValuePool(size, maxAge uint) *valuePool {
+	return &valuePool{
+		values: make([][]Value, size),
+		exps:   make([]uint, size),
+		maxAge: maxAge,
+	}
+}
+
+func (p *valuePool) get(sz int) []Value {
+	p.gen++
 	for i := 0; i < regPoolSize; i++ {
-		if p.cellExps[i] < p.cellGen {
-			for i := range c {
-				c[i] = Cell{}
+		v := p.values[i]
+		if len(v) == sz {
+			p.values[i] = nil
+			p.exps[i] = 0
+			return v
+		}
+	}
+	return make([]Value, sz)
+}
+
+func (p *valuePool) release(v []Value) {
+	for i := 0; i < regPoolSize; i++ {
+		if p.exps[i] < p.gen {
+			for i := range v {
+				v[i] = Value{}
 			}
-			p.cells[i] = c
-			p.cellExps[i] = p.cellGen + maxAge
+			p.values[i] = v
+			p.exps[i] = p.gen + p.maxAge
 			return
 		}
 	}

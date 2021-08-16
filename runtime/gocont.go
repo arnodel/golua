@@ -15,18 +15,20 @@ func NewGoCont(f *GoFunction, next Cont) *GoCont {
 	var args []Value
 	var etc *[]Value
 	if f.nArgs > 0 {
-		args = make([]Value, f.nArgs)
+		args = globalArgsPool.get(f.nArgs)
 	}
 	if f.hasEtc {
 		etc = new([]Value)
 	}
-	return &GoCont{
+	cont := globalGoContPool.get()
+	*cont = GoCont{
 		f:    f.f,
 		name: f.name,
 		args: args,
 		etc:  etc,
 		next: next,
 	}
+	return cont
 }
 
 // Push implements Cont.Push.
@@ -77,8 +79,13 @@ FillEtc:
 }
 
 // RunInThread implements Cont.RunInThread
-func (c *GoCont) RunInThread(t *Thread) (Cont, *Error) {
-	return c.f(t, c)
+func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
+	next, err = c.f(t, c)
+	if c.args != nil {
+		globalArgsPool.release(c.args)
+	}
+	globalGoContPool.release(c)
+	return
 }
 
 // Next implements Cont.Next.

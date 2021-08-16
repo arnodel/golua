@@ -27,13 +27,13 @@ func NewLuaCont(clos *Closure, next Cont) *LuaCont {
 	if borrowCells {
 		cells = clos.Upvalues
 	} else {
-		cells = globalRegPool.getCells(int(clos.CellCount))
+		cells = globalCellPool.get(int(clos.CellCount))
 		copy(cells, clos.Upvalues)
 		for i := clos.UpvalueCount; i < clos.CellCount; i++ {
 			cells[i] = NewCell(NilValue)
 		}
 	}
-	registers := globalRegPool.getRegs(int(clos.RegCount))
+	registers := globalRegPool.get(int(clos.RegCount))
 	registers[0] = ContValue(next)
 	cont := globalLuaContPool.get()
 	*cont = LuaCont{
@@ -46,9 +46,9 @@ func NewLuaCont(clos *Closure, next Cont) *LuaCont {
 }
 
 func (c *LuaCont) release() {
-	globalRegPool.releaseRegs(c.registers)
+	globalRegPool.release(c.registers)
 	if !c.borrowedCells {
-		globalRegPool.releaseCells(c.cells)
+		globalCellPool.release(c.cells)
 	}
 	globalLuaContPool.release(c)
 }
