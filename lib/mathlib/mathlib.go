@@ -332,7 +332,7 @@ func sqrt(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	y := rt.FloatValue(math.Sqrt(x))
-	return c.PushingNext(y), nil
+	return c.PushingNext1(y), nil
 }
 
 func tan(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
