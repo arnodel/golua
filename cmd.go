@@ -22,12 +22,16 @@ type luaCmd struct {
 	disFlag        bool
 	astFlag        bool
 	unbufferedFlag bool
+	cpuQuota       uint64
+	memQuota       uint64
 }
 
 func (c *luaCmd) setFlags() {
 	flag.BoolVar(&c.disFlag, "dis", false, "Disassemble source instead of running it")
 	flag.BoolVar(&c.astFlag, "ast", false, "Print AST instead of running code")
 	flag.BoolVar(&c.unbufferedFlag, "u", false, "Force unbuffered output")
+	flag.Uint64Var(&c.cpuQuota, "cpuquota", 0, "CPU quota")
+	flag.Uint64Var(&c.memQuota, "memquota", 0, "memory quota")
 }
 
 func (c *luaCmd) run() int {
@@ -46,6 +50,9 @@ func (c *luaCmd) run() int {
 
 	// Get a Lua runtime
 	r := rt.New(nil)
+	r.UpdateCPUQuota(c.cpuQuota)
+	r.UpdateMemQuota(c.memQuota)
+
 	cleanup := lib.LoadAll(r)
 	defer cleanup()
 

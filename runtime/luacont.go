@@ -95,6 +95,7 @@ func (c *LuaCont) RunInThread(t *Thread) (Cont, *Error) {
 	// fmt.Println("START", c)
 RunLoop:
 	for {
+		t.requireCPU(1)
 		// fmt.Println("PC", pc)
 		opcode := opcodes[pc]
 		if opcode.HasType1() {

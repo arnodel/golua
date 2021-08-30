@@ -1,6 +1,9 @@
 package runtime
 
-import "io"
+import (
+	"fmt"
+	"io"
+)
 
 // A Runtime is a Lua runtime.  It contains all the global state of the runtime
 // (in particular a reference to the global environment and the main thread).
@@ -13,6 +16,12 @@ type Runtime struct {
 	Stdout     io.Writer
 	mainThread *Thread
 	registry   *Table
+
+	cpuQuota uint64
+	cpuUsed  uint64
+
+	memQuota uint64
+	memUsed  uint64
 }
 
 // New returns a new pointer to a Runtime with the given stdout.
@@ -114,4 +123,40 @@ func (r *Runtime) Metatable(v Value) Value {
 func (r *Runtime) metaGetS(v Value, k string) Value {
 	meta := r.RawMetatable(v)
 	return RawGet(meta, StringValue(k))
+}
+
+func (r *Runtime) requireCPU(cpuAmount uint64) {
+	if r.cpuQuota > 0 {
+		r.cpuUsed += cpuAmount
+		if r.cpuUsed > r.cpuQuota {
+			panic(fmt.Sprintf("CPU quota of %d exceeded", r.cpuQuota))
+		}
+	}
+}
+
+func (r *Runtime) UpdateCPUQuota(newQuota uint64) {
+	r.cpuQuota = newQuota
+}
+
+func (r *Runtime) requireMem(memAmount uint64) {
+	if r.memQuota > 0 {
+		r.memUsed += memAmount
+		if r.memUsed > r.memQuota {
+			panic(fmt.Sprintf("CPU quota of %d exceeded", r.cpuQuota))
+		}
+	}
+}
+
+func (r *Runtime) releaseMem(memAmount uint64) {
+	if r.memQuota > 0 {
+		if memAmount < r.memUsed {
+			r.memUsed -= memAmount
+		} else {
+			panic("Too much mem released")
+		}
+	}
+}
+
+func (r *Runtime) UpdateMemQuota(newQuota uint64) {
+	r.memQuota = newQuota
 }
