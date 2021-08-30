@@ -80,6 +80,7 @@ FillEtc:
 
 // RunInThread implements Cont.RunInThread
 func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
+	t.requireCPU(1) // TODO: an appropriate amount
 	next, err = c.f(t, c)
 	if c.args != nil {
 		globalArgsPool.release(c.args)
