@@ -106,7 +106,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		rt.Push(next, rt.NilValue, rt.StringValue("attempt to load a text chunk"))
 		return next, nil
 	}
-	clos, err := rt.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv)
+	clos, err := t.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv)
 	if err != nil {
 		rt.Push(next, rt.NilValue, rt.StringValue(err.Error()))
 	} else {

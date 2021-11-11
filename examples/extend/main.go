@@ -61,7 +61,7 @@ func main() {
 	source := []byte(`print("hello", addints(40, 2))`)
 
 	// Compile the chunk.
-	chunk, _ := rt.CompileAndLoadLuaChunk("test", source, r.GlobalEnv())
+	chunk, _ := r.CompileAndLoadLuaChunk("test", source, r.GlobalEnv())
 
 	// Run the chunk in the runtime's main thread.  It should output 42!
 	_, _ = rt.Call1(r.MainThread(), rt.FunctionValue(chunk))

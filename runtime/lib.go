@@ -303,12 +303,12 @@ func CompileLuaChunk(name string, source []byte) (*code.Unit, error) {
 
 // CompileAndLoadLuaChunk parses, compiles and loads a Lua chunk from source and
 // returns the closure that runs the chunk in the given global environment.
-func CompileAndLoadLuaChunk(name string, source []byte, env *Table) (*Closure, error) {
+func (r *Runtime) CompileAndLoadLuaChunk(name string, source []byte, env *Table) (*Closure, error) {
 	unit, err := CompileLuaChunk(name, source)
 	if err != nil {
 		return nil, err
 	}
-	return LoadLuaUnit(unit, env), nil
+	return r.LoadLuaUnit(unit, env), nil
 }
 
 func metacont(t *Thread, obj Value, method string, next Cont) (Cont, *Error, bool) {
