@@ -70,7 +70,7 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
 		metaNewIndex := t.metaGetS(coll, "__newindex")
 		if metaNewIndex.IsNil() {
 			if isTable {
-				if err := tbl.SetCheck(idx, val); err != nil {
+				if err := t.SetTableCheck(tbl, idx, val); err != nil {
 					return NewErrorE(err)
 				}
 			}
