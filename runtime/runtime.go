@@ -139,11 +139,25 @@ func (r *Runtime) metaGetS(v Value, k string) Value {
 	return RawGet(meta, StringValue(k))
 }
 
+type QuotaExceededError struct {
+	message string
+}
+
+func (p QuotaExceededError) Error() string {
+	return p.message
+}
+
+func panicWithQuotaExceded(format string, args ...interface{}) {
+	panic(QuotaExceededError{
+		message: fmt.Sprintf(format, args...),
+	})
+}
+
 func (r *Runtime) requireCPU(cpuAmount uint64) {
 	if r.cpuQuota > 0 {
 		r.cpuUsed += cpuAmount
 		if r.cpuUsed > r.cpuQuota {
-			panic(fmt.Sprintf("CPU quota of %d exceeded", r.cpuQuota))
+			panicWithQuotaExceded("CPU quota of %d exceeded", r.cpuQuota)
 		}
 	}
 }
@@ -160,7 +174,7 @@ func (r *Runtime) requireMem(memAmount uint64) {
 	if r.memQuota > 0 {
 		r.memUsed += memAmount
 		if r.memUsed > r.memQuota {
-			panic(fmt.Sprintf("mem quota of %d exceeded", r.memQuota))
+			panicWithQuotaExceded("mem quota of %d exceeded", r.memQuota)
 		}
 	}
 }
@@ -181,4 +195,9 @@ func (r *Runtime) UpdateMemQuota(newQuota uint64) {
 
 func (r *Runtime) MemQuotaStatus() (uint64, uint64) {
 	return r.memUsed, r.memQuota
+}
+
+func (r *Runtime) ResetQuota() {
+	r.memUsed = 0
+	r.cpuUsed = 0
 }
