@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
@@ -125,6 +126,14 @@ func (r *Runtime) SetTable(t *Table, k, v Value) {
 	r.requireMem(t.Set(k, v))
 }
 
+func (r *Runtime) SetTableCheck(t *Table, k, v Value) error {
+	if k.IsNil() {
+		return errors.New("table index is nil")
+	}
+	r.SetTable(t, k, v)
+	return nil
+}
+
 func (r *Runtime) metaGetS(v Value, k string) Value {
 	meta := r.RawMetatable(v)
 	return RawGet(meta, StringValue(k))
@@ -143,15 +152,15 @@ func (r *Runtime) UpdateCPUQuota(newQuota uint64) {
 	r.cpuQuota = newQuota
 }
 
-func (r *Runtime) CurrentCPUQuota() uint64 {
-	return r.cpuQuota
+func (r *Runtime) CPUQuotaStatus() (uint64, uint64) {
+	return r.cpuUsed, r.cpuQuota
 }
 
 func (r *Runtime) requireMem(memAmount uint64) {
 	if r.memQuota > 0 {
 		r.memUsed += memAmount
 		if r.memUsed > r.memQuota {
-			panic(fmt.Sprintf("CPU quota of %d exceeded", r.cpuQuota))
+			panic(fmt.Sprintf("mem quota of %d exceeded", r.memQuota))
 		}
 	}
 }
@@ -170,6 +179,6 @@ func (r *Runtime) UpdateMemQuota(newQuota uint64) {
 	r.memQuota = newQuota
 }
 
-func (r *Runtime) CurrentMemQuota() uint64 {
-	return r.memQuota
+func (r *Runtime) MemQuotaStatus() (uint64, uint64) {
+	return r.memUsed, r.memQuota
 }
