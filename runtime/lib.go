@@ -174,6 +174,7 @@ func ToString(x Value) (string, bool) {
 func Concat(t *Thread, x, y Value) (Value, *Error) {
 	if sx, ok := ToString(x); ok {
 		if sy, ok := ToString(y); ok {
+			t.requireMem(uint64(len(sx) + len(sy)))
 			return StringValue(sx + sy), nil
 		}
 	}
