@@ -109,7 +109,7 @@ func (c *luaCmd) run() int {
 		r.SetTable(r.GlobalEnv(), rt.StringValue("arg"), rt.TableValue(argTable))
 	}
 
-	clos := rt.LoadLuaUnit(unit, r.GlobalEnv())
+	clos := r.LoadLuaUnit(unit, r.GlobalEnv())
 	cerr := rt.Call(r.MainThread(), rt.FunctionValue(clos), argVals, rt.NewTerminationWith(0, false))
 	if cerr != nil {
 		return fatal("!!! %s", cerr.Traceback())
@@ -178,7 +178,7 @@ func repl(r *rt.Runtime) int {
 }
 
 func runChunk(r *rt.Runtime, source []byte) (bool, error) {
-	clos, err := rt.CompileAndLoadLuaChunk("<stdin>", source, r.GlobalEnv())
+	clos, err := r.CompileAndLoadLuaChunk("<stdin>", source, r.GlobalEnv())
 	if err != nil {
 		snErr, ok := err.(*rt.SyntaxError)
 		if !ok {

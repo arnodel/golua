@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"unsafe"
+
 	"github.com/arnodel/golua/code"
 )
 
@@ -53,7 +55,9 @@ func (c *Code) RefactorConsts() *Code {
 }
 
 // LoadLuaUnit turns a code unit into a closure given an environment env.
-func LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
+func (r *Runtime) LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
+	r.requireMem(uint64(16 * len(unit.Constants)))
+	r.requireMem(uint64(len(unit.Code)) * uint64(unsafe.Sizeof(code.Opcode(0))))
 	constants := make([]Value, len(unit.Constants))
 	for i, ck := range unit.Constants {
 		switch k := ck.(type) {
@@ -62,12 +66,14 @@ func LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 		case code.Float:
 			constants[i] = FloatValue(float64(k))
 		case code.String:
+			r.requireMem(uint64(len(k)))
 			constants[i] = StringValue(string(k))
 		case code.Bool:
 			constants[i] = BoolValue(bool(k))
 		case code.NilType:
 			// Do nothing as constants[i] == nil
 		case code.Code:
+			r.requireMem(uint64(unsafe.Sizeof(Code{})))
 			constants[i] = CodeValue(&Code{
 				source:       unit.Source,
 				name:         k.Name,
