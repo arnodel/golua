@@ -35,15 +35,15 @@ func twice(f func(int) int) func(int) int {
 func setup(r *rt.Runtime) func() {
 	cleanup := lib.LoadAll(r)
 	g := r.GlobalEnv()
-	rt.SetEnv(g, "hello", rt.StringValue("world"))
-	rt.SetEnv(g, "double", golib.NewGoValue(r, func(x int) int { return 2 * x }))
-	rt.SetEnv(g, "polly", golib.NewGoValue(r, TestStruct{Age: 10, Name: "Polly"}))
-	rt.SetEnv(g, "ben", golib.NewGoValue(r, &TestStruct{Age: 5, Name: "Ben"}))
-	rt.SetEnv(g, "mapping", golib.NewGoValue(r, map[string]int{"answer": 42}))
-	rt.SetEnv(g, "slice", golib.NewGoValue(r, []string{"I", "am", "here"}))
-	rt.SetEnv(g, "sprintf", golib.NewGoValue(r, fmt.Sprintf))
-	rt.SetEnv(g, "twice", golib.NewGoValue(r, twice))
-	rt.SetEnv(g, "panic", golib.NewGoValue(r, func() { panic("OMG") }))
+	r.SetEnv(g, "hello", rt.StringValue("world"))
+	r.SetEnv(g, "double", golib.NewGoValue(r, func(x int) int { return 2 * x }))
+	r.SetEnv(g, "polly", golib.NewGoValue(r, TestStruct{Age: 10, Name: "Polly"}))
+	r.SetEnv(g, "ben", golib.NewGoValue(r, &TestStruct{Age: 5, Name: "Ben"}))
+	r.SetEnv(g, "mapping", golib.NewGoValue(r, map[string]int{"answer": 42}))
+	r.SetEnv(g, "slice", golib.NewGoValue(r, []string{"I", "am", "here"}))
+	r.SetEnv(g, "sprintf", golib.NewGoValue(r, fmt.Sprintf))
+	r.SetEnv(g, "twice", golib.NewGoValue(r, twice))
+	r.SetEnv(g, "panic", golib.NewGoValue(r, func() { panic("OMG") }))
 	return cleanup
 }
 

@@ -26,17 +26,17 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) rt.Value {
 	methods := rt.NewTable()
-	rt.SetEnvGoFunc(methods, "read", fileread, 1, true)
-	rt.SetEnvGoFunc(methods, "lines", filelines, 1, true)
-	rt.SetEnvGoFunc(methods, "close", fileclose, 1, false)
-	rt.SetEnvGoFunc(methods, "flush", fileflush, 1, false)
-	rt.SetEnvGoFunc(methods, "seek", fileseek, 3, false)
+	r.SetEnvGoFunc(methods, "read", fileread, 1, true)
+	r.SetEnvGoFunc(methods, "lines", filelines, 1, true)
+	r.SetEnvGoFunc(methods, "close", fileclose, 1, false)
+	r.SetEnvGoFunc(methods, "flush", fileflush, 1, false)
+	r.SetEnvGoFunc(methods, "seek", fileseek, 3, false)
 	// TODO: setvbuf
-	rt.SetEnvGoFunc(methods, "write", filewrite, 1, true)
+	r.SetEnvGoFunc(methods, "write", filewrite, 1, true)
 
 	meta := rt.NewTable()
-	rt.SetEnv(meta, "__index", rt.TableValue(methods))
-	rt.SetEnvGoFunc(meta, "__tostring", tostring, 1, false)
+	r.SetEnv(meta, "__index", rt.TableValue(methods))
+	r.SetEnvGoFunc(meta, "__tostring", tostring, 1, false)
 
 	stdoutFile := NewFile(os.Stdout, BufferedStdFiles)
 	// This is not a good pattern - it has to do for now.
@@ -53,20 +53,20 @@ func load(r *rt.Runtime) rt.Value {
 		metatable:     meta,
 	}))
 	pkg := rt.NewTable()
-	rt.SetEnv(pkg, "stdin", rt.UserDataValue(stdin))
-	rt.SetEnv(pkg, "stdout", rt.UserDataValue(stdout))
-	rt.SetEnv(pkg, "stderr", rt.UserDataValue(stderr))
-	rt.SetEnvGoFunc(pkg, "close", ioclose, 1, false)
-	rt.SetEnvGoFunc(pkg, "flush", ioflush, 0, false)
-	rt.SetEnvGoFunc(pkg, "input", input, 1, false)
-	rt.SetEnvGoFunc(pkg, "lines", iolines, 1, true)
-	rt.SetEnvGoFunc(pkg, "open", open, 2, false)
-	rt.SetEnvGoFunc(pkg, "output", output, 1, false)
+	r.SetEnv(pkg, "stdin", rt.UserDataValue(stdin))
+	r.SetEnv(pkg, "stdout", rt.UserDataValue(stdout))
+	r.SetEnv(pkg, "stderr", rt.UserDataValue(stderr))
+	r.SetEnvGoFunc(pkg, "close", ioclose, 1, false)
+	r.SetEnvGoFunc(pkg, "flush", ioflush, 0, false)
+	r.SetEnvGoFunc(pkg, "input", input, 1, false)
+	r.SetEnvGoFunc(pkg, "lines", iolines, 1, true)
+	r.SetEnvGoFunc(pkg, "open", open, 2, false)
+	r.SetEnvGoFunc(pkg, "output", output, 1, false)
 	// TODO: popen
-	rt.SetEnvGoFunc(pkg, "read", ioread, 0, true)
-	rt.SetEnvGoFunc(pkg, "tmpfile", tmpfile, 0, false)
-	rt.SetEnvGoFunc(pkg, "type", typef, 1, false)
-	rt.SetEnvGoFunc(pkg, "write", iowrite, 0, true)
+	r.SetEnvGoFunc(pkg, "read", ioread, 0, true)
+	r.SetEnvGoFunc(pkg, "tmpfile", tmpfile, 0, false)
+	r.SetEnvGoFunc(pkg, "type", typef, 1, false)
+	r.SetEnvGoFunc(pkg, "write", iowrite, 0, true)
 
 	return rt.TableValue(pkg)
 }

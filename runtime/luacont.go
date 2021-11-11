@@ -344,7 +344,7 @@ RunLoop:
 			if opcode.GetF() {
 				tbl := getReg(regs, cells, dst).AsTable()
 				for i, v := range etc {
-					tbl.Set(IntValue(int64(i+idx)), v)
+					t.SetTable(tbl, IntValue(int64(i+idx)), v)
 				}
 			} else {
 				setReg(regs, cells, dst, val)

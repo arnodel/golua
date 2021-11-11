@@ -103,10 +103,10 @@ func (c *luaCmd) run() int {
 		argVals = make([]rt.Value, len(args))
 		for i, arg := range args {
 			argVal := rt.StringValue(arg)
-			argTable.Set(rt.IntValue(int64(i+1)), argVal)
+			r.SetTable(argTable, rt.IntValue(int64(i+1)), argVal)
 			argVals[i] = argVal
 		}
-		r.GlobalEnv().Set(rt.StringValue("arg"), rt.TableValue(argTable))
+		r.SetTable(r.GlobalEnv(), rt.StringValue("arg"), rt.TableValue(argTable))
 	}
 
 	clos := rt.LoadLuaUnit(unit, r.GlobalEnv())

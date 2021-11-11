@@ -18,13 +18,13 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	rt.SetEnvGoFunc(pkg, "concat", concat, 4, false)
-	rt.SetEnvGoFunc(pkg, "insert", insert, 3, false)
-	rt.SetEnvGoFunc(pkg, "move", move, 5, false)
-	rt.SetEnvGoFunc(pkg, "pack", pack, 0, true)
-	rt.SetEnvGoFunc(pkg, "remove", remove, 2, false)
-	rt.SetEnvGoFunc(pkg, "sort", sortf, 2, false)
-	rt.SetEnvGoFunc(pkg, "unpack", unpack, 3, false)
+	r.SetEnvGoFunc(pkg, "concat", concat, 4, false)
+	r.SetEnvGoFunc(pkg, "insert", insert, 3, false)
+	r.SetEnvGoFunc(pkg, "move", move, 5, false)
+	r.SetEnvGoFunc(pkg, "pack", pack, 0, true)
+	r.SetEnvGoFunc(pkg, "remove", remove, 2, false)
+	r.SetEnvGoFunc(pkg, "sort", sortf, 2, false)
+	r.SetEnvGoFunc(pkg, "unpack", unpack, 3, false)
 	return rt.TableValue(pkg)
 }
 
@@ -226,9 +226,9 @@ func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	tbl := rt.NewTable()
 	// We can use tbl.Set() because tbl has no metatable
 	for i, v := range c.Etc() {
-		tbl.Set(rt.IntValue(int64(i+1)), v)
+		t.SetTable(tbl, rt.IntValue(int64(i+1)), v)
 	}
-	tbl.Set(rt.StringValue("n"), rt.IntValue(int64(len(c.Etc()))))
+	t.SetTable(tbl, rt.StringValue("n"), rt.IntValue(int64(len(c.Etc()))))
 	return c.PushingNext(rt.TableValue(tbl)), nil
 }
 

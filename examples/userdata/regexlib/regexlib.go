@@ -16,7 +16,7 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-var regexMeta *rt.Table
+var regexMetaKey = rt.StringValue("regexMeta")
 
 // LibLoader defines the name of the package and how to load it. Given a runtime
 // r, call:
@@ -31,11 +31,21 @@ var LibLoader = packagelib.Loader{
 // This function is the Load function of the LibLoader defined above.  It sets
 // up a package (which is a lua table and returns it).
 func load(r *rt.Runtime) rt.Value {
+	// First build a table of methods.
+	regexMethods := rt.NewTable()
+	r.SetEnvGoFunc(regexMethods, "find", regexFind, 2, false)
+
+	// Build the metatable
+	regexMeta := rt.NewTable()
+	r.SetEnv(regexMeta, "__index", rt.TableValue(regexMethods))
+	r.SetEnvGoFunc(regexMeta, "__tostring", regexToString, 1, false)
+	r.SetRegistry(regexMetaKey, rt.TableValue(regexMeta))
+
 	// Make a new table
 	pkg := rt.NewTable()
 
 	// Add the "new" function to it
-	rt.SetEnvGoFunc(pkg, "new", newRegex, 1, false)
+	r.SetEnvGoFunc(pkg, "new", newRegex, 1, false)
 
 	// Return the package table
 	return rt.TableValue(pkg)
@@ -55,7 +65,8 @@ func newRegex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if compErr != nil {
 		return nil, rt.NewErrorE(compErr).AddContext(c)
 	}
-	return c.PushingNext(rt.UserDataValue(rt.NewUserData(re, regexMeta))), nil
+	regexMeta := t.Registry(regexMetaKey)
+	return c.PushingNext(rt.UserDataValue(rt.NewUserData(re, regexMeta.AsTable()))), nil
 }
 
 // Hepler function that turns a Lua value to a Go regexp.
@@ -114,16 +125,4 @@ func regexToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	s := rt.StringValue(fmt.Sprintf("regex(%q)", re.String()))
 	return c.PushingNext(s), nil
-}
-
-func init() {
-	// At startup, build the metatable for the regex userdata.
-	// First build a table of methods.
-	regexMethods := rt.NewTable()
-	rt.SetEnvGoFunc(regexMethods, "find", regexFind, 2, false)
-
-	// Build the metatable
-	regexMeta = rt.NewTable()
-	rt.SetEnv(regexMeta, "__index", rt.TableValue(regexMethods))
-	rt.SetEnvGoFunc(regexMeta, "__tostring", regexToString, 1, false)
 }
