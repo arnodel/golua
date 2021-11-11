@@ -143,6 +143,10 @@ func (r *Runtime) UpdateCPUQuota(newQuota uint64) {
 	r.cpuQuota = newQuota
 }
 
+func (r *Runtime) CurrentCPUQuota() uint64 {
+	return r.cpuQuota
+}
+
 func (r *Runtime) requireMem(memAmount uint64) {
 	if r.memQuota > 0 {
 		r.memUsed += memAmount
@@ -164,4 +168,8 @@ func (r *Runtime) releaseMem(memAmount uint64) {
 
 func (r *Runtime) UpdateMemQuota(newQuota uint64) {
 	r.memQuota = newQuota
+}
+
+func (r *Runtime) CurrentMemQuota() uint64 {
+	return r.memQuota
 }
