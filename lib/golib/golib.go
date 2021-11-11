@@ -24,13 +24,13 @@ var govalueKey = rt.AsValue(govalueKeyType{})
 
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	rt.SetEnvGoFunc(pkg, "import", goimport, 1, false)
+	r.SetEnvGoFunc(pkg, "import", goimport, 1, false)
 
 	meta := rt.NewTable()
-	rt.SetEnvGoFunc(meta, "__index", goValueIndex, 2, false)
-	rt.SetEnvGoFunc(meta, "__newindex", goValueSetIndex, 3, false)
-	rt.SetEnvGoFunc(meta, "__call", goValueCall, 1, true)
-	rt.SetEnvGoFunc(meta, "__tostring", goValueToString, 1, false)
+	r.SetEnvGoFunc(meta, "__index", goValueIndex, 2, false)
+	r.SetEnvGoFunc(meta, "__newindex", goValueSetIndex, 3, false)
+	r.SetEnvGoFunc(meta, "__call", goValueCall, 1, true)
+	r.SetEnvGoFunc(meta, "__tostring", goValueToString, 1, false)
 
 	r.SetRegistry(govalueKey, rt.TableValue(meta))
 

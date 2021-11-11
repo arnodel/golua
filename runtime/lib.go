@@ -253,14 +253,14 @@ func Type(v Value) string {
 
 // SetEnv sets the item in the table t for a string key.  Useful when writing
 // libraries
-func SetEnv(t *Table, name string, v Value) {
-	t.Set(StringValue(name), v)
+func (r *Runtime) SetEnv(t *Table, name string, v Value) {
+	r.SetTable(t, StringValue(name), v)
 }
 
 // SetEnvGoFunc sets the item in the table t for a string key to be a GoFunction
 // defined by f.  Useful when writing libraries
-func SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, *Error), nArgs int, hasEtc bool) {
-	t.Set(StringValue(name), FunctionValue(&GoFunction{
+func (r *Runtime) SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, *Error), nArgs int, hasEtc bool) {
+	r.SetTable(t, StringValue(name), FunctionValue(&GoFunction{
 		f:      f,
 		name:   name,
 		nArgs:  nArgs,

@@ -49,7 +49,7 @@ func (r *Runtime) Registry(key Value) Value {
 
 // SetRegistry sets the value associated with the key k to v in the registry.
 func (r *Runtime) SetRegistry(k, v Value) {
-	r.registry.Set(k, v)
+	r.SetTable(r.registry, k, v)
 }
 
 // MainThread returns the runtime's main thread.
@@ -118,6 +118,11 @@ func (r *Runtime) Metatable(v Value) Value {
 		return metam
 	}
 	return TableValue(meta)
+}
+
+// Set a value in a table, updating the memory quota.
+func (r *Runtime) SetTable(t *Table, k, v Value) {
+	r.requireMem(t.Set(k, v))
 }
 
 func (r *Runtime) metaGetS(v Value, k string) Value {

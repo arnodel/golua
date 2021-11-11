@@ -55,7 +55,7 @@ func main() {
 
 	// Then we add our addints function to the global environment of the
 	// runtime.
-	rt.SetEnvGoFunc(r.GlobalEnv(), "addints", addints, 2, false)
+	r.SetEnvGoFunc(r.GlobalEnv(), "addints", addints, 2, false)
 
 	// This is the chunk we want to run.  It calls the addints function.
 	source := []byte(`print("hello", addints(40, 2))`)

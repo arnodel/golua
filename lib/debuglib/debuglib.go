@@ -14,13 +14,13 @@ var LibLoader = packagelib.Loader{
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 	pkgVal := rt.TableValue(pkg)
-	rt.SetEnv(r.GlobalEnv(), "debug", pkgVal)
-	rt.SetEnvGoFunc(pkg, "getinfo", getinfo, 3, false)
-	rt.SetEnvGoFunc(pkg, "getupvalue", getupvalue, 2, false)
-	rt.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false)
-	rt.SetEnvGoFunc(pkg, "upvaluejoin", upvaluejoin, 4, false)
-	rt.SetEnvGoFunc(pkg, "setmetatable", setmetatable, 2, false)
-	rt.SetEnvGoFunc(pkg, "upvalueid", upvalueid, 2, false)
+	r.SetEnv(r.GlobalEnv(), "debug", pkgVal)
+	r.SetEnvGoFunc(pkg, "getinfo", getinfo, 3, false)
+	r.SetEnvGoFunc(pkg, "getupvalue", getupvalue, 2, false)
+	r.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false)
+	r.SetEnvGoFunc(pkg, "upvaluejoin", upvaluejoin, 4, false)
+	r.SetEnvGoFunc(pkg, "setmetatable", setmetatable, 2, false)
+	r.SetEnvGoFunc(pkg, "upvalueid", upvalueid, 2, false)
 	return pkgVal
 }
 
@@ -73,9 +73,9 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next.Push(rt.NilValue)
 	} else {
 		res := rt.NewTable()
-		rt.SetEnv(res, "name", rt.StringValue(info.Name))
-		rt.SetEnv(res, "currentline", rt.IntValue(int64(info.CurrentLine)))
-		rt.SetEnv(res, "source", rt.StringValue(info.Source))
+		t.SetEnv(res, "name", rt.StringValue(info.Name))
+		t.SetEnv(res, "currentline", rt.IntValue(int64(info.CurrentLine)))
+		t.SetEnv(res, "source", rt.StringValue(info.Source))
 		next.Push(rt.TableValue(res))
 	}
 	return next, nil

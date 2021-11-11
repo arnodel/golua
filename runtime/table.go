@@ -32,12 +32,13 @@ func (t *Table) Get(k Value) Value {
 }
 
 // Set implements t[k] = v (doesn't check if k is nil).
-func (t *Table) Set(k, v Value) {
+func (t *Table) Set(k, v Value) uint64 {
 	if v.IsNil() {
 		t.mixedTable.remove(k)
-		return
+		return 0
 	}
 	t.mixedTable.insert(k, v)
+	return 16
 }
 
 // Reset implements t[k] = v only if t[k] was already non-nil.

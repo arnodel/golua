@@ -13,13 +13,13 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	rt.SetEnvGoFunc(pkg, "create", create, 1, false)
-	rt.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 0, false)
-	rt.SetEnvGoFunc(pkg, "resume", resume, 1, true)
-	rt.SetEnvGoFunc(pkg, "running", running, 0, false)
-	rt.SetEnvGoFunc(pkg, "status", status, 1, false)
-	rt.SetEnvGoFunc(pkg, "wrap", wrap, 1, false)
-	rt.SetEnvGoFunc(pkg, "yield", yield, 0, true)
+	r.SetEnvGoFunc(pkg, "create", create, 1, false)
+	r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 0, false)
+	r.SetEnvGoFunc(pkg, "resume", resume, 1, true)
+	r.SetEnvGoFunc(pkg, "running", running, 0, false)
+	r.SetEnvGoFunc(pkg, "status", status, 1, false)
+	r.SetEnvGoFunc(pkg, "wrap", wrap, 1, false)
+	r.SetEnvGoFunc(pkg, "yield", yield, 0, true)
 	return rt.TableValue(pkg)
 }
 

@@ -16,12 +16,12 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	rt.SetEnvGoFunc(pkg, "char", char, 0, true)
-	rt.SetEnv(pkg, "charpattern", rt.StringValue("[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"))
-	rt.SetEnvGoFunc(pkg, "codes", codes, 1, false)
-	rt.SetEnvGoFunc(pkg, "codepoint", codepoint, 3, false)
-	rt.SetEnvGoFunc(pkg, "len", lenf, 3, false)
-	rt.SetEnvGoFunc(pkg, "offset", offset, 3, false)
+	r.SetEnvGoFunc(pkg, "char", char, 0, true)
+	r.SetEnv(pkg, "charpattern", rt.StringValue("[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"))
+	r.SetEnvGoFunc(pkg, "codes", codes, 1, false)
+	r.SetEnvGoFunc(pkg, "codepoint", codepoint, 3, false)
+	r.SetEnvGoFunc(pkg, "len", lenf, 3, false)
+	r.SetEnvGoFunc(pkg, "offset", offset, 3, false)
 	return rt.TableValue(pkg)
 }
 

@@ -16,9 +16,9 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	rt.SetEnvGoFunc(pkg, "clock", clock, 0, false)
-	rt.SetEnvGoFunc(pkg, "time", timef, 1, false)
-	rt.SetEnvGoFunc(pkg, "setlocale", setlocale, 2, false)
+	r.SetEnvGoFunc(pkg, "clock", clock, 0, false)
+	r.SetEnvGoFunc(pkg, "time", timef, 1, false)
+	r.SetEnvGoFunc(pkg, "setlocale", setlocale, 2, false)
 	return rt.TableValue(pkg)
 }
 

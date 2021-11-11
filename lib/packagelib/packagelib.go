@@ -40,7 +40,7 @@ func (l Loader) Run(r *rt.Runtime) {
 	if l.Name == "" || pkg.IsNil() {
 		return
 	}
-	rt.SetEnv(r.GlobalEnv(), l.Name, pkg)
+	r.SetEnv(r.GlobalEnv(), l.Name, pkg)
 	err := savePackage(r.MainThread(), l.Name, pkg)
 	if err != nil {
 		panic(fmt.Sprintf("Unable to load %s: %s", l.Name, err))
@@ -58,16 +58,16 @@ func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 	pkgVal := rt.TableValue(pkg)
 	r.SetRegistry(pkgKey, pkgVal)
-	pkg.Set(loadedKey, rt.TableValue(rt.NewTable()))
-	pkg.Set(preloadKey, rt.TableValue(rt.NewTable()))
+	r.SetTable(pkg, loadedKey, rt.TableValue(rt.NewTable()))
+	r.SetTable(pkg, preloadKey, rt.TableValue(rt.NewTable()))
 	searchers := rt.NewTable()
-	searchers.Set(rt.IntValue(1), rt.FunctionValue(searchPreloadGoFunc))
-	searchers.Set(rt.IntValue(2), rt.FunctionValue(searchLuaGoFunc))
-	pkg.Set(searchersKey, rt.TableValue(searchers))
-	pkg.Set(pathKey, rt.StringValue(defaultPath))
-	pkg.Set(configKey, rt.StringValue(defaultConfig.String()))
-	rt.SetEnvGoFunc(pkg, "searchpath", searchpath, 4, false)
-	rt.SetEnvGoFunc(env, "require", require, 1, false)
+	r.SetTable(searchers, rt.IntValue(1), rt.FunctionValue(searchPreloadGoFunc))
+	r.SetTable(searchers, rt.IntValue(2), rt.FunctionValue(searchLuaGoFunc))
+	r.SetTable(pkg, searchersKey, rt.TableValue(searchers))
+	r.SetTable(pkg, pathKey, rt.StringValue(defaultPath))
+	r.SetTable(pkg, configKey, rt.StringValue(defaultConfig.String()))
+	r.SetEnvGoFunc(pkg, "searchpath", searchpath, 4, false)
+	r.SetEnvGoFunc(env, "require", require, 1, false)
 	return pkgVal
 }
 
@@ -163,7 +163,7 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			if r0 := res.Get(0); !r0.IsNil() {
 				mod = r0
 			}
-			loaded.Set(nameVal, mod)
+			t.SetTable(loaded, nameVal, mod)
 			next.Push(mod)
 			return next, nil
 		}
@@ -298,6 +298,6 @@ func savePackage(t *rt.Thread, name string, val rt.Value) error {
 	if !ok {
 		return errors.New("package.loaded must be a table")
 	}
-	loaded.Set(rt.StringValue(name), val)
+	t.SetTable(loaded, rt.StringValue(name), val)
 	return nil
 }
