@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/lib"
@@ -63,7 +64,7 @@ func (c *luaCmd) run() int {
 	case 0:
 		chunkName = "<stdin>"
 		if isaTTY(os.Stdin) {
-			return repl(r)
+			return c.repl(r)
 		}
 		chunk, err = ioutil.ReadAll(os.Stdin)
 		if err != nil {
@@ -143,7 +144,7 @@ func removeSlashBangLine(chunk []byte) []byte {
 	return nil
 }
 
-func repl(r *rt.Runtime) int {
+func (c *luaCmd) repl(r *rt.Runtime) int {
 	reader := bufio.NewReader(os.Stdin)
 	w := new(bytes.Buffer)
 	for {
@@ -164,20 +165,38 @@ func repl(r *rt.Runtime) int {
 			return fatal("error: %s", err)
 		}
 		// This is a trick to be able to evaluate lua expressions in the repl
-		more, err := runChunk(r, append([]byte("return "), w.Bytes()...))
+		more, err := c.runChunk(r, append([]byte("return "), w.Bytes()...))
 		if err != nil {
-			more, err = runChunk(r, w.Bytes())
+			more, err = c.runChunk(r, w.Bytes())
 		}
 		if !more {
 			w = new(bytes.Buffer)
 			if err != nil {
 				fmt.Printf("!!! %s\n", err)
+				if _, ok := err.(rt.QuotaExceededError); ok {
+					fmt.Print("Reset quotas [yN]? ")
+					line, err := reader.ReadString('\n')
+					if err == io.EOF || strings.TrimSpace(line) != "y" {
+						return 0
+					}
+					r.ResetQuota()
+				}
 			}
 		}
 	}
 }
 
-func runChunk(r *rt.Runtime, source []byte) (bool, error) {
+func (c *luaCmd) runChunk(r *rt.Runtime, source []byte) (more bool, err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			quotaExceeded, ok := rec.(rt.QuotaExceededError)
+			if !ok {
+				panic(r)
+			}
+			err = quotaExceeded
+			more = false
+		}
+	}()
 	clos, err := r.CompileAndLoadLuaChunk("<stdin>", source, r.GlobalEnv())
 	if err != nil {
 		snErr, ok := err.(*rt.SyntaxError)
