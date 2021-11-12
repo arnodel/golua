@@ -158,7 +158,7 @@ func (t *Thread) end(args []Value, err *Error) {
 }
 
 func (t *Thread) call(c Callable, args []Value, next Cont) *Error {
-	cont := ContWithArgs(c, args, next)
+	cont := t.ContWithArgs(c, args, next)
 	return t.RunContinuation(cont)
 }
 

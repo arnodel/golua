@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"unsafe"
+
 	"github.com/arnodel/golua/code"
 )
 
@@ -18,7 +20,7 @@ type LuaCont struct {
 
 // NewLuaCont returns a new LuaCont from a closure and next, a continuation to
 // push results into.
-func NewLuaCont(clos *Closure, next Cont) *LuaCont {
+func NewLuaCont(r *Runtime, clos *Closure, next Cont) *LuaCont {
 	if clos.upvalueIndex < len(clos.Upvalues) {
 		panic("Closure not ready")
 	}
@@ -29,13 +31,16 @@ func NewLuaCont(clos *Closure, next Cont) *LuaCont {
 	} else {
 		cells = globalCellPool.get(int(clos.CellCount))
 		copy(cells, clos.Upvalues)
+		r.requireMem(uint64(clos.CellCount) * uint64(unsafe.Sizeof(Cell{})))
 		for i := clos.UpvalueCount; i < clos.CellCount; i++ {
 			cells[i] = NewCell(NilValue)
 		}
 	}
+	r.requireMem(uint64(clos.RegCount) * uint64(unsafe.Sizeof(Value{})))
 	registers := globalRegPool.get(int(clos.RegCount))
 	registers[0] = ContValue(next)
 	cont := globalLuaContPool.get()
+	r.requireMem(uint64(unsafe.Sizeof(LuaCont{})))
 	*cont = LuaCont{
 		Closure:       clos,
 		registers:     registers,
@@ -45,12 +50,15 @@ func NewLuaCont(clos *Closure, next Cont) *LuaCont {
 	return cont
 }
 
-func (c *LuaCont) release() {
+func (c *LuaCont) release(r *Runtime) {
 	globalRegPool.release(c.registers)
+	r.releaseMem(uint64(c.RegCount) * uint64(unsafe.Sizeof(Value{})))
 	if !c.borrowedCells {
+		r.releaseMem(uint64(c.CellCount) * uint64(unsafe.Sizeof(Cell{})))
 		globalCellPool.release(c.cells)
 	}
 	globalLuaContPool.release(c)
+	r.releaseMem(uint64(unsafe.Sizeof(LuaCont{})))
 }
 
 // Push implements Cont.Push.
@@ -327,7 +335,7 @@ RunLoop:
 				c.clearReg(contReg)
 				if opcode.GetF() {
 					// It's a tail call
-					c.release()
+					c.release(t.Runtime)
 				}
 				return next, nil
 			default:

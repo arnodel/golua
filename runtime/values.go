@@ -7,14 +7,14 @@ import (
 
 // Callable is the interface for callable values.
 type Callable interface {
-	Continuation(Cont) Cont
+	Continuation(*Runtime, Cont) Cont
 }
 
 // ContWithArgs is a convenience function that returns a new
 // continuation from a callable, some arguments and a next
 // continuation.
-func ContWithArgs(c Callable, args []Value, next Cont) Cont {
-	cont := c.Continuation(next)
+func (r *Runtime) ContWithArgs(c Callable, args []Value, next Cont) Cont {
+	cont := c.Continuation(r, next)
 	Push(cont, args...)
 	return cont
 }
@@ -91,6 +91,8 @@ type GoFunction struct {
 	hasEtc bool
 }
 
+var _ Callable = (*GoFunction)(nil)
+
 // NewGoFunction returns a new GoFunction.
 func NewGoFunction(f func(*Thread, *GoCont) (Cont, *Error), name string, nArgs int, hasEtc bool) *GoFunction {
 	return &GoFunction{
@@ -102,7 +104,7 @@ func NewGoFunction(f func(*Thread, *GoCont) (Cont, *Error), name string, nArgs i
 }
 
 // Continuation implements Callable.Continuation.
-func (f *GoFunction) Continuation(next Cont) Cont {
+func (f *GoFunction) Continuation(r *Runtime, next Cont) Cont {
 	return NewGoCont(f, next)
 }
 

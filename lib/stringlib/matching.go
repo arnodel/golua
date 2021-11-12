@@ -245,7 +245,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	} else if replC, ok := repl.TryCallable(); ok {
 		replF = func(captures []pattern.Capture) (string, *rt.Error) {
 			term := rt.NewTerminationWith(1, false)
-			cont := replC.Continuation(term)
+			cont := replC.Continuation(t.Runtime, term)
 			gc := captures[0]
 			i := 0
 			if len(captures) >= 2 {
