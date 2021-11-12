@@ -49,7 +49,8 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil {
 			return nil, rt.NewErrorE(err).AddContext(c)
 		}
-		captures := pat.MatchFromStart(string(s), si)
+		captures, usedCPU := pat.MatchFromStart(string(s), si, t.UnusedCPU())
+		t.RequireCPU(usedCPU)
 		if len(captures) == 0 {
 			next.Push(rt.NilValue)
 		} else {
@@ -86,7 +87,9 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if ptnErr != nil {
 		return nil, rt.NewErrorE(ptnErr).AddContext(c)
 	}
-	pushCaptures(pat.MatchFromStart(string(s), si), s, next)
+	captures, usedCPU := pat.MatchFromStart(string(s), si, t.UnusedCPU())
+	t.RequireCPU(usedCPU)
+	pushCaptures(captures, s, next)
 	return next, nil
 }
 
@@ -137,9 +140,13 @@ func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	allowEmpty := true
 	var iterator = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next := c.Next()
-		var captures []pattern.Capture
+		var (
+			captures []pattern.Capture
+			usedCPU  uint64
+		)
 		for {
-			captures = pat.Match(string(s), si)
+			captures, usedCPU = pat.Match(string(s), si, t.UnusedCPU())
+			t.RequireCPU(usedCPU)
 			if len(captures) == 0 {
 				break
 			}
@@ -270,7 +277,8 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		allowEmpty = true
 	)
 	for ; matchCount != n; matchCount++ {
-		captures := pat.Match(string(s), si)
+		captures, usedCPU := pat.Match(string(s), si, t.UnusedCPU())
+		t.RequireCPU(usedCPU)
 		if len(captures) == 0 {
 			break
 		}

@@ -17,13 +17,13 @@ func NewGoCont(r *Runtime, f *GoFunction, next Cont) *GoCont {
 	var args []Value
 	var etc *[]Value
 	if f.nArgs > 0 {
-		r.requireMem(uint64(f.nArgs) * uint64(unsafe.Sizeof(Value{})))
+		r.RequireMem(uint64(f.nArgs) * uint64(unsafe.Sizeof(Value{})))
 		args = globalArgsPool.get(f.nArgs)
 	}
 	if f.hasEtc {
 		etc = new([]Value)
 	}
-	r.requireMem(uint64(unsafe.Sizeof(GoCont{})))
+	r.RequireMem(uint64(unsafe.Sizeof(GoCont{})))
 	cont := globalGoContPool.get()
 	*cont = GoCont{
 		f:    f.f,
@@ -85,7 +85,7 @@ FillEtc:
 
 // RunInThread implements Cont.RunInThread
 func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
-	t.requireCPU(1) // TODO: an appropriate amount
+	t.RequireCPU(1) // TODO: an appropriate amount
 	next, err = c.f(t, c)
 	if c.args != nil {
 		t.releaseMem(uint64(c.nArgs) * uint64(unsafe.Sizeof(Value{})))

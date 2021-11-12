@@ -183,7 +183,7 @@ func TestPattern(t *testing.T) {
 			if test.invalid {
 				t.Fatal("Expected to be invalid")
 			}
-			captures := ptn.MatchFromStart(test.s, 0)
+			captures, _ := ptn.MatchFromStart(test.s, 0, 0)
 			if !sameCaptures(test.captures, captures) {
 				t.Error("exp:", test.captures, "act:", captures)
 				t.Fail()

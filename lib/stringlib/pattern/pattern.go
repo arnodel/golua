@@ -19,24 +19,40 @@ func New(ptn string) (*Pattern, error) {
 
 // MatchFromStart returns a slice of Capture instances that match the given
 // string, starting from the `init` index.
-func (p *Pattern) MatchFromStart(s string, init int) []Capture {
+func (p *Pattern) MatchFromStart(s string, init int, budget uint64) (captures []Capture, used uint64) {
+	defer func() {
+		if r := recover(); r == budgetConsumed {
+			captures = nil
+			used = budget + 1
+		}
+	}()
 	matcher := patternMatcher{
 		Pattern: *p,
 		s:       s,
 		si:      init,
+		budget:  budget,
 	}
-	return matcher.findFromStart()
+	captures = matcher.findFromStart()
+	return captures, budget - matcher.budget
 }
 
 // Match returns a slice of Capture instances that match the given
 // string, starting from the `init` index.
-func (p *Pattern) Match(s string, init int) []Capture {
+func (p *Pattern) Match(s string, init int, budget uint64) (captures []Capture, used uint64) {
+	defer func() {
+		if r := recover(); r == budgetConsumed {
+			captures = nil
+			used = budget + 1
+		}
+	}()
 	matcher := patternMatcher{
 		Pattern: *p,
 		s:       s,
 		si:      init,
+		budget:  budget,
 	}
-	return matcher.find()
+	captures = matcher.find()
+	return captures, budget - matcher.budget
 }
 
 // A Capture represents a matching substring.
