@@ -37,7 +37,7 @@ func (c *luaCmd) setFlags() {
 	flag.BoolVar(&c.escapeQuota, "escapequota", false, "Enable Lua functions to escape quota")
 }
 
-func (c *luaCmd) run() int {
+func (c *luaCmd) run() (retcode int) {
 	var (
 		chunkName string
 		chunk     []byte
@@ -114,6 +114,16 @@ func (c *luaCmd) run() int {
 		r.SetTable(r.GlobalEnv(), rt.StringValue("arg"), rt.TableValue(argTable))
 	}
 
+	defer func() {
+		if rec := recover(); rec != nil {
+			quotaExceeded, ok := rec.(rt.QuotaExceededError)
+			if !ok {
+				panic(r)
+			}
+			fmt.Fprintf(os.Stderr, "%s\n", quotaExceeded)
+			retcode = 2
+		}
+	}()
 	clos := r.LoadLuaUnit(unit, r.GlobalEnv())
 	cerr := rt.Call(r.MainThread(), rt.FunctionValue(clos), argVals, rt.NewTerminationWith(0, false))
 	if cerr != nil {
