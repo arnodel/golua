@@ -93,7 +93,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if !ok {
 			return nil, rt.NewErrorF("Expected function to load").AddContext(c)
 		}
-		clos := rt.NewClosure(code)
+		clos := rt.NewClosure(t.Runtime, code)
 		if code.UpvalueCount > 0 {
 			envVal := rt.TableValue(chunkEnv)
 			clos.AddUpvalue(rt.NewCell(envVal))
