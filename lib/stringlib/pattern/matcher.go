@@ -8,6 +8,8 @@ type patternMatcher struct {
 	ci         int
 	pi         int // current index in pattern
 	trackbacks []trackback
+
+	budget uint64
 }
 
 type trackback struct {
@@ -163,6 +165,7 @@ func (m *patternMatcher) matchNext(s byteSet) bool {
 	match := m.si < len(m.s) && s.contains(m.s[m.si])
 	if match {
 		m.si++
+		m.consumeBudget()
 	}
 	return match
 }
@@ -172,6 +175,7 @@ func (m *patternMatcher) getNext() (b byte, ok bool) {
 	if ok {
 		b = m.s[m.si]
 		m.si++
+		m.consumeBudget()
 	}
 	return
 }
@@ -197,3 +201,14 @@ func (m *patternMatcher) trackback() {
 func (m *patternMatcher) addTrackback(siMin int) {
 	m.trackbacks = append(m.trackbacks, trackback{m.si, m.ci, m.pi, siMin})
 }
+
+func (m *patternMatcher) consumeBudget() {
+	if m.budget > 0 {
+		m.budget--
+		if m.budget == 0 {
+			panic(budgetConsumed)
+		}
+	}
+}
+
+var budgetConsumed interface{} = "budget consumed"

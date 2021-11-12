@@ -125,7 +125,7 @@ func (r *Runtime) Metatable(v Value) Value {
 
 // Set a value in a table, updating the memory quota.
 func (r *Runtime) SetTable(t *Table, k, v Value) {
-	r.requireMem(t.Set(k, v))
+	r.RequireMem(t.Set(k, v))
 }
 
 func (r *Runtime) SetTableCheck(t *Table, k, v Value) error {
@@ -163,10 +163,10 @@ func (r *Runtime) QuotaModificationsInLuaAllowed() bool {
 	return r.quotaModificationsInLuaAllowed
 }
 
-func (r *Runtime) requireCPU(cpuAmount uint64) {
+func (r *Runtime) RequireCPU(cpuAmount uint64) {
 	if r.cpuQuota > 0 {
 		r.cpuUsed += cpuAmount
-		if r.cpuUsed > r.cpuQuota {
+		if r.cpuUsed >= r.cpuQuota {
 			panicWithQuotaExceded("CPU quota of %d exceeded", r.cpuQuota)
 		}
 	}
@@ -176,14 +176,18 @@ func (r *Runtime) UpdateCPUQuota(newQuota uint64) {
 	r.cpuQuota = newQuota
 }
 
+func (r *Runtime) UnusedCPU() uint64 {
+	return r.cpuQuota - r.cpuUsed
+}
+
 func (r *Runtime) CPUQuotaStatus() (uint64, uint64) {
 	return r.cpuUsed, r.cpuQuota
 }
 
-func (r *Runtime) requireMem(memAmount uint64) {
+func (r *Runtime) RequireMem(memAmount uint64) {
 	if r.memQuota > 0 {
 		r.memUsed += memAmount
-		if r.memUsed > r.memQuota {
+		if r.memUsed >= r.memQuota {
 			panicWithQuotaExceded("mem quota of %d exceeded", r.memQuota)
 		}
 	}

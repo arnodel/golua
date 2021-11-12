@@ -56,8 +56,8 @@ func (c *Code) RefactorConsts() *Code {
 
 // LoadLuaUnit turns a code unit into a closure given an environment env.
 func (r *Runtime) LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
-	r.requireMem(uint64(unsafe.Sizeof(Value{})) * uint64(len(unit.Constants)))
-	r.requireMem(uint64(len(unit.Code)) * uint64(unsafe.Sizeof(code.Opcode(0))))
+	r.RequireMem(uint64(unsafe.Sizeof(Value{})) * uint64(len(unit.Constants)))
+	r.RequireMem(uint64(len(unit.Code)) * uint64(unsafe.Sizeof(code.Opcode(0))))
 	constants := make([]Value, len(unit.Constants))
 	for i, ck := range unit.Constants {
 		switch k := ck.(type) {
@@ -66,14 +66,14 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 		case code.Float:
 			constants[i] = FloatValue(float64(k))
 		case code.String:
-			r.requireMem(uint64(len(k)))
+			r.RequireMem(uint64(len(k)))
 			constants[i] = StringValue(string(k))
 		case code.Bool:
 			constants[i] = BoolValue(bool(k))
 		case code.NilType:
 			// Do nothing as constants[i] == nil
 		case code.Code:
-			r.requireMem(uint64(unsafe.Sizeof(Code{})))
+			r.RequireMem(uint64(unsafe.Sizeof(Code{})))
 			constants[i] = CodeValue(&Code{
 				source:       unit.Source,
 				name:         k.Name,

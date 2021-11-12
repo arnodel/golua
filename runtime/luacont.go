@@ -31,16 +31,16 @@ func NewLuaCont(r *Runtime, clos *Closure, next Cont) *LuaCont {
 	} else {
 		cells = globalCellPool.get(int(clos.CellCount))
 		copy(cells, clos.Upvalues)
-		r.requireMem(uint64(clos.CellCount) * uint64(unsafe.Sizeof(Cell{})))
+		r.RequireMem(uint64(clos.CellCount) * uint64(unsafe.Sizeof(Cell{})))
 		for i := clos.UpvalueCount; i < clos.CellCount; i++ {
 			cells[i] = NewCell(NilValue)
 		}
 	}
-	r.requireMem(uint64(clos.RegCount) * uint64(unsafe.Sizeof(Value{})))
+	r.RequireMem(uint64(clos.RegCount) * uint64(unsafe.Sizeof(Value{})))
 	registers := globalRegPool.get(int(clos.RegCount))
 	registers[0] = ContValue(next)
 	cont := globalLuaContPool.get()
-	r.requireMem(uint64(unsafe.Sizeof(LuaCont{})))
+	r.RequireMem(uint64(unsafe.Sizeof(LuaCont{})))
 	*cont = LuaCont{
 		Closure:       clos,
 		registers:     registers,
@@ -104,7 +104,7 @@ func (c *LuaCont) RunInThread(t *Thread) (Cont, *Error) {
 	// fmt.Println("START", c)
 RunLoop:
 	for {
-		t.requireCPU(1)
+		t.RequireCPU(1)
 		// fmt.Println("PC", pc)
 		opcode := opcodes[pc]
 		if opcode.HasType1() {
