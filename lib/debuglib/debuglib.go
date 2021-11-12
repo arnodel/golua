@@ -47,7 +47,7 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		idx = arg.AsInt()
 	case rt.FunctionType:
 		term := rt.NewTerminationWith(0, false)
-		cont = arg.AsFunction().Continuation(term)
+		cont = arg.AsFunction().Continuation(t.Runtime, term)
 	case rt.FloatType:
 		var tp rt.NumberType
 		idx, tp = rt.FloatToInt(arg.AsFloat())

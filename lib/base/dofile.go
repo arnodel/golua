@@ -13,5 +13,5 @@ func dofile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, rt.NewErrorE(err).AddContext(c)
 	}
-	return rt.ContWithArgs(clos, nil, c.Next()), nil
+	return t.ContWithArgs(clos, nil, c.Next()), nil
 }
