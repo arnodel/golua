@@ -1,5 +1,7 @@
 package runtime
 
+import "unsafe"
+
 // Closure is the data structure that represents a Lua function.  It is simply a
 // reference to a Code instance and a set of upvalues.
 type Closure struct {
@@ -9,7 +11,10 @@ type Closure struct {
 }
 
 // NewClosure returns a pointer to a new Closure instance for the given code.
-func NewClosure(c *Code) *Closure {
+func NewClosure(r *Runtime, c *Code) *Closure {
+	if c.UpvalueCount > 0 {
+		r.requireMem(uint64(c.UpvalueCount) * uint64(unsafe.Sizeof(Cell{})))
+	}
 	return &Closure{
 		Code:     c,
 		Upvalues: make([]Cell, c.UpvalueCount),

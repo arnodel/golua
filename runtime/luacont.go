@@ -68,6 +68,7 @@ func (c *LuaCont) Push(val Value) {
 		dst := opcode.GetA()
 		if opcode.GetF() {
 			// It's an etc
+			// TODO: require mem for this
 			c.acc = append(c.acc, val)
 		} else {
 			c.pc++
@@ -213,7 +214,7 @@ RunLoop:
 			case code.OpK:
 				val = consts[n]
 			case code.OpClosureK:
-				val = FunctionValue(NewClosure(consts[n].AsCode()))
+				val = FunctionValue(NewClosure(t.Runtime, consts[n].AsCode()))
 			default:
 				panic("Unsupported opcode")
 			}

@@ -56,7 +56,7 @@ func (c *Code) RefactorConsts() *Code {
 
 // LoadLuaUnit turns a code unit into a closure given an environment env.
 func (r *Runtime) LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
-	r.requireMem(uint64(16 * len(unit.Constants)))
+	r.requireMem(uint64(unsafe.Sizeof(Value{})) * uint64(len(unit.Constants)))
 	r.requireMem(uint64(len(unit.Code)) * uint64(unsafe.Sizeof(code.Opcode(0))))
 	constants := make([]Value, len(unit.Constants))
 	for i, ck := range unit.Constants {
@@ -90,7 +90,7 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 		}
 	}
 	mainCode := constants[0].AsCode() // It must be some code
-	clos := NewClosure(mainCode)
+	clos := NewClosure(r, mainCode)
 	if mainCode.UpvalueCount > 0 {
 		envVal := TableValue(env)
 		clos.AddUpvalue(Cell{&envVal})
