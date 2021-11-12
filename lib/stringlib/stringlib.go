@@ -175,6 +175,7 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			// Overflow
 			return nil, rt.NewErrorS("rep causes overflow").AddContext(c)
 		}
+		t.RequireMem(uint64(n * len(ls)))
 		return c.PushingNext(rt.StringValue(strings.Repeat(string(ls), n))), nil
 	}
 	s := []byte(ls)
@@ -185,6 +186,7 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if sz1/n != len(s) || sz2/(n-1) != len(sep) || sz < 0 {
 		return nil, rt.NewErrorS("rep causes overflow").AddContext(c)
 	}
+	t.RequireMem(uint64(n*len(s) + (n-1)*len(sep)))
 	builder.Grow(sz)
 	builder.Write(s)
 	for {
