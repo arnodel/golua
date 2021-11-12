@@ -1,5 +1,7 @@
 package runtime
 
+import "unsafe"
+
 // GoCont implements Cont for functions written in Go.
 type GoCont struct {
 	f     func(*Thread, *GoCont) (Cont, *Error)
@@ -11,15 +13,17 @@ type GoCont struct {
 }
 
 // NewGoCont returns a new pointer to GoCont for the given GoFunction and Cont.
-func NewGoCont(f *GoFunction, next Cont) *GoCont {
+func NewGoCont(r *Runtime, f *GoFunction, next Cont) *GoCont {
 	var args []Value
 	var etc *[]Value
 	if f.nArgs > 0 {
+		r.requireMem(uint64(f.nArgs) * uint64(unsafe.Sizeof(Value{})))
 		args = globalArgsPool.get(f.nArgs)
 	}
 	if f.hasEtc {
 		etc = new([]Value)
 	}
+	r.requireMem(uint64(unsafe.Sizeof(GoCont{})))
 	cont := globalGoContPool.get()
 	*cont = GoCont{
 		f:    f.f,
@@ -37,6 +41,7 @@ func (c *GoCont) Push(v Value) {
 		c.args[c.nArgs] = v
 		c.nArgs++
 	} else if c.etc != nil {
+		// TODO: require mem for this
 		*c.etc = append(*c.etc, v)
 	}
 }
@@ -83,8 +88,10 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
 	t.requireCPU(1) // TODO: an appropriate amount
 	next, err = c.f(t, c)
 	if c.args != nil {
+		t.releaseMem(uint64(c.nArgs) * uint64(unsafe.Sizeof(Value{})))
 		globalArgsPool.release(c.args)
 	}
+	t.releaseMem(uint64(unsafe.Sizeof(GoCont{})))
 	globalGoContPool.release(c)
 	return
 }

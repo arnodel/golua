@@ -105,7 +105,7 @@ func NewGoFunction(f func(*Thread, *GoCont) (Cont, *Error), name string, nArgs i
 
 // Continuation implements Callable.Continuation.
 func (f *GoFunction) Continuation(r *Runtime, next Cont) Cont {
-	return NewGoCont(f, next)
+	return NewGoCont(r, f, next)
 }
 
 //
