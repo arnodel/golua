@@ -23,6 +23,8 @@ type Runtime struct {
 
 	memQuota uint64
 	memUsed  uint64
+
+	quotaModificationsInLuaAllowed bool
 }
 
 // New returns a new pointer to a Runtime with the given stdout.
@@ -151,6 +153,14 @@ func panicWithQuotaExceded(format string, args ...interface{}) {
 	panic(QuotaExceededError{
 		message: fmt.Sprintf(format, args...),
 	})
+}
+
+func (r *Runtime) AllowQuotaModificationsInLua() {
+	r.quotaModificationsInLuaAllowed = true
+}
+
+func (r *Runtime) QuotaModificationsInLuaAllowed() bool {
+	return r.quotaModificationsInLuaAllowed
 }
 
 func (r *Runtime) requireCPU(cpuAmount uint64) {

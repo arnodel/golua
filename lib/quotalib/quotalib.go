@@ -14,6 +14,10 @@ func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 	r.SetEnvGoFunc(pkg, "memory", getMemQuota, 0, false)
 	r.SetEnvGoFunc(pkg, "cpu", getCPUQuota, 0, false)
+
+	if r.QuotaModificationsInLuaAllowed() {
+		r.SetEnvGoFunc(pkg, "reset", resetQuota, 0, false)
+	}
 	return rt.TableValue(pkg)
 }
 
@@ -31,4 +35,9 @@ func getCPUQuota(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		rt.IntValue(int64(used)),
 		rt.IntValue(int64(max)),
 	), nil
+}
+
+func resetQuota(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	t.ResetQuota()
+	return c.Next(), nil
 }

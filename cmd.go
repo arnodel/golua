@@ -25,6 +25,7 @@ type luaCmd struct {
 	unbufferedFlag bool
 	cpuQuota       uint64
 	memQuota       uint64
+	escapeQuota    bool
 }
 
 func (c *luaCmd) setFlags() {
@@ -33,6 +34,7 @@ func (c *luaCmd) setFlags() {
 	flag.BoolVar(&c.unbufferedFlag, "u", false, "Force unbuffered output")
 	flag.Uint64Var(&c.cpuQuota, "cpuquota", 0, "CPU quota")
 	flag.Uint64Var(&c.memQuota, "memquota", 0, "memory quota")
+	flag.BoolVar(&c.escapeQuota, "escapequota", false, "Enable Lua functions to escape quota")
 }
 
 func (c *luaCmd) run() int {
@@ -53,7 +55,9 @@ func (c *luaCmd) run() int {
 	r := rt.New(nil)
 	r.UpdateCPUQuota(c.cpuQuota)
 	r.UpdateMemQuota(c.memQuota)
-
+	if c.escapeQuota {
+		r.AllowQuotaModificationsInLua()
+	}
 	cleanup := lib.LoadAll(r)
 	defer cleanup()
 
