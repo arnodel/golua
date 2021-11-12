@@ -174,7 +174,7 @@ func (c *luaCmd) repl(r *rt.Runtime) int {
 			if err != nil {
 				fmt.Printf("!!! %s\n", err)
 				if _, ok := err.(rt.QuotaExceededError); ok {
-					fmt.Print("Reset quotas [yN]? ")
+					fmt.Print("Reset quotas and continue? [yN] ")
 					line, err := reader.ReadString('\n')
 					if err == io.EOF || strings.TrimSpace(line) != "y" {
 						return 0
