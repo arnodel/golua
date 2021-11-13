@@ -19,6 +19,7 @@ func format(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
+	t.RequireMem(uint64(len(s)))
 	return c.PushingNext(rt.StringValue(s)), nil
 }
 
