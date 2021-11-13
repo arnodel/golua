@@ -1,14 +1,16 @@
-//+build !profile
+//go:build !profile
+// +build !profile
 
 package main
 
 import (
 	"flag"
+	"os"
 )
 
 func main() {
 	cmd := new(luaCmd)
 	cmd.setFlags()
 	flag.Parse()
-	cmd.run()
+	os.Exit(cmd.run())
 }
