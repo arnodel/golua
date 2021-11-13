@@ -195,7 +195,7 @@ func (r *Runtime) RequireMem(memAmount uint64) {
 
 func (r *Runtime) releaseMem(memAmount uint64) {
 	if r.memQuota > 0 {
-		if memAmount < r.memUsed {
+		if memAmount <= r.memUsed {
 			r.memUsed -= memAmount
 		} else {
 			panic("Too much mem released")
