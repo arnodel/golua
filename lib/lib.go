@@ -28,7 +28,9 @@ func LoadAll(r *rt.Runtime) func() {
 	oslib.LibLoader.Run(r)
 	debuglib.LibLoader.Run(r)
 	golib.LibLoader.Run(r)
-	quotalib.LibLoader.Run(r)
+	if rt.QuotasAvailable {
+		quotalib.LibLoader.Run(r)
+	}
 	return func() {
 		iolib.LibLoader.Cleanup(r)
 	}

@@ -32,9 +32,12 @@ func (c *luaCmd) setFlags() {
 	flag.BoolVar(&c.disFlag, "dis", false, "Disassemble source instead of running it")
 	flag.BoolVar(&c.astFlag, "ast", false, "Print AST instead of running code")
 	flag.BoolVar(&c.unbufferedFlag, "u", false, "Force unbuffered output")
-	flag.Uint64Var(&c.cpuQuota, "cpuquota", 0, "CPU quota")
-	flag.Uint64Var(&c.memQuota, "memquota", 0, "memory quota")
-	flag.BoolVar(&c.escapeQuota, "escapequota", false, "Enable Lua functions to escape quota")
+
+	if rt.QuotasAvailable {
+		flag.Uint64Var(&c.cpuQuota, "cpuquota", 0, "CPU quota")
+		flag.Uint64Var(&c.memQuota, "memquota", 0, "memory quota")
+		flag.BoolVar(&c.escapeQuota, "escapequota", false, "Enable Lua functions to escape quota")
+	}
 }
 
 func (c *luaCmd) run() (retcode int) {

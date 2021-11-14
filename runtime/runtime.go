@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"errors"
-	"fmt"
 	"io"
 )
 
@@ -18,13 +17,9 @@ type Runtime struct {
 	mainThread *Thread
 	registry   *Table
 
-	cpuQuota uint64
-	cpuUsed  uint64
-
-	memQuota uint64
-	memUsed  uint64
-
-	quotaModificationsInLuaAllowed bool
+	// This has an empty implementation when the noquotas build tag is set.  It
+	// should allow the compiler to compile away all quota manager methods.
+	quotaManager
 }
 
 // New returns a new pointer to a Runtime with the given stdout.
@@ -147,71 +142,4 @@ type QuotaExceededError struct {
 
 func (p QuotaExceededError) Error() string {
 	return p.message
-}
-
-func panicWithQuotaExceded(format string, args ...interface{}) {
-	panic(QuotaExceededError{
-		message: fmt.Sprintf(format, args...),
-	})
-}
-
-func (r *Runtime) AllowQuotaModificationsInLua() {
-	r.quotaModificationsInLuaAllowed = true
-}
-
-func (r *Runtime) QuotaModificationsInLuaAllowed() bool {
-	return r.quotaModificationsInLuaAllowed
-}
-
-func (r *Runtime) RequireCPU(cpuAmount uint64) {
-	if r.cpuQuota > 0 {
-		r.cpuUsed += cpuAmount
-		if r.cpuUsed >= r.cpuQuota {
-			panicWithQuotaExceded("CPU quota of %d exceeded", r.cpuQuota)
-		}
-	}
-}
-
-func (r *Runtime) UpdateCPUQuota(newQuota uint64) {
-	r.cpuQuota = newQuota
-}
-
-func (r *Runtime) UnusedCPU() uint64 {
-	return r.cpuQuota - r.cpuUsed
-}
-
-func (r *Runtime) CPUQuotaStatus() (uint64, uint64) {
-	return r.cpuUsed, r.cpuQuota
-}
-
-func (r *Runtime) RequireMem(memAmount uint64) {
-	if r.memQuota > 0 {
-		r.memUsed += memAmount
-		if r.memUsed >= r.memQuota {
-			panicWithQuotaExceded("mem quota of %d exceeded", r.memQuota)
-		}
-	}
-}
-
-func (r *Runtime) releaseMem(memAmount uint64) {
-	if r.memQuota > 0 {
-		if memAmount <= r.memUsed {
-			r.memUsed -= memAmount
-		} else {
-			panic("Too much mem released")
-		}
-	}
-}
-
-func (r *Runtime) UpdateMemQuota(newQuota uint64) {
-	r.memQuota = newQuota
-}
-
-func (r *Runtime) MemQuotaStatus() (uint64, uint64) {
-	return r.memUsed, r.memQuota
-}
-
-func (r *Runtime) ResetQuota() {
-	r.memUsed = 0
-	r.cpuUsed = 0
 }

@@ -1,3 +1,6 @@
+//go:build !noquotas
+// +build !noquotas
+
 package quotalib_test
 
 import (
