@@ -10,4 +10,3 @@ print(quota.catch(1000, 1000, function() while true do x = x + 1 end end))
 
 print(x > 10)
 --> =true
-
