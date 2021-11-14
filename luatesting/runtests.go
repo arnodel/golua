@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/arnodel/golua/runtime"
@@ -47,12 +48,24 @@ func RunLuaTestsInDir(t *testing.T, dirpath string, setup func(*runtime.Runtime)
 		if filepath.Ext(path) != ".lua" {
 			return nil
 		}
+		isQuotasTest := strings.HasSuffix(path, ".quotas.lua")
+		testSetup := setup
+		if isQuotasTest {
+			if !runtime.QuotasAvailable {
+				t.Skip("Skipping quotas test as build does not enforce quotas")
+				return nil
+			}
+			testSetup = func(r *runtime.Runtime) func() {
+				r.AllowQuotaModificationsInLua()
+				return setup(r)
+			}
+		}
 		t.Run(path, func(t *testing.T) {
 			src, err := ioutil.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = RunLuaTest(src, setup)
+			err = RunLuaTest(src, testSetup)
 			if err != nil {
 				t.Error(err)
 			}
