@@ -20,14 +20,56 @@ type Runtime struct {
 	// This has an empty implementation when the noquotas build tag is set.  It
 	// should allow the compiler to compile away all quota manager methods.
 	quotaManager
+
+	regPool  valuePool
+	argsPool valuePool
+	cellPool cellPool
+
+	luaContPool luaContPool
+	goContPool  goContPool
+}
+
+type runtimeOptions struct {
+	regPoolSize  uint
+	regSetMaxAge uint
+}
+
+var defaultRuntimeOptions = runtimeOptions{
+	regPoolSize:  10,
+	regSetMaxAge: 10,
+}
+
+type RuntimeOption func(*runtimeOptions)
+
+// WithRegPoolSize set the size of register pool when creating a new Runtime.
+// The default register pool size is 10.
+func WithRegPoolSize(sz uint) RuntimeOption {
+	return func(rtOpts *runtimeOptions) {
+		rtOpts.regPoolSize = sz
+	}
+}
+
+// WithRegSetMaxAge sets the max age of a register set when creating a new
+// Runtime.  The default max age is 10.
+func WithRegSetMaxAge(age uint) RuntimeOption {
+	return func(rtOpts *runtimeOptions) {
+		rtOpts.regSetMaxAge = age
+	}
 }
 
 // New returns a new pointer to a Runtime with the given stdout.
-func New(stdout io.Writer) *Runtime {
+func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
+	rtOpts := defaultRuntimeOptions
+	for _, opt := range opts {
+		opt(&rtOpts)
+	}
 	r := &Runtime{
 		globalEnv: NewTable(),
 		Stdout:    stdout,
 		registry:  NewTable(),
+		regPool:   mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		argsPool:  mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		cellPool:  mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
 	}
 	mainThread := NewThread(r)
 	mainThread.status = ThreadOK

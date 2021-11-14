@@ -1,13 +1,7 @@
+//go:build !noregpool
 // +build !noregpool
 
 package runtime
-
-var (
-	globalRegPool  = newValuePool(regPoolSize, regSetMaxAge) // Register set pool for Lua continuations
-	globalCellPool = newCellPool(regPoolSize, regSetMaxAge)  // Cell set pool for Lua continuations
-
-	globalArgsPool = newValuePool(regPoolSize, regSetMaxAge) // Value set pool for Go continuations
-)
 
 const (
 	regPoolSize  = 10 // Size of a pool of cell of value register sets.
@@ -37,8 +31,8 @@ type cellPool struct {
 	maxAge uint
 }
 
-func newCellPool(size, maxAge uint) *cellPool {
-	return &cellPool{
+func mkCellPool(size, maxAge uint) cellPool {
+	return cellPool{
 		cells:  make([][]Cell, size),
 		exps:   make([]uint, size),
 		maxAge: maxAge,
@@ -78,8 +72,8 @@ type valuePool struct {
 	maxAge uint
 }
 
-func newValuePool(size, maxAge uint) *valuePool {
-	return &valuePool{
+func mkValuePool(size, maxAge uint) valuePool {
+	return valuePool{
 		values: make([][]Value, size),
 		exps:   make([]uint, size),
 		maxAge: maxAge,

@@ -29,7 +29,7 @@ func NewLuaCont(r *Runtime, clos *Closure, next Cont) *LuaCont {
 	if borrowCells {
 		cells = clos.Upvalues
 	} else {
-		cells = globalCellPool.get(int(clos.CellCount))
+		cells = r.cellPool.get(int(clos.CellCount))
 		copy(cells, clos.Upvalues)
 		r.RequireMem(uint64(clos.CellCount) * uint64(unsafe.Sizeof(Cell{})))
 		for i := clos.UpvalueCount; i < clos.CellCount; i++ {
@@ -37,9 +37,9 @@ func NewLuaCont(r *Runtime, clos *Closure, next Cont) *LuaCont {
 		}
 	}
 	r.RequireMem(uint64(clos.RegCount) * uint64(unsafe.Sizeof(Value{})))
-	registers := globalRegPool.get(int(clos.RegCount))
+	registers := r.regPool.get(int(clos.RegCount))
 	registers[0] = ContValue(next)
-	cont := globalLuaContPool.get()
+	cont := r.luaContPool.get()
 	r.RequireMem(uint64(unsafe.Sizeof(LuaCont{})))
 	*cont = LuaCont{
 		Closure:       clos,
@@ -51,13 +51,13 @@ func NewLuaCont(r *Runtime, clos *Closure, next Cont) *LuaCont {
 }
 
 func (c *LuaCont) release(r *Runtime) {
-	globalRegPool.release(c.registers)
+	r.regPool.release(c.registers)
 	r.releaseMem(uint64(c.RegCount) * uint64(unsafe.Sizeof(Value{})))
 	if !c.borrowedCells {
 		r.releaseMem(uint64(c.CellCount) * uint64(unsafe.Sizeof(Cell{})))
-		globalCellPool.release(c.cells)
+		r.cellPool.release(c.cells)
 	}
-	globalLuaContPool.release(c)
+	r.luaContPool.release(c)
 	r.releaseMem(uint64(unsafe.Sizeof(LuaCont{})))
 }
 

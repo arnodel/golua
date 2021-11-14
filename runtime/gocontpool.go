@@ -1,8 +1,6 @@
 package runtime
 
-var globalGoContPool = goContPool{}
-
-const goContPoolSize = 10
+const goContPoolSize = 10 // Should that be configurable?
 
 type goContPool struct {
 	conts [goContPoolSize]*GoCont
@@ -21,7 +19,7 @@ func (p *goContPool) get() *GoCont {
 
 func (p *goContPool) release(c *GoCont) {
 	*c = GoCont{}
-	if p.next == luaContPoolSize {
+	if p.next == goContPoolSize {
 		return
 	}
 	p.conts[p.next] = c
