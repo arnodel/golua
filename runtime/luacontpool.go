@@ -1,8 +1,7 @@
+//go:build !nocontpool
 // +build !nocontpool
 
 package runtime
-
-var globalLuaContPool = luaContPool{}
 
 // Size of the LuaContinuation pool.  Setting it to 0 makes luaContPool.get()
 // behave like new(LuaCont) and luaContPool.release(c) be a no-op.

@@ -1,29 +1,32 @@
+//go:build noregpool
 // +build noregpool
+
 // This version disables the register pool.
 // TODO: remove it, as it is proved to be a fair amount slower.
 
 package runtime
 
-var (
-	globalRegPool  = dummyRegPool{}
-	globalCellPool = dummyCellPool{}
-	globalArgsPool = dummyRegPool{}
-)
+type valuePool struct{}
 
-type dummyValuePool struct{}
-
-func (p dummyValuePool) get(sz int) []Value {
+func mkValuePool(size, maxAge uint) valuePool {
+	return valuePool{}
+}
+func (p valuePool) get(sz int) []Value {
 	return make([]Value, sz)
 }
 
-func (p dummyValuePool) release(r []Value) {
+func (p valuePool) release(r []Value) {
 }
 
-type dummyCellPool struct{}
+type cellPool struct{}
 
-func (p dummyCellPool) get(sz int) []Cell {
+func mkCellPool(size, maxAge uint) cellPool {
+	return cellPool{}
+}
+
+func (p cellPool) get(sz int) []Cell {
 	return make([]Cell, sz)
 }
 
-func (p dummyCellPool) release(c []Cell) {
+func (p cellPool) release(c []Cell) {
 }
