@@ -12,11 +12,11 @@ print(rfib(1), rfib(2), rfib(3), rfib(10))
 --> =1	1	2	55
 
 -- Recursion blows memory budget
-print(quota.catch(0, 1000, rfib, 100))
+print(quota.rcall(0, 1000, rfib, 100))
 --> =false
 
 -- Recursion blows cpu budget
-print(quota.catch(10000, 0, rfib, 100))
+print(quota.rcall(10000, 0, rfib, 100))
 --> =false
 
 -- Iterative fibonacci implementation
@@ -34,15 +34,15 @@ print(ifib(1), ifib(2), ifib(3), ifib(10))
 --> =1	1	2	55
 
 -- memory usage doesn't explode
-print(quota.catch(0, 1000, ifib, 100))
+print(quota.rcall(0, 1000, ifib, 100))
 --> =true	3736710778780434371
 
 -- cpu usage doesn't explode
-print(quota.catch(10000, 0, ifib, 100))
+print(quota.rcall(10000, 0, ifib, 100))
 --> =true	3736710778780434371
 
 -- we can run out of cpu eventually!
-print(quota.catch(1000, 0, ifib, 1000))
+print(quota.rcall(1000, 0, ifib, 1000))
 --> =false
 
 -- Tail-recursive fibonacci implementation
@@ -57,15 +57,15 @@ print(trfib(1), trfib(2), trfib(3), trfib(10))
 --> =1	1	2	55
 
 -- memory usage doesn't explode
-print(quota.catch(0, 1000, ifib, 100))
+print(quota.rcall(0, 1000, ifib, 100))
 --> =true	3736710778780434371
 
 -- cpu usage doesn't explode
-print(quota.catch(10000, 0, ifib, 100))
+print(quota.rcall(10000, 0, ifib, 100))
 --> =true	3736710778780434371
 
 -- we can run out of cpu eventually!
-print(quota.catch(1000, 0, ifib, 1000))
+print(quota.rcall(1000, 0, ifib, 1000))
 --> =false
 
 -- strpex(x, n) is x concatenated to itself 2^n timees
@@ -87,10 +87,10 @@ print(strexp("hi", 3))
 --> =hihihihi
 
 --> strexp doesn't consume much cpu
-ok, bigs = quota.catch(1000, 0, strexp, "hi", 16)
+ok, bigs = quota.rcall(1000, 0, strexp, "hi", 16)
 print(ok, #bigs)
 --> =true	65536
 
 --> but it consumes memory!
-print(quota.catch(0, 50000, strexp, "hi", 16))
+print(quota.rcall(0, 50000, strexp, "hi", 16))
 --> =false

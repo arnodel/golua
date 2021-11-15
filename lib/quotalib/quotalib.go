@@ -19,7 +19,7 @@ func load(r *rt.Runtime) rt.Value {
 
 	if r.QuotaModificationsInLuaAllowed() {
 		r.SetEnvGoFunc(pkg, "reset", resetQuota, 0, false)
-		r.SetEnvGoFunc(pkg, "catch", catch, 3, true)
+		r.SetEnvGoFunc(pkg, "rcall", rcall, 3, true)
 	}
 	return rt.TableValue(pkg)
 }
@@ -45,7 +45,7 @@ func resetQuota(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.Next(), nil
 }
 
-func catch(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
+func rcall(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	fcpuQuota, err := c.IntArg(0)
 	if err != nil {
 		return nil, err.AddContext(c)
