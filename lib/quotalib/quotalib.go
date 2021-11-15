@@ -1,8 +1,6 @@
 package quotalib
 
 import (
-	"fmt"
-
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -73,7 +71,6 @@ func rcall(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	res := rt.NewTerminationWith(0, true)
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("Recovered: %s\n", r)
 			_, ok := r.(rt.QuotaExceededError)
 			if !ok {
 				panic(r)
@@ -81,7 +78,6 @@ func rcall(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 			next.Push(rt.BoolValue(false))
 		}
 		// In any case, restore the quota values
-		fmt.Printf("Resetting cpu %d, %d, mem %d, %d\n", cpuUsed, cpuQuota, memUsed, memQuota)
 		t.ResetQuota()
 		t.UpdateCPUQuota(cpuQuota)
 		t.UpdateMemQuota(memQuota)
