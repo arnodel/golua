@@ -16,9 +16,9 @@ func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if nargs == 1 {
 		n, tp := rt.ToNumberValue(n)
 		if tp != rt.NaN {
-			next.Push(n)
+			t.Push1(next, n)
 		} else {
-			next.Push(rt.NilValue)
+			t.Push1(next, rt.NilValue)
 		}
 		return next, nil
 	}
@@ -63,6 +63,6 @@ func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		number = number*base + d
 	}
-	next.Push(rt.IntValue(sign * number))
+	t.Push1(next, rt.IntValue(sign*number))
 	return next, nil
 }

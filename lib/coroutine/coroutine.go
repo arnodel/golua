@@ -34,8 +34,7 @@ func create(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	co := rt.NewThread(t.Runtime)
 	co.Start(f)
-	c.Next().Push(rt.ThreadValue(co))
-	return c.Next(), nil
+	return c.PushingNext1(t.Runtime, rt.ThreadValue(co)), nil
 }
 
 func resume(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -50,11 +49,11 @@ func resume(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	res, err := co.Resume(t, c.Etc())
 	next := c.Next()
 	if err == nil {
-		next.Push(rt.BoolValue(true))
-		rt.Push(next, res...)
+		t.Push1(next, rt.BoolValue(true))
+		t.Push(next, res...)
 	} else {
-		next.Push(rt.BoolValue(false))
-		next.Push(err.Value())
+		t.Push1(next, rt.BoolValue(false))
+		t.Push1(next, err.Value())
 	}
 	return next, nil
 }
@@ -64,13 +63,12 @@ func yield(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err
 	}
-	rt.Push(c.Next(), res...)
-	return c.Next(), nil
+	return c.PushingNext(t.Runtime, res...), nil
 }
 
 func isyieldable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
-	next.Push(rt.BoolValue(!t.IsMain()))
+	t.Push1(next, rt.BoolValue(!t.IsMain()))
 	return next, nil
 }
 
@@ -97,14 +95,14 @@ func status(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 	}
 	next := c.Next()
-	next.Push(rt.StringValue(status))
+	t.Push1(next, rt.StringValue(status))
 	return next, nil
 }
 
 func running(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
-	next.Push(rt.ThreadValue(t))
-	next.Push(rt.BoolValue(t.IsMain()))
+	t.Push1(next, rt.ThreadValue(t))
+	t.Push1(next, rt.BoolValue(t.IsMain()))
 	return next, nil
 }
 
@@ -124,10 +122,9 @@ func wrap(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil {
 			return nil, err.AddContext(c)
 		}
-		rt.Push(c.Next(), res...)
-		return c.Next(), nil
+		return c.PushingNext(t.Runtime, res...), nil
 	}, "wrap", 0, true)
 	next := c.Next()
-	next.Push(rt.FunctionValue(w))
+	t.Push1(next, rt.FunctionValue(w))
 	return next, nil
 }

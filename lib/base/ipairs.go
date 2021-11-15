@@ -19,8 +19,8 @@ func ipairsIteratorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	if !v.IsNil() {
-		next.Push(nv)
-		next.Push(v)
+		t.Push1(next, nv)
+		t.Push1(next, v)
 	}
 	return next, nil
 }
@@ -32,8 +32,8 @@ func ipairs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	next := c.Next()
-	next.Push(rt.FunctionValue(ipairsIterator))
-	next.Push(c.Arg(0))
-	next.Push(rt.IntValue(0))
+	t.Push1(next, rt.FunctionValue(ipairsIterator))
+	t.Push1(next, c.Arg(0))
+	t.Push1(next, rt.IntValue(0))
 	return next, nil
 }

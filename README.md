@@ -202,7 +202,7 @@ func addints(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
 
 	// Then compute the result and push it to the continuation.
-	next.Push(x + y)
+	t.Push1(next, x + y)
 
 	// Finally return the next continuation.
 	return next, nil

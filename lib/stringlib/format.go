@@ -20,7 +20,7 @@ func format(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	t.RequireMem(uint64(len(s)))
-	return c.PushingNext(rt.StringValue(s)), nil
+	return c.PushingNext1(t.Runtime, rt.StringValue(s)), nil
 }
 
 var errNotEnoughValues = rt.NewErrorS("not enough values for format string")

@@ -24,5 +24,5 @@ func dump(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := rt.MarshalConst(&w, rt.CodeValue(cl.Code.RefactorConsts())); err != nil {
 		return nil, rt.NewError(rt.StringValue(err.Error())).AddContext(c)
 	}
-	return c.PushingNext(rt.StringValue(w.String())), nil
+	return c.PushingNext1(t.Runtime, rt.StringValue(w.String())), nil
 }

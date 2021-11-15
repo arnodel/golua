@@ -12,6 +12,5 @@ func rawget(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	c.Next().Push(rt.RawGet(tbl, c.Arg(1)))
-	return c.Next(), nil
+	return c.PushingNext1(t.Runtime, rt.RawGet(tbl, c.Arg(1))), nil
 }

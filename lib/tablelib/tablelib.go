@@ -68,7 +68,7 @@ Switch:
 	default:
 		var item rt.Value
 		if i > j {
-			return c.PushingNext(rt.StringValue("")), nil
+			return c.PushingNext1(t.Runtime, rt.StringValue("")), nil
 		}
 		item, err = rt.Index(t, tblVal, rt.IntValue(i))
 		if err != nil {
@@ -99,7 +99,7 @@ Switch:
 			}
 			sb.WriteString(s)
 		}
-		return c.PushingNext1(rt.StringValue(sb.String())), nil
+		return c.PushingNext1(t.Runtime, rt.StringValue(sb.String())), nil
 	}
 	return nil, err.AddContext(c)
 }
@@ -219,7 +219,7 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			dstStart++
 		}
 	}
-	return c.PushingNext(dstVal), nil
+	return c.PushingNext1(t.Runtime, dstVal), nil
 }
 
 func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -229,7 +229,7 @@ func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		t.SetTable(tbl, rt.IntValue(int64(i+1)), v)
 	}
 	t.SetTable(tbl, rt.StringValue("n"), rt.IntValue(int64(len(c.Etc()))))
-	return c.PushingNext(rt.TableValue(tbl)), nil
+	return c.PushingNext1(t.Runtime, rt.TableValue(tbl)), nil
 }
 
 func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -280,7 +280,7 @@ func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			newVal = val
 		}
 	}
-	return c.PushingNext(val), nil
+	return c.PushingNext1(t.Runtime, val), nil
 }
 
 type tableSorter struct {
@@ -401,7 +401,7 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil {
 			return nil, err.AddContext(c)
 		}
-		next.Push(val)
+		t.Push1(next, val)
 	}
 	return next, nil
 }

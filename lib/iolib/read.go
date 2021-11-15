@@ -12,7 +12,7 @@ func ioread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if fmtErr != nil {
 		return nil, rt.NewErrorE(fmtErr).AddContext(c)
 	}
-	err := read(getIoData(t).defaultInputFile(), readers, next)
+	err := read(t.Runtime, getIoData(t).defaultInputFile(), readers, next)
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
@@ -32,7 +32,7 @@ func fileread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if fmtErr != nil {
 		return nil, rt.NewErrorE(fmtErr).AddContext(c)
 	}
-	err = read(f, readers, next)
+	err = read(t.Runtime, f, readers, next)
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
@@ -81,13 +81,13 @@ func getFormatReaders(fmts []rt.Value) ([]formatReader, error) {
 	return readers, nil
 }
 
-func read(f *File, readers []formatReader, next rt.Cont) *rt.Error {
+func read(r *rt.Runtime, f *File, readers []formatReader, next rt.Cont) *rt.Error {
 	if len(readers) == 0 {
 		readers = []formatReader{lineReader(false)}
 	}
 	for _, reader := range readers {
 		val, readErr := reader(f)
-		next.Push(val)
+		r.Push1(next, val)
 		if readErr != nil {
 			break
 		}

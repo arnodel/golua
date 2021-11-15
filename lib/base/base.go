@@ -66,7 +66,7 @@ func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	return c.PushingNext(rt.StringValue(s)), nil
+	return c.PushingNext(t.Runtime, rt.StringValue(s)), nil
 }
 
 func loadChunk(args []rt.Value) (chunk []byte, chunkName string, err error) {

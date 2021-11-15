@@ -11,11 +11,11 @@ func pcall(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
 	res := rt.NewTerminationWith(0, true)
 	if err := rt.Call(t, c.Arg(0), c.Etc(), res); err != nil {
-		next.Push(rt.BoolValue(false))
-		next.Push(err.Value())
+		t.Push1(next, rt.BoolValue(false))
+		t.Push1(next, err.Value())
 	} else {
-		next.Push(rt.BoolValue(true))
-		rt.Push(next, res.Etc()...)
+		t.Push1(next, rt.BoolValue(true))
+		t.Push(next, res.Etc()...)
 	}
 	return next, nil
 }

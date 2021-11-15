@@ -54,7 +54,7 @@ func goValueToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	return c.PushingNext(rt.StringValue(fmt.Sprintf("%#v", u.Value()))), nil
+	return c.PushingNext1(t.Runtime, rt.StringValue(fmt.Sprintf("%#v", u.Value()))), nil
 }
 
 func goValueIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -69,7 +69,7 @@ func goValueIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if indexErr != nil {
 		return nil, rt.NewErrorE(indexErr).AddContext(c)
 	}
-	return c.PushingNext(val), nil
+	return c.PushingNext1(t.Runtime, val), nil
 }
 
 func goValueSetIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -99,7 +99,7 @@ func goValueCall(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if callErr != nil {
 		return nil, rt.NewErrorE(callErr).AddContext(c)
 	}
-	return c.PushingNext(res...), nil
+	return c.PushingNext(t.Runtime, res...), nil
 }
 
 func goimport(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -118,7 +118,7 @@ func goimport(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if loadErr != nil {
 		return nil, rt.NewErrorF("cannot import go package %s: %s", path, loadErr)
 	}
-	return c.PushingNext(NewGoValue(t.Runtime, exports)), nil
+	return c.PushingNext1(t.Runtime, NewGoValue(t.Runtime, exports)), nil
 }
 
 var pluginsRoot string

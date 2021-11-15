@@ -131,7 +131,7 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	next := c.Next()
 	if mod := loaded.Get(nameVal); !mod.IsNil() {
-		next.Push(mod)
+		t.Push1(next, mod)
 		return next, nil
 	}
 
@@ -164,7 +164,7 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				mod = r0
 			}
 			t.SetTable(loaded, nameVal, mod)
-			next.Push(mod)
+			t.Push1(next, mod)
 			return next, nil
 		}
 	}
@@ -199,9 +199,9 @@ func searchpath(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	found, templates := searchPath(string(name), string(path), string(sep), &conf)
 	next := c.Next()
 	if found != "" {
-		next.Push(rt.StringValue(found))
+		t.Push1(next, rt.StringValue(found))
 	} else {
-		rt.Push(next, rt.NilValue, rt.StringValue("tried: "+strings.Join(templates, "\n")))
+		t.Push(next, rt.NilValue, rt.StringValue("tried: "+strings.Join(templates, "\n")))
 	}
 	return next, nil
 }
@@ -230,8 +230,7 @@ func searchPreload(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	loader := pkgTable(t).Get(preloadKey).AsTable().Get(rt.StringValue(s))
-	c.Next().Push(loader)
-	return c.Next(), nil
+	return c.PushingNext1(t.Runtime, loader), nil
 }
 
 func searchLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -251,10 +250,10 @@ func searchLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	found, templates := searchPath(string(s), string(path), ".", conf)
 	next := c.Next()
 	if found == "" {
-		next.Push(rt.StringValue(strings.Join(templates, "\n")))
+		t.Push1(next, rt.StringValue(strings.Join(templates, "\n")))
 	} else {
-		next.Push(rt.FunctionValue(loadLuaGoFunc))
-		next.Push(rt.StringValue(found))
+		t.Push1(next, rt.FunctionValue(loadLuaGoFunc))
+		t.Push1(next, rt.StringValue(found))
 	}
 	return next, nil
 }

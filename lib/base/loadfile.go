@@ -32,6 +32,5 @@ func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, rt.NewErrorE(err).AddContext(c)
 	}
-	c.Next().Push(rt.FunctionValue(clos))
-	return c.Next(), nil
+	return c.PushingNext1(t.Runtime, rt.FunctionValue(clos)), nil
 }

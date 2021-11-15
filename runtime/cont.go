@@ -6,8 +6,8 @@ package runtime
 //
 // TODO: document the methods.
 type Cont interface {
-	Push(Value)
-	PushEtc([]Value)
+	Push(*Runtime, Value)
+	PushEtc(*Runtime, []Value)
 	RunInThread(*Thread) (Cont, *Error)
 	Next() Cont
 	DebugInfo() *DebugInfo
@@ -15,10 +15,14 @@ type Cont interface {
 
 // Push is a convenience method that pushes a number of values to the
 // continuation c.
-func Push(c Cont, vals ...Value) {
+func (r *Runtime) Push(c Cont, vals ...Value) {
 	for _, v := range vals {
-		c.Push(v)
+		c.Push(r, v)
 	}
+}
+
+func (r *Runtime) Push1(c Cont, v Value) {
+	c.Push(r, v)
 }
 
 func appendTraceback(tb []*DebugInfo, c Cont) []*DebugInfo {

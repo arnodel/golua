@@ -66,7 +66,7 @@ func newRegex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, rt.NewErrorE(compErr).AddContext(c)
 	}
 	regexMeta := t.Registry(regexMetaKey)
-	return c.PushingNext(rt.UserDataValue(rt.NewUserData(re, regexMeta.AsTable()))), nil
+	return c.PushingNext(t.Runtime, rt.UserDataValue(rt.NewUserData(re, regexMeta.AsTable()))), nil
 }
 
 // Hepler function that turns a Lua value to a Go regexp.
@@ -110,7 +110,7 @@ func regexFind(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	// Find the pattern in the string and return it.
 	match := re.FindString(string(s))
-	return c.PushingNext(rt.StringValue(match)), nil
+	return c.PushingNext(t.Runtime, rt.StringValue(match)), nil
 }
 
 // Implementation of the regex's '__tostring' metamethod.
@@ -124,5 +124,5 @@ func regexToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	s := rt.StringValue(fmt.Sprintf("regex(%q)", re.String()))
-	return c.PushingNext(s), nil
+	return c.PushingNext(t.Runtime, s), nil
 }

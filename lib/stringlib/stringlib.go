@@ -83,7 +83,7 @@ func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	i = maxpos(1, i)
 	j = minpos(len(s), j)
 	for i <= j {
-		next.Push(rt.IntValue(int64(s[i-1])))
+		t.Push1(next, rt.IntValue(int64(s[i-1])))
 		i++
 	}
 	return next, nil
@@ -103,7 +103,7 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		buf[i] = byte(x)
 	}
 	t.RequireMem(uint64(len(buf)))
-	return c.PushingNext(rt.StringValue(string(buf))), nil
+	return c.PushingNext1(t.Runtime, rt.StringValue(string(buf))), nil
 }
 
 func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -114,7 +114,7 @@ func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	return c.PushingNext(rt.IntValue(int64(len(s)))), nil
+	return c.PushingNext1(t.Runtime, rt.IntValue(int64(len(s)))), nil
 }
 
 func lower(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -127,7 +127,7 @@ func lower(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	t.RequireMem(uint64(len(s)))
 	s = strings.ToLower(string(s))
-	return c.PushingNext(rt.StringValue(s)), nil
+	return c.PushingNext1(t.Runtime, rt.StringValue(s)), nil
 }
 
 func upper(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -140,7 +140,7 @@ func upper(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	t.RequireMem(uint64(len(s)))
 	s = strings.ToUpper(string(s))
-	return c.PushingNext(rt.StringValue(s)), nil
+	return c.PushingNext1(t.Runtime, rt.StringValue(s)), nil
 }
 
 func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -168,10 +168,10 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		sep = []byte(lsep)
 	}
 	if n == 0 {
-		return c.PushingNext(rt.StringValue("")), nil
+		return c.PushingNext1(t.Runtime, rt.StringValue("")), nil
 	}
 	if n == 1 {
-		return c.PushingNext(rt.StringValue(ls)), nil
+		return c.PushingNext1(t.Runtime, rt.StringValue(ls)), nil
 	}
 	if sep == nil {
 		if len(ls)*n/n != len(ls) {
@@ -179,7 +179,7 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, rt.NewErrorS("rep causes overflow").AddContext(c)
 		}
 		t.RequireMem(uint64(n * len(ls)))
-		return c.PushingNext(rt.StringValue(strings.Repeat(string(ls), n))), nil
+		return c.PushingNext1(t.Runtime, rt.StringValue(strings.Repeat(string(ls), n))), nil
 	}
 	s := []byte(ls)
 	builder := strings.Builder{}
@@ -200,7 +200,7 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		builder.Write(sep)
 		builder.Write(s)
 	}
-	return c.PushingNext(rt.StringValue(builder.String())), nil
+	return c.PushingNext1(t.Runtime, rt.StringValue(builder.String())), nil
 }
 
 func reverse(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -217,7 +217,7 @@ func reverse(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	for i := 0; 2*i <= l; i++ {
 		sb[i], sb[l-i] = sb[l-i], sb[i]
 	}
-	return c.PushingNext(rt.StringValue(string(sb))), nil
+	return c.PushingNext1(t.Runtime, rt.StringValue(string(sb))), nil
 }
 
 func sub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -248,5 +248,5 @@ func sub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		t.RequireMem(uint64(j - i + 1))
 		slice = s[i-1 : j]
 	}
-	return c.PushingNext(rt.StringValue(slice)), nil
+	return c.PushingNext1(t.Runtime, rt.StringValue(slice)), nil
 }

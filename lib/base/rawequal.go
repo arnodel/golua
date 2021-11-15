@@ -9,6 +9,5 @@ func rawequal(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	res, _ := rt.RawEqual(c.Arg(0), c.Arg(1))
-	c.Next().Push(rt.BoolValue(res))
-	return c.Next(), nil
+	return c.PushingNext1(t.Runtime, rt.BoolValue(res)), nil
 }

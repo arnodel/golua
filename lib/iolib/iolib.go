@@ -96,19 +96,19 @@ func ioError(err error) *rt.Error {
 	return nil
 }
 
-func pushIoResult(next rt.Cont, ioErr error) {
+func pushIoResult(r *rt.Runtime, next rt.Cont, ioErr error) {
 	if ioErr != nil {
-		next.Push(rt.NilValue)
+		r.Push1(next, rt.NilValue)
 		// TODO: Why push a *rt.Error?
-		next.Push(rt.AsValue(ioError(ioErr)))
+		r.Push1(next, rt.AsValue(ioError(ioErr)))
 	} else {
-		next.Push(rt.BoolValue(true))
+		r.Push1(next, rt.BoolValue(true))
 	}
 }
 
-func pushingNextIoResult(c *rt.GoCont, ioErr error) rt.Cont {
+func pushingNextIoResult(r *rt.Runtime, c *rt.GoCont, ioErr error) rt.Cont {
 	next := c.Next()
-	pushIoResult(next, ioErr)
+	pushIoResult(r, next, ioErr)
 	return next
 }
 
@@ -123,7 +123,7 @@ func ioclose(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, err.AddContext(c)
 		}
 	}
-	return pushingNextIoResult(c, f.Close()), nil
+	return pushingNextIoResult(t.Runtime, c, f.Close()), nil
 }
 
 func fileclose(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -144,7 +144,7 @@ func ioflush(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, err.AddContext(c)
 		}
 	}
-	return pushingNextIoResult(c, f.Flush()), nil
+	return pushingNextIoResult(t.Runtime, c, f.Flush()), nil
 }
 
 func fileflush(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -161,7 +161,7 @@ func errFileOrFilename() *rt.Error {
 func input(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	ioData := getIoData(t)
 	if c.NArgs() == 0 {
-		return c.PushingNext(rt.UserDataValue(ioData.defaultInput)), nil
+		return c.PushingNext(t.Runtime, rt.UserDataValue(ioData.defaultInput)), nil
 	}
 	var (
 		fv  *rt.UserData
@@ -190,7 +190,7 @@ func input(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 func output(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	ioData := getIoData(t)
 	if c.NArgs() == 0 {
-		return c.PushingNext(rt.UserDataValue(ioData.defaultOutput)), nil
+		return c.PushingNext(t.Runtime, rt.UserDataValue(ioData.defaultOutput)), nil
 	}
 	var (
 		fv  *rt.UserData
@@ -235,7 +235,7 @@ func iolines(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if fmtErr != nil {
 		return nil, rt.NewErrorE(fmtErr).AddContext(c)
 	}
-	return c.PushingNext(rt.FunctionValue(lines(f, readers, closeAtEOF))), nil
+	return c.PushingNext(t.Runtime, rt.FunctionValue(lines(t.Runtime, f, readers, closeAtEOF))), nil
 }
 
 func filelines(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -251,7 +251,7 @@ func filelines(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, rt.NewErrorE(fmtErr).AddContext(c)
 	}
 
-	return c.PushingNext(rt.FunctionValue(lines(f, readers, doNotCloseAtEOF))), nil
+	return c.PushingNext(t.Runtime, rt.FunctionValue(lines(t.Runtime, f, readers, doNotCloseAtEOF))), nil
 }
 
 const (
@@ -259,13 +259,13 @@ const (
 	doNotCloseAtEOF = 0
 )
 
-func lines(f *File, readers []formatReader, flags int) *rt.GoFunction {
+func lines(r *rt.Runtime, f *File, readers []formatReader, flags int) *rt.GoFunction {
 	if len(readers) == 0 {
 		readers = []formatReader{lineReader(false)}
 	}
 	iterator := func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next := c.Next()
-		err := read(f, readers, next)
+		err := read(r, f, readers, next)
 		if err != nil {
 			if err == io.EOF && flags&closeAtEOF != 0 {
 				f.Close()
@@ -297,7 +297,7 @@ func open(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, rt.NewErrorE(ioErr).AddContext(c)
 	}
 	u := newFileUserData(f, getIoData(t).metatable)
-	return c.PushingNext(rt.UserDataValue(u)), nil
+	return c.PushingNext(t.Runtime, rt.UserDataValue(u)), nil
 }
 
 func typef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -313,21 +313,21 @@ func typef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	} else {
 		val = rt.StringValue("file")
 	}
-	return c.PushingNext(val), nil
+	return c.PushingNext(t.Runtime, val), nil
 }
 
 func iowrite(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	return write(rt.UserDataValue(getIoData(t).defaultOutput), c)
+	return write(t.Runtime, rt.UserDataValue(getIoData(t).defaultOutput), c)
 }
 
 func filewrite(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err.AddContext(c)
 	}
-	return write(c.Arg(0), c)
+	return write(t.Runtime, c.Arg(0), c)
 }
 
-func write(vf rt.Value, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func write(r *rt.Runtime, vf rt.Value, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	f, ok := ValueToFile(vf)
 	if !ok {
 		return nil, rt.NewErrorS("#1 must be a file").AddContext(c)
@@ -348,9 +348,9 @@ func write(vf rt.Value, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	next := c.Next()
 	if err != nil {
-		next.Push(rt.StringValue(err.Error()))
+		r.Push(next, rt.StringValue(err.Error()))
 	} else {
-		next.Push(vf)
+		r.Push(next, vf)
 	}
 	return next, nil
 }
@@ -392,10 +392,10 @@ func fileseek(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	pos, ioErr := f.Seek(offset, whence)
 	next := c.Next()
 	if ioErr != nil {
-		next.Push(rt.NilValue)
-		next.Push(rt.StringValue(ioErr.Error()))
+		t.Push1(next, rt.NilValue)
+		t.Push1(next, rt.StringValue(ioErr.Error()))
 	} else {
-		next.Push(rt.IntValue(pos))
+		t.Push1(next, rt.IntValue(pos))
 	}
 	return next, nil
 }
@@ -406,7 +406,7 @@ func tmpfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, rt.NewErrorE(err).AddContext(c)
 	}
 	fv := newFileUserData(f, getIoData(t).metatable)
-	return c.PushingNext(rt.UserDataValue(fv)), nil
+	return c.PushingNext(t.Runtime, rt.UserDataValue(fv)), nil
 }
 
 func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -418,7 +418,7 @@ func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	s := rt.StringValue(fmt.Sprintf("file(%q)", f.Name()))
-	return c.PushingNext(s), nil
+	return c.PushingNext(t.Runtime, s), nil
 }
 
 func newFileUserData(f *File, meta *rt.Table) *rt.UserData {

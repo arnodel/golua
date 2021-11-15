@@ -12,6 +12,8 @@ type GoCont struct {
 	nArgs int
 }
 
+var _ Cont = (*GoCont)(nil)
+
 // NewGoCont returns a new pointer to GoCont for the given GoFunction and Cont.
 func NewGoCont(r *Runtime, f *GoFunction, next Cont) *GoCont {
 	var args []Value
@@ -36,35 +38,36 @@ func NewGoCont(r *Runtime, f *GoFunction, next Cont) *GoCont {
 }
 
 // Push implements Cont.Push.
-func (c *GoCont) Push(v Value) {
+func (c *GoCont) Push(r *Runtime, v Value) {
 	if c.nArgs < len(c.args) {
 		c.args[c.nArgs] = v
 		c.nArgs++
 	} else if c.etc != nil {
 		// TODO: require mem for this
+		r.RequireMem(uint64(unsafe.Sizeof(Value{})))
 		*c.etc = append(*c.etc, v)
 	}
 }
 
 // PushingNext is convenient when implementing go functions.  It pushes the
 // given values to c.Next() and returns it.
-func (c *GoCont) PushingNext(vals ...Value) Cont {
+func (c *GoCont) PushingNext(r *Runtime, vals ...Value) Cont {
 	next := c.Next()
-	next.PushEtc(vals)
+	next.PushEtc(r, vals)
 	return next
 }
 
 // PushingNext1 is convenient when implementing go functions.  It pushes the
 // given value to c.Next() and returns it.
-func (c *GoCont) PushingNext1(val Value) Cont {
+func (c *GoCont) PushingNext1(r *Runtime, val Value) Cont {
 	next := c.Next()
-	next.Push(val)
+	next.Push(r, val)
 	return next
 }
 
 // PushEtc pushes a slice of values to the continutation. TODO: find why this is
 // not used.
-func (c *GoCont) PushEtc(etc []Value) {
+func (c *GoCont) PushEtc(r *Runtime, etc []Value) {
 	if c.nArgs < len(c.args) {
 		for i, v := range etc {
 			c.args[c.nArgs] = v
@@ -80,6 +83,7 @@ FillEtc:
 	if c.etc == nil {
 		return
 	}
+	r.RequireMem(uint64(len(etc)) * uint64(unsafe.Sizeof(Value{})))
 	*c.etc = append(*c.etc, etc...)
 }
 

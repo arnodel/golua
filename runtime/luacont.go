@@ -18,6 +18,8 @@ type LuaCont struct {
 	borrowedCells bool
 }
 
+var _ Cont = (*LuaCont)(nil)
+
 // NewLuaCont returns a new LuaCont from a closure and next, a continuation to
 // push results into.
 func NewLuaCont(r *Runtime, clos *Closure, next Cont) *LuaCont {
@@ -62,13 +64,14 @@ func (c *LuaCont) release(r *Runtime) {
 }
 
 // Push implements Cont.Push.
-func (c *LuaCont) Push(val Value) {
+func (c *LuaCont) Push(r *Runtime, val Value) {
 	opcode := c.code[c.pc]
 	if opcode.HasType0() {
 		dst := opcode.GetA()
 		if opcode.GetF() {
 			// It's an etc
 			// TODO: require mem for this
+			r.RequireMem(uint64(unsafe.Sizeof(Value{})))
 			c.acc = append(c.acc, val)
 		} else {
 			c.pc++
@@ -78,9 +81,9 @@ func (c *LuaCont) Push(val Value) {
 }
 
 // PushEtc implements Cont.PushEtc.  TODO: optimise.
-func (c *LuaCont) PushEtc(vals []Value) {
+func (c *LuaCont) PushEtc(r *Runtime, vals []Value) {
 	for _, val := range vals {
-		c.Push(val)
+		c.Push(r, val)
 	}
 }
 
@@ -222,7 +225,7 @@ RunLoop:
 			if opcode.GetF() {
 				// dst must contain a continuation
 				cont := getReg(regs, cells, dst).AsCont()
-				cont.Push(val)
+				cont.Push(t.Runtime, val)
 			} else {
 				setReg(regs, cells, dst, val)
 			}
@@ -254,7 +257,7 @@ RunLoop:
 				case code.OpEtcId:
 					// We assume it's a push?
 					cont := getReg(regs, cells, dst).AsCont()
-					cont.PushEtc(val.AsArray())
+					cont.PushEtc(t.Runtime, val.AsArray())
 					pc++
 					continue RunLoop
 				case code.OpTruth:
@@ -304,7 +307,7 @@ RunLoop:
 				return nil, err.AddContext(c)
 			}
 			if opcode.GetF() {
-				getReg(regs, cells, dst).AsCont().Push(res)
+				getReg(regs, cells, dst).AsCont().Push(t.Runtime, res)
 			} else {
 				setReg(regs, cells, dst, res)
 			}
