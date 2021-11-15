@@ -116,7 +116,7 @@ func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
 		return nil, NewErrorF("cannot call %v", f)
 	}
 	if cont != nil {
-		cont.Push(f)
+		t.Push1(cont, f)
 	}
 	return cont, err
 }

@@ -15,7 +15,7 @@ func selectF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil || s != "#" {
 			return nil, rt.NewErrorS("#1 must be an integer or '#'").AddContext(c)
 		}
-		return c.PushingNext(rt.IntValue(int64(len(c.Etc())))), nil
+		return c.PushingNext1(t.Runtime, rt.IntValue(int64(len(c.Etc())))), nil
 	}
 	etc := c.Etc()
 	if n < 0 {
@@ -26,7 +26,7 @@ func selectF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	next := c.Next()
 	if int(n) <= len(etc) {
-		rt.Push(next, etc[n-1:]...)
+		t.Push(next, etc[n-1:]...)
 	}
-	return c.Next(), nil
+	return next, nil
 }

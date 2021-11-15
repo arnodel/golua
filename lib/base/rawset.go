@@ -19,5 +19,5 @@ func rawset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := t.SetTableCheck(tbl, key, c.Arg(2)); err != nil {
 		return nil, rt.NewErrorE(err).AddContext(c)
 	}
-	return c.PushingNext(c.Arg(0)), nil
+	return c.PushingNext1(t.Runtime, c.Arg(0)), nil
 }

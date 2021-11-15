@@ -35,14 +35,14 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
 	switch {
 	case si < 0 || si > len(s):
-		next.Push(rt.NilValue)
+		t.Push1(next, rt.NilValue)
 	case plain || len(ptn) == 0:
 		i := strings.Index(string(s)[si:], string(ptn))
 		if i == -1 {
-			next.Push(rt.NilValue)
+			t.Push1(next, rt.NilValue)
 		} else {
-			next.Push(rt.IntValue(int64(i + 1)))
-			next.Push(rt.IntValue(int64(i + len(ptn))))
+			t.Push1(next, rt.IntValue(int64(i+1)))
+			t.Push1(next, rt.IntValue(int64(i+len(ptn))))
 		}
 	default:
 		pat, err := pattern.New(string(ptn))
@@ -52,12 +52,12 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		captures, usedCPU := pat.MatchFromStart(string(s), si, t.UnusedCPU())
 		t.RequireCPU(usedCPU)
 		if len(captures) == 0 {
-			next.Push(rt.NilValue)
+			t.Push1(next, rt.NilValue)
 		} else {
 			first := captures[0]
-			next.Push(rt.IntValue(int64(first.Start() + 1)))
-			next.Push(rt.IntValue(int64(first.End())))
-			pushExtraCaptures(captures, s, next)
+			t.Push1(next, rt.IntValue(int64(first.Start()+1)))
+			t.Push1(next, rt.IntValue(int64(first.End())))
+			pushExtraCaptures(t.Runtime, captures, s, next)
 		}
 	}
 	return next, nil
@@ -89,27 +89,27 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	captures, usedCPU := pat.MatchFromStart(string(s), si, t.UnusedCPU())
 	t.RequireCPU(usedCPU)
-	pushCaptures(captures, s, next)
+	pushCaptures(t.Runtime, captures, s, next)
 	return next, nil
 }
 
-func pushCaptures(captures []pattern.Capture, s string, next rt.Cont) {
+func pushCaptures(r *rt.Runtime, captures []pattern.Capture, s string, next rt.Cont) {
 	if len(captures) == 0 {
-		next.Push(rt.NilValue)
+		r.Push1(next, rt.NilValue)
 	} else if len(captures) == 1 {
 		c := captures[0]
-		next.Push(rt.StringValue(s[c.Start():c.End()]))
+		r.Push1(next, rt.StringValue(s[c.Start():c.End()]))
 	} else {
-		pushExtraCaptures(captures, s, next)
+		pushExtraCaptures(r, captures, s, next)
 	}
 }
 
-func pushExtraCaptures(captures []pattern.Capture, s string, next rt.Cont) {
+func pushExtraCaptures(r *rt.Runtime, captures []pattern.Capture, s string, next rt.Cont) {
 	if len(captures) < 2 {
 		return
 	}
 	for _, c := range captures[1:] {
-		next.Push(captureValue(c, s))
+		r.Push1(next, captureValue(c, s))
 	}
 }
 
@@ -164,10 +164,10 @@ func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			si++
 			allowEmpty = true
 		}
-		pushCaptures(captures, s, next)
+		pushCaptures(t.Runtime, captures, s, next)
 		return next, nil
 	}
-	return c.PushingNext(rt.FunctionValue(rt.NewGoFunction(iterator, "gmatchiterator", 0, false))), nil
+	return c.PushingNext(t.Runtime, rt.FunctionValue(rt.NewGoFunction(iterator, "gmatchiterator", 0, false))), nil
 }
 
 func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -259,7 +259,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				i = 1
 			}
 			for _, c := range captures[i:] {
-				cont.Push(captureValue(c, s))
+				t.Push1(cont, captureValue(c, s))
 			}
 			err := t.RunContinuation(cont)
 			if err != nil {
@@ -306,8 +306,8 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		_, _ = sb.WriteString(string(s)[si:])
 	}
 	next := c.Next()
-	next.Push(rt.StringValue(sb.String()))
-	next.Push(rt.IntValue(matchCount))
+	t.Push1(next, rt.StringValue(sb.String()))
+	t.Push1(next, rt.IntValue(matchCount))
 	return next, nil
 }
 

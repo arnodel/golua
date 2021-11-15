@@ -1,5 +1,9 @@
 quota = require'quota'
 
+--
+-- Check that recursion consumes memory
+--
+
 -- Naive recursive fibonacci implementation
 function rfib(n)
     if n < 2 then return n
@@ -18,6 +22,10 @@ print(quota.rcall(0, 1000, rfib, 100))
 -- Recursion blows cpu budget
 print(quota.rcall(10000, 0, rfib, 100))
 --> =false
+
+--
+-- Check that iteration consumes CPU
+--
 
 -- Iterative fibonacci implementation
 function ifib(n)
@@ -45,6 +53,10 @@ print(quota.rcall(10000, 0, ifib, 100))
 print(quota.rcall(1000, 0, ifib, 1000))
 --> =false
 
+--
+-- Check that tail recursion does not consume memory
+--
+
 -- Tail-recursive fibonacci implementation
 function trfib(n, a, b)
     a, b = a or 0, b or 1
@@ -67,6 +79,10 @@ print(quota.rcall(10000, 0, ifib, 100))
 -- we can run out of cpu eventually!
 print(quota.rcall(1000, 0, ifib, 1000))
 --> =false
+
+--
+-- Check that strinc concatenation consumes memory
+--
 
 -- strpex(x, n) is x concatenated to itself 2^n timees
 function strexp(s, n)
@@ -93,4 +109,35 @@ print(ok, #bigs)
 
 --> but it consumes memory!
 print(quota.rcall(0, 50000, strexp, "hi", 16))
+--> =false
+
+--
+-- Check that it costs memory to pass many arguments to a function
+--
+
+table = require'table'
+
+function len(...)
+    return select('#', ...)
+end
+
+function numbers(n)
+    local t = {}
+    for i = 1, n do
+        t[i] = i
+    end
+    return t
+end
+
+print(table.unpack(numbers(5)))
+--> =1	2	3	4	5
+
+print(len(table.unpack(numbers(4))))
+--> =4
+
+print(quota.rcall(0, 1000, len, table.unpack(numbers(10))))
+--> =true	10
+
+-- Passing a long list of arguments requires a lot of memory.
+print(quota.rcall(0, 8000, len, table.unpack(numbers(500))))
 --> =false

@@ -15,7 +15,7 @@ type Callable interface {
 // continuation.
 func (r *Runtime) ContWithArgs(c Callable, args []Value, next Cont) Cont {
 	cont := c.Continuation(r, next)
-	Push(cont, args...)
+	r.Push(cont, args...)
 	return cont
 }
 

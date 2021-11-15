@@ -1,11 +1,15 @@
 package runtime
 
+import "unsafe"
+
 // Termination is a 'dead-end' continuation: it cannot be run.
 type Termination struct {
 	args      []Value
 	pushIndex int
 	etc       *[]Value
 }
+
+var _ Cont = (*Termination)(nil)
 
 // NewTermination returns a new pointer to Termination where the first len(args)
 // values will be pushed into args and the remaining ones will be added to etc
@@ -30,17 +34,18 @@ func NewTerminationWith(nArgs int, hasEtc bool) *Termination {
 
 // Push implements Cont.Push.  It just accumulates values into
 // a slice.
-func (c *Termination) Push(v Value) {
+func (c *Termination) Push(r *Runtime, v Value) {
 	if c.pushIndex < len(c.args) {
 		c.args[c.pushIndex] = v
 		c.pushIndex++
 	} else if c.etc != nil {
+		r.RequireMem(uint64(unsafe.Sizeof(Value{})))
 		*c.etc = append(*c.etc, v)
 	}
 }
 
 // PushEtc implements Cont.PushEtc.
-func (c *Termination) PushEtc(etc []Value) {
+func (c *Termination) PushEtc(r *Runtime, etc []Value) {
 	if c.pushIndex < len(c.args) {
 		for i, v := range etc {
 			c.args[c.pushIndex] = v
@@ -56,8 +61,8 @@ FillEtc:
 	if c.etc == nil {
 		return
 	}
+	r.RequireMem(uint64(len(etc)) * uint64(unsafe.Sizeof(Value{})))
 	*c.etc = append(*c.etc, etc...)
-
 }
 
 // RunInThread implements Cont.RunInThread. A termination exits

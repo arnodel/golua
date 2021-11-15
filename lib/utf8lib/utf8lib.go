@@ -42,7 +42,7 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		cur = cur[sz:]
 		bufLen += sz
 	}
-	return c.PushingNext(rt.StringValue(string(buf[:bufLen]))), nil
+	return c.PushingNext1(t.Runtime, rt.StringValue(string(buf[:bufLen]))), nil
 }
 
 func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -66,13 +66,13 @@ func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				return nil, rt.NewErrorE(errInvalidCode).AddContext(c)
 			}
 		}
-		next.Push(rt.IntValue(p + 1))
-		next.Push(rt.IntValue(int64(r)))
+		t.Push1(next, rt.IntValue(p+1))
+		t.Push1(next, rt.IntValue(int64(r)))
 		p += int64(n)
 		return next, nil
 	}
 	var iter = rt.NewGoFunction(iterF, "codesiterator", 0, false)
-	return c.PushingNext(rt.FunctionValue(iter)), nil
+	return c.PushingNext1(t.Runtime, rt.FunctionValue(iter)), nil
 }
 
 func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -106,7 +106,7 @@ func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if r == utf8.RuneError {
 			return nil, rt.NewErrorE(errInvalidCode).AddContext(c)
 		}
-		next.Push(rt.IntValue(int64(r)))
+		t.Push1(next, rt.IntValue(int64(r)))
 		k += sz
 	}
 	return next, nil
@@ -137,14 +137,14 @@ func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	for k := i - 1; k < j; {
 		r, sz := utf8.DecodeRuneInString(ss[k:])
 		if r == utf8.RuneError {
-			next.Push(rt.NilValue)
-			next.Push(rt.IntValue(int64(k + 1)))
+			t.Push1(next, rt.NilValue)
+			t.Push1(next, rt.IntValue(int64(k+1)))
 			return next, nil
 		}
 		k += sz
 		slen++
 	}
-	next.Push(rt.IntValue(slen))
+	t.Push1(next, rt.IntValue(slen))
 	return next, nil
 }
 
@@ -206,9 +206,9 @@ func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 	}
 	if nn == 0 {
-		return c.PushingNext(rt.IntValue(int64(i + 1))), nil
+		return c.PushingNext1(t.Runtime, rt.IntValue(int64(i+1))), nil
 	}
-	return c.PushingNext(rt.NilValue), nil
+	return c.PushingNext1(t.Runtime, rt.NilValue), nil
 }
 
 var errInvalidCode = errors.New("invalid UTF-8 code")

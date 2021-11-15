@@ -26,7 +26,7 @@ func collectgarbage(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case "step":
 		// The Go runtime doesn't offer the ability to go gc steps.
 		runtime.GC()
-		next.Push(rt.BoolValue(true))
+		t.Push1(next, rt.BoolValue(true))
 	case "stop":
 		debug.SetGCPercent(-1)
 		gcRunning = false
@@ -34,7 +34,7 @@ func collectgarbage(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		debug.SetGCPercent(gcPercent)
 		gcRunning = gcPercent != -1
 	case "isrunning":
-		next.Push(rt.BoolValue(gcRunning))
+		t.Push1(next, rt.BoolValue(gcRunning))
 	case "setpause":
 		// TODO: perhaps change gcPercent to reflect this?
 	case "setstepmul":
@@ -42,7 +42,7 @@ func collectgarbage(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case "count":
 		stats := runtime.MemStats{}
 		runtime.ReadMemStats(&stats)
-		next.Push(rt.FloatValue(float64(stats.Alloc) / 1024.0))
+		t.Push1(next, rt.FloatValue(float64(stats.Alloc)/1024.0))
 	default:
 		return nil, rt.NewErrorS("invalid option").AddContext(c)
 	}

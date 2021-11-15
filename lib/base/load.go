@@ -54,8 +54,8 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			for {
 				bit, err := rt.Call1(t, x)
 				if err != nil {
-					next.Push(rt.NilValue)
-					next.Push(rt.StringValue(err.Error()))
+					t.Push1(next, rt.NilValue)
+					t.Push1(next, rt.StringValue(err.Error()))
 					return next, nil
 				}
 				if bit.IsNil() {
@@ -63,7 +63,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				}
 				bitString, ok := bit.TryString()
 				if !ok {
-					rt.Push(next, rt.NilValue, rt.StringValue("reader must return a string"))
+					t.Push(next, rt.NilValue, rt.StringValue("reader must return a string"))
 					return next, nil
 				}
 				if len(bitString) == 0 {
@@ -81,7 +81,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if len(chunk) > 0 && chunk[0] < byte(rt.ConstTypeMaj) {
 		// binary chunk
 		if !canBeBinary {
-			rt.Push(next, rt.NilValue, rt.StringValue("attempt to load a binary chunk"))
+			t.Push(next, rt.NilValue, rt.StringValue("attempt to load a binary chunk"))
 			return next, nil
 		}
 		r := bytes.NewBuffer(chunk)
@@ -101,16 +101,16 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				clos.AddUpvalue(rt.NewCell(rt.NilValue))
 			}
 		}
-		return c.PushingNext(rt.FunctionValue(clos)), nil
+		return c.PushingNext(t.Runtime, rt.FunctionValue(clos)), nil
 	} else if !canBeText {
-		rt.Push(next, rt.NilValue, rt.StringValue("attempt to load a text chunk"))
+		t.Push(next, rt.NilValue, rt.StringValue("attempt to load a text chunk"))
 		return next, nil
 	}
 	clos, err := t.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv)
 	if err != nil {
-		rt.Push(next, rt.NilValue, rt.StringValue(err.Error()))
+		t.Push(next, rt.NilValue, rt.StringValue(err.Error()))
 	} else {
-		next.Push(rt.FunctionValue(clos))
+		t.Push1(next, rt.FunctionValue(clos))
 	}
 	return next, nil
 }

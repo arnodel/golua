@@ -93,7 +93,7 @@ func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if perr != nil {
 		return nil, rt.NewErrorE(perr).AddContext(c)
 	}
-	return c.PushingNext(rt.StringValue(res)), nil
+	return c.PushingNext1(t.Runtime, rt.StringValue(res)), nil
 }
 
 func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -124,8 +124,8 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, rt.NewErrorE(uerr).AddContext(c)
 	}
 	next := c.Next()
-	rt.Push(next, vals...)
-	next.Push(rt.IntValue(int64(m + 1)))
+	t.Push(next, vals...)
+	t.Push1(next, rt.IntValue(int64(m+1)))
 	return next, nil
 }
 
@@ -141,7 +141,7 @@ func packsize(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if serr != nil {
 		return nil, rt.NewErrorE(serr).AddContext(c)
 	}
-	return c.PushingNext(rt.IntValue(int64(size))), nil
+	return c.PushingNext1(t.Runtime, rt.IntValue(int64(size))), nil
 }
 
 func isLittleEndian() bool {

@@ -68,15 +68,15 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	_ = what
 	next := c.Next()
 	if cont == nil {
-		next.Push(rt.NilValue)
+		t.Push1(next, rt.NilValue)
 	} else if info := cont.DebugInfo(); info == nil {
-		next.Push(rt.NilValue)
+		t.Push1(next, rt.NilValue)
 	} else {
 		res := rt.NewTable()
 		t.SetEnv(res, "name", rt.StringValue(info.Name))
 		t.SetEnv(res, "currentline", rt.IntValue(int64(info.CurrentLine)))
 		t.SetEnv(res, "source", rt.StringValue(info.Source))
-		next.Push(rt.TableValue(res))
+		t.Push1(next, rt.TableValue(res))
 	}
 	return next, nil
 }
@@ -96,9 +96,9 @@ func getupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	up := int(upv) - 1
 	next := c.Next()
 	if up < 0 || up >= int(f.Code.UpvalueCount) {
-		next.Push(rt.NilValue)
+		t.Push1(next, rt.NilValue)
 	} else {
-		rt.Push(next, rt.StringValue(f.Code.UpNames[up]), f.GetUpvalue(up))
+		t.Push(next, rt.StringValue(f.Code.UpNames[up]), f.GetUpvalue(up))
 	}
 	return next, nil
 }
@@ -118,9 +118,9 @@ func setupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	up := int(upv) - 1
 	next := c.Next()
 	if up < 0 || up >= int(f.Code.UpvalueCount) {
-		next.Push(rt.NilValue)
+		t.Push1(next, rt.NilValue)
 	} else {
-		next.Push(rt.StringValue(f.Code.UpNames[up]))
+		t.Push1(next, rt.StringValue(f.Code.UpNames[up]))
 		f.SetUpvalue(up, c.Arg(2))
 	}
 	return next, nil
@@ -171,7 +171,7 @@ func upvalueid(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if up < 0 || up >= int(f.Code.UpvalueCount) {
 		return nil, rt.NewErrorS("Invalid upvalue index").AddContext(c)
 	}
-	return c.PushingNext(rt.LightUserDataValue(rt.LightUserData{Data: f.Upvalues[up]})), nil
+	return c.PushingNext1(t.Runtime, rt.LightUserDataValue(rt.LightUserData{Data: f.Upvalues[up]})), nil
 }
 
 func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -188,5 +188,5 @@ func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 	}
 	t.SetRawMetatable(v, meta)
-	return c.PushingNext(v), nil
+	return c.PushingNext1(t.Runtime, v), nil
 }

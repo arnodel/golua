@@ -19,8 +19,8 @@ func next(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if !ok {
 		return nil, rt.NewErrorS("invalid key for 'next'").AddContext(c)
 	}
-	next.Push(nk)
-	next.Push(nv)
+	t.Push1(next, nk)
+	t.Push1(next, nv)
 	return next, nil
 }
 
