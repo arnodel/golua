@@ -46,3 +46,12 @@ print(quota.rcall(0, 1000, string.char, s:byte(1, #s)))
 
 print(quota.rcall(0, 1000, string.char, s1000:byte(1, 1200)))
 --> =false
+
+
+-- string.rep consumes memory
+
+print(quota.rcall(0, 1000, string.rep, "ha", 10))
+--> =true	hahahahahahahahahaha
+
+print(quota.rcall(0, 1000, string.rep, "ha", 600))
+--> =false
