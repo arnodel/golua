@@ -21,8 +21,13 @@ func dump(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	// TODO: support strip
 	_ = strip
 	var w bytes.Buffer
-	if err := rt.MarshalConst(&w, rt.CodeValue(cl.Code.RefactorConsts())); err != nil {
+	code := t.RefactorCodeConsts(cl.Code)
+	if used, err := rt.MarshalConst(&w, rt.CodeValue(code), t.UnusedMem()); err != nil {
 		return nil, rt.NewError(rt.StringValue(err.Error())).AddContext(c)
+	} else {
+		// This will cause a panic if MarshalConst was interupted, so no need to
+		// worry about the rest of this codepath in this case.
+		t.RequireMem(used)
 	}
 	return c.PushingNext1(t.Runtime, rt.StringValue(w.String())), nil
 }

@@ -69,6 +69,10 @@ func (m *quotaManager) UpdateMemQuota(newQuota uint64) {
 	m.memQuota = newQuota
 }
 
+func (m *quotaManager) UnusedMem() uint64 {
+	return m.memQuota - m.memUsed
+}
+
 func (m *quotaManager) MemQuotaStatus() (uint64, uint64) {
 	return m.memUsed, m.memQuota
 }

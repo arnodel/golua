@@ -203,11 +203,12 @@ func (m *patternMatcher) addTrackback(siMin int) {
 }
 
 func (m *patternMatcher) consumeBudget() {
-	if m.budget > 0 {
-		m.budget--
-		if m.budget == 0 {
-			panic(budgetConsumed)
-		}
+	if m.budget == 0 {
+		return
+	}
+	m.budget--
+	if m.budget == 0 {
+		panic(budgetConsumed)
 	}
 }
 

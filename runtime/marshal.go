@@ -8,9 +8,15 @@ import (
 )
 
 // MarshalConst serializes a const value to the writer w.
-func MarshalConst(w io.Writer, c Value) (err error) {
-	bw := bwriter{w: w}
-	return bw.writeConst(c)
+func MarshalConst(w io.Writer, c Value, budget uint64) (used uint64, err error) {
+	defer func() {
+		if r := recover(); r == budgetConsumed {
+			used = budget + 1
+		}
+	}()
+	bw := bwriter{w: w, budget: budget}
+	err = bw.writeConst(c)
+	return budget - bw.budget, err
 }
 
 // UnmarshalConst reads from r to deserialize a const value.
@@ -26,19 +32,26 @@ func UnmarshalConst(r io.Reader) (v Value, err error) {
 type bwriter struct {
 	w   io.Writer
 	err error
+
+	budget uint64
 }
 
 func (w *bwriter) writeConst(c Value) (err error) {
 	switch c.Type() {
 	case IntType:
+		w.consumeBudget(1 + 8)
 		w.write(IntType, c.AsInt())
 	case FloatType:
+		w.consumeBudget(1 + 8)
 		w.write(FloatType, c.AsFloat())
 	case BoolType:
+		w.consumeBudget(1 + 1)
 		w.write(BoolType, c.AsBool())
 	case StringType:
+		w.consumeBudget(1 + 0) // w.writeString will consume the string budget
 		w.write(StringType, c.AsString())
 	case NilType:
+		w.consumeBudget(1)
 		w.write(NilType)
 	case CodeType:
 		w.writeCode(c.AsCode())
@@ -49,6 +62,7 @@ func (w *bwriter) writeConst(c Value) (err error) {
 }
 
 func (w *bwriter) writeCode(c *Code) (err error) {
+	w.consumeBudget(1 + 0 + 0 + 8 + 8 + 8)
 	w.write(
 		CodeType,
 		c.source,
@@ -60,6 +74,7 @@ func (w *bwriter) writeCode(c *Code) (err error) {
 	for _, k := range c.consts {
 		w.writeConst(k)
 	}
+	w.consumeBudget(2 + 2 + 2 + 8)
 	w.write(
 		c.UpvalueCount,
 		c.RegCount,
@@ -92,11 +107,24 @@ func (w *bwriter) write(xs ...interface{}) (err error) {
 }
 
 func (w *bwriter) writeString(s string) (err error) {
+	w.consumeBudget(uint64(8 + len(s)))
 	if w.write(int64(len(s))) == nil {
 		_, w.err = w.w.Write([]byte(s))
 	}
 	return w.err
 }
+
+func (w *bwriter) consumeBudget(amount uint64) {
+	if w.budget == 0 {
+		return
+	}
+	if w.budget < amount {
+		panic(budgetConsumed)
+	}
+	w.budget -= amount
+}
+
+var budgetConsumed interface{} = "budget consumed"
 
 //
 // breader: helper datastructure to deserialize values

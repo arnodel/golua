@@ -22,10 +22,12 @@ type Code struct {
 // RefactorConsts returns an equivalent *Code this consts "refactored", which
 // means that the consts are slimmed down to only contains the constants
 // required for the function.
-func (c *Code) RefactorConsts() *Code {
+func (r *Runtime) RefactorCodeConsts(c *Code) *Code {
+	r.RequireMem(uint64(len(c.code)) * uint64(unsafe.Sizeof(code.Opcode(0))))
 	opcodes := make([]code.Opcode, len(c.code))
 	var consts []Value
 	constMap := map[code.KIndex]code.KIndex{}
+	r.RequireCPU(uint64(len(c.code)))
 	for i, op := range c.code {
 		if op.TypePfx() == code.Type3Pfx {
 			unop := op.GetY()
@@ -39,8 +41,9 @@ func (c *Code) RefactorConsts() *Code {
 					newConst := c.consts[n]
 					if unop == code.OpClosureK {
 						// It's a closure so we need to refactor its consts
-						newConst = CodeValue(newConst.AsCode().RefactorConsts())
+						newConst = CodeValue(r.RefactorCodeConsts(newConst.AsCode()))
 					}
+					r.RequireMem(uint64(unsafe.Sizeof(Value{})))
 					consts = append(consts, newConst)
 				}
 				op = op.SetKIndex(m)
