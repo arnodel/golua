@@ -38,6 +38,18 @@ print(quota.rcall(0, 1000, string.sub, s, 3, 2000))
 print(quota.rcall(0, 1000, string.sub, s1000, 3, 2000))
 --> =false
 
+-- string.byte consumes memory
+
+-- helper function to consume the returned bytes from string.byte.
+function len(s)
+    return select('#', s:byte(1, #s))
+end
+
+print(len("foobar"))
+--> =6
+
+print(quota.rcall(0, 10000, len, s1000))
+--> =false
 
 -- string.char consumes memory
 
