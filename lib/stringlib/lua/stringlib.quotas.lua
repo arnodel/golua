@@ -1,5 +1,4 @@
 local quota = require'quota'
-local string = require 'string'
 
 local s = "helLO"
 local s1000 = s:rep(1000)
