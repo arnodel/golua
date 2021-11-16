@@ -91,10 +91,10 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
 	t.RequireCPU(1) // TODO: an appropriate amount
 	next, err = c.f(t, c)
 	if c.args != nil {
-		t.releaseMem(uint64(c.nArgs) * uint64(unsafe.Sizeof(Value{})))
+		t.ReleaseArrSize(unsafe.Sizeof(Value{}), c.nArgs)
 		t.argsPool.release(c.args)
 	}
-	t.releaseMem(uint64(unsafe.Sizeof(GoCont{})))
+	t.ReleaseSize(unsafe.Sizeof(GoCont{}))
 	t.goContPool.release(c)
 	return
 }
