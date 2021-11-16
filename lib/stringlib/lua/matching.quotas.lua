@@ -75,3 +75,44 @@ do
     --> =true
 end
 
+-- Tests for string.gsub
+do
+    -- 1. Replacemement string
+
+    print(quota.rcall(1000, 0, string.gsub, "a b c", "%w+", "%0 %0 %0"))
+    --> =true	a a a b b b c c c	3
+
+    -- It takes cpu to parse the input string
+    print(quota.rcall(1000, 0, string.gsub, ("a"):rep(1000), "%w", "%0"))
+    --> =false
+
+    -- It takes cpu to parse the replacement string
+    print(quota.rcall(1000, 0, string.gsub, "a b c", "%w+", ("a"):rep(1000)))
+    --> =false
+
+    -- Building the substitution consumes memory
+    print(quota.rcall(0, 1000, string.gsub, "1234567890", "%w", ("a"):rep(100)))
+    --> =false
+
+    -- 2. Replacement function
+
+    print(quota.rcall(0, 1000, string.gsub, "1234567890", "%w", function(x) return x:rep(2) end))
+    --> =true	11223344556677889900	10
+
+    -- Building the substitution consumes memory
+    print(quota.rcall(0, 1000, string.gsub, "1234567890", "%w", function(x) return x:rep(100) end))
+    --> =false
+
+    -- 3. Replacement table
+    local t = {
+        a = "A",
+        b = ("B"):rep(100),
+    }
+
+    print(quota.rcall(0, 1000, string.gsub, ("a"):rep(10), ".", t))
+    --> =true	AAAAAAAAAA	10
+
+    -- Building the substitution consumes memory
+    print(quota.rcall(0, 1000, string.gsub, ("b"):rep(100), ".", t))
+    --> =false
+end

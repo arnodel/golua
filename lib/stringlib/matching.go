@@ -199,6 +199,10 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if ptnErr != nil {
 		return nil, rt.NewErrorE(ptnErr).AddContext(c)
 	}
+
+	// replF will be the function that does the substitution of the match given
+	// the captures in the match.  It must require the memory for the
+	// substitution string
 	var replF func([]pattern.Capture) (string, *rt.Error)
 
 	if replString, ok := repl.TryString(); ok {
@@ -219,7 +223,9 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				maxIndex = 1
 			}
 			var err *rt.Error
-			return gsubPtn.ReplaceAllStringFunc(string(replString), func(x string) string {
+			t.RequireCPU(uint64(len(replString)))
+			t.RequireBytes(len(replString))
+			return gsubPtn.ReplaceAllStringFunc(replString, func(x string) string {
 				if err != nil {
 					return ""
 				}
@@ -231,7 +237,11 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 						err = rt.NewErrorE(pattern.ErrInvalidCaptureIdx(idx)).AddContext(c)
 						return ""
 					}
-					return cStrings[b-'0']
+					s := cStrings[b-'0']
+					if len(s) > 2 {
+						t.RequireBytes(len(s) - 2)
+					}
+					return s
 				case b == '%':
 					return x[1:]
 				default:
@@ -252,7 +262,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			if err != nil {
 				return "", err
 			}
-			return subToString(s[gc.Start():gc.End()], val)
+			return subToString(t.Runtime, s[gc.Start():gc.End()], val)
 		}
 	} else if replC, ok := repl.TryCallable(); ok {
 		replF = func(captures []pattern.Capture) (string, *rt.Error) {
@@ -270,7 +280,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			if err != nil {
 				return "", err
 			}
-			return subToString(s[gc.Start():gc.End()], term.Get(0))
+			return subToString(t.Runtime, s[gc.Start():gc.End()], term.Get(0))
 		}
 	} else {
 		return nil, rt.NewErrorS("#3 must be a string, table or function").AddContext(c)
@@ -281,6 +291,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		matchCount int64
 		allowEmpty = true
 	)
+	// We require memory for the string we build as we go along
 	for ; matchCount != n; matchCount++ {
 		captures, usedCPU := pat.Match(string(s), si, t.UnusedCPU())
 		t.RequireCPU(usedCPU)
@@ -294,12 +305,16 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			if err != nil {
 				return nil, err.AddContext(c)
 			}
-			_, _ = sb.WriteString(string(s)[si:start])
+			t.RequireBytes(si - start)
+			// No need to require memory for sub as that has been done already
+			// by replF
+			_, _ = sb.WriteString(s[si:start])
 			_, _ = sb.WriteString(sub)
 		}
 		allowEmpty = start >= end
 		if allowEmpty {
 			if start < len(s) {
+				t.RequireBytes(1)
 				_ = sb.WriteByte(s[start])
 			}
 			si = start + 1
@@ -308,9 +323,11 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 	}
 	if si < len(s) {
-		_, _ = sb.WriteString(string(s)[si:])
+		t.RequireBytes(len(s) - si)
+		_, _ = sb.WriteString(s[si:])
 	}
 	next := c.Next()
+	// Already required memory for the string below.
 	t.Push1(next, rt.StringValue(sb.String()))
 	t.Push1(next, rt.IntValue(matchCount))
 	return next, nil
@@ -318,13 +335,14 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 var gsubPtn = regexp.MustCompile("%.")
 
-func subToString(key string, val rt.Value) (string, *rt.Error) {
+func subToString(r *rt.Runtime, key string, val rt.Value) (string, *rt.Error) {
 	if !rt.Truth(val) {
 		return key, nil
 	}
 	res, ok := rt.ToString(val)
 	if ok {
-		return string(res), nil
+		r.RequireBytes(len(res))
+		return res, nil
 	}
 	return "", rt.NewErrorF("invalid replacement value (a %s)", rt.Type(val))
 }
