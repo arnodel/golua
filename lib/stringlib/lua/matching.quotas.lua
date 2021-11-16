@@ -41,3 +41,37 @@ do
     print(quota.rcall(0, 3000, string.match, "a"..("b"):rep(1000).."c", "(((b+)))"))
     --> =false
 end
+
+-- Tests for string.gmatch
+do
+    local wc
+    local function countwords(s)
+        wc = 0
+        for w in string.gmatch(s, "%w+") do
+            wc = wc + 1
+        end
+    end
+
+    -- every match returned consumes cpu
+    print(quota.rcall(1000, 0, countwords, ("hello"):rep(10, " ")))
+    --> =true
+    print(wc)
+    --> =10
+
+    print(quota.rcall(1000, 0, countwords, ("hello"):rep(1000, " ")))
+    --> =false
+    print(wc > 10 and wc < 200)
+    --> =true
+
+    -- every match returned consumes memory
+    print(quota.rcall(0, 1000, countwords, ("hello"):rep(10, " ")))
+    --> =true
+    print(wc)
+    --> =10
+
+    print(quota.rcall(0, 1000, countwords, ("hello"):rep(1000, " ")))
+    --> =false
+    print(wc > 10 and wc < 200)
+    --> =true
+end
+
