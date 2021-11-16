@@ -39,7 +39,7 @@ func (c *Termination) Push(r *Runtime, v Value) {
 		c.args[c.pushIndex] = v
 		c.pushIndex++
 	} else if c.etc != nil {
-		r.RequireMem(uint64(unsafe.Sizeof(Value{})))
+		r.RequireSize(unsafe.Sizeof(Value{}))
 		*c.etc = append(*c.etc, v)
 	}
 }
@@ -61,7 +61,7 @@ FillEtc:
 	if c.etc == nil {
 		return
 	}
-	r.RequireMem(uint64(len(etc)) * uint64(unsafe.Sizeof(Value{})))
+	r.RequireArrSize(unsafe.Sizeof(Value{}), len(etc))
 	*c.etc = append(*c.etc, etc...)
 }
 

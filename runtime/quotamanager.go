@@ -55,6 +55,18 @@ func (m *quotaManager) RequireMem(memAmount uint64) {
 	}
 }
 
+func (m *quotaManager) RequireSize(sz uintptr) {
+	m.RequireMem(uint64(sz))
+}
+
+func (m *quotaManager) RequireArrSize(sz uintptr, n int) {
+	m.RequireMem(uint64(sz) * uint64(n))
+}
+
+func (m *quotaManager) RequireBytes(n int) {
+	m.RequireMem(uint64(n))
+}
+
 func (m *quotaManager) releaseMem(memAmount uint64) {
 	if m.memQuota > 0 {
 		if memAmount <= m.memUsed {
