@@ -102,3 +102,22 @@ do
     print(quota.rcall(1000, 0, string.dump, mk(500)))
     --> =false
 end
+
+-- string.format consumes memory and cpu
+do
+    -- a long format needs to be scanned and uses cpu
+    print(quota.rcall(1000, 0, string.format, ("a"):rep(50)))
+    --> =true	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+    print(quota.rcall(1000, 0, string.format, ("a"):rep(1000)))
+    --> =false
+
+    -- format requires memory to build the formatted string
+    local s = "aa"
+    print(quota.rcall(0, 1000, string.format, "%s %s %s %s %s", s, s, s, s, s))
+    --> =true	aa aa aa aa aa
+
+    s = ("a"):rep(1000)
+    print(quota.rcall(0, 5000, string.format, "%s %s %s %s %s", s, s, s, s, s))
+    --> =false
+end
