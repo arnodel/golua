@@ -43,6 +43,15 @@ func (m *quotaManager) RequireBytes(n int) {
 func (m *quotaManager) ReleaseMem(memAmount uint64) {
 }
 
+func (m *quotaManager) ReleaseSize(sz uintptr) {
+}
+
+func (m *quotaManager) ReleaseArrSize(sz uintptr, n int) {
+}
+
+func (m *quotaManager) ReleaseBytes(n int) {
+}
+
 func (m *quotaManager) UpdateMemQuota(newQuota uint64) {
 }
 

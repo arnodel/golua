@@ -77,6 +77,18 @@ func (m *quotaManager) ReleaseMem(memAmount uint64) {
 	}
 }
 
+func (m *quotaManager) ReleaseSize(sz uintptr) {
+	m.ReleaseMem(uint64(sz))
+}
+
+func (m *quotaManager) ReleaseArrSize(sz uintptr, n int) {
+	m.ReleaseMem(uint64(sz) * uint64(n))
+}
+
+func (m *quotaManager) ReleaseBytes(n int) {
+	m.RequireMem(uint64(n))
+}
+
 func (m *quotaManager) UpdateMemQuota(newQuota uint64) {
 	m.memQuota = newQuota
 }

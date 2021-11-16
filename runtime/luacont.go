@@ -54,13 +54,13 @@ func NewLuaCont(r *Runtime, clos *Closure, next Cont) *LuaCont {
 
 func (c *LuaCont) release(r *Runtime) {
 	r.regPool.release(c.registers)
-	r.releaseMem(uint64(c.RegCount) * uint64(unsafe.Sizeof(Value{})))
+	r.ReleaseArrSize(unsafe.Sizeof(Value{}), int(c.RegCount))
 	if !c.borrowedCells {
-		r.releaseMem(uint64(c.CellCount) * uint64(unsafe.Sizeof(Cell{})))
+		r.ReleaseArrSize(unsafe.Sizeof(Cell{}), int(c.CellCount))
 		r.cellPool.release(c.cells)
 	}
 	r.luaContPool.release(c)
-	r.releaseMem(uint64(unsafe.Sizeof(LuaCont{})))
+	r.ReleaseSize(unsafe.Sizeof(LuaCont{}))
 }
 
 // Push implements Cont.Push.
