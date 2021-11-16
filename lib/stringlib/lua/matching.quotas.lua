@@ -1,5 +1,6 @@
 local quota = require 'quota'
 
+-- Tests for string.find
 do
     -- string.find in plain mode consumes cpu proportional to search string
     print(quota.rcall(1000, 0, string.find, ("straw"):rep(20).."needle", "needle", 1, true))
@@ -21,5 +22,22 @@ do
     --> =true	2	11	bbbbbbbbbb
 
     print(quota.rcall(0, 3000, string.find, "a"..("b"):rep(1000).."c", "(((b+)))"))
+    --> =false
+end
+
+-- Tests for string.match
+do
+    -- string.match consumes cpu proportional to the amount of searching
+    print(quota.rcall(10000, 0, string.match, ("a"):rep(50), ".-b"))
+    --> =true	nil
+
+    print(quota.rcall(10000, 0, string.match, ("a"):rep(500), ".-b"))
+    --> =false
+
+    -- captures consumes memory
+    print(quota.rcall(0, 1000, string.match, "abbbbbbbbbbc", "(b+)"))
+    --> =true	bbbbbbbbbb
+
+    print(quota.rcall(0, 3000, string.match, "a"..("b"):rep(1000).."c", "(((b+)))"))
     --> =false
 end
