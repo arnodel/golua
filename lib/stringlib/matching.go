@@ -96,12 +96,14 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func pushCaptures(r *rt.Runtime, captures []pattern.Capture, s string, next rt.Cont) {
-	if len(captures) == 0 {
+	switch len(captures) {
+	case 0:
 		r.Push1(next, rt.NilValue)
-	} else if len(captures) == 1 {
+	case 1:
 		c := captures[0]
+		r.RequireBytes(c.End() - c.Start())
 		r.Push1(next, rt.StringValue(s[c.Start():c.End()]))
-	} else {
+	default:
 		pushExtraCaptures(r, captures, s, next)
 	}
 }
