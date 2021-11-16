@@ -37,7 +37,9 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case si < 0 || si > len(s):
 		t.Push1(next, rt.NilValue)
 	case plain || len(ptn) == 0:
-		i := strings.Index(string(s)[si:], string(ptn))
+		// strings.Index is linear
+		t.RequireCPU(uint64(len(s) - si))
+		i := strings.Index(s[si:], ptn)
 		if i == -1 {
 			t.Push1(next, rt.NilValue)
 		} else {
@@ -109,14 +111,15 @@ func pushExtraCaptures(r *rt.Runtime, captures []pattern.Capture, s string, next
 		return
 	}
 	for _, c := range captures[1:] {
-		r.Push1(next, captureValue(c, s))
+		r.Push1(next, captureValue(r, c, s))
 	}
 }
 
-func captureValue(c pattern.Capture, s string) rt.Value {
+func captureValue(r *rt.Runtime, c pattern.Capture, s string) rt.Value {
 	if c.IsEmpty() {
 		return rt.IntValue(int64(c.Start() + 1))
 	}
+	r.RequireBytes(c.End() - c.Start())
 	return rt.StringValue(s[c.Start():c.End()])
 }
 
@@ -201,7 +204,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			cStrings := [10]string{}
 			maxIndex := len(captures) - 1
 			for i, c := range captures {
-				v := captureValue(c, s)
+				v := captureValue(t.Runtime, c, s)
 				switch v.Type() {
 				case rt.StringType:
 					cStrings[i] = v.AsString()
@@ -243,7 +246,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				i = 1
 			}
 			c := captures[i]
-			val, err := rt.Index(t, rt.TableValue(replTable), captureValue(c, s))
+			val, err := rt.Index(t, rt.TableValue(replTable), captureValue(t.Runtime, c, s))
 			if err != nil {
 				return "", err
 			}
@@ -259,7 +262,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				i = 1
 			}
 			for _, c := range captures[i:] {
-				t.Push1(cont, captureValue(c, s))
+				t.Push1(cont, captureValue(t.Runtime, c, s))
 			}
 			err := t.RunContinuation(cont)
 			if err != nil {
