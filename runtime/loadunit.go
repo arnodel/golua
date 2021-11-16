@@ -23,7 +23,7 @@ type Code struct {
 // means that the consts are slimmed down to only contains the constants
 // required for the function.
 func (r *Runtime) RefactorCodeConsts(c *Code) *Code {
-	r.RequireMem(uint64(len(c.code)) * uint64(unsafe.Sizeof(code.Opcode(0))))
+	r.RequireArrSize(unsafe.Sizeof(code.Opcode(0)), len(c.code))
 	opcodes := make([]code.Opcode, len(c.code))
 	var consts []Value
 	constMap := map[code.KIndex]code.KIndex{}
@@ -43,7 +43,7 @@ func (r *Runtime) RefactorCodeConsts(c *Code) *Code {
 						// It's a closure so we need to refactor its consts
 						newConst = CodeValue(r.RefactorCodeConsts(newConst.AsCode()))
 					}
-					r.RequireMem(uint64(unsafe.Sizeof(Value{})))
+					r.RequireSize(unsafe.Sizeof(Value{}))
 					consts = append(consts, newConst)
 				}
 				op = op.SetKIndex(m)
@@ -59,8 +59,8 @@ func (r *Runtime) RefactorCodeConsts(c *Code) *Code {
 
 // LoadLuaUnit turns a code unit into a closure given an environment env.
 func (r *Runtime) LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
-	r.RequireMem(uint64(unsafe.Sizeof(Value{})) * uint64(len(unit.Constants)))
-	r.RequireMem(uint64(len(unit.Code)) * uint64(unsafe.Sizeof(code.Opcode(0))))
+	r.RequireArrSize(unsafe.Sizeof(Value{}), len(unit.Constants))
+	r.RequireArrSize(unsafe.Sizeof(code.Opcode(0)), len(unit.Code))
 	constants := make([]Value, len(unit.Constants))
 	for i, ck := range unit.Constants {
 		switch k := ck.(type) {
@@ -69,14 +69,14 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 		case code.Float:
 			constants[i] = FloatValue(float64(k))
 		case code.String:
-			r.RequireMem(uint64(len(k)))
+			r.RequireBytes(len(k))
 			constants[i] = StringValue(string(k))
 		case code.Bool:
 			constants[i] = BoolValue(bool(k))
 		case code.NilType:
 			// Do nothing as constants[i] == nil
 		case code.Code:
-			r.RequireMem(uint64(unsafe.Sizeof(Code{})))
+			r.RequireSize(unsafe.Sizeof(Code{}))
 			constants[i] = CodeValue(&Code{
 				source:       unit.Source,
 				name:         k.Name,

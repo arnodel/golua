@@ -19,13 +19,13 @@ func NewGoCont(r *Runtime, f *GoFunction, next Cont) *GoCont {
 	var args []Value
 	var etc *[]Value
 	if f.nArgs > 0 {
-		r.RequireMem(uint64(f.nArgs) * uint64(unsafe.Sizeof(Value{})))
+		r.RequireArrSize(unsafe.Sizeof(Value{}), f.nArgs)
 		args = r.argsPool.get(f.nArgs)
 	}
 	if f.hasEtc {
 		etc = new([]Value)
 	}
-	r.RequireMem(uint64(unsafe.Sizeof(GoCont{})))
+	r.RequireSize(unsafe.Sizeof(GoCont{}))
 	cont := r.goContPool.get()
 	*cont = GoCont{
 		f:    f.f,
@@ -43,8 +43,7 @@ func (c *GoCont) Push(r *Runtime, v Value) {
 		c.args[c.nArgs] = v
 		c.nArgs++
 	} else if c.etc != nil {
-		// TODO: require mem for this
-		r.RequireMem(uint64(unsafe.Sizeof(Value{})))
+		r.RequireSize(unsafe.Sizeof(Value{}))
 		*c.etc = append(*c.etc, v)
 	}
 }
@@ -83,7 +82,7 @@ FillEtc:
 	if c.etc == nil {
 		return
 	}
-	r.RequireMem(uint64(len(etc)) * uint64(unsafe.Sizeof(Value{})))
+	r.RequireArrSize(unsafe.Sizeof(Value{}), len(etc))
 	*c.etc = append(*c.etc, etc...)
 }
 

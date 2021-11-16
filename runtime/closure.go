@@ -13,7 +13,7 @@ type Closure struct {
 // NewClosure returns a pointer to a new Closure instance for the given code.
 func NewClosure(r *Runtime, c *Code) *Closure {
 	if c.UpvalueCount > 0 {
-		r.RequireMem(uint64(c.UpvalueCount) * uint64(unsafe.Sizeof(Cell{})))
+		r.RequireArrSize(unsafe.Sizeof(Cell{}), int(c.UpvalueCount))
 	}
 	return &Closure{
 		Code:     c,

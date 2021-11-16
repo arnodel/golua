@@ -102,7 +102,7 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		buf[i] = byte(x)
 	}
-	t.RequireMem(uint64(len(buf)))
+	t.RequireBytes(len(buf))
 	return c.PushingNext1(t.Runtime, rt.StringValue(string(buf))), nil
 }
 
@@ -125,7 +125,7 @@ func lower(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	t.RequireMem(uint64(len(s)))
+	t.RequireBytes(len(s))
 	s = strings.ToLower(string(s))
 	return c.PushingNext1(t.Runtime, rt.StringValue(s)), nil
 }
@@ -138,7 +138,7 @@ func upper(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	t.RequireMem(uint64(len(s)))
+	t.RequireBytes(len(s))
 	s = strings.ToUpper(string(s))
 	return c.PushingNext1(t.Runtime, rt.StringValue(s)), nil
 }
@@ -178,7 +178,7 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			// Overflow
 			return nil, rt.NewErrorS("rep causes overflow").AddContext(c)
 		}
-		t.RequireMem(uint64(n * len(ls)))
+		t.RequireBytes(n * len(ls))
 		return c.PushingNext1(t.Runtime, rt.StringValue(strings.Repeat(string(ls), n))), nil
 	}
 	s := []byte(ls)
@@ -189,7 +189,7 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if sz1/n != len(s) || sz2/(n-1) != len(sep) || sz < 0 {
 		return nil, rt.NewErrorS("rep causes overflow").AddContext(c)
 	}
-	t.RequireMem(uint64(n*len(s) + (n-1)*len(sep)))
+	t.RequireBytes(n*len(s) + (n-1)*len(sep))
 	builder.Grow(sz)
 	builder.Write(s)
 	for {
@@ -211,7 +211,7 @@ func reverse(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	t.RequireMem(uint64(len(s)))
+	t.RequireBytes(len(s))
 	sb := []byte(s)
 	l := len(s) - 1
 	for i := 0; 2*i <= l; i++ {
@@ -245,7 +245,7 @@ func sub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	i = maxpos(1, i)
 	j = minpos(len(s), j)
 	if i <= len(s) && i <= j {
-		t.RequireMem(uint64(j - i + 1))
+		t.RequireBytes(j - i + 1)
 		slice = s[i-1 : j]
 	}
 	return c.PushingNext1(t.Runtime, rt.StringValue(slice)), nil
