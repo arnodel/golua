@@ -55,19 +55,27 @@ func (m *quotaManager) RequireMem(memAmount uint64) {
 	}
 }
 
-func (m *quotaManager) RequireSize(sz uintptr) {
-	m.RequireMem(uint64(sz))
+func (m *quotaManager) RequireSize(sz uintptr) (mem uint64) {
+	mem = uint64(sz)
+	m.RequireMem(mem)
+	return
 }
 
-func (m *quotaManager) RequireArrSize(sz uintptr, n int) {
-	m.RequireMem(uint64(sz) * uint64(n))
+func (m *quotaManager) RequireArrSize(sz uintptr, n int) (mem uint64) {
+	mem = uint64(sz) * uint64(n)
+	m.RequireMem(mem)
+	return
 }
 
-func (m *quotaManager) RequireBytes(n int) {
-	m.RequireMem(uint64(n))
+func (m *quotaManager) RequireBytes(n int) (mem uint64) {
+	mem = uint64(n)
+	m.RequireMem(mem)
+	return
 }
 
 func (m *quotaManager) ReleaseMem(memAmount uint64) {
+	// TODO: think about what to do when memory is released when unwinding from
+	// a quota exceeded error
 	if m.memQuota > 0 {
 		if memAmount <= m.memUsed {
 			m.memUsed -= memAmount
@@ -86,7 +94,7 @@ func (m *quotaManager) ReleaseArrSize(sz uintptr, n int) {
 }
 
 func (m *quotaManager) ReleaseBytes(n int) {
-	m.RequireMem(uint64(n))
+	m.ReleaseMem(uint64(n))
 }
 
 func (m *quotaManager) UpdateMemQuota(newQuota uint64) {
