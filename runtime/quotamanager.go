@@ -67,7 +67,7 @@ func (m *quotaManager) RequireBytes(n int) {
 	m.RequireMem(uint64(n))
 }
 
-func (m *quotaManager) releaseMem(memAmount uint64) {
+func (m *quotaManager) ReleaseMem(memAmount uint64) {
 	if m.memQuota > 0 {
 		if memAmount <= m.memUsed {
 			m.memUsed -= memAmount
