@@ -17,9 +17,12 @@ type unpacker struct {
 	values []rt.Value // Values unpacked so far
 	intVal int64      // Last unpacked integral value (for options 'i' and 'I')
 	strVal string     // Last unpacked string value
+
+	budget uint64 // Number of bytes we are allowed to write before stopping (0 means unbounded)
+	used   uint64 // Number of bytes written so far
 }
 
-func UnpackString(format, pack string, j int) ([]rt.Value, int, error) {
+func UnpackString(format, pack string, j int, budget uint64) (vals []rt.Value, nextPos int, used uint64, err error) {
 	u := &unpacker{
 		packFormatReader: packFormatReader{
 			format:       format,
@@ -28,6 +31,8 @@ func UnpackString(format, pack string, j int) ([]rt.Value, int, error) {
 		},
 		pack: []byte(pack),
 		j:    j,
+
+		budget: budget,
 	}
 	for u.hasNext() {
 		switch c := u.nextOption(); c {
@@ -44,32 +49,32 @@ func UnpackString(format, pack string, j int) ([]rt.Value, int, error) {
 		case 'b':
 			var x int8
 			_ = u.align(0) &&
-				u.read(&x) &&
+				u.read(1, &x) &&
 				u.add(rt.IntValue(int64(x)))
 		case 'B':
 			var x uint8
 			_ = u.align(0) &&
-				u.read(&x) &&
+				u.read(1, &x) &&
 				u.add(rt.IntValue(int64(x)))
 		case 'h':
 			var x int16
 			_ = u.align(2) &&
-				u.read(&x) &&
+				u.read(2, &x) &&
 				u.add(rt.IntValue(int64(x)))
 		case 'H':
 			var x uint16
 			_ = u.align(2) &&
-				u.read(&x) &&
+				u.read(2, &x) &&
 				u.add(rt.IntValue(int64(x)))
 		case 'l', 'j':
 			var x int64
 			_ = u.align(8) &&
-				u.read(&x) &&
+				u.read(8, &x) &&
 				u.add(rt.IntValue(x))
 		case 'L', 'J', 'T':
 			var x uint64
 			_ = u.align(8) &&
-				u.read(&x) &&
+				u.read(8, &x) &&
 				u.add(rt.IntValue(int64(x)))
 		case 'i':
 			_ = u.smallOptSize(4) &&
@@ -84,12 +89,12 @@ func UnpackString(format, pack string, j int) ([]rt.Value, int, error) {
 		case 'f':
 			var x float32
 			_ = u.align(4) &&
-				u.read(&x) &&
+				u.read(4, &x) &&
 				u.add(rt.FloatValue(float64(x)))
 		case 'd', 'n':
 			var x float64
 			_ = u.align(8) &&
-				u.read(&x) &&
+				u.read(8, &x) &&
 				u.add(rt.FloatValue(x))
 		case 'c':
 			_ = u.align(0) &&
@@ -104,15 +109,18 @@ func UnpackString(format, pack string, j int) ([]rt.Value, int, error) {
 			var zi = u.j
 			for {
 				if zi >= len(u.pack) {
-					return nil, 0, errUnexpectedPackEnd
+					return nil, 0, u.used, errUnexpectedPackEnd
 				}
 				if u.pack[zi] == 0 {
 					break
 				}
 				zi++
+				if !u.consumeBudget(1) {
+					return nil, 0, u.used, u.err
+				}
 			}
 			b := make([]byte, zi-u.j)
-			_ = u.read(b) &&
+			_ = u.read(0, b) &&
 				u.add(rt.StringValue(string(b))) &&
 				u.skip(1)
 		case 's':
@@ -137,13 +145,13 @@ func UnpackString(format, pack string, j int) ([]rt.Value, int, error) {
 			u.err = errBadFormatString(c)
 		}
 		if u.err != nil {
-			return nil, 0, u.err
+			return nil, 0, u.used, u.err
 		}
 	}
 	if u.alignOnly {
-		return nil, 0, errExpectedOption
+		return nil, 0, u.used, errExpectedOption
 	}
-	return u.values, u.j, nil
+	return u.values, u.j, u.used, nil
 }
 
 // Read implements io.Read
@@ -174,7 +182,10 @@ func (u *unpacker) align(n uint) bool {
 	return true
 }
 
-func (u *unpacker) read(x interface{}) bool {
+func (u *unpacker) read(sz uint64, x interface{}) bool {
+	if sz > 0 && !u.consumeBudget(sz) {
+		return false
+	}
 	if err := binary.Read(u, u.byteOrder, x); err != nil {
 		if err == io.ErrUnexpectedEOF {
 			err = errUnexpectedPackEnd
@@ -186,8 +197,11 @@ func (u *unpacker) read(x interface{}) bool {
 }
 
 func (u *unpacker) readStr(n int) (ok bool) {
+	if !u.consumeBudget(uint64(n)) {
+		return false
+	}
 	b := make([]byte, n)
-	ok = u.read(b)
+	ok = u.read(0, b)
 	if ok {
 		u.strVal = string(b)
 	}
@@ -195,19 +209,22 @@ func (u *unpacker) readStr(n int) (ok bool) {
 }
 
 func (u *unpacker) readVarUint() (ok bool) {
+	if !u.consumeBudget(8) {
+		return false
+	}
 	switch n := u.optSize; {
 	case n == 4:
 		var x uint32
-		ok = u.read(&x) &&
+		ok = u.read(0, &x) &&
 			u.setIntVal(int64(x))
 	case n == 8:
 		var x uint64
-		ok = u.read(&x) &&
+		ok = u.read(0, &x) &&
 			u.setIntVal(int64(x))
 	case n > 8:
 		var x uint64
 		ok = (u.byteOrder == binary.LittleEndian || u.skip0(n-8)) &&
-			u.read(&x) &&
+			u.read(0, &x) &&
 			u.setIntVal(int64(x)) &&
 			(u.byteOrder == binary.BigEndian || u.skip0(n-8))
 	default:
@@ -236,22 +253,25 @@ func (u *unpacker) readVarUint() (ok bool) {
 }
 
 func (u *unpacker) readVarInt() (ok bool) {
+	if !u.consumeBudget(8) {
+		return false
+	}
 	switch n := u.optSize; {
 	case n == 4:
 		var x int32
-		ok = u.read(&x) &&
+		ok = u.read(0, &x) &&
 			u.setIntVal(int64(x))
 	case n == 8:
 		var x int64
-		ok = u.read(&x) &&
+		ok = u.read(0, &x) &&
 			u.setIntVal(x)
 	case n > 8:
 		var x uint64
 		var signExt uint8
 		if u.byteOrder == binary.BigEndian {
-			ok = u.readSignExt(n-8, &signExt) && u.read(&x)
+			ok = u.readSignExt(n-8, &signExt) && u.read(0, &x)
 		} else {
-			ok = u.read(&x) && u.readSignExt(n-8, &signExt)
+			ok = u.read(0, &x) && u.readSignExt(n-8, &signExt)
 		}
 		if !ok {
 			return
@@ -345,6 +365,8 @@ func (u *unpacker) skip0(n uint) (ok bool) {
 }
 
 func (u *unpacker) readSignExt(n uint, sign *uint8) (ok bool) {
+	// No need to consume budget, that's alrady been done in the calling
+	// function.
 	j := u.j
 	u.j += int(n)
 	ok = n > 0 && u.j <= len(u.pack)
@@ -365,5 +387,18 @@ func (u *unpacker) readSignExt(n uint, sign *uint8) (ok bool) {
 
 func (u *unpacker) setIntVal(v int64) bool {
 	u.intVal = v
+	return true
+}
+
+func (u *unpacker) consumeBudget(amount uint64) bool {
+	if u.budget == 0 {
+		return true
+	}
+	u.used += amount
+	if u.used > u.budget {
+		u.err = errBudgetConsumed
+		u.used = u.budget
+		return false
+	}
 	return true
 }
