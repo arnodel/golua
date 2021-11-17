@@ -14,21 +14,36 @@ type quotaManager struct {
 	memQuota uint64
 	memUsed  uint64
 
-	quotaModificationsInLuaAllowed bool
+	parent *quotaManager
 }
 
-func (m *quotaManager) AllowQuotaModificationsInLua() {
-	m.quotaModificationsInLuaAllowed = true
+func (m *quotaManager) PushQuota(cpuQuota, memQuota uint64) {
+	parent := *m
+	m.cpuQuota, m.cpuUsed = m.UnusedCPU(), 0
+	m.memQuota, m.memUsed = m.UnusedMem(), 0
+	if cpuQuota > 0 && (m.cpuQuota == 0 || m.cpuQuota > cpuQuota) {
+		m.cpuQuota = cpuQuota
+	}
+	if memQuota > 0 && (m.memQuota == 0 || m.memQuota > memQuota) {
+		m.memQuota = memQuota
+	}
+	m.parent = &parent
 }
 
-func (m *quotaManager) QuotaModificationsInLuaAllowed() bool {
-	return m.quotaModificationsInLuaAllowed
+func (m *quotaManager) PopQuota() {
+	if m.parent == nil {
+		return
+	}
+	m.parent.RequireCPU(m.cpuUsed)
+	m.parent.RequireMem(m.memUsed)
+	*m = *m.parent
 }
 
 func (m *quotaManager) RequireCPU(cpuAmount uint64) {
 	if m.cpuQuota > 0 {
 		m.cpuUsed += cpuAmount
 		if m.cpuUsed >= m.cpuQuota {
+			m.cpuUsed = m.cpuQuota
 			panicWithQuotaExceded("CPU quota of %d exceeded", m.cpuQuota)
 		}
 	}
@@ -50,6 +65,7 @@ func (m *quotaManager) RequireMem(memAmount uint64) {
 	if m.memQuota > 0 {
 		m.memUsed += memAmount
 		if m.memUsed >= m.memQuota {
+			m.memUsed = m.memQuota
 			panicWithQuotaExceded("mem quota of %d exceeded", m.memQuota)
 		}
 	}
