@@ -115,8 +115,6 @@ print(quota.rcall(0, 50000, strexp, "hi", 16))
 -- Check that it costs memory to pass many arguments to a function
 --
 
-table = require'table'
-
 function len(...)
     return select('#', ...)
 end
