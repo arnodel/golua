@@ -42,30 +42,37 @@ func RunLuaTest(source []byte, setup func(*runtime.Runtime) func()) error {
 	return CheckLines(outputBuf.Bytes(), checkers)
 }
 
+func RunLuaTestFile(t *testing.T, path string, setup func(*runtime.Runtime) func()) {
+	if filepath.Ext(path) != ".lua" {
+		return
+	}
+	isQuotasTest := strings.HasSuffix(path, ".quotas.lua")
+	if isQuotasTest {
+		if !runtime.QuotasAvailable {
+			t.Skip("Skipping quotas test as build does not enforce quotas")
+			return
+		}
+	}
+	t.Run(path, func(t *testing.T) {
+		src, err := ioutil.ReadFile(path)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		err = RunLuaTest(src, setup)
+		if err != nil {
+			t.Error(err)
+		}
+	})
+}
+
 // RunLuaTestsInDir runs a test for each .lua file in the directory provided.
 func RunLuaTestsInDir(t *testing.T, dirpath string, setup func(*runtime.Runtime) func()) {
 	runTest := func(path string, info os.FileInfo, err error) error {
-		if filepath.Ext(path) != ".lua" {
-			return nil
-		}
-		isQuotasTest := strings.HasSuffix(path, ".quotas.lua")
-		if isQuotasTest {
-			if !runtime.QuotasAvailable {
-				t.Skip("Skipping quotas test as build does not enforce quotas")
-				return nil
-			}
-		}
-		t.Run(path, func(t *testing.T) {
-			src, err := ioutil.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			err = RunLuaTest(src, setup)
-			if err != nil {
-				t.Error(err)
-			}
-		})
+		RunLuaTestFile(t, path, setup)
 		return nil
 	}
-	filepath.Walk(dirpath, runTest)
+	if err := filepath.Walk(dirpath, runTest); err != nil {
+		t.Error(err)
+	}
 }
