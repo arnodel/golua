@@ -18,9 +18,12 @@ type packer struct {
 	floatVal float64      // Current floating point value (if applicable)
 	strVal   string       // Current string value (if applicable)
 	w        bytes.Buffer // Where the output is written
+
+	budget uint64 // Number of bytes we are allowed to write before stopping (0 means unbounded)
+	used   uint64 // Number of bytes written so far
 }
 
-func PackValues(format string, values []rt.Value) (string, error) {
+func PackValues(format string, values []rt.Value, budget uint64) (string, uint64, error) {
 	p := &packer{
 		packFormatReader: packFormatReader{
 			format:       format,
@@ -28,6 +31,7 @@ func PackValues(format string, values []rt.Value) (string, error) {
 			maxAlignment: defaultMaxAlignement,
 		},
 		values: values,
+		budget: budget,
 	}
 	for p.hasNext() {
 		switch c := p.nextOption(); c {
@@ -45,31 +49,31 @@ func PackValues(format string, values []rt.Value) (string, error) {
 			_ = p.align(0) &&
 				p.nextIntValue() &&
 				p.checkBounds(math.MinInt8, math.MaxInt8) &&
-				p.write(int8(p.intVal))
+				p.write(1, int8(p.intVal))
 		case 'B':
 			_ = p.align(0) &&
 				p.nextIntValue() &&
 				p.checkBounds(0, math.MaxUint8) &&
-				p.write(uint8(p.intVal))
+				p.write(1, uint8(p.intVal))
 		case 'h':
 			_ = p.align(2) &&
 				p.nextIntValue() &&
 				p.checkBounds(math.MinInt16, math.MaxInt16) &&
-				p.write(int16(p.intVal))
+				p.write(2, int16(p.intVal))
 		case 'H':
 			_ = p.align(2) &&
 				p.nextIntValue() &&
 				p.checkBounds(0, math.MaxUint16) &&
-				p.write(uint16(p.intVal))
+				p.write(2, uint16(p.intVal))
 		case 'l', 'j':
 			_ = p.align(8) &&
 				p.nextIntValue() &&
-				p.write(p.intVal)
+				p.write(8, p.intVal)
 		case 'L', 'J', 'T':
 			_ = p.align(8) &&
 				p.nextIntValue() &&
 				p.checkBounds(0, math.MaxInt64) &&
-				p.write(uint64(p.intVal))
+				p.write(8, uint64(p.intVal))
 		case 'i':
 			_ = p.smallOptSize(4) &&
 				p.align(p.optSize) &&
@@ -84,11 +88,11 @@ func PackValues(format string, values []rt.Value) (string, error) {
 			_ = p.align(4) &&
 				p.nextFloatValue() &&
 				p.checkFloatSize(math.MaxFloat32) &&
-				p.write(float32(p.floatVal))
+				p.write(4, float32(p.floatVal))
 		case 'd', 'n':
 			_ = p.align(8) &&
 				p.nextFloatValue() &&
-				p.write(p.floatVal)
+				p.write(8, p.floatVal)
 		case 'c':
 			_ = p.align(0) &&
 				p.mustGetOptSize() &&
@@ -124,13 +128,13 @@ func PackValues(format string, values []rt.Value) (string, error) {
 			p.err = errBadFormatString(c)
 		}
 		if p.err != nil {
-			return "", p.err
+			return "", p.used, p.err
 		}
 	}
 	if p.alignOnly {
-		return "", errExpectedOption
+		return "", p.used, errExpectedOption
 	}
-	return p.w.String(), nil
+	return p.w.String(), p.used, nil
 }
 
 func (p *packer) nextValue() bool {
@@ -204,9 +208,25 @@ func (p *packer) writeByte(b byte) bool {
 	return true
 }
 
-func (p *packer) write(x interface{}) bool {
+func (p *packer) write(amount uint64, x interface{}) bool {
+	if !p.consumeBudget(amount) {
+		return false
+	}
 	p.err = binary.Write(&p.w, p.byteOrder, x)
 	return p.err == nil
+}
+
+func (p *packer) consumeBudget(amount uint64) bool {
+	if p.budget == 0 {
+		return true
+	}
+	p.used += amount
+	if p.used > p.budget {
+		p.err = errBudgetConsumed
+		p.used = p.budget
+		return false
+	}
+	return true
 }
 
 func (p *packer) writeStr(maxLen uint) bool {
@@ -218,9 +238,12 @@ func (p *packer) writeStr(maxLen uint) bool {
 		p.err = errStringLongerThanFormat
 		return false
 	}
+	if !p.consumeBudget(uint64(len(p.strVal))) {
+		return false
+	}
 	p.w.Write([]byte(p.strVal))
 	if diff > 0 {
-		p.fill(uint(diff), 0)
+		return p.fill(uint(diff), 0)
 	}
 	return true
 }
@@ -235,7 +258,9 @@ func (p *packer) align(n uint) bool {
 			return false
 		}
 		if r := uint(p.w.Len()) % n; r != 0 {
-			p.fill(n-r, 0)
+			if !p.fill(n-r, 0) {
+				return false
+			}
 		}
 	}
 	if p.alignOnly {
@@ -245,20 +270,24 @@ func (p *packer) align(n uint) bool {
 	return true
 }
 
-func (p *packer) fill(n uint, c byte) {
+func (p *packer) fill(n uint, c byte) bool {
+	if !p.consumeBudget(uint64(n)) {
+		return false
+	}
 	for ; n > 0; n-- {
 		p.w.WriteByte(c)
 	}
+	return true
 }
 
 func (p *packer) packInt() bool {
 	switch n := p.optSize; {
 	case n == 4:
 		// It's an int32
-		return p.checkBounds(math.MinInt32, math.MaxInt32) && p.write(int32(p.intVal))
+		return p.checkBounds(math.MinInt32, math.MaxInt32) && p.write(4, int32(p.intVal))
 	case n == 8:
 		// It's an int64
-		return p.write(p.intVal)
+		return p.write(8, p.intVal)
 	case n >= 8:
 		// Pad to make up the length
 		var fill byte
@@ -266,13 +295,17 @@ func (p *packer) packInt() bool {
 			fill = 255
 		}
 		if p.byteOrder == binary.BigEndian {
-			p.fill(n-8, fill)
+			if !p.fill(n-8, fill) {
+				return false
+			}
 		}
-		if !p.write(p.intVal) {
+		if !p.write(8, p.intVal) {
 			return false
 		}
 		if p.byteOrder == binary.LittleEndian {
-			p.fill(n-8, fill)
+			if !p.fill(n-8, fill) {
+				return false
+			}
 		}
 	default:
 		// n < 8 so truncate
@@ -299,20 +332,24 @@ func (p *packer) packUint() bool {
 	switch n := p.optSize; {
 	case n == 4:
 		// It's an uint32
-		return p.checkBounds(0, math.MaxUint32) && p.write(uint32(p.intVal))
+		return p.checkBounds(0, math.MaxUint32) && p.write(4, uint32(p.intVal))
 	case n == 8:
 		// It's an uint64
-		return p.checkBounds(0, math.MaxInt64) && p.write(uint64(p.intVal))
+		return p.checkBounds(0, math.MaxInt64) && p.write(8, uint64(p.intVal))
 	case n > 8:
 		// Pad to make up the length
 		if p.byteOrder == binary.BigEndian {
-			p.fill(n-8, 0)
+			if !p.fill(n-8, 0) {
+				return false
+			}
 		}
-		if !p.write(uint64(p.intVal)) {
+		if !p.write(8, uint64(p.intVal)) {
 			return false
 		}
 		if p.byteOrder == binary.LittleEndian {
-			p.fill(n-8, 0)
+			if !p.fill(n-8, 0) {
+				return false
+			}
 		}
 	default:
 		// n < 8 so truncate

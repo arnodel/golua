@@ -89,7 +89,8 @@ func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	res, perr := PackValues(string(format), c.Etc())
+	res, used, perr := PackValues(string(format), c.Etc(), t.LinearUnused(10))
+	t.LinearRequire(10, used)
 	if perr != nil {
 		return nil, rt.NewErrorE(perr).AddContext(c)
 	}
@@ -178,6 +179,8 @@ var (
 	errVariableLength         = errors.New("variable-length format") // For packsize only
 	errOverflow               = errors.New("invalid format: option size overflow")
 	errStringContainsZeros    = errors.New("string contains zeros")
+
+	errBudgetConsumed = errors.New("Packing memory budget consumed")
 )
 
 func errBadFormatString(c byte) error {
