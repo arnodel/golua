@@ -114,6 +114,32 @@ func (m *quotaManager) ResetQuota() {
 	m.cpuUsed = 0
 }
 
+// LinearUnused returns an amount of resource combining memory and cpu.  It is
+// useful when calling functions whose time complexity is a linear function of
+// the size of their output.  As cpu ticks are "smaller" than memory ticks, the
+// cpuFactor arguments allows specifying an increased "weight" for cpu ticks.
+func (m *quotaManager) LinearUnused(cpuFactor uint64) uint64 {
+	mem := m.UnusedMem()
+	cpu := m.UnusedCPU() * cpuFactor
+	switch {
+	case cpu == 0:
+		return mem
+	case mem == 0:
+		return cpu
+	case cpu > mem:
+		return mem
+	default:
+		return cpu
+	}
+}
+
+// LinearRequire can be used to actually consume (part of) the resource budget
+// returned by LinearUnused (with the same cpuFactor).
+func (m *quotaManager) LinearRequire(cpuFactor uint64, amt uint64) {
+	m.RequireMem(amt)
+	m.RequireCPU(amt / cpuFactor)
+}
+
 func panicWithQuotaExceded(format string, args ...interface{}) {
 	panic(QuotaExceededError{
 		message: fmt.Sprintf(format, args...),
