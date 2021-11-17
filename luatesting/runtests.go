@@ -49,15 +49,10 @@ func RunLuaTestsInDir(t *testing.T, dirpath string, setup func(*runtime.Runtime)
 			return nil
 		}
 		isQuotasTest := strings.HasSuffix(path, ".quotas.lua")
-		testSetup := setup
 		if isQuotasTest {
 			if !runtime.QuotasAvailable {
 				t.Skip("Skipping quotas test as build does not enforce quotas")
 				return nil
-			}
-			testSetup = func(r *runtime.Runtime) func() {
-				r.AllowQuotaModificationsInLua()
-				return setup(r)
 			}
 		}
 		t.Run(path, func(t *testing.T) {
@@ -65,7 +60,7 @@ func RunLuaTestsInDir(t *testing.T, dirpath string, setup func(*runtime.Runtime)
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = RunLuaTest(src, testSetup)
+			err = RunLuaTest(src, setup)
 			if err != nil {
 				t.Error(err)
 			}

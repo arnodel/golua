@@ -14,11 +14,8 @@ func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 	r.SetEnvGoFunc(pkg, "mem", getMemQuota, 0, false)
 	r.SetEnvGoFunc(pkg, "cpu", getCPUQuota, 0, false)
+	r.SetEnvGoFunc(pkg, "rcall", rcall, 3, true)
 
-	if r.QuotaModificationsInLuaAllowed() {
-		r.SetEnvGoFunc(pkg, "reset", resetQuota, 0, false)
-		r.SetEnvGoFunc(pkg, "rcall", rcall, 3, true)
-	}
 	return rt.TableValue(pkg)
 }
 
@@ -40,11 +37,6 @@ func getCPUQuota(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	), nil
 }
 
-func resetQuota(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	t.ResetQuota()
-	return c.Next(), nil
-}
-
 func rcall(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	fcpuQuota, err := c.IntArg(0)
 	if err != nil {
@@ -57,28 +49,17 @@ func rcall(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	f := c.Arg(2)
 	fargs := c.Etc()
 
-	// Record the current quota values, to be restored at the end
-	memUsed, memQuota := t.MemQuotaStatus()
-	cpuUsed, cpuQuota := t.CPUQuotaStatus()
-
-	if fcpuQuota >= 0 {
-		t.UpdateCPUQuota(uint64(fcpuQuota))
+	if fcpuQuota < 0 || fmemQuota < 0 {
+		return nil, rt.NewErrorS("cpu and mem quota must be non-negative").AddContext(c)
 	}
-	if fmemQuota >= 0 {
-		t.UpdateMemQuota(uint64(fmemQuota))
-	}
-	t.ResetQuota()
+	// Push new quotas
+	t.PushQuota(uint64(fcpuQuota), uint64(fmemQuota))
 
 	next = c.Next()
 	res := rt.NewTerminationWith(0, true)
 	defer func() {
-		// In any case, restore the quota values.  Do it before we push the
-		// return value to avoid another QuotaExceededError!
-		t.ResetQuota()
-		t.UpdateCPUQuota(cpuQuota)
-		t.UpdateMemQuota(memQuota)
-		t.RequireCPU(cpuUsed)
-		t.RequireMem(memUsed)
+		// In any case, pop the quotas
+		t.PopQuota()
 		if r := recover(); r != nil {
 			_, ok := r.(rt.QuotaExceededError)
 			if !ok {
