@@ -66,5 +66,12 @@ func (m *quotaManager) MemQuotaStatus() (uint64, uint64) {
 	return 0, 0
 }
 
+func (m *quotaManager) LinearUnused(cpuFactor uint64) uint64 {
+	return 0
+}
+
+func (m *quotaManager) LinearRequire(cpuFactor uint64, amt uint64) {
+}
+
 func (m *quotaManager) ResetQuota() {
 }
