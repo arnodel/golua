@@ -120,7 +120,8 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	vals, m, uerr := UnpackString(string(format), string(pack), i)
+	vals, m, used, uerr := UnpackString(string(format), string(pack), i, t.LinearUnused(10))
+	t.LinearRequire(10, used)
 	if uerr != nil {
 		return nil, rt.NewErrorE(uerr).AddContext(c)
 	}
