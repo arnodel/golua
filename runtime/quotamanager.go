@@ -9,25 +9,6 @@ import (
 
 const QuotasAvailable = true
 
-type RuntimeContextStatus uint8
-
-const (
-	RCS_Live RuntimeContextStatus = iota
-	RCS_Done
-	RCS_Killed
-)
-
-type RuntimeContext interface {
-	CpuLimit() uint64
-	CpuUsed() uint64
-
-	MemLimit() uint64
-	MemUsed() uint64
-
-	Status() RuntimeContextStatus
-	Parent() RuntimeContext
-}
-
 type quotaManager struct {
 	cpuQuota uint64
 	cpuUsed  uint64
