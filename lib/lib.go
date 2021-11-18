@@ -9,7 +9,7 @@ import (
 	"github.com/arnodel/golua/lib/mathlib"
 	"github.com/arnodel/golua/lib/oslib"
 	"github.com/arnodel/golua/lib/packagelib"
-	"github.com/arnodel/golua/lib/quotalib"
+	"github.com/arnodel/golua/lib/runtimelib"
 	"github.com/arnodel/golua/lib/stringlib"
 	"github.com/arnodel/golua/lib/tablelib"
 	"github.com/arnodel/golua/lib/utf8lib"
@@ -29,7 +29,7 @@ func LoadAll(r *rt.Runtime) func() {
 	debuglib.LibLoader.Run(r)
 	golib.LibLoader.Run(r)
 	if rt.QuotasAvailable {
-		quotalib.LibLoader.Run(r)
+		runtimelib.LibLoader.Run(r)
 	}
 	return func() {
 		iolib.LibLoader.Cleanup(r)

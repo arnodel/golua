@@ -1,4 +1,4 @@
-package quotalib
+package runtimelib
 
 import rt "github.com/arnodel/golua/runtime"
 
