@@ -3,9 +3,30 @@
 
 package runtime
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const QuotasAvailable = true
+
+type RuntimeContextStatus uint8
+
+const (
+	RCS_Live RuntimeContextStatus = iota
+	RCS_Done
+	RCS_Killed
+)
+
+type RuntimeContext interface {
+	CpuLimit() uint64
+	CpuUsed() uint64
+
+	MemLimit() uint64
+	MemUsed() uint64
+
+	Status() RuntimeContextStatus
+	Parent() RuntimeContext
+}
 
 type quotaManager struct {
 	cpuQuota uint64
@@ -14,7 +35,55 @@ type quotaManager struct {
 	memQuota uint64
 	memUsed  uint64
 
+	status RuntimeContextStatus
+
 	parent *quotaManager
+}
+
+var _ RuntimeContext = (*quotaManager)(nil)
+
+func (m *quotaManager) CpuLimit() uint64 {
+	return m.cpuQuota
+}
+
+func (m *quotaManager) CpuUsed() uint64 {
+	return m.cpuUsed
+}
+
+func (m *quotaManager) MemLimit() uint64 {
+	return m.memQuota
+}
+
+func (m *quotaManager) MemUsed() uint64 {
+	return m.memUsed
+}
+
+func (m *quotaManager) Status() RuntimeContextStatus {
+	return m.status
+}
+
+func (m *quotaManager) Parent() RuntimeContext {
+	return m.parent
+}
+
+func (m *quotaManager) RuntimeContext() RuntimeContext {
+	return m
+}
+
+func (m *quotaManager) PushContext(ctx RuntimeContext) {
+	m.PushQuota(ctx.CpuLimit(), ctx.MemLimit())
+}
+
+func (m *quotaManager) PopContext() RuntimeContext {
+	if m == nil {
+		return nil
+	}
+	mCopy := *m
+	if mCopy.status == RCS_Live {
+		mCopy.status = RCS_Done
+	}
+	m.PopQuota()
+	return &mCopy
 }
 
 func (m *quotaManager) PushQuota(cpuQuota, memQuota uint64) {
@@ -27,6 +96,7 @@ func (m *quotaManager) PushQuota(cpuQuota, memQuota uint64) {
 	if memQuota > 0 && (m.memQuota == 0 || m.memQuota > memQuota) {
 		m.memQuota = memQuota
 	}
+	m.status = RCS_Live
 	m.parent = &parent
 }
 
@@ -44,6 +114,7 @@ func (m *quotaManager) RequireCPU(cpuAmount uint64) {
 		m.cpuUsed += cpuAmount
 		if m.cpuUsed >= m.cpuQuota {
 			m.cpuUsed = m.cpuQuota
+			m.status = RCS_Killed
 			panicWithQuotaExceded("CPU quota of %d exceeded", m.cpuQuota)
 		}
 	}
@@ -66,6 +137,7 @@ func (m *quotaManager) RequireMem(memAmount uint64) {
 		m.memUsed += memAmount
 		if m.memUsed >= m.memQuota {
 			m.memUsed = m.memQuota
+			m.status = RCS_Killed
 			panicWithQuotaExceded("mem quota of %d exceeded", m.memQuota)
 		}
 	}

@@ -1,4 +1,4 @@
-local quota = require 'quota'
+local runtime = require 'quota'
 
 -- string.pack
 do
@@ -6,20 +6,20 @@ do
     local s1000 = ("a"):rep(1000)
 
     -- string.pack uses memory to store its output
-    local ok = quota.rcall(0, 4000, string.pack, "ssss", s1000, s, s, s)
-    print(ok)
-    --> =true
+    local ctx = runtime.callcontext({memlimit=4000}, string.pack, "ssss", s1000, s, s, s)
+    print(ctx)
+    --> =done
 
-    print(quota.rcall(0, 4000, string.pack, "ssss", s1000, s1000, s1000, s1000))
-    --> =false
+    print(runtime.callcontext({memlimit=4000}, string.pack, "ssss", s1000, s1000, s1000, s1000))
+    --> =killed
 
     -- string.pack uses cpu to produce its output
-    ok = quota.rcall(400, 0, string.pack, "ssss", s1000, s, s, s)
-    print(ok)
-    --> =true
+    ctx = runtime.callcontext({cpulimit=400}, string.pack, "ssss", s1000, s, s, s)
+    print(ctx)
+    --> =done
 
-    print(quota.rcall(400, 0, string.pack, "ssss", s1000, s1000, s1000, s1000))
-    --> =false
+    print(runtime.callcontext({cpulimit=400}, string.pack, "ssss", s1000, s1000, s1000, s1000))
+    --> =killed
 end
 
 -- string.unpack
@@ -31,30 +31,30 @@ do
     --> ~100	100	100	100	100	.*
 
     -- string.unpack uses memory to produce its output
-    local ok = quota.rcall(0, 1000, string.unpack, fmt:rep(20), packed:rep(20))
-    print(ok)
-    --> =true
+    local ctx = runtime.callcontext({memlimit=1000}, string.unpack, fmt:rep(20), packed:rep(20))
+    print(ctx)
+    --> =done
 
-    print(quota.rcall(0, 1000, string.unpack, fmt:rep(100), packed:rep(100)))
-    --> =false
+    print(runtime.callcontext({memlimit=1000}, string.unpack, fmt:rep(100), packed:rep(100)))
+    --> =killed
 
     -- string.unpack uses cpu to produce its output
-    local ok = quota.rcall(100, 0, string.unpack, fmt:rep(50), packed:rep(50))
-    print(ok)
-    --> =true
+    local ctx = runtime.callcontext({cpulimit=100}, string.unpack, fmt:rep(50), packed:rep(50))
+    print(ctx)
+    --> =done
 
-    print(quota.rcall(100, 0, string.unpack, fmt:rep(500), packed:rep(500)))
-    --> =false
+    print(runtime.callcontext({cpulimit=100}, string.unpack, fmt:rep(500), packed:rep(500)))
+    --> =killed
 
     local fmt = "s"
     local packed10 = string.pack(fmt, ("a"):rep(10))
     local packed1000 = string.pack(fmt, ("a"):rep(1000))
 
     -- big strings need lots of memory
-    local ok = quota.rcall(0, 2000, string.unpack, fmt:rep(20), packed10:rep(20))
-    print(ok)
-    --> =true
+    local ctx = runtime.callcontext({memlimit=2000}, string.unpack, fmt:rep(20), packed10:rep(20))
+    print(ctx)
+    --> =done
 
-    print(quota.rcall(0, 2000, string.unpack, fmt:rep(20), packed1000:rep(20)))
-    --> =false
+    print(runtime.callcontext({memlimit=2000}, string.unpack, fmt:rep(20), packed1000:rep(20)))
+    --> =killed
 end

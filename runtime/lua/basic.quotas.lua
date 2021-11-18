@@ -1,4 +1,4 @@
-quota = require'quota'
+local runtime = require'quota'
 
 --
 -- Check that recursion consumes memory
@@ -16,12 +16,12 @@ print(rfib(1), rfib(2), rfib(3), rfib(10))
 --> =1	1	2	55
 
 -- Recursion blows memory budget
-print(quota.rcall(0, 1000, rfib, 100))
---> =false
+print(runtime.callcontext({memlimit=1000}, rfib, 100))
+--> =killed
 
 -- Recursion blows cpu budget
-print(quota.rcall(10000, 0, rfib, 100))
---> =false
+print(runtime.callcontext({cpulimit=10000}, rfib, 100))
+--> =killed
 
 --
 -- Check that iteration consumes CPU
@@ -42,16 +42,16 @@ print(ifib(1), ifib(2), ifib(3), ifib(10))
 --> =1	1	2	55
 
 -- memory usage doesn't explode
-print(quota.rcall(0, 1000, ifib, 100))
---> =true	3736710778780434371
+print(runtime.callcontext({memlimit=1000}, ifib, 100))
+--> =done	3736710778780434371
 
 -- cpu usage doesn't explode
-print(quota.rcall(10000, 0, ifib, 100))
---> =true	3736710778780434371
+print(runtime.callcontext({cpulimit=10000}, ifib, 100))
+--> =done	3736710778780434371
 
 -- we can run out of cpu eventually!
-print(quota.rcall(1000, 0, ifib, 1000))
---> =false
+print(runtime.callcontext({cpulimit=1000}, ifib, 1000))
+--> =killed
 
 --
 -- Check that tail recursion does not consume memory
@@ -69,16 +69,16 @@ print(trfib(1), trfib(2), trfib(3), trfib(10))
 --> =1	1	2	55
 
 -- memory usage doesn't explode
-print(quota.rcall(0, 1000, ifib, 100))
---> =true	3736710778780434371
+print(runtime.callcontext({memlimit=1000}, ifib, 100))
+--> =done	3736710778780434371
 
 -- cpu usage doesn't explode
-print(quota.rcall(10000, 0, ifib, 100))
---> =true	3736710778780434371
+print(runtime.callcontext({cpulimit=10000}, ifib, 100))
+--> =done	3736710778780434371
 
 -- we can run out of cpu eventually!
-print(quota.rcall(1000, 0, ifib, 1000))
---> =false
+print(runtime.callcontext({cpulimit=1000}, ifib, 1000))
+--> =killed
 
 --
 -- Check that strinc concatenation consumes memory
@@ -103,13 +103,13 @@ print(strexp("hi", 3))
 --> =hihihihi
 
 --> strexp doesn't consume much cpu
-ok, bigs = quota.rcall(1000, 0, strexp, "hi", 16)
-print(ok, #bigs)
---> =true	65536
+ctx, bigs = runtime.callcontext({cpulimit=1000}, strexp, "hi", 16)
+print(ctx, #bigs)
+--> =done	65536
 
 --> but it consumes memory!
-print(quota.rcall(0, 50000, strexp, "hi", 16))
---> =false
+print(runtime.callcontext({memlimit=50000}, strexp, "hi", 16))
+--> =killed
 
 --
 -- Check that it costs memory to pass many arguments to a function
@@ -133,9 +133,9 @@ print(table.unpack(numbers(5)))
 print(len(table.unpack(numbers(4))))
 --> =4
 
-print(quota.rcall(0, 1000, len, table.unpack(numbers(10))))
---> =true	10
+print(runtime.callcontext({memlimit=1000}, len, table.unpack(numbers(10))))
+--> =done	10
 
 -- Passing a long list of arguments requires a lot of memory.
-print(quota.rcall(0, 8000, len, table.unpack(numbers(500))))
---> =false
+print(runtime.callcontext({memlimit=8000}, len, table.unpack(numbers(500))))
+--> =killed
