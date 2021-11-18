@@ -1,5 +1,3 @@
-local runtime = require 'quota'
-
 -- Tests for string.find
 do
     -- string.find in plain mode consumes cpu proportional to search string

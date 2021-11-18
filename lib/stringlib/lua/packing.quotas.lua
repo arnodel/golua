@@ -1,5 +1,3 @@
-local runtime = require 'quota'
-
 -- string.pack
 do
     local s = "a"
