@@ -1,7 +1,7 @@
 //go:build !noquotas
 // +build !noquotas
 
-package quotalib_test
+package runtimelib_test
 
 import (
 	"testing"
@@ -10,6 +10,6 @@ import (
 	"github.com/arnodel/golua/luatesting"
 )
 
-func TestQuotaLib(t *testing.T) {
+func TestRuntimeLib(t *testing.T) {
 	luatesting.RunLuaTestsInDir(t, "lua", lib.LoadAll)
 }
