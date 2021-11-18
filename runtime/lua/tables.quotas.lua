@@ -1,15 +1,15 @@
-local quota = require 'quota'
+local runtime = require 'quota'
 
 -- Filling a table consumes memory
 local t = {}
-print(quota.rcall(0, 1000, function()
+print(runtime.callcontext({memlimit=1000}, function()
     local i = 1
     while true do
         t[i] = i
         i = i + 1
     end
 end))
---> =false
+--> =killed
 
 print(#t > 10, #t < 100)
 --> =true	true
@@ -17,25 +17,26 @@ print(#t > 10, #t < 100)
 -- Replacing scalar elements in a table doesn't consume memory
 local t = {1}
 
-quota.rcall(10000, 10000, function()
-    local mem = quota.mem()
-    local cpu = quota.cpu()
-    print(quota.rcall(1000, 1000, function()
+local ctx = runtime.callcontext(
+    {memlimit=10000, cpulimit=10000},
+    function()
         while true do
             t[1] = t[1] + 1
         end
-    end))
-    --> =false
+    end
+)
 
-    -- Check we didn't run out of memory
-    print(quota.mem() - mem < 500)
-    --> =true
+print(ctx.status)
+--> =killed
 
-    -- Check we ran out of cpu
-    print(quota.cpu() - cpu > 1000)
-    --> =true
+-- Check we didn't run out of memory
+print(ctx.memused < ctx.memlimit)
+--> =true
 
-    -- Check we did a number of iterations
-    print(t[1] > 100)
-    --> =true
-end)
+-- Check we ran out of cpu
+print(ctx.cpuused >= ctx.cpulimit)
+--> =true
+
+-- Check we did a number of iterations
+print(t[1] > 100)
+--> =true

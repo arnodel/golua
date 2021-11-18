@@ -1,42 +1,42 @@
-local quota = require'quota'
+local runtime = require'quota'
 
 local s = "helLO"
 local s1000 = s:rep(1000)
 
 -- string.lower, string.upper, string.reverse consume memory
 do
-    print(quota.rcall(0, 4000, string.lower, s))
-    --> =true	hello
+    print(runtime.callcontext({memlimit=4000}, string.lower, s))
+    --> =done	hello
 
-    print(quota.rcall(0, 4000, string.lower, s1000))
-    --> =false
+    print(runtime.callcontext({memlimit=4000}, string.lower, s1000))
+    --> =killed
 
 
     -- string.upper consumes memory
 
-    print(quota.rcall(0, 4000, string.upper, s))
-    --> =true	HELLO
+    print(runtime.callcontext({memlimit=4000}, string.upper, s))
+    --> =done	HELLO
 
-    print(quota.rcall(0, 4000, string.upper, s1000))
-    --> =false
+    print(runtime.callcontext({memlimit=4000}, string.upper, s1000))
+    --> =killed
 
 
     -- string.reverse consumes memory
 
-    print(quota.rcall(0, 4000, string.reverse, s))
-    --> =true	OLleh
+    print(runtime.callcontext({memlimit=4000}, string.reverse, s))
+    --> =done	OLleh
 
-    print(quota.rcall(0, 4000, string.reverse, s1000))
-    --> =false
+    print(runtime.callcontext({memlimit=4000}, string.reverse, s1000))
+    --> =killed
 end
 
 -- string.sub consumes memory
 do
-    print(quota.rcall(0, 1000, string.sub, s, 3, 2000))
-    --> =true	lLO
+    print(runtime.callcontext({memlimit=1000}, string.sub, s, 3, 2000))
+    --> =done	lLO
 
-    print(quota.rcall(0, 1000, string.sub, s1000, 3, 2000))
-    --> =false
+    print(runtime.callcontext({memlimit=1000}, string.sub, s1000, 3, 2000))
+    --> =killed
 end
 
 -- string.byte consumes memory
@@ -49,25 +49,25 @@ do
     print(len("foobar"))
     --> =6
 
-    print(quota.rcall(0, 10000, len, s1000))
-    --> =false
+    print(runtime.callcontext({memlimit=10000}, len, s1000))
+    --> =killed
 
     -- string.char consumes memory
 
-    print(quota.rcall(0, 1000, string.char, s:byte(1, #s)))
-    --> =true	helLO
+    print(runtime.callcontext({memlimit=1000}, string.char, s:byte(1, #s)))
+    --> =done	helLO
 
-    print(quota.rcall(0, 1000, string.char, s1000:byte(1, 1200)))
-    --> =false
+    print(runtime.callcontext({memlimit=1000}, string.char, s1000:byte(1, 1200)))
+    --> =killed
 
 
     -- string.rep consumes memory
 
-    print(quota.rcall(0, 1000, string.rep, "ha", 10))
-    --> =true	hahahahahahahahahaha
+    print(runtime.callcontext({memlimit=1000}, string.rep, "ha", 10))
+    --> =done	hahahahahahahahahaha
 
-    print(quota.rcall(0, 1000, string.rep, "ha", 600))
-    --> =false
+    print(runtime.callcontext({memlimit=1000}, string.rep, "ha", 600))
+    --> =killed
 end
 
 -- string.dump consumes memory and cpu
@@ -84,39 +84,39 @@ do
     --> =10
 
     -- A function with 12 lines is ok for CPU
-    local ok = quota.rcall(1000, 0, string.dump, mk(10))
-    print(ok)
-    --> =true
+    local ctx = runtime.callcontext({cpulimit=1000}, string.dump, mk(10))
+    print(ctx)
+    --> =done
     
     -- One with 500 lines runs out of CPU
-    print(quota.rcall(1000, 0, string.dump, mk(500)))
-    --> =false
+    print(runtime.callcontext({cpulimit=1000}, string.dump, mk(500)))
+    --> =killed
 
     -- A function with 12 lines is ok for mem
-    local ok = quota.rcall(0, 1000, string.dump, mk(10))
-    print(ok)
-    --> =true
+    local ctx = runtime.callcontext({memlimit=1000}, string.dump, mk(10))
+    print(ctx)
+    --> =done
     
     -- One with 500 lines runs out of mem
-    print(quota.rcall(1000, 0, string.dump, mk(500)))
-    --> =false
+    print(runtime.callcontext({cpulimit=1000}, string.dump, mk(500)))
+    --> =killed
 end
 
 -- string.format consumes memory and cpu
 do
     -- a long format needs to be scanned and uses cpu
-    print(quota.rcall(1000, 0, string.format, ("a"):rep(50)))
-    --> =true	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    print(runtime.callcontext({cpulimit=1000}, string.format, ("a"):rep(50)))
+    --> =done	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
-    print(quota.rcall(1000, 0, string.format, ("a"):rep(1000)))
-    --> =false
+    print(runtime.callcontext({cpulimit=1000}, string.format, ("a"):rep(1000)))
+    --> =killed
 
     -- format requires memory to build the formatted string
     local s = "aa"
-    print(quota.rcall(0, 1000, string.format, "%s %s %s %s %s", s, s, s, s, s))
-    --> =true	aa aa aa aa aa
+    print(runtime.callcontext({memlimit=1000}, string.format, "%s %s %s %s %s", s, s, s, s, s))
+    --> =done	aa aa aa aa aa
 
     s = ("a"):rep(1000)
-    print(quota.rcall(0, 5000, string.format, "%s %s %s %s %s", s, s, s, s, s))
-    --> =false
+    print(runtime.callcontext({memlimit=5000}, string.format, "%s %s %s %s %s", s, s, s, s, s))
+    --> =killed
 end
