@@ -1,5 +1,3 @@
-local runtime = require 'quota'
-
 -- Filling a table consumes memory
 local t = {}
 print(runtime.callcontext({memlimit=1000}, function()

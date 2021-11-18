@@ -1,8 +1,3 @@
-local runtime = require'quota'
-
-
-
-
 -- runtime.callcontext(contextDef, f, [arg1, ...])
 --
 -- The runtime.callcontext function creates a new context from the contextDef

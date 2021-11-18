@@ -1,5 +1,3 @@
-local runtime = require'quota'
-
 --
 -- Check that recursion consumes memory
 --

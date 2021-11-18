@@ -11,7 +11,7 @@ var quotaKey = rt.AsValue(quotaKeyType{})
 
 var LibLoader = packagelib.Loader{
 	Load: load,
-	Name: "quota",
+	Name: "runtime",
 }
 
 func load(r *rt.Runtime) rt.Value {

@@ -1,5 +1,3 @@
-local runtime = require'quota'
-
 local s = "helLO"
 local s1000 = s:rep(1000)
 
