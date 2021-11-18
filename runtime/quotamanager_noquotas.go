@@ -7,6 +7,49 @@ const QuotasAvailable = false
 
 type quotaManager struct{}
 
+var _ RuntimeContext = (*quotaManager)(nil)
+
+func (m *quotaManager) CpuLimit() uint64 {
+	return 0
+}
+
+func (m *quotaManager) CpuUsed() uint64 {
+	return 0
+}
+
+func (m *quotaManager) MemLimit() uint64 {
+	return 0
+}
+
+func (m *quotaManager) MemUsed() uint64 {
+	return 0
+}
+
+func (m *quotaManager) Status() RuntimeContextStatus {
+	return RCS_Live
+}
+
+func (m *quotaManager) Parent() RuntimeContext {
+	return m
+}
+
+func (m *quotaManager) RuntimeContext() RuntimeContext {
+	return m
+}
+
+func (m *quotaManager) PushContext(ctx RuntimeContext) {
+}
+
+func (m *quotaManager) PopContext() RuntimeContext {
+	return m
+}
+
+func (m *quotaManager) PushQuota(cpuQuota, memQuota uint64) {
+}
+
+func (m *quotaManager) PopQuota() {
+}
+
 func (m *quotaManager) AllowQuotaModificationsInLua() {
 }
 
