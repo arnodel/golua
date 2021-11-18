@@ -41,7 +41,7 @@ func (l Loader) Run(r *rt.Runtime) {
 		return
 	}
 	r.SetEnv(r.GlobalEnv(), l.Name, pkg)
-	err := savePackage(r.MainThread(), l.Name, pkg)
+	err := savePackage(r, l.Name, pkg)
 	if err != nil {
 		panic(fmt.Sprintf("Unable to load %s: %s", l.Name, err))
 	}
@@ -122,7 +122,7 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	nameVal := c.Arg(0)
-	pkg := pkgTable(t)
+	pkg := pkgTable(t.Runtime)
 
 	// First check is the module is already loaded
 	loaded, ok := pkg.Get(loadedKey).TryTable()
@@ -175,7 +175,7 @@ func searchpath(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	var (
 		name, path string
 		sep        = "."
-		conf       = *getConfig(pkgTable(t))
+		conf       = *getConfig(pkgTable(t.Runtime))
 		rep        = conf.dirSep
 	)
 
@@ -229,7 +229,7 @@ func searchPreload(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	loader := pkgTable(t).Get(preloadKey).AsTable().Get(rt.StringValue(s))
+	loader := pkgTable(t.Runtime).Get(preloadKey).AsTable().Get(rt.StringValue(s))
 	return c.PushingNext1(t.Runtime, loader), nil
 }
 
@@ -241,7 +241,7 @@ func searchLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-	pkg := pkgTable(t)
+	pkg := pkgTable(t.Runtime)
 	path, ok := pkg.Get(pathKey).TryString()
 	if !ok {
 		return nil, rt.NewErrorS("package.path must be a string").AddContext(c)
@@ -285,18 +285,18 @@ func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return rt.Continue(t, rt.FunctionValue(clos), c.Next())
 }
 
-func pkgTable(t *rt.Thread) *rt.Table {
-	return t.Registry(pkgKey).AsTable()
+func pkgTable(r *rt.Runtime) *rt.Table {
+	return r.Registry(pkgKey).AsTable()
 }
 
-func savePackage(t *rt.Thread, name string, val rt.Value) error {
-	pkg := pkgTable(t)
+func savePackage(r *rt.Runtime, name string, val rt.Value) error {
+	pkg := pkgTable(r)
 
 	// First check is the module is already loaded
 	loaded, ok := pkg.Get(loadedKey).TryTable()
 	if !ok {
 		return errors.New("package.loaded must be a table")
 	}
-	t.SetTable(loaded, rt.StringValue(name), val)
+	r.SetTable(loaded, rt.StringValue(name), val)
 	return nil
 }
