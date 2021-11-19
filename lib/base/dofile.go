@@ -5,6 +5,9 @@ import (
 )
 
 func dofile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := t.CheckIO(); err != nil {
+		return nil, err.AddContext(c)
+	}
 	chunk, chunkName, err := loadChunk(c.Args())
 	if err != nil {
 		return nil, rt.NewErrorE(err).AddContext(c)

@@ -25,6 +25,7 @@ type luaCmd struct {
 	unbufferedFlag bool
 	cpuQuota       uint64
 	memQuota       uint64
+	noIO           bool
 }
 
 func (c *luaCmd) setFlags() {
@@ -35,6 +36,7 @@ func (c *luaCmd) setFlags() {
 	if rt.QuotasAvailable {
 		flag.Uint64Var(&c.cpuQuota, "cpuquota", 0, "CPU quota")
 		flag.Uint64Var(&c.memQuota, "memquota", 0, "memory quota")
+		flag.BoolVar(&c.noIO, "noio", false, "disable file IO")
 	}
 }
 
@@ -56,6 +58,9 @@ func (c *luaCmd) run() (retcode int) {
 	r := rt.New(nil)
 	r.UpdateCPUQuota(c.cpuQuota)
 	r.UpdateMemQuota(c.memQuota)
+	if c.noIO {
+		r.UpdateFlags(rt.RCF_NoIO)
+	}
 	cleanup := lib.LoadAll(r)
 	defer cleanup()
 

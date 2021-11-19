@@ -75,6 +75,12 @@ func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		val = statusValue(ctx.Status())
 	case "parent":
 		val = rt.NilValue
+	case "io":
+		if rt.RCF_NoIO.IsSet(ctx) {
+			val = rt.StringValue("off")
+		} else {
+			val = rt.StringValue("on")
+		}
 	}
 	return c.PushingNext1(t.Runtime, val), nil
 }

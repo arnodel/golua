@@ -7,6 +7,9 @@ import (
 )
 
 func ioread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := t.CheckIO(); err != nil {
+		return nil, err.AddContext(c)
+	}
 	next := c.Next()
 	readers, fmtErr := getFormatReaders(c.Etc())
 	if fmtErr != nil {
@@ -20,6 +23,9 @@ func ioread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func fileread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := t.CheckIO(); err != nil {
+		return nil, err.AddContext(c)
+	}
 	if err := c.Check1Arg(); err != nil {
 		return nil, err.AddContext(c)
 	}

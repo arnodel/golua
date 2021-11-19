@@ -5,10 +5,6 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-type quotaKeyType struct{}
-
-var quotaKey = rt.AsValue(quotaKeyType{})
-
 var LibLoader = packagelib.Loader{
 	Load: load,
 	Name: "runtime",
@@ -16,80 +12,12 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	r.SetEnvGoFunc(pkg, "mem", getMemQuota, 0, false)
-	r.SetEnvGoFunc(pkg, "cpu", getCPUQuota, 0, false)
-	r.SetEnvGoFunc(pkg, "rcall", rcall, 3, true)
 	r.SetEnvGoFunc(pkg, "callcontext", callcontext, 2, true)
 	r.SetEnvGoFunc(pkg, "context", context, 0, false)
-
-	methods := rt.NewTable()
-	r.SetEnvGoFunc(methods, "call", callcontext, 2, true)
-	meta := rt.NewTable()
-	r.SetEnv(meta, "__index", rt.TableValue(methods))
-
-	r.SetRegistry(quotaKey, rt.AsValue(meta))
 
 	createContextMetatable(r)
 
 	return rt.TableValue(pkg)
-}
-
-func getMemQuota(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	used, max := t.MemQuotaStatus()
-	return c.PushingNext(
-		t.Runtime,
-		rt.IntValue(int64(used)),
-		rt.IntValue(int64(max)),
-	), nil
-}
-
-func getCPUQuota(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	used, max := t.CPUQuotaStatus()
-	return c.PushingNext(
-		t.Runtime,
-		rt.IntValue(int64(used)),
-		rt.IntValue(int64(max)),
-	), nil
-}
-
-func rcall(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
-	fcpuQuota, err := c.IntArg(0)
-	if err != nil {
-		return nil, err.AddContext(c)
-	}
-	fmemQuota, err := c.IntArg(1)
-	if err != nil {
-		return nil, err.AddContext(c)
-	}
-	f := c.Arg(2)
-	fargs := c.Etc()
-
-	if fcpuQuota < 0 || fmemQuota < 0 {
-		return nil, rt.NewErrorS("cpu and mem quota must be non-negative").AddContext(c)
-	}
-	// Push new quotas
-	t.PushQuota(uint64(fcpuQuota), uint64(fmemQuota))
-
-	next = c.Next()
-	res := rt.NewTerminationWith(0, true)
-	defer func() {
-		// In any case, pop the quotas
-		t.PopQuota()
-		if r := recover(); r != nil {
-			_, ok := r.(rt.QuotaExceededError)
-			if !ok {
-				panic(r)
-			}
-			t.Push1(next, rt.BoolValue(false))
-		}
-	}()
-	retErr = rt.Call(t, f, fargs, res)
-	if retErr != nil {
-		return nil, retErr
-	}
-	t.Push1(next, rt.BoolValue(true))
-	t.Push(next, res.Etc()...)
-	return next, nil
 }
 
 func context(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -105,11 +33,13 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	var (
 		memQuotaV = quotas.Get(rt.StringValue("memlimit"))
 		cpuQuotaV = quotas.Get(rt.StringValue("cpulimit"))
+		ioV       = quotas.Get(rt.StringValue("io"))
 		memQuota  int64
 		cpuQuota  int64
 		ok        bool
 		f         = c.Arg(1)
 		fArgs     = c.Etc()
+		flags     rt.RuntimeContextFlags
 	)
 	if !rt.IsNil(memQuotaV) {
 		memQuota, ok = memQuotaV.TryInt()
@@ -129,9 +59,20 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 			return nil, rt.NewErrorS("cpuquota must be positive").AddContext(c)
 		}
 	}
+	if !rt.IsNil(ioV) {
+		status, _ := ioV.TryString()
+		switch status {
+		case "off":
+			flags |= rt.RCF_NoIO
+		case "on":
+			// Nothing to do
+		default:
+			return nil, rt.NewErrorS("io must be 'on' or 'off'").AddContext(c)
+		}
+	}
 
 	// Push new quotas
-	t.PushQuota(uint64(cpuQuota), uint64(memQuota))
+	t.PushQuota(uint64(cpuQuota), uint64(memQuota), flags)
 
 	next = c.Next()
 	res := rt.NewTerminationWith(0, true)
