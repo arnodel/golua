@@ -411,6 +411,7 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	next := c.Next()
 	for ; i <= j; i++ {
+		// rt.Index consumes cpu so the loop is OK.
 		val, err := rt.Index(t, tblVal, rt.IntValue(i))
 		if err != nil {
 			return nil, err.AddContext(c)
