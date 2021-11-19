@@ -58,3 +58,33 @@ do
     print(ctx2.cpuused / ctx1.cpuused < 1.2)
     --> =true
 end
+
+-- table.move
+do
+    -- table.move consumes memory
+
+    local ctx = runtime.callcontext({memlimit=10000}, table.move, mk("x", 100), 1, 100, 101)
+    print(ctx)
+    --> =done
+
+    print(runtime.callcontext({memlimit=10000}, table.move, mk("x", 1000), 1, 1000, 1001))
+    --> =killed
+
+    -- consumes less memory when ranges overlap
+    ctx = runtime.callcontext({memlimit=10000}, table.move, mk("x", 1000), 1, 1000, 101)
+    print(ctx)
+    --> =done
+
+    -- table.move consumes cpu
+
+    local ctx = runtime.callcontext({cpulimit=1000}, table.move, mk("x", 100), 1, 100, 101)
+    print(ctx)
+    --> =done
+
+    print(runtime.callcontext({cpulimit=1000}, table.move, mk("x", 1000), 1, 1000, 1001))
+    --> =killed
+
+    -- still consumes as much cpu when ranges overlap
+    print(runtime.callcontext({cpulimit=1000}, table.move, mk("x", 1000), 1, 1000, 101))
+    --> =killed
+end
