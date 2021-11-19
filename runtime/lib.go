@@ -32,8 +32,10 @@ func RawGet(t *Table, k Value) Value {
 
 // Index returns the item in a collection for the given key k, using the
 // '__index' metamethod if appropriate.
+// Index always consumes CPU.
 func Index(t *Thread, coll Value, k Value) (Value, *Error) {
 	for i := 0; i < maxIndexChainLength; i++ {
+		t.RequireCPU(1)
 		if tbl, ok := coll.TryTable(); ok {
 			if val := RawGet(tbl, k); !val.IsNil() {
 				return val, nil
@@ -44,7 +46,6 @@ func Index(t *Thread, coll Value, k Value) (Value, *Error) {
 			return NilValue, nil
 		}
 		if _, ok := metaIdx.TryTable(); ok {
-			t.RequireCPU(1)
 			coll = metaIdx
 		} else {
 			res := NewTerminationWith(1, false)
@@ -58,12 +59,14 @@ func Index(t *Thread, coll Value, k Value) (Value, *Error) {
 }
 
 // SetIndex sets the item in a collection for the given key, using the
-// '__newindex' metamethod if appropriate.
+// '__newindex' metamethod if appropriate.  SetIndex always consumes CPU if it
+// doesn't return an error.
 func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
 	if idx.IsNil() {
 		return NewErrorS("index is nil")
 	}
 	for i := 0; i < maxIndexChainLength; i++ {
+		t.RequireCPU(1)
 		tbl, isTable := coll.TryTable()
 		if isTable && tbl.Reset(idx, val) {
 			return nil
