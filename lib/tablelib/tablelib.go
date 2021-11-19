@@ -45,7 +45,6 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err.AddContext(c)
 	}
-Switch:
 	switch nargs := c.NArgs(); {
 	case nargs >= 4:
 		j, err = c.IntArg(3)
@@ -79,8 +78,10 @@ Switch:
 		if !ok {
 			return nil, rt.NewErrorS("concat needs strings or numbers")
 		}
+		t.RequireBytes(len(s))
 		sb.WriteString(s)
 		for {
+			t.RequireCPU(1)
 			if i == math.MaxInt64 {
 				break
 			}
@@ -88,15 +89,17 @@ Switch:
 			if i > j {
 				break
 			}
+			t.RequireBytes(len(sep))
 			sb.WriteString(sep)
 			item, err = rt.Index(t, tblVal, rt.IntValue(i))
 			if err != nil {
-				break Switch
+				return nil, err.AddContext(c)
 			}
 			s, ok = rt.ToString(item)
 			if !ok {
 				return nil, rt.NewErrorS("concat needs strings or numbers")
 			}
+			t.RequireBytes(len(s))
 			sb.WriteString(s)
 		}
 		return c.PushingNext1(t.Runtime, rt.StringValue(sb.String())), nil

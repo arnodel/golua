@@ -44,6 +44,7 @@ func Index(t *Thread, coll Value, k Value) (Value, *Error) {
 			return NilValue, nil
 		}
 		if _, ok := metaIdx.TryTable(); ok {
+			t.RequireCPU(1)
 			coll = metaIdx
 		} else {
 			res := NewTerminationWith(1, false)
@@ -149,8 +150,10 @@ func Call1(t *Thread, f Value, args ...Value) (Value, *Error) {
 }
 
 // ToString returns x as a String and a boolean which is true if this is a
-// 'good' conversion. TODO: refactor or explain the meaning of the boolean
-// better.
+// 'good' conversion. It can allocate a small amount of memory but this is
+// bounded by the maximum length of the string representation of a number.
+//
+// TODO: refactor or explain the meaning of the boolean better.
 func ToString(x Value) (string, bool) {
 	switch x.Type() {
 	case NilType:
