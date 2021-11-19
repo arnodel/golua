@@ -174,5 +174,5 @@ do
     --> =done
 
     print(runtime.callcontext({cpulimit=1000}, table.unpack, mk("x", 1000)))
-    --> =killed 
+    --> =killed
 end
