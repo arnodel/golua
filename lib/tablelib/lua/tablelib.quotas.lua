@@ -136,3 +136,21 @@ do
     print(ctx2.cpuused / ctx1.cpuused < 1.2)
     --> =true
 end
+
+-- table.sort
+do
+    -- table.sort consumes cpu
+    local function unsorted(n)
+        t = {}
+        for i = 1, n do
+            t[i] = n - i
+        end
+        return t
+    end
+
+    print(runtime.callcontext({cpulimit=1000}, table.sort, unsorted(10)))
+    --> =done
+
+    print(runtime.callcontext({cpulimit=1000}, table.sort, unsorted(100)))
+    --> =killed
+end

@@ -365,12 +365,18 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 		}
 	}
 	defer func() {
-		if err := recover(); err != nil {
+		if r := recover(); r != nil {
 			next = nil
-			resErr = err.(*rt.Error).AddContext(c)
+			if rtErr, ok := r.(*rt.Error); ok {
+				resErr = rtErr.AddContext(c)
+				return
+			}
+			panic(r)
 		}
 	}()
 	sorter := &tableSorter{len, less, swap}
+	// Because each operation on sorter consumes cpu resources, it's OK to call
+	// sort.Sort.
 	sort.Sort(sorter)
 	return c.Next(), nil
 }
