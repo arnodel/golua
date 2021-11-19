@@ -88,3 +88,24 @@ do
     print(runtime.callcontext({cpulimit=1000}, table.move, mk("x", 1000), 1, 1000, 101))
     --> =killed
 end
+
+-- table.pack
+do
+    --table.pack consumes memory
+
+    local ctx = runtime.callcontext({memlimit=10000}, table.pack, table.unpack(mk("x", 100)))
+    print(ctx)
+    --> =done
+
+    print(runtime.callcontext({memlimit=10000}, table.pack, table.unpack(mk("x", 1000))))
+    --> =killed
+
+    --table.pack consumes cpu
+
+    local ctx = runtime.callcontext({cpulimit=1000}, table.pack, table.unpack(mk("x", 100)))
+    print(ctx)
+    --> =done
+
+    print(runtime.callcontext({cpulimit=1000}, table.pack, table.unpack(mk("x", 1000))))
+    --> =killed
+end
