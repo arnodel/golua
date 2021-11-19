@@ -232,6 +232,7 @@ func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	tbl := rt.NewTable()
 	// We can use t.SetTable() because tbl has no metatable
 	for i, v := range c.Etc() {
+		// SetTable always consumes CPU so the loop is protected.
 		t.SetTable(tbl, rt.IntValue(int64(i+1)), v)
 	}
 	t.SetTable(tbl, rt.StringValue("n"), rt.IntValue(int64(len(c.Etc()))))
@@ -274,6 +275,7 @@ func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	default:
 		var newVal rt.Value
 		for pos <= tblLen {
+			// Don't require CPU because rt.Index and rt.SetIndex will do
 			tblLenVal := rt.IntValue(tblLen)
 			val, err = rt.Index(t, tblVal, tblLenVal)
 			if err == nil {

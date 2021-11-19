@@ -109,3 +109,30 @@ do
     print(runtime.callcontext({cpulimit=1000}, table.pack, table.unpack(mk("x", 1000))))
     --> =killed
 end
+
+-- table.remove
+do
+    -- cpu is consumed when removing at the front
+    local ctx = runtime.callcontext({cpulimit=1000}, table.remove, mk("x", 100), 1)
+    print(ctx)
+    --> =done
+    print(ctx.cpuused >= 100)
+    --> =true
+
+    print(runtime.callcontext({cpulimit=1000}, table.remove, mk("x", 1000), 1))
+    --> =killed
+
+    -- at the back, cpu doesn't depend on the size of the table
+    local ctx1 = runtime.callcontext({cpulimit=1000}, table.remove, mk("x", 100))
+    print(ctx)
+    --> =done
+    print(ctx.cpuused >= 100)
+    --> =true
+
+    local ctx2 = runtime.callcontext({cpulimit=1000}, table.remove, mk("x", 1000))
+    print(ctx2)
+    --> =done
+
+    print(ctx2.cpuused / ctx1.cpuused < 1.2)
+    --> =true
+end
