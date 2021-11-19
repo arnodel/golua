@@ -17,6 +17,7 @@ type quotaManager struct {
 	memUsed  uint64
 
 	status RuntimeContextStatus
+	flags  RuntimeContextFlags
 
 	parent *quotaManager
 }
@@ -43,6 +44,10 @@ func (m *quotaManager) Status() RuntimeContextStatus {
 	return m.status
 }
 
+func (m *quotaManager) Flags() RuntimeContextFlags {
+	return m.flags
+}
+
 func (m *quotaManager) Parent() RuntimeContext {
 	return m.parent
 }
@@ -52,7 +57,7 @@ func (m *quotaManager) RuntimeContext() RuntimeContext {
 }
 
 func (m *quotaManager) PushContext(ctx RuntimeContext) {
-	m.PushQuota(ctx.CpuLimit(), ctx.MemLimit())
+	m.PushQuota(ctx.CpuLimit(), ctx.MemLimit(), ctx.Flags())
 }
 
 func (m *quotaManager) PopContext() RuntimeContext {
@@ -67,7 +72,7 @@ func (m *quotaManager) PopContext() RuntimeContext {
 	return &mCopy
 }
 
-func (m *quotaManager) PushQuota(cpuQuota, memQuota uint64) {
+func (m *quotaManager) PushQuota(cpuQuota, memQuota uint64, flags RuntimeContextFlags) {
 	parent := *m
 	m.cpuQuota, m.cpuUsed = m.UnusedCPU(), 0
 	m.memQuota, m.memUsed = m.UnusedMem(), 0
@@ -78,6 +83,7 @@ func (m *quotaManager) PushQuota(cpuQuota, memQuota uint64) {
 		m.memQuota = memQuota
 	}
 	m.status = RCS_Live
+	m.flags |= flags // Flags can be turned on but not off
 	m.parent = &parent
 }
 
@@ -88,6 +94,10 @@ func (m *quotaManager) PopQuota() {
 	m.parent.RequireCPU(m.cpuUsed)
 	m.parent.RequireMem(m.memUsed)
 	*m = *m.parent
+}
+
+func (m *quotaManager) UpdateFlags(flags RuntimeContextFlags) {
+	m.flags |= flags
 }
 
 func (m *quotaManager) RequireCPU(cpuAmount uint64) {

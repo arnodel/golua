@@ -29,6 +29,10 @@ func (m *quotaManager) Status() RuntimeContextStatus {
 	return RCS_Live
 }
 
+func (m *quotaManager) Flags() RuntimeContextFlags {
+	return RCF_Empty
+}
+
 func (m *quotaManager) Parent() RuntimeContext {
 	return m
 }
@@ -44,10 +48,13 @@ func (m *quotaManager) PopContext() RuntimeContext {
 	return m
 }
 
-func (m *quotaManager) PushQuota(cpuQuota, memQuota uint64) {
+func (m *quotaManager) PushQuota(cpuQuota, memQuota uint64, flags RuntimeContextFlags) {
 }
 
 func (m *quotaManager) PopQuota() {
+}
+
+func (m *quotaManager) UpdateFlags(flags RuntimeContextFlags) {
 }
 
 func (m *quotaManager) AllowQuotaModificationsInLua() {
