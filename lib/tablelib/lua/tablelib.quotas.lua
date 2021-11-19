@@ -154,3 +154,25 @@ do
     print(runtime.callcontext({cpulimit=1000}, table.sort, unsorted(100)))
     --> =killed
 end
+
+--  table.unpack
+do
+    -- table.unpack consumes no memory if the result is discarded. We wrap
+    -- table.unpack in a function so as not to accumulate its results and
+    -- consume memory in that way
+    local ctx = runtime.callcontext({memlimit=500}, function(t) table.unpack(t) end, mk("x", 100))
+    print(ctx)
+    --> =done
+
+    local ctx = runtime.callcontext({memlimit=500}, function(t) table.unpack(t) end, mk("x", 1000))
+    print(ctx)
+    --> =done
+
+    --table.unpack consumes cpu
+    local ctx = runtime.callcontext({cpulimit=1000}, table.unpack, mk("x", 100))
+    print(ctx)
+    --> =done
+
+    print(runtime.callcontext({cpulimit=1000}, table.unpack, mk("x", 1000)))
+    --> =killed 
+end

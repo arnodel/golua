@@ -70,8 +70,7 @@ func (c *LuaCont) Push(r *Runtime, val Value) {
 		dst := opcode.GetA()
 		if opcode.GetF() {
 			// It's an etc
-			// TODO: require mem for this
-			r.RequireMem(uint64(unsafe.Sizeof(Value{})))
+			r.RequireSize(unsafe.Sizeof(Value{}))
 			c.acc = append(c.acc, val)
 		} else {
 			c.pc++
