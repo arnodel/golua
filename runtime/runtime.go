@@ -160,8 +160,10 @@ func (r *Runtime) Metatable(v Value) Value {
 	return TableValue(meta)
 }
 
-// Set a value in a table, updating the memory quota.
+// Set a value in a table, requiring memory if needed, and always consuming >0
+// CPU.
 func (r *Runtime) SetTable(t *Table, k, v Value) {
+	r.RequireCPU(1)
 	r.RequireMem(t.Set(k, v))
 }
 

@@ -81,7 +81,7 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		t.RequireBytes(len(s))
 		sb.WriteString(s)
 		for {
-			t.RequireCPU(1)
+			// Don't require CPU because rt.Index will do
 			if i == math.MaxInt64 {
 				break
 			}
@@ -142,6 +142,7 @@ func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		posVal = rt.IntValue(pos)
 	)
 	for pos <= tblLen {
+		// Don't require CPU because rt.Index and rt.SetIndex will do
 		oldVal, err = rt.Index(t, tblVal, posVal)
 		if err != nil {
 			return nil, err.AddContext(c)
@@ -197,6 +198,7 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		// before moving it
 		dstStart += srcEnd - srcStart
 		for srcEnd >= srcStart {
+			// Don't require CPU because rt.Index and rt.SetIndex will do
 			v, err := rt.Index(t, srcVal, rt.IntValue(srcEnd))
 			if err == nil {
 				err = rt.SetIndex(t, dstVal, rt.IntValue(dstStart), v)
@@ -211,6 +213,7 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		// Move in ascending order to avoid writing at a position
 		// before moving it
 		for srcStart <= srcEnd {
+			// Don't require CPU because rt.Index and rt.SetIndex will do
 			v, err := rt.Index(t, srcVal, rt.IntValue(srcStart))
 			if err == nil {
 				err = rt.SetIndex(t, dstVal, rt.IntValue(dstStart), v)
@@ -227,7 +230,7 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	tbl := rt.NewTable()
-	// We can use tbl.Set() because tbl has no metatable
+	// We can use t.SetTable() because tbl has no metatable
 	for i, v := range c.Etc() {
 		t.SetTable(tbl, rt.IntValue(int64(i+1)), v)
 	}
