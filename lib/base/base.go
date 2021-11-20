@@ -3,6 +3,7 @@ package base
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 
@@ -69,21 +70,32 @@ func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext(t.Runtime, rt.StringValue(s)), nil
 }
 
-func loadChunk(args []rt.Value) (chunk []byte, chunkName string, err error) {
+func loadChunk(t *rt.Thread, args []rt.Value) (chunk []byte, chunkName string, err error) {
+	budget := t.LinearUnused(10)
+	var reader io.Reader
 	if len(args) == 0 {
 		chunkName = "stdin"
-		chunk, err = ioutil.ReadAll(os.Stdin)
+		reader = os.Stdin
 	} else {
-		path, ok := args[0].TryString()
+		var ok bool
+		chunkName, ok = args[0].TryString()
 		if !ok {
-			err = errors.New("#1 must be a string")
-			return
+			return nil, chunkName, errors.New("#1 must be a string")
 		}
-		chunk, err = ioutil.ReadFile(string(path))
-		chunkName = string(path)
+		f, err := os.Open(chunkName)
+		if err != nil {
+			return nil, chunkName, fmt.Errorf("error opeing file: %s", err)
+		}
+		defer f.Close()
+		reader = f
 	}
+	if budget > 0 {
+		reader = io.LimitReader(reader, int64(budget))
+	}
+	chunk, err = ioutil.ReadAll(reader)
 	if err != nil {
-		err = fmt.Errorf("error reading file: %s", err)
+		return nil, chunkName, fmt.Errorf("error reading file: %s", err)
 	}
-	return
+	t.LinearRequire(10, uint64(len(chunk)))
+	return chunk, chunkName, nil
 }
