@@ -70,6 +70,8 @@ func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext(t.Runtime, rt.StringValue(s)), nil
 }
 
+// Load a chunk from a file and require the memory / cpu for it.  Callers might
+// want to release the memory when they are done with the chunk.
 func loadChunk(t *rt.Thread, args []rt.Value) (chunk []byte, chunkName string, err error) {
 	budget := t.LinearUnused(10)
 	var reader io.Reader

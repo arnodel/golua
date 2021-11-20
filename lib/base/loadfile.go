@@ -9,6 +9,7 @@ func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	chunk, chunkName, err := loadChunk(t, c.Args())
+	defer t.ReleaseBytes(len(chunk))
 	if err != nil {
 		return nil, rt.NewErrorE(err).AddContext(c)
 	}
