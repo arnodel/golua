@@ -48,7 +48,10 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case nargs >= 1:
 		switch x := c.Arg(0); x.Type() {
 		case rt.StringType:
-			chunk = []byte(x.AsString())
+			xs := x.AsString()
+			// Use CPU as well as memory, but not much
+			t.LinearRequire(10, uint64(len(xs)))
+			chunk = []byte(xs)
 		case rt.FunctionType:
 			var buf bytes.Buffer
 			for {
@@ -56,6 +59,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				if err != nil {
 					t.Push1(next, rt.NilValue)
 					t.Push1(next, rt.StringValue(err.Error()))
+					t.ReleaseBytes(buf.Len())
 					return next, nil
 				}
 				if bit.IsNil() {
@@ -64,18 +68,25 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				bitString, ok := bit.TryString()
 				if !ok {
 					t.Push(next, rt.NilValue, rt.StringValue("reader must return a string"))
+					t.ReleaseBytes(buf.Len())
 					return next, nil
 				}
 				if len(bitString) == 0 {
 					break
 				}
-				buf.WriteString(string(bitString))
+				// When bitString is small, cpu required may be 0 but thats' ok
+				// because cpu was used when calling the function.
+				t.LinearRequire(10, uint64(len(bitString)))
+				buf.WriteString(bitString)
 			}
 			chunk = buf.Bytes()
 		default:
 			return nil, rt.NewErrorS("#1 must be a string or function").AddContext(c)
 		}
 	}
+	// The chunk is no longer used once we leave this function.
+	defer t.ReleaseBytes(len(chunk))
+
 	canBeBinary := strings.IndexByte(chunkMode, 'b') >= 0
 	canBeText := strings.IndexByte(chunkMode, 't') >= 0
 	if len(chunk) > 0 && chunk[0] < byte(rt.ConstTypeMaj) {
@@ -85,7 +96,9 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return next, nil
 		}
 		r := bytes.NewBuffer(chunk)
-		k, err := rt.UnmarshalConst(r)
+		// TODO consume memory / cpu to unmarshal
+		k, used, err := rt.UnmarshalConst(r, t.LinearUnused(10))
+		t.LinearRequire(10, used)
 		if err != nil {
 			return nil, rt.NewErrorE(err).AddContext(c)
 		}
@@ -97,6 +110,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if code.UpvalueCount > 0 {
 			envVal := rt.TableValue(chunkEnv)
 			clos.AddUpvalue(rt.NewCell(envVal))
+			t.RequireCPU(uint64(code.UpvalueCount))
 			for i := int16(1); i < code.UpvalueCount; i++ {
 				clos.AddUpvalue(rt.NewCell(rt.NilValue))
 			}

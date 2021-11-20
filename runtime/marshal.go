@@ -11,19 +11,24 @@ import (
 func MarshalConst(w io.Writer, c Value, budget uint64) (used uint64, err error) {
 	defer func() {
 		if r := recover(); r == budgetConsumed {
-			used = budget + 1
+			used = budget
 		}
 	}()
 	bw := bwriter{w: w, budget: budget}
-	err = bw.writeConst(c)
-	return budget - bw.budget, err
+	bw.writeConst(c)
+	return budget - bw.budget, bw.err
 }
 
 // UnmarshalConst reads from r to deserialize a const value.
-func UnmarshalConst(r io.Reader) (v Value, err error) {
-	br := breader{r: r}
-	err = br.readConst(&v)
-	return
+func UnmarshalConst(r io.Reader, budget uint64) (v Value, used uint64, err error) {
+	defer func() {
+		if r := recover(); r == budgetConsumed {
+			used = budget
+		}
+	}()
+	br := breader{r: r, budget: budget}
+	v = br.readConst()
+	return v, budget - br.budget, br.err
 }
 
 //
@@ -36,7 +41,7 @@ type bwriter struct {
 	budget uint64
 }
 
-func (w *bwriter) writeConst(c Value) (err error) {
+func (w *bwriter) writeConst(c Value) {
 	switch c.Type() {
 	case IntType:
 		w.consumeBudget(1 + 8)
@@ -58,10 +63,9 @@ func (w *bwriter) writeConst(c Value) (err error) {
 	default:
 		panic("invalid value type")
 	}
-	return w.err
 }
 
-func (w *bwriter) writeCode(c *Code) (err error) {
+func (w *bwriter) writeCode(c *Code) {
 	w.consumeBudget(1 + 0 + 0 + 8 + 8 + 8)
 	w.write(
 		CodeType,
@@ -84,34 +88,31 @@ func (w *bwriter) writeCode(c *Code) (err error) {
 	for _, n := range c.UpNames {
 		w.writeString(n)
 	}
-	return w.err
 }
 
-func (w *bwriter) write(xs ...interface{}) (err error) {
+func (w *bwriter) write(xs ...interface{}) {
 	if w.err != nil {
-		return w.err
+		return
 	}
 	for _, x := range xs {
 		switch xx := x.(type) {
 		case string:
-			err = w.writeString(xx)
+			w.writeString(xx)
 		default:
-			err = binary.Write(w.w, binary.LittleEndian, x)
+			w.err = binary.Write(w.w, binary.LittleEndian, x)
 		}
-		if err != nil {
-			break
+		if w.err != nil {
+			return
 		}
 	}
-	w.err = err
-	return
 }
 
-func (w *bwriter) writeString(s string) (err error) {
+func (w *bwriter) writeString(s string) {
 	w.consumeBudget(uint64(8 + len(s)))
-	if w.write(int64(len(s))) == nil {
+	w.write(int64(len(s)))
+	if w.err == nil {
 		_, w.err = w.w.Write([]byte(s))
 	}
-	return w.err
 }
 
 func (w *bwriter) consumeBudget(amount uint64) {
@@ -133,68 +134,73 @@ var budgetConsumed interface{} = "budget consumed"
 type breader struct {
 	r   io.Reader
 	err error
+
+	budget uint64
 }
 
-func (r *breader) readConst(v *Value) (err error) {
+func (r *breader) readConst() (v Value) {
 	var tp ValueType
-	if r.read(&tp) != nil {
-		return r.err
+	r.read(1, &tp)
+	if r.err != nil {
+		return
 	}
 	switch tp {
 	case IntType:
 		var x int64
-		if r.read(&x) == nil {
-			*v = IntValue(x)
-		}
+		r.read(8, &x)
+		v = IntValue(x)
 	case FloatType:
 		var x float64
-		if r.read(&x) == nil {
-			*v = FloatValue(x)
-		}
+		r.read(8, &x)
+		v = FloatValue(x)
 	case StringType:
-		var s string
-		if r.readString(&s) == nil {
-			*v = StringValue(s)
-		}
+		s := r.readString()
+		v = StringValue(s)
 	case BoolType:
 		var x bool
-		if r.read(&x) == nil {
-			*v = BoolValue(x)
-		}
+		r.read(1, &x)
+		v = BoolValue(x)
 	case NilType:
-		*v = NilValue
+		v = NilValue
 	case CodeType:
 		x := new(Code)
-		if r.readCode(x) == nil {
-			*v = CodeValue(x)
-		}
+		r.readCode(x)
+		v = CodeValue(x)
 	default:
 		panic("invalid value type")
 	}
-	return r.err
+	if r.err != nil {
+		return NilValue
+	}
+	return v
 }
 
-func (r *breader) readCode(c *Code) (err error) {
+func (r *breader) readCode(c *Code) {
 	var sz int64
 	r.read(
+		0+0+8,
 		&c.source,
 		&c.name,
 		&sz,
 	)
 	c.code = make([]code.Opcode, sz)
-	r.read(c.code,
+	r.read(
+		4*uint64(sz)+8,
+		c.code,
 		&sz,
 	)
 	c.lines = make([]int32, sz)
 	r.read(
+		4*uint64(sz)+8,
 		c.lines,
 		&sz,
 	)
 	c.consts = make([]Value, sz)
 	for i := range c.consts {
-		r.readConst(&c.consts[i])
+		c.consts[i] = r.readConst()
 	}
 	r.read(
+		2+2+2+8,
 		&c.UpvalueCount,
 		&c.RegCount,
 		&c.CellCount,
@@ -202,40 +208,52 @@ func (r *breader) readCode(c *Code) (err error) {
 	)
 	c.UpNames = make([]string, sz)
 	for i := range c.UpNames {
-		r.readString(&c.UpNames[i])
+		c.UpNames[i] = r.readString()
 	}
-	return r.err
 }
 
-func (r *breader) read(xs ...interface{}) (err error) {
+func (r *breader) read(sz uint64, xs ...interface{}) {
 	if r.err != nil {
-		return r.err
+		return
 	}
+	r.consumeBudget(sz)
 	for _, x := range xs {
 		switch xx := x.(type) {
 		case *string:
-			err = r.readString(xx)
+			*xx = r.readString()
 		default:
-			err = binary.Read(r.r, binary.LittleEndian, x)
+			r.err = binary.Read(r.r, binary.LittleEndian, x)
 		}
-		if err != nil {
-			break
+		if r.err != nil {
+			return
 		}
 	}
-	r.err = err
+}
+
+func (r *breader) readString() (s string) {
+	if r.err != nil {
+		return
+	}
+	var sl int64
+	r.read(8, &sl)
+	if r.err != nil {
+		return
+	}
+	r.consumeBudget(uint64(sl))
+	b := make([]byte, sl)
+	_, r.err = r.r.Read(b)
+	if r.err == nil {
+		s = string(b)
+	}
 	return
 }
 
-func (r *breader) readString(s *string) (err error) {
-	var sl int64
-	if err = r.read(&sl); err == nil {
-		b := make([]byte, sl)
-		_, err = r.r.Read(b)
-		if err == nil {
-			*s = string(b)
-		} else {
-			r.err = err
-		}
+func (r *breader) consumeBudget(amount uint64) {
+	if r.budget == 0 {
+		return
 	}
-	return
+	if r.budget < amount {
+		panic(budgetConsumed)
+	}
+	r.budget -= amount
 }
