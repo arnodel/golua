@@ -77,22 +77,6 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	next = c.Next()
 	res := rt.NewTerminationWith(0, true)
 	defer func() {
-
-		// var (
-		// 	memUsed, memQuota = t.MemQuotaStatus()
-		// 	cpuUsed, cpuQuota = t.CPUQuotaStatus()
-		// )
-		// if memQuota > 0 {
-		// 	t.SetEnv(quotas, "memused", rt.IntValue(int64(memUsed)))
-		// 	t.SetEnv(quotas, "memquota", rt.IntValue(int64(memQuota)))
-		// }
-		// if cpuQuota > 0 {
-		// 	t.SetEnv(quotas, "cpuused", rt.IntValue(int64(cpuUsed)))
-		// 	t.SetEnv(quotas, "cpuquota", rt.IntValue(int64(cpuQuota)))
-		// }
-		// // In any case, pop the quotas
-		// t.PopQuota()
-
 		ctx := t.PopContext()
 		if retErr != nil {
 			// In this case there was an error, so no panic.  We return the
