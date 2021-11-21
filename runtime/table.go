@@ -1,9 +1,5 @@
 package runtime
 
-import (
-	"errors"
-)
-
 // Table implements a Lua table.
 type Table struct {
 	mixedTable
@@ -47,15 +43,6 @@ func (t *Table) Reset(k, v Value) (wasSet bool) {
 		return t.mixedTable.remove(k)
 	}
 	return t.mixedTable.reset(k, v)
-}
-
-// SetCheck implements t[k] = v, returns an error if k is nil.
-func (t *Table) SetCheck(k, v Value) error {
-	if k.IsNil() {
-		return errors.New("table index is nil")
-	}
-	t.Set(k, v)
-	return nil
 }
 
 // Len returns a length for t (see lua docs for details).

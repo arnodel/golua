@@ -47,8 +47,8 @@ print(ctx.status)
 --> =killed
 
 -- Here we reached the cpu limit
-print(ctx.cpuused, ctx.cpulimit)
---> =1000	1000
+print(ctx.cpuused >= 990, ctx.cpulimit)
+--> =true	1000
 
 -- If a resource is not limited its limit reported as nil
 print(ctx.memlimit)

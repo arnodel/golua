@@ -102,13 +102,20 @@ func (m *quotaManager) UpdateFlags(flags RuntimeContextFlags) {
 
 func (m *quotaManager) RequireCPU(cpuAmount uint64) {
 	if m.cpuQuota > 0 {
-		m.cpuUsed += cpuAmount
-		if m.cpuUsed >= m.cpuQuota {
-			m.cpuUsed = m.cpuQuota
-			m.status = RCS_Killed
-			panicWithQuotaExceded("CPU quota of %d exceeded", m.cpuQuota)
-		}
+		// The path with quota is "outlined" so RequireCPU can be inlined,
+		// minimising the overhead when there is no quota.
+		m.requireCPU(cpuAmount)
 	}
+}
+
+//go:noinline
+func (m *quotaManager) requireCPU(cpuAmount uint64) {
+	cpuUsed := m.cpuUsed + cpuAmount
+	if cpuUsed >= m.cpuQuota {
+		m.status = RCS_Killed
+		panicWithQuotaExceded("CPU quota of %d exceeded", m.cpuQuota)
+	}
+	m.cpuUsed = cpuUsed
 }
 
 func (m *quotaManager) UpdateCPUQuota(newQuota uint64) {
@@ -125,13 +132,20 @@ func (m *quotaManager) CPUQuotaStatus() (uint64, uint64) {
 
 func (m *quotaManager) RequireMem(memAmount uint64) {
 	if m.memQuota > 0 {
-		m.memUsed += memAmount
-		if m.memUsed >= m.memQuota {
-			m.memUsed = m.memQuota
-			m.status = RCS_Killed
-			panicWithQuotaExceded("mem quota of %d exceeded", m.memQuota)
-		}
+		// The path with quota is "outlined" so RequireMem can be inlined,
+		// minimising the overhead when there is no quota.
+		m.requireMem(memAmount)
 	}
+}
+
+//go:noinline
+func (m *quotaManager) requireMem(memAmount uint64) {
+	memUsed := m.memUsed + memAmount
+	if memUsed >= m.memQuota {
+		m.status = RCS_Killed
+		panicWithQuotaExceded("mem quota of %d exceeded", m.memQuota)
+	}
+	m.memUsed = memUsed
 }
 
 func (m *quotaManager) RequireSize(sz uintptr) (mem uint64) {

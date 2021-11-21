@@ -28,11 +28,11 @@ print(ctx.status)
 --> =killed
 
 -- Check we didn't run out of memory
-print(ctx.memused < ctx.memlimit)
+print(ctx.memused < 1000)
 --> =true
 
 -- Check we ran out of cpu
-print(ctx.cpuused >= ctx.cpulimit)
+print(ctx.cpuused >= ctx.cpulimit - 50)
 --> =true
 
 -- Check we did a number of iterations

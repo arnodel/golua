@@ -167,9 +167,11 @@ func (r *Runtime) SetTable(t *Table, k, v Value) {
 	r.RequireMem(t.Set(k, v))
 }
 
+var errTableIndexIsNil = errors.New("table index is nil")
+
 func (r *Runtime) SetTableCheck(t *Table, k, v Value) error {
 	if k.IsNil() {
-		return errors.New("table index is nil")
+		return errTableIndexIsNil
 	}
 	r.SetTable(t, k, v)
 	return nil
