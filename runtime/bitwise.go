@@ -1,7 +1,5 @@
 package runtime
 
-var errNaI = NewErrorS("Float is not an integer")
-
 func band(t *Thread, x, y Value) (Value, *Error) {
 	ix, okx := ToInt(x)
 	iy, oky := ToInt(y)

@@ -275,42 +275,77 @@ func (r *Runtime) SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (
 }
 
 // ParseLuaChunk parses a string as a Lua statement and returns the AST.
-func ParseLuaChunk(name string, source []byte) (*ast.BlockStat, error) {
+func (r *Runtime) ParseLuaChunk(name string, source []byte) (stat *ast.BlockStat, statSize uint64, err error) {
 	s := scanner.New(name, source)
-	stat, err := parsing.ParseChunk(s.Scan)
+
+	// Account for CPU and memory used to make the AST.  This is an estimate,
+	// but statSize is proportional to the size of the source.
+	statSize = uint64(len(source))
+	r.LinearRequire(4, uint64(len(source))) // 4 is a factor pulled out of thin air
+
+	stat = new(ast.BlockStat)
+	*stat, err = parsing.ParseChunk(s.Scan)
 	if err != nil {
+		r.ReleaseMem(statSize)
 		parseErr, ok := err.(parsing.Error)
 		if !ok {
-			return nil, err
+			return nil, 0, err
 		}
-		return nil, NewSyntaxError(name, parseErr)
+		return nil, 0, NewSyntaxError(name, parseErr)
 	}
-	return &stat, nil
+	return
 }
 
 // CompileLuaChunk parses and compiles the source as a Lua Chunk and returns the
 // compile code Unit.
-func CompileLuaChunk(name string, source []byte) (*code.Unit, error) {
-	stat, err := ParseLuaChunk(name, source)
+func (r *Runtime) CompileLuaChunk(name string, source []byte) (*code.Unit, uint64, error) {
+	stat, statSize, err := r.ParseLuaChunk(name, source)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
+
+	// In any event the AST goes out of scope when leaving this function
+	defer func() { r.ReleaseMem(statSize) }()
+
+	// Account for CPU and memory needed to compile the AST to IR.  This is an
+	// estimate, but constsSize is proportional to the size of the AST.
+	constsSize := statSize
+	r.LinearRequire(4, constsSize) // 4 is a factor pulled out of thin air
+
+	// The IR consts go out of scope when we leave the function
+	defer r.ReleaseMem(constsSize)
+
 	// Compile ast to ir
 	kidx, constants := astcomp.CompileLuaChunk(name, *stat)
+
+	// We no longer need the AST
+	r.ReleaseMem(statSize)
+	statSize = 0 // So that the deferred function above doesn't release the memory again.
 
 	// "Optimise" the ir code
 	constants = ir.FoldConstants(constants, ir.DefaultFold)
 
-	// Compile ir to code
+	// Set up the IR to code compiler
 	kc := ircomp.NewConstantCompiler(constants, code.NewBuilder(name))
 	kc.QueueConstant(kidx)
-	return kc.CompileQueue(), nil
+
+	// Account for CPU and memory needed to compile IR to a code unit.  This is
+	// an estimate, but unitSize is proportional to the size of the IR consts.
+	unitSize := constsSize
+	r.LinearRequire(4, unitSize) // 4 is a factor pulled out of thin air
+
+	// Compile IR to code
+	unit := kc.CompileQueue()
+
+	// We no longer need the constants
+	return unit, unitSize, nil
 }
 
 // CompileAndLoadLuaChunk parses, compiles and loads a Lua chunk from source and
 // returns the closure that runs the chunk in the given global environment.
 func (r *Runtime) CompileAndLoadLuaChunk(name string, source []byte, env *Table) (*Closure, error) {
-	unit, err := CompileLuaChunk(name, source)
+	unit, unitSize, err := r.CompileLuaChunk(name, source)
+	defer r.ReleaseMem(unitSize)
 	if err != nil {
 		return nil, err
 	}

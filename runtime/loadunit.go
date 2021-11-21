@@ -27,7 +27,10 @@ func (r *Runtime) RefactorCodeConsts(c *Code) *Code {
 	opcodes := make([]code.Opcode, len(c.code))
 	var consts []Value
 	constMap := map[code.KIndex]code.KIndex{}
+
+	// Require CPU for the loop below
 	r.RequireCPU(uint64(len(c.code)))
+
 	for i, op := range c.code {
 		if op.TypePfx() == code.Type3Pfx {
 			unop := op.GetY()
@@ -60,8 +63,16 @@ func (r *Runtime) RefactorCodeConsts(c *Code) *Code {
 // LoadLuaUnit turns a code unit into a closure given an environment env.
 func (r *Runtime) LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 	r.RequireArrSize(unsafe.Sizeof(Value{}), len(unit.Constants))
-	r.RequireArrSize(unsafe.Sizeof(code.Opcode(0)), len(unit.Code))
 	constants := make([]Value, len(unit.Constants))
+
+	// Require memory for all the code at once, rather than in bits in the
+	// code.Code case below
+	r.RequireArrSize(unsafe.Sizeof(code.Opcode(0)), len(unit.Code))
+	r.RequireArrSize(4, len(unit.Lines))
+
+	// Require CPU for the loop below
+	r.RequireCPU(uint64(len(unit.Constants)))
+
 	for i, ck := range unit.Constants {
 		switch k := ck.(type) {
 		case code.Int:
@@ -69,7 +80,7 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 		case code.Float:
 			constants[i] = FloatValue(float64(k))
 		case code.String:
-			r.RequireBytes(len(k))
+			// The strings are already accounted for memory-wise
 			constants[i] = StringValue(string(k))
 		case code.Bool:
 			constants[i] = BoolValue(bool(k))
@@ -77,11 +88,15 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 			// Do nothing as constants[i] == nil
 		case code.Code:
 			r.RequireSize(unsafe.Sizeof(Code{}))
+			var lines []int32
+			if unit.Lines != nil {
+				lines = unit.Lines[k.StartOffset:k.EndOffset]
+			}
 			constants[i] = CodeValue(&Code{
 				source:       unit.Source,
 				name:         k.Name,
 				code:         unit.Code[k.StartOffset:k.EndOffset],
-				lines:        unit.Lines[k.StartOffset:k.EndOffset],
+				lines:        lines,
 				consts:       constants,
 				UpvalueCount: k.UpvalueCount,
 				UpNames:      k.UpNames,
