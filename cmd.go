@@ -86,7 +86,7 @@ func (c *luaCmd) run() (retcode int) {
 		args = flag.Args()[1:]
 	}
 	if c.astFlag {
-		stat, err := rt.ParseLuaChunk(chunkName, chunk)
+		stat, _, err := r.ParseLuaChunk(chunkName, chunk)
 		if err != nil {
 			return fatal("Error parsing %s: %s", chunkName, err)
 		}
@@ -95,7 +95,7 @@ func (c *luaCmd) run() (retcode int) {
 		return 0
 	}
 	chunk = removeSlashBangLine(chunk)
-	unit, err := rt.CompileLuaChunk(chunkName, chunk)
+	unit, _, err := r.CompileLuaChunk(chunkName, chunk)
 	if err != nil {
 		return fatal("Error parsing %s: %s", chunkName, err)
 	}
