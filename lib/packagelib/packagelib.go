@@ -265,13 +265,15 @@ var (
 )
 
 func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := t.CheckIO(); err != nil {
+		return nil, err.AddContext(c)
+	}
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err.AddContext(c)
 	}
 	// Arg 0 is the module name - dunno what to do with it.
 	filePath, err := c.StringArg(1)
 	if err != nil {
-		fmt.Printf("XXX %+v\n", c.Arg(1))
 		return nil, err.AddContext(c)
 	}
 	src, readErr := ioutil.ReadFile(string(filePath))
