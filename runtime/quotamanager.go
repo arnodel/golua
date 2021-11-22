@@ -113,7 +113,7 @@ func (m *quotaManager) requireCPU(cpuAmount uint64) {
 	cpuUsed := m.cpuUsed + cpuAmount
 	if cpuUsed >= m.cpuQuota {
 		m.status = RCS_Killed
-		panicWithQuotaExceded("CPU quota of %d exceeded", m.cpuQuota)
+		panicWithQuotaExceded("CPU limit of %d exceeded", m.cpuQuota)
 	}
 	m.cpuUsed = cpuUsed
 }
@@ -143,7 +143,7 @@ func (m *quotaManager) requireMem(memAmount uint64) {
 	memUsed := m.memUsed + memAmount
 	if memUsed >= m.memQuota {
 		m.status = RCS_Killed
-		panicWithQuotaExceded("mem quota of %d exceeded", m.memQuota)
+		panicWithQuotaExceded("mem limit of %d exceeded", m.memQuota)
 	}
 	m.memUsed = memUsed
 }
