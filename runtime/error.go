@@ -50,13 +50,15 @@ func (e *Error) Value() Value {
 // Error implements the error interface.
 func (e *Error) Error() string {
 	// TODO
-	return fmt.Sprintf("error: %+v", e.message)
+	s, _ := e.message.ToString()
+	return fmt.Sprintf("error: %s", s)
 }
 
 // Traceback returns a string that represents the traceback of the error using
 // its context.
 func (e *Error) Traceback() string {
 	var tb []*DebugInfo
+	// TODO: consume CPU and mem?
 	for _, c := range e.context {
 		tb = appendTraceback(tb, c)
 	}

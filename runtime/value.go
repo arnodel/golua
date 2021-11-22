@@ -1,8 +1,11 @@
-//+build !noscalar
+//go:build !noscalar
+// +build !noscalar
 
 package runtime
 
 import (
+	"fmt"
+	"strconv"
 	"unsafe"
 )
 
@@ -208,6 +211,36 @@ func (v Value) Type() ValueType {
 		return UserDataType
 	default:
 		return UnknownType
+	}
+}
+
+func (v Value) ToString() (string, bool) {
+	if v.iface == nil {
+		return "nil", false
+	}
+	switch x := v.iface.(type) {
+	case int64:
+		return strconv.Itoa(int(v.AsInt())), true
+	case float64:
+		return strconv.FormatFloat(v.AsFloat(), 'g', -1, 64), true
+	case bool:
+		return strconv.FormatBool(v.AsBool()), false
+	case string:
+		return v.AsString(), true
+	case *Table:
+		return fmt.Sprintf("table: %p", x), false
+	case *Code:
+		return fmt.Sprintf("code: %p", x), false
+	case *GoFunction:
+		return fmt.Sprintf("gofunction: %s", x.name), false
+	case *Closure:
+		return fmt.Sprintf("function: %p", x), false
+	case *Thread:
+		return fmt.Sprintf("thread: %p", x), false
+	case *UserData:
+		return fmt.Sprintf("userdata: %p", x), false
+	default:
+		return "<unknown>", false
 	}
 }
 
