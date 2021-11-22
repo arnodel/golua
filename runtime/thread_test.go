@@ -35,7 +35,7 @@ func TestThread_Resume(t *testing.T) {
 			th := tt.thread
 			gotPanic := func() (res interface{}) {
 				defer func() { res = recover() }()
-				th.Resume(tt.args.caller, tt.args.args)
+				_, _ = th.Resume(tt.args.caller, tt.args.args)
 				return
 			}()
 			if !reflect.DeepEqual(gotPanic, tt.wantPanic) {
@@ -79,7 +79,7 @@ func TestThread_Yield(t *testing.T) {
 			th := tt.thread
 			gotPanic := func() (res interface{}) {
 				defer func() { res = recover() }()
-				th.Yield(tt.args.args)
+				_, _ = th.Yield(tt.args.args)
 				return
 			}()
 			if !reflect.DeepEqual(gotPanic, tt.wantPanic) {
@@ -91,9 +91,11 @@ func TestThread_Yield(t *testing.T) {
 
 func TestThread_end(t *testing.T) {
 	type args struct {
-		args []Value
-		err  *Error
+		args     []Value
+		err      *Error
+		quotaErr *QuotaExceededError
 	}
+	quotaErr := QuotaExceededError{message: "boo!"}
 	tests := []struct {
 		name      string
 		thread    *Thread
@@ -103,8 +105,9 @@ func TestThread_end(t *testing.T) {
 		{
 			name: "Thread to end must be running",
 			thread: &Thread{
-				status: ThreadDead,
-				caller: &Thread{},
+				status:   ThreadDead,
+				caller:   &Thread{},
+				resumeCh: make(chan valuesError),
 			},
 			wantPanic: "Called Thread.end on a non-running thread",
 		},
@@ -115,20 +118,37 @@ func TestThread_end(t *testing.T) {
 				caller: &Thread{
 					status: ThreadDead,
 				},
+				resumeCh: make(chan valuesError),
 			},
 			wantPanic: "Caller thread of ending thread is not OK",
 		},
-		// TODO: Add test cases.
+		{
+			name: "Thread must not run out of resources",
+			thread: &Thread{
+				status: ThreadOK,
+				caller: &Thread{
+					resumeCh: make(chan valuesError, 1),
+				},
+				resumeCh: make(chan valuesError),
+			},
+			args: args{
+				quotaErr: &quotaErr,
+			},
+			wantPanic: quotaErr,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			th := tt.thread
+			th.Runtime = &Runtime{} // So releasing resources works.
 			gotPanic := func() (res interface{}) {
 				defer func() { res = recover() }()
-				th.end(tt.args.args, tt.args.err)
+				caller := th.caller // The caller is removed when th is killed
+				th.end(tt.args.args, tt.args.err, tt.args.quotaErr)
+				_, _ = caller.getResumeValues()
 				return
 			}()
-			if !reflect.DeepEqual(gotPanic, tt.wantPanic) {
+			if gotPanic != tt.wantPanic {
 				t.Errorf("Thread.end() panic got %v, want %v", gotPanic, tt.wantPanic)
 			}
 		})

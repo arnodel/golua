@@ -2,27 +2,23 @@ package runtime
 
 import (
 	"sync"
+	"unsafe"
 )
-
-// ThreadStarter is an interface for things that can make a start a
-// thread.
-type ThreadStarter interface {
-	StartThread(*Thread, []Value) ([]Value, error)
-}
 
 // ThreadStatus is the type of a thread status
 type ThreadStatus uint
 
 // Available statuses for threads.
 const (
-	ThreadOK        ThreadStatus = 0
-	ThreadSuspended ThreadStatus = 1
-	ThreadDead      ThreadStatus = 3
+	ThreadOK        ThreadStatus = 0 // Running thread
+	ThreadSuspended ThreadStatus = 1 // Thread has yielded and is waiting to be resumed
+	ThreadDead      ThreadStatus = 3 // Thread has finished and cannot be resumed
 )
 
 type valuesError struct {
-	args []Value
-	err  *Error
+	args     []Value
+	err      *Error
+	quotaErr *QuotaExceededError
 }
 
 // A Thread is a lua thread.
@@ -39,13 +35,14 @@ type Thread struct {
 	caller      *Thread
 }
 
-// NewThread creates a new thread out of a ThreadStarter.  Its initial
+// NewThread creates a new thread out of a Runtime.  Its initial
 // status is suspended.  Call Resume to run it.
-func NewThread(rt *Runtime) *Thread {
+func NewThread(r *Runtime) *Thread {
+	r.RequireSize(unsafe.Sizeof(Thread{}) + 100) // 100 is my guess at the size of a channel
 	return &Thread{
 		resumeCh: make(chan valuesError),
 		status:   ThreadSuspended,
-		Runtime:  rt,
+		Runtime:  r,
 	}
 }
 
@@ -74,14 +71,32 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 // Start starts the thread in a goroutine, giving it the callable c to run.  the
 // t.Resume() method needs to be called to provide arguments to the callable.
 func (t *Thread) Start(c Callable) {
+	t.RequireBytes(2 << 10) // A goroutine starts off with 2k stack
 	go func() {
-		args, err := t.getResumeValues()
+		var (
+			args     []Value
+			err      *Error
+			quotaErr *QuotaExceededError
+		)
+		// If there was a panic due to an exceeded quota, we need to end the
+		// thread and propagate that panic to the calling thread
+		defer func() {
+			if r := recover(); r != nil {
+				quotaErr = new(QuotaExceededError)
+				var ok bool
+				*quotaErr, ok = r.(QuotaExceededError)
+				if !ok {
+					panic(r)
+				}
+			}
+			t.end(args, err, quotaErr)
+		}()
+		args, err = t.getResumeValues()
 		if err == nil {
 			next := NewTerminationWith(0, true)
 			err = t.call(c, args, next)
 			args = next.Etc()
 		}
-		t.end(args, err)
 	}()
 }
 
@@ -111,7 +126,7 @@ func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, *Error) {
 	t.status = ThreadOK
 	t.mux.Unlock()
 	caller.mux.Unlock()
-	t.sendResumeValues(args, nil)
+	t.sendResumeValues(args, nil, nil)
 	return caller.getResumeValues()
 }
 
@@ -135,11 +150,11 @@ func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 	t.caller = nil
 	t.mux.Unlock()
 	caller.mux.Unlock()
-	caller.sendResumeValues(args, nil)
+	caller.sendResumeValues(args, nil, nil)
 	return t.getResumeValues()
 }
 
-func (t *Thread) end(args []Value, err *Error) {
+func (t *Thread) end(args []Value, err *Error, quotaErr *QuotaExceededError) {
 	caller := t.caller
 	t.mux.Lock()
 	caller.mux.Lock()
@@ -151,10 +166,12 @@ func (t *Thread) end(args []Value, err *Error) {
 	case caller.status != ThreadOK:
 		panic("Caller thread of ending thread is not OK")
 	default:
+		close(t.resumeCh)
 		t.status = ThreadDead
 		t.caller = nil
 	}
-	caller.sendResumeValues(args, err)
+	caller.sendResumeValues(args, err, quotaErr)
+	t.ReleaseBytes(2 << 10) // The goroutine will terminate after this
 }
 
 func (t *Thread) call(c Callable, args []Value, next Cont) *Error {
@@ -164,9 +181,12 @@ func (t *Thread) call(c Callable, args []Value, next Cont) *Error {
 
 func (t *Thread) getResumeValues() ([]Value, *Error) {
 	res := <-t.resumeCh
+	if res.quotaErr != nil {
+		panic(*res.quotaErr)
+	}
 	return res.args, res.err
 }
 
-func (t *Thread) sendResumeValues(args []Value, err *Error) {
-	t.resumeCh <- valuesError{args, err}
+func (t *Thread) sendResumeValues(args []Value, err *Error, quotaErr *QuotaExceededError) {
+	t.resumeCh <- valuesError{args, err, quotaErr}
 }
