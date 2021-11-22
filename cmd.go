@@ -23,8 +23,8 @@ type luaCmd struct {
 	disFlag        bool
 	astFlag        bool
 	unbufferedFlag bool
-	cpuQuota       uint64
-	memQuota       uint64
+	cpuLimit       uint64
+	memLimit       uint64
 	noIO           bool
 	noGoLib        bool
 }
@@ -35,8 +35,8 @@ func (c *luaCmd) setFlags() {
 	flag.BoolVar(&c.unbufferedFlag, "u", false, "Force unbuffered output")
 
 	if rt.QuotasAvailable {
-		flag.Uint64Var(&c.cpuQuota, "cpuquota", 0, "CPU quota")
-		flag.Uint64Var(&c.memQuota, "memquota", 0, "memory quota")
+		flag.Uint64Var(&c.cpuLimit, "cpulimit", 0, "CPU limit")
+		flag.Uint64Var(&c.memLimit, "memlimit", 0, "memory limit")
 		flag.BoolVar(&c.noIO, "noio", false, "disable file IO")
 		flag.BoolVar(&c.noGoLib, "nogolib", false, "disable Go bridge")
 	}
@@ -58,8 +58,8 @@ func (c *luaCmd) run() (retcode int) {
 
 	// Get a Lua runtime
 	r := rt.New(nil)
-	r.UpdateCPUQuota(c.cpuQuota)
-	r.UpdateMemQuota(c.memQuota)
+	r.UpdateCPUQuota(c.cpuLimit)
+	r.UpdateMemQuota(c.memLimit)
 	if c.noIO {
 		r.UpdateFlags(rt.RCF_NoIO)
 	}
@@ -196,7 +196,7 @@ func (c *luaCmd) repl(r *rt.Runtime) int {
 			if err != nil {
 				fmt.Printf("!!! %s\n", err)
 				if _, ok := err.(rt.QuotaExceededError); ok {
-					fmt.Print("Reset quotas and continue? [yN] ")
+					fmt.Print("Reset limits and continue? [yN] ")
 					line, err := reader.ReadString('\n')
 					if err == io.EOF || strings.TrimSpace(line) != "y" {
 						return 0
