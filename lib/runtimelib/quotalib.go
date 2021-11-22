@@ -11,6 +11,9 @@ var LibLoader = packagelib.Loader{
 }
 
 func load(r *rt.Runtime) rt.Value {
+	if !rt.QuotasAvailable {
+		return rt.NilValue
+	}
 	pkg := rt.NewTable()
 	r.SetEnvGoFunc(pkg, "callcontext", callcontext, 2, true)
 	r.SetEnvGoFunc(pkg, "context", context, 0, false)
@@ -34,6 +37,7 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		memQuotaV = quotas.Get(rt.StringValue("memlimit"))
 		cpuQuotaV = quotas.Get(rt.StringValue("cpulimit"))
 		ioV       = quotas.Get(rt.StringValue("io"))
+		golibV    = quotas.Get(rt.StringValue("golib"))
 		memQuota  int64
 		cpuQuota  int64
 		ok        bool
@@ -70,7 +74,17 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 			return nil, rt.NewErrorS("io must be 'on' or 'off'").AddContext(c)
 		}
 	}
-
+	if !rt.IsNil(golibV) {
+		status, _ := golibV.TryString()
+		switch status {
+		case "off":
+			flags |= rt.RCF_NoGoLib
+		case "on":
+			// Nothing to do
+		default:
+			return nil, rt.NewErrorS("golib must be 'on' or 'off'").AddContext(c)
+		}
+	}
 	// Push new quotas
 	t.PushQuota(uint64(cpuQuota), uint64(memQuota), flags)
 
