@@ -26,6 +26,7 @@ type RuntimeContextFlags uint8
 const (
 	RCF_Empty RuntimeContextFlags = 1 << iota
 	RCF_NoIO
+	RCF_NoGoLib
 )
 
 func (f RuntimeContextFlags) IsSet(ctx RuntimeContext) bool {
@@ -33,10 +34,18 @@ func (f RuntimeContextFlags) IsSet(ctx RuntimeContext) bool {
 }
 
 var ErrIODisabled = NewErrorS("io disabled")
+var ErrGoBridgeDisabled = NewErrorS("go disabled")
 
 func (r *Runtime) CheckIO() *Error {
 	if RCF_NoIO.IsSet(r) {
 		return ErrIODisabled
+	}
+	return nil
+}
+
+func (r *Runtime) CheckGoLib() *Error {
+	if RCF_NoGoLib.IsSet(r) {
+		return ErrGoBridgeDisabled
 	}
 	return nil
 }

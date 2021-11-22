@@ -81,6 +81,13 @@ func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		} else {
 			val = rt.StringValue("on")
 		}
+	case "golib":
+		if rt.RCF_NoGoLib.IsSet(ctx) {
+			val = rt.StringValue("off")
+		} else {
+			val = rt.StringValue("on")
+		}
+
 	}
 	return c.PushingNext1(t.Runtime, val), nil
 }
