@@ -50,4 +50,11 @@ runtime.callcontext({io="off"}, function()
 
     print(pcall(io.stdin.write, stdout))
     --> =false	io disabled
+
+    runtime.callcontext({io="on"}, function ()
+        -- Can't turn IO back on
+
+        print(pcall(io.close, 1))
+        --> =false	io disabled
+    end)
 end)
