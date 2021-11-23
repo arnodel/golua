@@ -86,7 +86,11 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		}
 	}
 	// Push new quotas
-	t.PushQuota(uint64(cpuQuota), uint64(memQuota), flags)
+	t.PushContext(rt.RuntimeContextDef{
+		CpuLimit: uint64(cpuQuota),
+		MemLimit: uint64(memQuota),
+		Flags:    flags,
+	})
 
 	next = c.Next()
 	res := rt.NewTerminationWith(0, true)

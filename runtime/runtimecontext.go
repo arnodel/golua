@@ -1,13 +1,5 @@
 package runtime
 
-type RuntimeContextStatus uint8
-
-const (
-	RCS_Live RuntimeContextStatus = iota
-	RCS_Done
-	RCS_Killed
-)
-
 type RuntimeContext interface {
 	CpuLimit() uint64
 	CpuUsed() uint64
@@ -20,6 +12,14 @@ type RuntimeContext interface {
 
 	Flags() RuntimeContextFlags
 }
+
+type RuntimeContextStatus uint8
+
+const (
+	RCS_Live RuntimeContextStatus = iota
+	RCS_Done
+	RCS_Killed
+)
 
 type RuntimeContextFlags uint8
 
@@ -48,4 +48,10 @@ func (r *Runtime) CheckGoLib() *Error {
 		return ErrGoBridgeDisabled
 	}
 	return nil
+}
+
+type RuntimeContextDef struct {
+	CpuLimit uint64
+	MemLimit uint64
+	Flags    RuntimeContextFlags
 }
