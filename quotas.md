@@ -13,7 +13,7 @@
     - [When embedding a runtime in Go](#when-embedding-a-runtime-in-go)
       - [`(*Runtime).PushContext(RuntimeContextDef)`](#runtimepushcontextruntimecontextdef)
       - [`(*Runtime).PopContext() RuntimeContext`](#runtimepopcontext-runtimecontext)
-      - [`(*Runtime).CallInContext(def RuntimeContextDef, f func()) RuntimeContext`](#runtimecallincontextdef-runtimecontextdef-f-func-runtimecontext)
+      - [`(*Runtime).CallContext(def RuntimeContextDef, f func()) RuntimeContext`](#runtimecallcontextdef-runtimecontextdef-f-func-runtimecontext)
   - [How to implement resource limits](#how-to-implement-resource-limits)
     - [CPU limits](#cpu-limits)
       - [`(*Runtime).RequireCPU(n uint64)`](#runtimerequirecpun-uint64)
@@ -240,7 +240,7 @@ func main() {
 
 The `*runtime.Runtime` type has another method.
 
-#### `(*Runtime).CallInContext(def RuntimeContextDef, f func()) RuntimeContext`
+#### `(*Runtime).CallContext(def RuntimeContextDef, f func()) RuntimeContext`
 
 Similar to Lua's `runtime.callcontext`.  It is a convenience function to run
 some code in a given context, catching the `QuotaExceededError` panics if they
@@ -257,7 +257,7 @@ import (
 func main() {
     r := rt.NewRuntime(os.Stdout)
 
-    ctx := r.CallInContext(rt.RuntimeContextDef{
+    ctx := r.CallContext(rt.RuntimeContextDef{
         MemLimit: 100000,
         CpuLimit: 1000000,
         Flags: rt.RCF_NoIO|rt.RCF_NoGoLib,
@@ -374,4 +374,3 @@ Implementations Guidelines:
 Testing guidelines
 - write *.quotas.lua test file, using quota.rcall to check that memory and cpu
   are accounted for.
-  
