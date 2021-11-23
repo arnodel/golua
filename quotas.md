@@ -15,9 +15,18 @@
       - [`(*Runtime).PopContext() RuntimeContext`](#runtimepopcontext-runtimecontext)
       - [`(*Runtime).CallInContext(def RuntimeContextDef, f func()) RuntimeContext`](#runtimecallincontextdef-runtimecontextdef-f-func-runtimecontext)
   - [How to implement resource limits](#how-to-implement-resource-limits)
-    - [Restricting access to library functions](#restricting-access-to-library-functions)
     - [CPU limits](#cpu-limits)
+      - [`(*Runtime).RequireCPU(n uint64)`](#runtimerequirecpun-uint64)
     - [Memory limits](#memory-limits)
+      - [`(*Runtime).RequireMem(n uint64)`](#runtimerequirememn-uint64)
+      - [`(*Runtime).ReleaseMem(n uint64)`](#runtimereleasememn-uint64)
+      - [`(*Runtime).RequireBytes(n int) uint64`](#runtimerequirebytesn-int-uint64)
+      - [`(*Runtime).RequireSize(sz uintptr) uint64`](#runtimerequiresizesz-uintptr-uint64)
+      - [`(*Runtime).RequireArrSize(sz uintptr, n int) uint64`](#runtimerequirearrsizesz-uintptr-n-int-uint64)
+      - [`(*Runtime).ReleaseBytes(n int)`](#runtimereleasebytesn-int)
+      - [`(*Runtime).ReleaseSize(sz uintptr)`](#runtimereleasesizesz-uintptr)
+      - [`(*Runtime).ReleaseArrSize(sz uintptr, n int)`](#runtimereleasearrsizesz-uintptr-n-int)
+    - [Restricting access to library functions](#restricting-access-to-library-functions)
   - [Random notes](#random-notes)
 ## Overview
 
@@ -154,7 +163,10 @@ on      on
 
 ### When embedding a runtime in Go
 
-There is a `RuntimeContext` interface in the `runtime` package.  It is implemented by `*runtime.Runtime` and allows inspection of the current execution context.  We will see further down that contexts that are terminated are also available via this interface.
+There is a `RuntimeContext` interface in the `runtime` package.  It is
+implemented by `*runtime.Runtime` and allows inspection of the current execution
+context.  We will see further down that contexts that are terminated are also
+available via this interface.
 
 ```golang
 type RuntimeContext interface {
@@ -259,13 +271,89 @@ func main() {
 
 ## How to implement resource limits
 
-### Restricting access to library functions
 
-TODO
 ### CPU limits
 
-TODO
+The basic means of enforcing CPU limits is the following.
+#### `(*Runtime).RequireCPU(n uint64)`
+
+This method checks that `n` units of CPU are available.  If that is the case,
+the amount of CPU used is updated and execution continues.  Otherwise, the Go
+thread panics with `runtime.QuotaExceededError`.
+
+The approach is to call `RequireCPU` before a unit of work is done.
+- In a loop an amount of CPU should be required that is proportional to the
+  number of iterations.
+- Nested Go function calls should require CPU proportional to the depth of the
+  nested calls.
+- When running code in third party packages (including the Go Standard Library)
+  it should be possible to obtain and upper bound to the amount of CPU required
+  ahead of the call and require it.  If the third party function is given a
+  callback it may be possible to use that (e.g. `sort.Sort`).
+
 ### Memory limits
+
+The basic means of enforcing memory limits are the following.  
+
+#### `(*Runtime).RequireMem(n uint64)`
+
+This methods checks that `n` units of memory are available.  If that is the case,
+the amount of CPU used is updated and execution continues.  Otherwise, the Go
+thread panics with `runtime.QuotaExceededError`.
+
+#### `(*Runtime).ReleaseMem(n uint64)`
+
+This methods reduces the amount of memory used by `n` units (if possible).  It
+is generally not used but can be useful in some cases (e.g. when a big temporary
+object needs to be allocated).
+
+Often we know how much memory is required in terms of bytes or size of data
+structures, so there are some convenience methods to address that.
+
+#### `(*Runtime).RequireBytes(n int) uint64`
+
+Require enough memory to store `n` bytes.  Return the number of memory units
+required.
+
+#### `(*Runtime).RequireSize(sz uintptr) uint64`
+
+Require enough memory to store an obect of size `sz`, size as returned by
+`unsafe.Sizeof()`.  Return the number of memory units required.
+
+#### `(*Runtime).RequireArrSize(sz uintptr, n int) uint64`
+
+Require enough memory to store `n` objects of size `sz`, e.g. a slice or an
+array of objects.  Return the number of memory units required.
+
+
+There are corresponding methods for releasing memory
+
+#### `(*Runtime).ReleaseBytes(n int)`
+
+#### `(*Runtime).ReleaseSize(sz uintptr)`
+
+#### `(*Runtime).ReleaseArrSize(sz uintptr, n int)`
+
+The approach is to call `RequireMem` or one of the derived method before some
+memory allocation.  Memory allocation occurs when
+- A new string is created
+- A new table is created
+- A new item is inserted into a table
+- A new Lua closure is created
+- A new Lua continuation is created (that is akin to a "Lua call frame")
+- A new Go function is created
+- A new UserData instance is created
+- Buffered IO occurs
+- Lua source code is compiled
+
+Moreover it may be that calling a function in the standard library can cause
+memory allocations.
+
+In some case it may be appropriate to return memory.  An example is when a Lua
+continuation ends.  Returning its memory allows tail-calls to have the same
+memory footprint as loops.
+
+### Restricting access to library functions
 
 TODO
 ## Random notes
