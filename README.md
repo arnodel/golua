@@ -4,10 +4,13 @@
 
 # GoLua
 
-Implementation of Lua **5.3** in Go with **no third party dependencies**. The compiler and runtime are complete (including coroutines), the standard Lua library is mostly implemented.
+Implementation of Lua **5.3** in Go with **no third party dependencies**. The
+compiler and runtime are complete (including coroutines), the standard Lua
+library is mostly implemented.
 
 - [GoLua](#golua)
 	- [Quick start: running golua](#quick-start-running-golua)
+		- [Safe execution environment](#safe-execution-environment)
 		- [Importing and using Go packages](#importing-and-using-go-packages)
 	- [Quick start: embedding golua](#quick-start-embedding-golua)
 	- [Quick start: extending golua](#quick-start-extending-golua)
@@ -31,7 +34,7 @@ $ go get github.com/arnodel/golua
 
 To run interactively (in a repl):
 
-```
+```lua
 $ golua
 > function fac(n)
 |   if n == 0 then
@@ -56,13 +59,38 @@ $ golua
 >
 ```
 
+### Safe execution environment
+
+A unique feature of Golua is that you can run code in a safe execution
+environment where cpu and memory are restricted.  E.g.
+
+```lua
+$ golua -cpulimit=10000000
+> while true do end
+!!! CPU limit of 10000000 exceeded
+Reset limits and continue? [yN] 
+```
+
+You can even do this within Lua itself:
+
+```lua
+$ golua
+> a = "a"
+> runtime.callcontext({memlimit=1000000}, function() while true do a = a..a end end)
+killed
+> #a
+262144
+```
+
+For more details read more [here](quotas.md).
+
 ### Importing and using Go packages
 
 You can dynamically _import Go packages_ very easily as long as they are already
 downloaded - this include the standard library. Here is an example of running an
 http server in the repl:
 
-```sh
+```lua
 $ golua
 > go = require('golib')
 > http = go.import('net/http')
