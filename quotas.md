@@ -187,7 +187,9 @@ interface.  It also implements two methods.
 
 #### `(*Runtime).PushContext(RuntimeContextDef)`
 
-Creates a new context from the definition and makes it the active context. 
+Creates a new context from the definition and makes it the active context.  As
+described in the Lua section, the new context is not allowed to be less
+restrictive than the one it replaces.
 
 #### `(*Runtime).PopContext() RuntimeContext`
 
