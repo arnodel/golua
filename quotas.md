@@ -11,7 +11,9 @@
       - [`runtime.context()`](#runtimecontext)
       - [`runtime.callcontext(ctxdef, f, [arg1, ...])`](#runtimecallcontextctxdef-f-arg1-)
     - [When embedding a runtime in Go](#when-embedding-a-runtime-in-go)
-      - [`PopContext() RuntimeContext`](#popcontext-runtimecontext)
+      - [`(*Runtime).PushContext(RuntimeContextDef)`](#runtimepushcontextruntimecontextdef)
+      - [`(*Runtime).PopContext() RuntimeContext`](#runtimepopcontext-runtimecontext)
+      - [`(*Runtime).CallInContext(def RuntimeContextDef, f func()) RuntimeContext`](#runtimecallincontextdef-runtimecontextdef-f-func-runtimecontext)
   - [How to implement resource limits](#how-to-implement-resource-limits)
     - [Restricting access to library functions](#restricting-access-to-library-functions)
     - [CPU limits](#cpu-limits)
@@ -183,11 +185,11 @@ type RuntimeContextDef struct {
 As mentioned above, a Lua runtime is of type `*runtime.Runtime` and implements the `RuntimeContext`
 interface.  It also implements two methods.
 
-#### `(*Runtime).PushContext(RuntimeContextDef)`
+#### `(*Runtime).PushContext(RuntimeContextDef)`
 
 Creates a new context from the definition and makes it the active context. 
 
-#### `PopContext() RuntimeContext`
+#### `(*Runtime).PopContext() RuntimeContext`
 
 Removes the active context from the "context stack" and returns it.  It ensures
 that resources consumed in the popped context will be accounted for in the
@@ -224,7 +226,7 @@ func main() {
 
 The `*runtime.Runtime` type has another method.
 
-`(*Runtime).CallInContext(def RuntimeContextDef, f func()) RuntimeContext`
+#### `(*Runtime).CallInContext(def RuntimeContextDef, f func()) RuntimeContext`
 
 Similar to Lua's `runtime.callcontext`.  It is a convenience function to run
 some code in a given context, catching the `QuotaExceededError` panics if they
