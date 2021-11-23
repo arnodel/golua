@@ -26,17 +26,27 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) rt.Value {
 	methods := rt.NewTable()
-	r.SetEnvGoFunc(methods, "read", fileread, 1, true)
-	r.SetEnvGoFunc(methods, "lines", filelines, 1, true)
-	r.SetEnvGoFunc(methods, "close", fileclose, 1, false)
-	r.SetEnvGoFunc(methods, "flush", fileflush, 1, false)
-	r.SetEnvGoFunc(methods, "seek", fileseek, 3, false)
-	// TODO: setvbuf
-	r.SetEnvGoFunc(methods, "write", filewrite, 1, true)
+
+	rt.SolemnlyDeclareSafetyFlags(
+		rt.RCS_CpuSafe|rt.RCS_MemSafe,
+
+		r.SetEnvGoFunc(methods, "read", fileread, 1, true),
+		r.SetEnvGoFunc(methods, "lines", filelines, 1, true),
+		r.SetEnvGoFunc(methods, "close", fileclose, 1, false),
+		r.SetEnvGoFunc(methods, "flush", fileflush, 1, false),
+		r.SetEnvGoFunc(methods, "seek", fileseek, 3, false),
+		// TODO: setvbuf,
+		r.SetEnvGoFunc(methods, "write", filewrite, 1, true),
+	)
 
 	meta := rt.NewTable()
 	r.SetEnv(meta, "__index", rt.TableValue(methods))
-	r.SetEnvGoFunc(meta, "__tostring", tostring, 1, false)
+
+	rt.SolemnlyDeclareSafetyFlags(
+		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+
+		r.SetEnvGoFunc(meta, "__tostring", tostring, 1, false),
+	)
 
 	stdoutFile := NewFile(os.Stdout, BufferedStdFiles)
 	// This is not a good pattern - it has to do for now.
@@ -56,18 +66,27 @@ func load(r *rt.Runtime) rt.Value {
 	r.SetEnv(pkg, "stdin", rt.UserDataValue(stdin))
 	r.SetEnv(pkg, "stdout", rt.UserDataValue(stdout))
 	r.SetEnv(pkg, "stderr", rt.UserDataValue(stderr))
-	r.SetEnvGoFunc(pkg, "close", ioclose, 1, false)
-	r.SetEnvGoFunc(pkg, "flush", ioflush, 0, false)
-	r.SetEnvGoFunc(pkg, "input", input, 1, false)
-	r.SetEnvGoFunc(pkg, "lines", iolines, 1, true)
-	r.SetEnvGoFunc(pkg, "open", open, 2, false)
-	r.SetEnvGoFunc(pkg, "output", output, 1, false)
-	// TODO: popen
-	r.SetEnvGoFunc(pkg, "read", ioread, 0, true)
-	r.SetEnvGoFunc(pkg, "tmpfile", tmpfile, 0, false)
-	r.SetEnvGoFunc(pkg, "type", typef, 1, false)
-	r.SetEnvGoFunc(pkg, "write", iowrite, 0, true)
 
+	rt.SolemnlyDeclareSafetyFlags(
+		rt.RCS_CpuSafe|rt.RCS_MemSafe,
+
+		r.SetEnvGoFunc(pkg, "close", ioclose, 1, false),
+		r.SetEnvGoFunc(pkg, "flush", ioflush, 0, false),
+		r.SetEnvGoFunc(pkg, "input", input, 1, false),
+		r.SetEnvGoFunc(pkg, "lines", iolines, 1, true),
+		r.SetEnvGoFunc(pkg, "open", open, 2, false),
+		r.SetEnvGoFunc(pkg, "output", output, 1, false),
+		// TODO: popen,
+		r.SetEnvGoFunc(pkg, "read", ioread, 0, true),
+		r.SetEnvGoFunc(pkg, "tmpfile", tmpfile, 0, false),
+		r.SetEnvGoFunc(pkg, "write", iowrite, 0, true),
+	)
+
+	rt.SolemnlyDeclareSafetyFlags(
+		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+
+		r.SetEnvGoFunc(pkg, "type", typef, 1, false),
+	)
 	return rt.TableValue(pkg)
 }
 
@@ -298,7 +317,9 @@ func lines(r *rt.Runtime, f *File, readers []formatReader, flags int) *rt.GoFunc
 		}
 		return next, nil
 	}
-	return rt.NewGoFunction(iterator, "linesiterator", 0, false)
+	iterGof := rt.NewGoFunction(iterator, "linesiterator", 0, false)
+	return iterGof
+
 }
 
 func open(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

@@ -15,12 +15,18 @@ func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 	pkgVal := rt.TableValue(pkg)
 	r.SetEnv(r.GlobalEnv(), "debug", pkgVal)
-	r.SetEnvGoFunc(pkg, "getinfo", getinfo, 3, false)
-	r.SetEnvGoFunc(pkg, "getupvalue", getupvalue, 2, false)
-	r.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false)
-	r.SetEnvGoFunc(pkg, "upvaluejoin", upvaluejoin, 4, false)
-	r.SetEnvGoFunc(pkg, "setmetatable", setmetatable, 2, false)
-	r.SetEnvGoFunc(pkg, "upvalueid", upvalueid, 2, false)
+
+	rt.SolemnlyDeclareSafetyFlags(
+		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+
+		r.SetEnvGoFunc(pkg, "getinfo", getinfo, 3, false),
+		r.SetEnvGoFunc(pkg, "getupvalue", getupvalue, 2, false),
+		r.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false),
+		r.SetEnvGoFunc(pkg, "upvaluejoin", upvaluejoin, 4, false),
+		r.SetEnvGoFunc(pkg, "setmetatable", setmetatable, 2, false),
+		r.SetEnvGoFunc(pkg, "upvalueid", upvalueid, 2, false),
+	)
+
 	return pkgVal
 }
 

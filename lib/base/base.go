@@ -12,30 +12,40 @@ import (
 
 func Load(r *rt.Runtime) {
 	env := r.GlobalEnv()
-	r.SetEnvGoFunc(env, "assert", assert, 1, true)
-	r.SetEnvGoFunc(env, "collectgarbage", collectgarbage, 2, false)
-	r.SetEnvGoFunc(env, "dofile", dofile, 1, false)
-	r.SetEnvGoFunc(env, "error", errorF, 2, false)
 	r.SetEnv(env, "_G", rt.TableValue(env))
-	r.SetEnvGoFunc(env, "getmetatable", getmetatable, 1, false)
-	r.SetEnvGoFunc(env, "ipairs", ipairs, 1, false)
-	r.SetEnvGoFunc(env, "load", load, 4, false)
-	r.SetEnvGoFunc(env, "loadfile", loadfile, 3, false)
-	r.SetEnv(env, "next", rt.FunctionValue(nextGoFunc))
-	r.SetEnvGoFunc(env, "pairs", pairs, 1, false)
-	r.SetEnvGoFunc(env, "pcall", pcall, 1, true)
-	r.SetEnvGoFunc(env, "print", print, 0, true)
-	r.SetEnvGoFunc(env, "rawequal", rawequal, 2, false)
-	r.SetEnvGoFunc(env, "rawget", rawget, 2, false)
-	r.SetEnvGoFunc(env, "rawlen", rawlen, 1, false)
-	r.SetEnvGoFunc(env, "rawset", rawset, 3, false)
-	r.SetEnvGoFunc(env, "select", selectF, 1, true)
-	r.SetEnvGoFunc(env, "setmetatable", setmetatable, 2, false)
-	r.SetEnvGoFunc(env, "tonumber", tonumber, 2, false)
-	r.SetEnvGoFunc(env, "tostring", tostring, 1, false)
-	r.SetEnvGoFunc(env, "type", typeString, 1, false)
 	r.SetEnv(env, "_VERSION", rt.StringValue("Golua 5.3"))
+	r.SetEnv(env, "next", rt.FunctionValue(nextGoFunc))
+
+	rt.SolemnlyDeclareSafetyFlags(
+		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+
+		ipairsIterator,
+		nextGoFunc,
+		r.SetEnvGoFunc(env, "assert", assert, 1, true),
+		r.SetEnvGoFunc(env, "collectgarbage", collectgarbage, 2, false),
+		r.SetEnvGoFunc(env, "error", errorF, 2, false),
+		r.SetEnvGoFunc(env, "getmetatable", getmetatable, 1, false),
+		r.SetEnvGoFunc(env, "ipairs", ipairs, 1, false),
+		r.SetEnvGoFunc(env, "load", load, 4, false),
+		r.SetEnvGoFunc(env, "pairs", pairs, 1, false),
+		r.SetEnvGoFunc(env, "pcall", pcall, 1, true),
+		r.SetEnvGoFunc(env, "print", print, 0, true),
+		r.SetEnvGoFunc(env, "rawequal", rawequal, 2, false),
+		r.SetEnvGoFunc(env, "rawget", rawget, 2, false),
+		r.SetEnvGoFunc(env, "rawlen", rawlen, 1, false),
+		r.SetEnvGoFunc(env, "rawset", rawset, 3, false),
+		r.SetEnvGoFunc(env, "select", selectF, 1, true),
+		r.SetEnvGoFunc(env, "setmetatable", setmetatable, 2, false),
+		r.SetEnvGoFunc(env, "tonumber", tonumber, 2, false),
+		r.SetEnvGoFunc(env, "tostring", tostring, 1, false),
+		r.SetEnvGoFunc(env, "type", typeString, 1, false),
+	)
 	// TODO: xpcall
+	rt.SolemnlyDeclareSafetyFlags(
+		rt.RCS_CpuSafe|rt.RCS_MemSafe,
+		r.SetEnvGoFunc(env, "dofile", dofile, 1, false),
+		r.SetEnvGoFunc(env, "loadfile", loadfile, 3, false),
+	)
 }
 
 func ToString(t *rt.Thread, v rt.Value) (string, *rt.Error) {

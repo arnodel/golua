@@ -10,9 +10,10 @@ import (
 const QuotasAvailable = true
 
 type quotaManager struct {
-	cpuQuota uint64
-	cpuUsed  uint64
-	flags    RuntimeContextFlags
+	cpuQuota    uint64
+	cpuUsed     uint64
+	flags       RuntimeContextFlags
+	safetyFlags RuntimeSafetyFlags
 
 	memQuota uint64
 	memUsed  uint64
@@ -48,6 +49,18 @@ func (m *quotaManager) Flags() RuntimeContextFlags {
 	return m.flags
 }
 
+func (m *quotaManager) SafetyFlags() RuntimeSafetyFlags {
+	return m.safetyFlags
+}
+
+func (m *quotaManager) CheckSafetyFlags(flags RuntimeSafetyFlags) *Error {
+	missingFlags := m.safetyFlags &^ flags
+	if missingFlags != 0 {
+		return ErrNotSafe
+	}
+	return nil
+}
+
 func (m *quotaManager) Parent() RuntimeContext {
 	return m.parent
 }
@@ -62,12 +75,15 @@ func (m *quotaManager) PushContext(ctx RuntimeContextDef) {
 	m.memQuota, m.memUsed = m.UnusedMem(), 0
 	if ctx.CpuLimit > 0 && (m.cpuQuota == 0 || m.cpuQuota > ctx.CpuLimit) {
 		m.cpuQuota = ctx.CpuLimit
+		m.safetyFlags |= RCS_CpuSafe
 	}
 	if ctx.MemLimit > 0 && (m.memQuota == 0 || m.memQuota > ctx.MemLimit) {
 		m.memQuota = ctx.MemLimit
+		m.safetyFlags |= RCS_MemSafe
 	}
 	m.status = RCS_Live
 	m.flags |= ctx.Flags // Flags can be turned on but not off
+	m.safetyFlags |= ctx.SafetyFlags
 	m.parent = &parent
 }
 

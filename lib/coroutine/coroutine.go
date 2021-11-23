@@ -13,13 +13,19 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	r.SetEnvGoFunc(pkg, "create", create, 1, false)
-	r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 0, false)
-	r.SetEnvGoFunc(pkg, "resume", resume, 1, true)
-	r.SetEnvGoFunc(pkg, "running", running, 0, false)
-	r.SetEnvGoFunc(pkg, "status", status, 1, false)
-	r.SetEnvGoFunc(pkg, "wrap", wrap, 1, false)
-	r.SetEnvGoFunc(pkg, "yield", yield, 0, true)
+
+	rt.SolemnlyDeclareSafetyFlags(
+		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+
+		r.SetEnvGoFunc(pkg, "create", create, 1, false),
+		r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 0, false),
+		r.SetEnvGoFunc(pkg, "resume", resume, 1, true),
+		r.SetEnvGoFunc(pkg, "running", running, 0, false),
+		r.SetEnvGoFunc(pkg, "status", status, 1, false),
+		r.SetEnvGoFunc(pkg, "wrap", wrap, 1, false),
+		r.SetEnvGoFunc(pkg, "yield", yield, 0, true),
+	)
+
 	return rt.TableValue(pkg)
 }
 
@@ -124,6 +130,7 @@ func wrap(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		return c.PushingNext(t.Runtime, res...), nil
 	}, "wrap", 0, true)
+	w.SolemnlyDeclareSafetyFlags(rt.RCS_CpuSafe | rt.RCS_MemSafe | rt.RCS_IOSafe)
 	next := c.Next()
 	t.Push1(next, rt.FunctionValue(w))
 	return next, nil
