@@ -181,9 +181,39 @@ func main() {
     // If the limits are exceeded, the Go runtime will panic with a
     // rt.QuotaExceededError.
 
+    // Do something in this context
+
     ctx := r.PopContext()
     // We are back to the initial execution context.  PushContext calls can be
     // nested.  The returned ctx is a RuntimeContext that can be inspected.
+}
+```
+
+The `*runtime.Runtime` type has a `CallInContext(def RuntimeContextDef, f
+func()) RuntimeContext` method similar to Lua's `runtime.callcontext`.  It is a
+convenience function to run some code in a given context, catching the
+`QuotaExceededError` panics if they occur and returning the finished context.
+So the above could be rewritten safely as follows.
+
+```golang
+import (
+    "os"
+    rt "github.com/arnodel/golua/runtime"
+
+)
+
+func main() {
+    r := rt.NewRuntime(os.Stdout)
+
+    ctx := r.CallInContext(rt.RuntimeContextDef{
+        MemLimit: 100000,
+        CpuLimit: 1000000,
+        Flags: rt.RCF_NoIO|rt.RCF_NoGoLib,
+    }, func() {
+        // Do something in this context
+    })
+
+    // Panics due to quota exceeded will be recovered from.
 }
 ```
 
