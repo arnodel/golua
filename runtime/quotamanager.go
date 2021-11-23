@@ -83,6 +83,21 @@ func (m *quotaManager) PopContext() RuntimeContext {
 	return &mCopy
 }
 
+func (m *quotaManager) CallInContext(def RuntimeContextDef, f func()) (ctx RuntimeContext) {
+	m.PushContext(def)
+	defer func() {
+		ctx = m.PopContext()
+		if r := recover(); r != nil {
+			_, ok := r.(QuotaExceededError)
+			if !ok {
+				panic(r)
+			}
+		}
+	}()
+	f()
+	return
+}
+
 func (m *quotaManager) PopQuota() {
 	if m.parent == nil {
 		return

@@ -85,35 +85,24 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 			return nil, rt.NewErrorS("golib must be 'on' or 'off'").AddContext(c)
 		}
 	}
-	// Push new quotas
-	t.PushContext(rt.RuntimeContextDef{
-		CpuLimit: uint64(cpuQuota),
-		MemLimit: uint64(memQuota),
-		Flags:    flags,
-	})
 
 	next = c.Next()
 	res := rt.NewTerminationWith(0, true)
-	defer func() {
-		ctx := t.PopContext()
-		if retErr != nil {
-			// In this case there was an error, so no panic.  We return the
-			// error normally. To avoid this a user can wrap f in a pcall.
-			return
-		}
-		t.Push1(next, newContextValue(t.Runtime, ctx))
-		if r := recover(); r != nil {
-			_, ok := r.(rt.QuotaExceededError)
-			if !ok {
-				panic(r)
-			}
-		} else {
-			t.Push(next, res.Etc()...)
-		}
-	}()
-	retErr = rt.Call(t, f, fArgs, res)
+
+	ctx := t.CallInContext(rt.RuntimeContextDef{
+		CpuLimit: uint64(cpuQuota),
+		MemLimit: uint64(memQuota),
+		Flags:    flags,
+	}, func() {
+		retErr = rt.Call(t, f, fArgs, res)
+	})
+
 	if retErr != nil {
 		return nil, retErr
 	}
-	return
+	t.Push1(next, newContextValue(t.Runtime, ctx))
+	if ctx.Status() == rt.RCS_Done {
+		t.Push(next, res.Etc()...)
+	}
+	return next, nil
 }
