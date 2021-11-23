@@ -11,6 +11,7 @@
       - [`runtime.context()`](#runtimecontext)
       - [`runtime.callcontext(ctxdef, f, [arg1, ...])`](#runtimecallcontextctxdef-f-arg1-)
     - [When embedding a runtime in Go](#when-embedding-a-runtime-in-go)
+      - [`PopContext() RuntimeContext`](#popcontext-runtimecontext)
   - [How to implement resource limits](#how-to-implement-resource-limits)
     - [Restricting access to library functions](#restricting-access-to-library-functions)
     - [CPU limits](#cpu-limits)
@@ -180,12 +181,17 @@ type RuntimeContextDef struct {
 ```
 
 As mentioned above, a Lua runtime is of type `*runtime.Runtime` and implements the `RuntimeContext`
-interface.  It also implements two methods:
-- `PushContext(RuntimeContextDef)`: creates a new context from the definition
-  and makes it the active context. 
-- `PopContext() RuntimeContext`: removes the active context from the "context
-  stack" and returns it.  It ensures that resources consumed in the popped
-  context will be accounted for in the parent context.
+interface.  It also implements two methods.
+
+#### `(*Runtime).PushContext(RuntimeContextDef)`
+
+Creates a new context from the definition and makes it the active context. 
+
+#### `PopContext() RuntimeContext`
+
+Removes the active context from the "context stack" and returns it.  It ensures
+that resources consumed in the popped context will be accounted for in the
+parent context.
 
 Here is a simple example of how they could be used.
 
@@ -216,12 +222,14 @@ func main() {
 }
 ```
 
-The `*runtime.Runtime` type has another method:
-- `CallInContext(def RuntimeContextDef, f func()) RuntimeContext`: similar to
-  Lua's `runtime.callcontext`.  It is a convenience function to run some code in
-  a given context, catching the `QuotaExceededError` panics if they occur and
-  returning the finished context. So the above could be rewritten safely as
-  follows.
+The `*runtime.Runtime` type has another method.
+
+`(*Runtime).CallInContext(def RuntimeContextDef, f func()) RuntimeContext`
+
+Similar to Lua's `runtime.callcontext`.  It is a convenience function to run
+some code in a given context, catching the `QuotaExceededError` panics if they
+occur and returning the finished context. So the above could be rewritten safely
+as follows.
 
 ```golang
 import (
