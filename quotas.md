@@ -9,6 +9,22 @@ allows code to be run in a restricted execution environment. This means the foll
 - file IO can be disabled
 - the Go interface can be disabled (Golua has a non-standard `golib` builtin package)
 
+- [Safe Execution Environments](#safe-execution-environments)
+  - [Overview](#overview)
+    - [Meaning of limiting CPU](#meaning-of-limiting-cpu)
+    - [Meaning of limiting memory](#meaning-of-limiting-memory)
+    - [Disabling IO access and golib](#disabling-io-access-and-golib)
+  - [Safe Execution Interface](#safe-execution-interface)
+    - [In the standalone golua interpreter](#in-the-standalone-golua-interpreter)
+    - [Within a Lua program](#within-a-lua-program)
+      - [`runtime.context()`](#runtimecontext)
+      - [`runtime.callcontext(ctxdef, f, [arg1, ...])`](#runtimecallcontextctxdef-f-arg1-)
+    - [When embedding a runtime](#when-embedding-a-runtime)
+  - [How to implement resource limits](#how-to-implement-resource-limits)
+    - [Restricting access to library functions](#restricting-access-to-library-functions)
+    - [CPU limits](#cpu-limits)
+    - [Memory limits](#memory-limits)
+  - [Random notes](#random-notes)
 ### Meaning of limiting CPU
 By "amount of CPU" we mean this: the Golua VM periodically emits ticks during
 execution.  Not all ticks correspond to the same number of CPU cycles but it is
@@ -52,7 +68,7 @@ The program is required to terminate before the limit is reached.
 When these restricitions are in place, trying to call a function that perform IO
 access (or runs Go code) should return an error, but not terminate the program.
 
-## Safe execution Interface
+## Safe Execution Interface
 
 There are three ways to apply the limits described above.
 - When creating the Lua runtime from the program embedding Golua
@@ -63,7 +79,7 @@ The restrictions are managed via the notion of runtime context, which is an
 object that accounts for resource limits and resource consumed. A runtime
 context is associated with the Lua thread of execution (so there is only one
 such context active at a time).
-### Standalone golua interpreter
+### In the standalone golua interpreter
 
 Command line flags allow running the interpreter with restrictions.  Here is the
 relevant extract from `golua -help`:
@@ -217,6 +233,17 @@ func main() {
 }
 ```
 
+## How to implement resource limits
+
+### Restricting access to library functions
+
+TODO
+### CPU limits
+
+TODO
+### Memory limits
+
+TODO
 ## Random notes
 
 TODOs:
