@@ -85,10 +85,11 @@ func StringNormPos(s string, p int) int {
 
 // A GoFunction is a callable value implemented by a native Go function.
 type GoFunction struct {
-	f      func(*Thread, *GoCont) (Cont, *Error)
-	name   string
-	nArgs  int
-	hasEtc bool
+	f           func(*Thread, *GoCont) (Cont, *Error)
+	safetyFlags RuntimeSafetyFlags
+	name        string
+	nArgs       int
+	hasEtc      bool
 }
 
 var _ Callable = (*GoFunction)(nil)
@@ -106,6 +107,16 @@ func NewGoFunction(f func(*Thread, *GoCont) (Cont, *Error), name string, nArgs i
 // Continuation implements Callable.Continuation.
 func (f *GoFunction) Continuation(r *Runtime, next Cont) Cont {
 	return NewGoCont(r, f, next)
+}
+
+func (f *GoFunction) SolemnlyDeclareSafetyFlags(flags RuntimeSafetyFlags) {
+	f.safetyFlags |= flags
+}
+
+func SolemnlyDeclareSafetyFlags(flags RuntimeSafetyFlags, fs ...*GoFunction) {
+	for _, f := range fs {
+		f.SolemnlyDeclareSafetyFlags(flags)
+	}
 }
 
 //

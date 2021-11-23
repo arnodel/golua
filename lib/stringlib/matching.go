@@ -172,7 +172,9 @@ func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		pushCaptures(t.Runtime, captures, s, next)
 		return next, nil
 	}
-	return c.PushingNext(t.Runtime, rt.FunctionValue(rt.NewGoFunction(iterator, "gmatchiterator", 0, false))), nil
+	iterGof := rt.NewGoFunction(iterator, "gmatchiterator", 0, false)
+	iterGof.SolemnlyDeclareSafetyFlags(rt.RCS_CpuSafe | rt.RCS_MemSafe | rt.RCS_IOSafe)
+	return c.PushingNext(t.Runtime, rt.FunctionValue(iterGof)), nil
 }
 
 func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

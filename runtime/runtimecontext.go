@@ -11,6 +11,8 @@ type RuntimeContext interface {
 	Parent() RuntimeContext
 
 	Flags() RuntimeContextFlags
+
+	SafetyFlags() RuntimeSafetyFlags
 }
 
 type RuntimeContextStatus uint8
@@ -35,6 +37,7 @@ func (f RuntimeContextFlags) IsSet(ctx RuntimeContext) bool {
 
 var ErrIODisabled = NewErrorS("io disabled")
 var ErrGoBridgeDisabled = NewErrorS("go disabled")
+var ErrNotSafe = NewErrorS("not safe")
 
 func (r *Runtime) CheckIO() *Error {
 	if RCF_NoIO.IsSet(r) {
@@ -50,8 +53,17 @@ func (r *Runtime) CheckGoLib() *Error {
 	return nil
 }
 
+type RuntimeSafetyFlags uint16
+
+const (
+	RCS_MemSafe RuntimeSafetyFlags = 1 << iota
+	RCS_CpuSafe
+	RCS_IOSafe
+)
+
 type RuntimeContextDef struct {
-	CpuLimit uint64
-	MemLimit uint64
-	Flags    RuntimeContextFlags
+	CpuLimit    uint64
+	MemLimit    uint64
+	Flags       RuntimeContextFlags
+	SafetyFlags RuntimeSafetyFlags
 }

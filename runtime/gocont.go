@@ -4,8 +4,7 @@ import "unsafe"
 
 // GoCont implements Cont for functions written in Go.
 type GoCont struct {
-	f     func(*Thread, *GoCont) (Cont, *Error)
-	name  string
+	*GoFunction
 	next  Cont
 	args  []Value
 	etc   *[]Value
@@ -28,11 +27,10 @@ func NewGoCont(r *Runtime, f *GoFunction, next Cont) *GoCont {
 	r.RequireSize(unsafe.Sizeof(GoCont{}))
 	cont := r.goContPool.get()
 	*cont = GoCont{
-		f:    f.f,
-		name: f.name,
-		args: args,
-		etc:  etc,
-		next: next,
+		GoFunction: f,
+		args:       args,
+		etc:        etc,
+		next:       next,
 	}
 	return cont
 }
@@ -88,6 +86,9 @@ FillEtc:
 
 // RunInThread implements Cont.RunInThread
 func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
+	if err := t.CheckSafetyFlags(c.safetyFlags); err != nil {
+		return nil, err.AddContext(c)
+	}
 	t.RequireCPU(1) // TODO: an appropriate amount
 	next, err = c.f(t, c)
 	if c.args != nil {

@@ -10,23 +10,28 @@ import (
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 	pkgVal := rt.TableValue(pkg)
-	r.SetEnvGoFunc(pkg, "byte", bytef, 3, false)
-	r.SetEnvGoFunc(pkg, "char", char, 0, true)
-	r.SetEnvGoFunc(pkg, "dump", dump, 2, false)
-	r.SetEnvGoFunc(pkg, "find", find, 4, false)
-	r.SetEnvGoFunc(pkg, "gmatch", gmatch, 2, false)
-	r.SetEnvGoFunc(pkg, "gsub", gsub, 4, false)
-	r.SetEnvGoFunc(pkg, "len", lenf, 1, false)
-	r.SetEnvGoFunc(pkg, "lower", lower, 1, false)
-	r.SetEnvGoFunc(pkg, "match", match, 3, false)
-	r.SetEnvGoFunc(pkg, "upper", upper, 1, false)
-	r.SetEnvGoFunc(pkg, "rep", rep, 3, false)
-	r.SetEnvGoFunc(pkg, "reverse", reverse, 1, false)
-	r.SetEnvGoFunc(pkg, "sub", sub, 3, false)
-	r.SetEnvGoFunc(pkg, "format", format, 1, true)
-	r.SetEnvGoFunc(pkg, "pack", pack, 1, true)
-	r.SetEnvGoFunc(pkg, "packsize", packsize, 1, false)
-	r.SetEnvGoFunc(pkg, "unpack", unpack, 3, false)
+
+	rt.SolemnlyDeclareSafetyFlags(
+		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+
+		r.SetEnvGoFunc(pkg, "byte", bytef, 3, false),
+		r.SetEnvGoFunc(pkg, "char", char, 0, true),
+		r.SetEnvGoFunc(pkg, "dump", dump, 2, false),
+		r.SetEnvGoFunc(pkg, "find", find, 4, false),
+		r.SetEnvGoFunc(pkg, "gmatch", gmatch, 2, false),
+		r.SetEnvGoFunc(pkg, "gsub", gsub, 4, false),
+		r.SetEnvGoFunc(pkg, "len", lenf, 1, false),
+		r.SetEnvGoFunc(pkg, "lower", lower, 1, false),
+		r.SetEnvGoFunc(pkg, "match", match, 3, false),
+		r.SetEnvGoFunc(pkg, "upper", upper, 1, false),
+		r.SetEnvGoFunc(pkg, "rep", rep, 3, false),
+		r.SetEnvGoFunc(pkg, "reverse", reverse, 1, false),
+		r.SetEnvGoFunc(pkg, "sub", sub, 3, false),
+		r.SetEnvGoFunc(pkg, "format", format, 1, true),
+		r.SetEnvGoFunc(pkg, "pack", pack, 1, true),
+		r.SetEnvGoFunc(pkg, "packsize", packsize, 1, false),
+		r.SetEnvGoFunc(pkg, "unpack", unpack, 3, false),
+	)
 
 	stringMeta := rt.NewTable()
 	r.SetEnv(stringMeta, "__index", pkgVal)

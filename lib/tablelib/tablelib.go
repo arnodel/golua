@@ -18,13 +18,19 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	r.SetEnvGoFunc(pkg, "concat", concat, 4, false)
-	r.SetEnvGoFunc(pkg, "insert", insert, 3, false)
-	r.SetEnvGoFunc(pkg, "move", move, 5, false)
-	r.SetEnvGoFunc(pkg, "pack", pack, 0, true)
-	r.SetEnvGoFunc(pkg, "remove", remove, 2, false)
-	r.SetEnvGoFunc(pkg, "sort", sortf, 2, false)
-	r.SetEnvGoFunc(pkg, "unpack", unpack, 3, false)
+
+	rt.SolemnlyDeclareSafetyFlags(
+		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+
+		r.SetEnvGoFunc(pkg, "concat", concat, 4, false),
+		r.SetEnvGoFunc(pkg, "insert", insert, 3, false),
+		r.SetEnvGoFunc(pkg, "move", move, 5, false),
+		r.SetEnvGoFunc(pkg, "pack", pack, 0, true),
+		r.SetEnvGoFunc(pkg, "remove", remove, 2, false),
+		r.SetEnvGoFunc(pkg, "sort", sortf, 2, false),
+		r.SetEnvGoFunc(pkg, "unpack", unpack, 3, false),
+	)
+
 	return rt.TableValue(pkg)
 }
 

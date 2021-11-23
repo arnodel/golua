@@ -15,8 +15,13 @@ func load(r *rt.Runtime) rt.Value {
 		return rt.NilValue
 	}
 	pkg := rt.NewTable()
-	r.SetEnvGoFunc(pkg, "callcontext", callcontext, 2, true)
-	r.SetEnvGoFunc(pkg, "context", context, 0, false)
+
+	rt.SolemnlyDeclareSafetyFlags(
+		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+
+		r.SetEnvGoFunc(pkg, "callcontext", callcontext, 2, true),
+		r.SetEnvGoFunc(pkg, "context", context, 0, false),
+	)
 
 	createContextMetatable(r)
 

@@ -66,8 +66,10 @@ func load(r *rt.Runtime) rt.Value {
 	r.SetTable(pkg, searchersKey, rt.TableValue(searchers))
 	r.SetTable(pkg, pathKey, rt.StringValue(defaultPath))
 	r.SetTable(pkg, configKey, rt.StringValue(defaultConfig.String()))
+
 	r.SetEnvGoFunc(pkg, "searchpath", searchpath, 4, false)
 	r.SetEnvGoFunc(env, "require", require, 1, false)
+
 	return pkgVal
 }
 

@@ -16,12 +16,18 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
-	r.SetEnvGoFunc(pkg, "char", char, 0, true)
 	r.SetEnv(pkg, "charpattern", rt.StringValue("[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"))
-	r.SetEnvGoFunc(pkg, "codes", codes, 1, false)
-	r.SetEnvGoFunc(pkg, "codepoint", codepoint, 3, false)
-	r.SetEnvGoFunc(pkg, "len", lenf, 3, false)
-	r.SetEnvGoFunc(pkg, "offset", offset, 3, false)
+
+	rt.SolemnlyDeclareSafetyFlags(
+		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+
+		r.SetEnvGoFunc(pkg, "char", char, 0, true),
+		r.SetEnvGoFunc(pkg, "codes", codes, 1, false),
+		r.SetEnvGoFunc(pkg, "codepoint", codepoint, 3, false),
+		r.SetEnvGoFunc(pkg, "len", lenf, 3, false),
+		r.SetEnvGoFunc(pkg, "offset", offset, 3, false),
+	)
+
 	return rt.TableValue(pkg)
 }
 
@@ -76,6 +82,7 @@ func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return next, nil
 	}
 	var iter = rt.NewGoFunction(iterF, "codesiterator", 0, false)
+	iter.SolemnlyDeclareSafetyFlags(rt.RCS_CpuSafe | rt.RCS_MemSafe | rt.RCS_IOSafe)
 	return c.PushingNext1(t.Runtime, rt.FunctionValue(iter)), nil
 }
 

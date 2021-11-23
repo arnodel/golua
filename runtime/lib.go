@@ -265,13 +265,15 @@ func (r *Runtime) SetEnv(t *Table, name string, v Value) {
 
 // SetEnvGoFunc sets the item in the table t for a string key to be a GoFunction
 // defined by f.  Useful when writing libraries
-func (r *Runtime) SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, *Error), nArgs int, hasEtc bool) {
-	r.SetTable(t, StringValue(name), FunctionValue(&GoFunction{
+func (r *Runtime) SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, *Error), nArgs int, hasEtc bool) *GoFunction {
+	gof := &GoFunction{
 		f:      f,
 		name:   name,
 		nArgs:  nArgs,
 		hasEtc: hasEtc,
-	}))
+	}
+	r.SetTable(t, StringValue(name), FunctionValue(gof))
+	return gof
 }
 
 // ParseLuaChunk parses a string as a Lua statement and returns the AST.
