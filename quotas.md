@@ -1,19 +1,7 @@
 # Safe Execution Environments
 
-## Overview
-
-It can be useful to be able to run untrusted code safely. This is why Golua
-allows code to be run in a restricted execution environment. This means the following:
-- the "amount of CPU" available to the code can be limited
-- the "amount of memory" available to the code can be limited
-- file IO can be disabled
-- the Go interface can be disabled (Golua has a non-standard `golib` builtin package)
-
-## Contents
-
 - [Safe Execution Environments](#safe-execution-environments)
   - [Overview](#overview)
-  - [Contents](#contents)
     - [Meaning of limiting CPU](#meaning-of-limiting-cpu)
     - [Meaning of limiting memory](#meaning-of-limiting-memory)
     - [Disabling IO access and golib](#disabling-io-access-and-golib)
@@ -28,6 +16,15 @@ allows code to be run in a restricted execution environment. This means the foll
     - [CPU limits](#cpu-limits)
     - [Memory limits](#memory-limits)
   - [Random notes](#random-notes)
+## Overview
+
+It can be useful to be able to run untrusted code safely. This is why Golua
+allows code to be run in a restricted execution environment. This means the following:
+- the "amount of CPU" available to the code can be limited
+- the "amount of memory" available to the code can be limited
+- file IO can be disabled
+- the Go interface can be disabled (Golua has a non-standard `golib` builtin package)
+
 ### Meaning of limiting CPU
 By "amount of CPU" we mean this: the Golua VM periodically emits ticks during
 execution.  Not all ticks correspond to the same number of CPU cycles but it is
