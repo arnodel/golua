@@ -89,7 +89,7 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	next = c.Next()
 	res := rt.NewTerminationWith(0, true)
 
-	ctx := t.CallInContext(rt.RuntimeContextDef{
+	ctx := t.CallContext(rt.RuntimeContextDef{
 		CpuLimit: uint64(cpuQuota),
 		MemLimit: uint64(memQuota),
 		Flags:    flags,

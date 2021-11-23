@@ -83,7 +83,7 @@ func (m *quotaManager) PopContext() RuntimeContext {
 	return &mCopy
 }
 
-func (m *quotaManager) CallInContext(def RuntimeContextDef, f func()) (ctx RuntimeContext) {
+func (m *quotaManager) CallContext(def RuntimeContextDef, f func()) (ctx RuntimeContext) {
 	m.PushContext(def)
 	defer func() {
 		ctx = m.PopContext()
