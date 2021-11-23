@@ -9,8 +9,11 @@ allows code to be run in a restricted execution environment. This means the foll
 - file IO can be disabled
 - the Go interface can be disabled (Golua has a non-standard `golib` builtin package)
 
+## Contents
+
 - [Safe Execution Environments](#safe-execution-environments)
   - [Overview](#overview)
+  - [Contents](#contents)
     - [Meaning of limiting CPU](#meaning-of-limiting-cpu)
     - [Meaning of limiting memory](#meaning-of-limiting-memory)
     - [Disabling IO access and golib](#disabling-io-access-and-golib)
