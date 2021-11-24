@@ -1,0 +1,27 @@
+<html>
+    <head>
+        <title>Golua Playground (alpha)</title>
+    </head>
+    <body>
+        <h1>The Golua Playground</h1>
+        <div>
+            <form method="post">
+                <h2><label for="code">Lua Code</label> <button type="submit">Run</button></h2>
+                <textarea rows="30" cols="100" maxlength="10000" name="code">{{ .Source }}</textarea>
+            </form>
+        </div>
+        {{- if .Output }}
+        <h2>Output</h2>
+        <pre>
+            {{- .Output -}}
+        </pre>
+        {{- end }}
+        {{- if .Context }}
+        <h2>Resources Used</h2>
+        <ul>
+            <li>cpu: {{ .Context.CpuUsed }} / {{ .Context.CpuLimit }}</li>
+            <li>mem: {{ .Context.MemUsed }} / {{ .Context.MemLimit }}</li>
+        </ul>
+        {{- end }}
+    </body>
+</html>
