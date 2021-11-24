@@ -25,8 +25,7 @@ type luaCmd struct {
 	unbufferedFlag bool
 	cpuLimit       uint64
 	memLimit       uint64
-	noIO           bool
-	noGoLib        bool
+	flags          string
 }
 
 func (c *luaCmd) setFlags() {
@@ -37,8 +36,7 @@ func (c *luaCmd) setFlags() {
 	if rt.QuotasAvailable {
 		flag.Uint64Var(&c.cpuLimit, "cpulimit", 0, "CPU limit")
 		flag.Uint64Var(&c.memLimit, "memlimit", 0, "memory limit")
-		flag.BoolVar(&c.noIO, "noio", false, "disable file IO")
-		flag.BoolVar(&c.noGoLib, "nogolib", false, "disable Go bridge")
+		flag.StringVar(&c.flags, "flags", "", "safety flags turned on")
 	}
 }
 
@@ -48,6 +46,7 @@ func (c *luaCmd) run() (retcode int) {
 		chunk     []byte
 		err       error
 		args      []string
+		flags     rt.RuntimeSafetyFlags
 	)
 
 	buffered := !isaTTY(os.Stdin) || flag.NArg() > 0
@@ -56,11 +55,20 @@ func (c *luaCmd) run() (retcode int) {
 	}
 	iolib.BufferedStdFiles = buffered
 
+	for _, name := range strings.Split(c.flags, ",") {
+		var ok bool
+		flags, ok = flags.AddFlagWithName(name)
+		if !ok {
+			return fatal("Unknown flag: %s", name)
+		}
+	}
+
 	// Get a Lua runtime
 	r := rt.New(nil)
 	r.PushContext(rt.RuntimeContextDef{
-		CpuLimit: c.cpuLimit,
-		MemLimit: c.memLimit,
+		CpuLimit:    c.cpuLimit,
+		MemLimit:    c.memLimit,
+		SafetyFlags: flags,
 	})
 	cleanup := lib.LoadAll(r)
 	defer cleanup()
@@ -76,7 +84,7 @@ func (c *luaCmd) run() (retcode int) {
 		}
 		chunk, err = ioutil.ReadAll(os.Stdin)
 		if err != nil {
-			fatal("Error reading <stdin>: %s", err)
+			return fatal("Error reading <stdin>: %s", err)
 		}
 	default:
 		chunkName = flag.Arg(0)
@@ -137,7 +145,7 @@ func (c *luaCmd) run() (retcode int) {
 }
 
 func fatal(tpl string, args ...interface{}) int {
-	fmt.Fprintf(os.Stderr, tpl, args...)
+	fmt.Fprintf(os.Stderr, tpl+"\n", args...)
 	return 1
 }
 

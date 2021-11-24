@@ -13,7 +13,6 @@ const QuotasAvailable = true
 type quotaManager struct {
 	cpuQuota    uint64
 	cpuUsed     uint64
-	flags       RuntimeContextFlags
 	safetyFlags RuntimeSafetyFlags
 
 	memQuota uint64
@@ -44,10 +43,6 @@ func (m *quotaManager) MemUsed() uint64 {
 
 func (m *quotaManager) Status() RuntimeContextStatus {
 	return m.status
-}
-
-func (m *quotaManager) Flags() RuntimeContextFlags {
-	return m.flags
 }
 
 func (m *quotaManager) SafetyFlags() RuntimeSafetyFlags {
@@ -83,7 +78,6 @@ func (m *quotaManager) PushContext(ctx RuntimeContextDef) {
 		m.safetyFlags |= RCS_MemSafe
 	}
 	m.status = RCS_Live
-	m.flags |= ctx.Flags // Flags can be turned on but not off
 	m.safetyFlags |= ctx.SafetyFlags
 	m.parent = &parent
 }
@@ -124,10 +118,6 @@ func (m *quotaManager) PopQuota() {
 	*m = *m.parent
 }
 
-func (m *quotaManager) UpdateFlags(flags RuntimeContextFlags) {
-	m.flags |= flags
-}
-
 func (m *quotaManager) RequireCPU(cpuAmount uint64) {
 	if m.cpuQuota > 0 {
 		// The path with quota is "outlined" so RequireCPU can be inlined,
@@ -144,10 +134,6 @@ func (m *quotaManager) requireCPU(cpuAmount uint64) {
 		panicWithQuotaExceded("CPU limit of %d exceeded", m.cpuQuota)
 	}
 	m.cpuUsed = cpuUsed
-}
-
-func (m *quotaManager) UpdateCPUQuota(newQuota uint64) {
-	m.cpuQuota = newQuota
 }
 
 func (m *quotaManager) UnusedCPU() uint64 {
@@ -216,10 +202,6 @@ func (m *quotaManager) ReleaseArrSize(sz uintptr, n int) {
 
 func (m *quotaManager) ReleaseBytes(n int) {
 	m.ReleaseMem(uint64(n))
-}
-
-func (m *quotaManager) UpdateMemQuota(newQuota uint64) {
-	m.memQuota = newQuota
 }
 
 func (m *quotaManager) UnusedMem() uint64 {

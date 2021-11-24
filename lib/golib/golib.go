@@ -23,9 +23,6 @@ type govalueKeyType struct{}
 var govalueKey = rt.AsValue(govalueKeyType{})
 
 func load(r *rt.Runtime) rt.Value {
-	if r.CheckGoLib() != nil {
-		return rt.NilValue
-	}
 	pkg := rt.NewTable()
 	r.SetEnvGoFunc(pkg, "import", goimport, 1, false)
 
@@ -50,9 +47,6 @@ func NewGoValue(r *rt.Runtime, x interface{}) rt.Value {
 }
 
 func goValueToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if err := t.CheckGoLib(); err != nil {
-		return nil, err.AddContext(c)
-	}
 	if err := c.Check1Arg(); err != nil {
 		return nil, err.AddContext(c)
 	}
@@ -64,9 +58,6 @@ func goValueToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func goValueIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if err := t.CheckGoLib(); err != nil {
-		return nil, err.AddContext(c)
-	}
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err.AddContext(c)
 	}
@@ -82,9 +73,6 @@ func goValueIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func goValueSetIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if err := t.CheckGoLib(); err != nil {
-		return nil, err.AddContext(c)
-	}
 	if err := c.CheckNArgs(3); err != nil {
 		return nil, err.AddContext(c)
 	}
@@ -100,9 +88,6 @@ func goValueSetIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func goValueCall(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if err := t.CheckGoLib(); err != nil {
-		return nil, err.AddContext(c)
-	}
 	if err := c.Check1Arg(); err != nil {
 		return nil, err.AddContext(c)
 	}
@@ -118,9 +103,6 @@ func goValueCall(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func goimport(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if err := t.CheckGoLib(); err != nil {
-		return nil, err.AddContext(c)
-	}
 	if pluginsRoot == "" {
 		return nil, rt.NewError(rt.StringValue("cannot import go packages: plugins root not set"))
 	}
