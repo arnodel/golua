@@ -17,8 +17,8 @@ var LibLoader = packagelib.Loader{
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 
-	rt.SolemnlyDeclareSafetyFlags(
-		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "clock", clock, 0, false),
 		r.SetEnvGoFunc(pkg, "time", timef, 1, false),

@@ -20,8 +20,8 @@ func load(r *rt.Runtime) rt.Value {
 	r.SetEnv(pkg, "mininteger", rt.IntValue(math.MinInt64))
 	r.SetEnv(pkg, "pi", rt.FloatValue(math.Pi))
 
-	rt.SolemnlyDeclareSafetyFlags(
-		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "abs", abs, 1, false),
 		r.SetEnvGoFunc(pkg, "acos", acos, 1, false),

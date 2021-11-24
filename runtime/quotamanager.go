@@ -13,7 +13,7 @@ const QuotasAvailable = true
 type quotaManager struct {
 	cpuQuota    uint64
 	cpuUsed     uint64
-	safetyFlags RuntimeSafetyFlags
+	safetyFlags ComplianceFlags
 
 	memQuota uint64
 	memUsed  uint64
@@ -45,11 +45,11 @@ func (m *quotaManager) Status() RuntimeContextStatus {
 	return m.status
 }
 
-func (m *quotaManager) SafetyFlags() RuntimeSafetyFlags {
+func (m *quotaManager) SafetyFlags() ComplianceFlags {
 	return m.safetyFlags
 }
 
-func (m *quotaManager) CheckSafetyFlags(flags RuntimeSafetyFlags) *Error {
+func (m *quotaManager) CheckSafetyFlags(flags ComplianceFlags) *Error {
 	missingFlags := m.safetyFlags &^ flags
 	if missingFlags != 0 {
 		return NewErrorF("missing flags: %s", strings.Join(missingFlags.Names(), " "))
@@ -71,11 +71,11 @@ func (m *quotaManager) PushContext(ctx RuntimeContextDef) {
 	m.memQuota, m.memUsed = m.UnusedMem(), 0
 	if ctx.CpuLimit > 0 && (m.cpuQuota == 0 || m.cpuQuota > ctx.CpuLimit) {
 		m.cpuQuota = ctx.CpuLimit
-		m.safetyFlags |= RCS_CpuSafe
+		m.safetyFlags |= ComplyCpuSafe
 	}
 	if ctx.MemLimit > 0 && (m.memQuota == 0 || m.memQuota > ctx.MemLimit) {
 		m.memQuota = ctx.MemLimit
-		m.safetyFlags |= RCS_MemSafe
+		m.safetyFlags |= ComplyMemSafe
 	}
 	m.status = RCS_Live
 	m.safetyFlags |= ctx.SafetyFlags

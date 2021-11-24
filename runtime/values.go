@@ -86,7 +86,7 @@ func StringNormPos(s string, p int) int {
 // A GoFunction is a callable value implemented by a native Go function.
 type GoFunction struct {
 	f           func(*Thread, *GoCont) (Cont, *Error)
-	safetyFlags RuntimeSafetyFlags
+	safetyFlags ComplianceFlags
 	name        string
 	nArgs       int
 	hasEtc      bool
@@ -109,7 +109,7 @@ func (f *GoFunction) Continuation(r *Runtime, next Cont) Cont {
 	return NewGoCont(r, f, next)
 }
 
-func (f *GoFunction) SolemnlyDeclareSafetyFlags(flags RuntimeSafetyFlags) {
+func (f *GoFunction) SolemnlyDeclareCompliance(flags ComplianceFlags) {
 	if flags >= rcs_limit {
 		// User is trying to register a safety flag that is not (yet) defined.
 		// This is a sign this function is not called solemnly enough!
@@ -118,9 +118,9 @@ func (f *GoFunction) SolemnlyDeclareSafetyFlags(flags RuntimeSafetyFlags) {
 	f.safetyFlags |= flags
 }
 
-func SolemnlyDeclareSafetyFlags(flags RuntimeSafetyFlags, fs ...*GoFunction) {
+func SolemnlyDeclareCompliance(flags ComplianceFlags, fs ...*GoFunction) {
 	for _, f := range fs {
-		f.SolemnlyDeclareSafetyFlags(flags)
+		f.SolemnlyDeclareCompliance(flags)
 	}
 }
 

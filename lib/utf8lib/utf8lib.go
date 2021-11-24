@@ -18,8 +18,8 @@ func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 	r.SetEnv(pkg, "charpattern", rt.StringValue("[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"))
 
-	rt.SolemnlyDeclareSafetyFlags(
-		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "char", char, 0, true),
 		r.SetEnvGoFunc(pkg, "codes", codes, 1, false),
@@ -82,7 +82,7 @@ func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return next, nil
 	}
 	var iter = rt.NewGoFunction(iterF, "codesiterator", 0, false)
-	iter.SolemnlyDeclareSafetyFlags(rt.RCS_CpuSafe | rt.RCS_MemSafe | rt.RCS_IOSafe)
+	iter.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyIoSafe)
 	return c.PushingNext1(t.Runtime, rt.FunctionValue(iter)), nil
 }
 

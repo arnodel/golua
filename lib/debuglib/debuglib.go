@@ -16,8 +16,8 @@ func load(r *rt.Runtime) rt.Value {
 	pkgVal := rt.TableValue(pkg)
 	r.SetEnv(r.GlobalEnv(), "debug", pkgVal)
 
-	rt.SolemnlyDeclareSafetyFlags(
-		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "getinfo", getinfo, 3, false),
 		r.SetEnvGoFunc(pkg, "getupvalue", getupvalue, 2, false),

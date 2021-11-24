@@ -18,8 +18,8 @@ func load(r *rt.Runtime) rt.Value {
 	}
 	pkg := rt.NewTable()
 
-	rt.SolemnlyDeclareSafetyFlags(
-		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "callcontext", callcontext, 2, true),
 		r.SetEnvGoFunc(pkg, "context", context, 0, false),
@@ -49,7 +49,7 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		ok        bool
 		f         = c.Arg(1)
 		fArgs     = c.Etc()
-		flags     rt.RuntimeSafetyFlags
+		flags     rt.ComplianceFlags
 	)
 	if !rt.IsNil(memQuotaV) {
 		memQuota, ok = memQuotaV.TryInt()

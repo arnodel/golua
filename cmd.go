@@ -36,7 +36,7 @@ func (c *luaCmd) setFlags() {
 	if rt.QuotasAvailable {
 		flag.Uint64Var(&c.cpuLimit, "cpulimit", 0, "CPU limit")
 		flag.Uint64Var(&c.memLimit, "memlimit", 0, "memory limit")
-		flag.StringVar(&c.flags, "flags", "", "safety flags turned on")
+		flag.StringVar(&c.flags, "flags", "", "compliance flags turned on")
 	}
 }
 
@@ -46,7 +46,7 @@ func (c *luaCmd) run() (retcode int) {
 		chunk     []byte
 		err       error
 		args      []string
-		flags     rt.RuntimeSafetyFlags
+		flags     rt.ComplianceFlags
 	)
 
 	buffered := !isaTTY(os.Stdin) || flag.NArg() > 0
