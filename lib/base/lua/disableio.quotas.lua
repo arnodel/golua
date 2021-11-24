@@ -1,9 +1,9 @@
 -- When IO is disabled, loadfile and dofile return errors
 
-runtime.callcontext({io="off"}, function () 
+runtime.callcontext({flags="iosafe"}, function () 
     print(pcall(loadfile, "foo"))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     print(pcall(dofile, "bar"))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 end)
