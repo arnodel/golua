@@ -27,8 +27,8 @@ var LibLoader = packagelib.Loader{
 func load(r *rt.Runtime) rt.Value {
 	methods := rt.NewTable()
 
-	rt.SolemnlyDeclareSafetyFlags(
-		rt.RCS_CpuSafe|rt.RCS_MemSafe,
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe,
 
 		r.SetEnvGoFunc(methods, "read", fileread, 1, true),
 		r.SetEnvGoFunc(methods, "lines", filelines, 1, true),
@@ -42,8 +42,8 @@ func load(r *rt.Runtime) rt.Value {
 	meta := rt.NewTable()
 	r.SetEnv(meta, "__index", rt.TableValue(methods))
 
-	rt.SolemnlyDeclareSafetyFlags(
-		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(meta, "__tostring", tostring, 1, false),
 	)
@@ -67,8 +67,8 @@ func load(r *rt.Runtime) rt.Value {
 	r.SetEnv(pkg, "stdout", rt.UserDataValue(stdout))
 	r.SetEnv(pkg, "stderr", rt.UserDataValue(stderr))
 
-	rt.SolemnlyDeclareSafetyFlags(
-		rt.RCS_CpuSafe|rt.RCS_MemSafe,
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe,
 
 		r.SetEnvGoFunc(pkg, "close", ioclose, 1, false),
 		r.SetEnvGoFunc(pkg, "flush", ioflush, 0, false),
@@ -82,8 +82,8 @@ func load(r *rt.Runtime) rt.Value {
 		r.SetEnvGoFunc(pkg, "write", iowrite, 0, true),
 	)
 
-	rt.SolemnlyDeclareSafetyFlags(
-		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "type", typef, 1, false),
 	)

@@ -16,8 +16,8 @@ func Load(r *rt.Runtime) {
 	r.SetEnv(env, "_VERSION", rt.StringValue("Golua 5.3"))
 	r.SetEnv(env, "next", rt.FunctionValue(nextGoFunc))
 
-	rt.SolemnlyDeclareSafetyFlags(
-		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
 		ipairsIterator,
 		nextGoFunc,
@@ -41,8 +41,8 @@ func Load(r *rt.Runtime) {
 		r.SetEnvGoFunc(env, "type", typeString, 1, false),
 	)
 	// TODO: xpcall
-	rt.SolemnlyDeclareSafetyFlags(
-		rt.RCS_CpuSafe|rt.RCS_MemSafe,
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe,
 		r.SetEnvGoFunc(env, "dofile", dofile, 1, false),
 		r.SetEnvGoFunc(env, "loadfile", loadfile, 3, false),
 	)

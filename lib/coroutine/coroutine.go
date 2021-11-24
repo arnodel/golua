@@ -14,8 +14,8 @@ var LibLoader = packagelib.Loader{
 func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 
-	rt.SolemnlyDeclareSafetyFlags(
-		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "create", create, 1, false),
 		r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 0, false),
@@ -130,7 +130,7 @@ func wrap(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		return c.PushingNext(t.Runtime, res...), nil
 	}, "wrap", 0, true)
-	w.SolemnlyDeclareSafetyFlags(rt.RCS_CpuSafe | rt.RCS_MemSafe | rt.RCS_IOSafe)
+	w.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyIoSafe)
 	next := c.Next()
 	t.Push1(next, rt.FunctionValue(w))
 	return next, nil

@@ -13,8 +13,8 @@ var contextMetaKey = rt.AsValue(contextMetaKeyType{})
 func createContextMetatable(r *rt.Runtime) {
 	meta := rt.NewTable()
 
-	rt.SolemnlyDeclareSafetyFlags(
-		rt.RCS_CpuSafe|rt.RCS_MemSafe|rt.RCS_IOSafe,
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(meta, "__index", context__index, 2, false),
 		r.SetEnvGoFunc(meta, "__tostring", context__tostring, 1, false),

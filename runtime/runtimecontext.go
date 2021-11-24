@@ -10,7 +10,7 @@ type RuntimeContext interface {
 	Status() RuntimeContextStatus
 	Parent() RuntimeContext
 
-	SafetyFlags() RuntimeSafetyFlags
+	SafetyFlags() ComplianceFlags
 }
 
 type RuntimeContextStatus uint8
@@ -21,34 +21,34 @@ const (
 	RCS_Killed
 )
 
-type RuntimeSafetyFlags uint16
+type ComplianceFlags uint16
 
 const (
-	RCS_MemSafe RuntimeSafetyFlags = 1 << iota
-	RCS_CpuSafe
-	RCS_IOSafe
+	ComplyMemSafe ComplianceFlags = 1 << iota
+	ComplyCpuSafe
+	ComplyIoSafe
 	rcs_limit
 )
 
-var flagNames = map[RuntimeSafetyFlags]string{
-	RCS_MemSafe: "memsafe",
-	RCS_CpuSafe: "cpusafe",
-	RCS_IOSafe:  "iosafe",
+var flagNames = map[ComplianceFlags]string{
+	ComplyMemSafe: "memsafe",
+	ComplyCpuSafe: "cpusafe",
+	ComplyIoSafe:  "iosafe",
 }
 
-var nameFlags = map[string]RuntimeSafetyFlags{
-	"memsafe": RCS_MemSafe,
-	"cpusafe": RCS_CpuSafe,
-	"iosafe":  RCS_IOSafe,
+var nameFlags = map[string]ComplianceFlags{
+	"memsafe": ComplyMemSafe,
+	"cpusafe": ComplyCpuSafe,
+	"iosafe":  ComplyIoSafe,
 }
 
-func (f RuntimeSafetyFlags) AddFlagWithName(name string) (RuntimeSafetyFlags, bool) {
+func (f ComplianceFlags) AddFlagWithName(name string) (ComplianceFlags, bool) {
 	fn, ok := nameFlags[name]
 	return fn | f, ok
 }
 
-func (f RuntimeSafetyFlags) Names() (names []string) {
-	var i RuntimeSafetyFlags
+func (f ComplianceFlags) Names() (names []string) {
+	var i ComplianceFlags
 	for i = 1; i < rcs_limit; i <<= 1 {
 		if i&f != 0 {
 			names = append(names, flagNames[i])
@@ -60,5 +60,5 @@ func (f RuntimeSafetyFlags) Names() (names []string) {
 type RuntimeContextDef struct {
 	CpuLimit    uint64
 	MemLimit    uint64
-	SafetyFlags RuntimeSafetyFlags
+	SafetyFlags ComplianceFlags
 }
