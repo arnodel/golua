@@ -267,9 +267,6 @@ var (
 )
 
 func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if err := t.CheckIO(); err != nil {
-		return nil, err.AddContext(c)
-	}
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err.AddContext(c)
 	}
