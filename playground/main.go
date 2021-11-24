@@ -13,7 +13,9 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/arnodel/golua/lib"
 	"github.com/arnodel/golua/runtime"
@@ -158,9 +160,10 @@ func getCode(w http.ResponseWriter, r *http.Request) (string, error) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return "", err
 	}
-	code := r.FormValue("code")
+	// Annoyingly new lines come as CRLF
+	code := normalizeNewLines(r.FormValue("code"))
 	if len(code) > maxCodeLength {
-		log.Print("Request too large")
+		log.Printf("Request too large: %d > %d", len(code), maxCodeLength)
 		w.WriteHeader(http.StatusRequestEntityTooLarge)
 		return "", errCodeTooLarge
 	}
@@ -242,3 +245,12 @@ while true do
 	print(a)
 end
 `
+
+var newLines = regexp.MustCompile(`(?s)\r\n|\n\r|\r`)
+
+func normalizeNewLines(s string) string {
+	if strings.IndexByte(s, '\r') == -1 {
+		return s
+	}
+	return newLines.ReplaceAllLiteralString(s, "\n")
+}
