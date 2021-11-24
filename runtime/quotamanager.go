@@ -5,6 +5,7 @@ package runtime
 
 import (
 	"fmt"
+	"strings"
 )
 
 const QuotasAvailable = true
@@ -56,7 +57,7 @@ func (m *quotaManager) SafetyFlags() RuntimeSafetyFlags {
 func (m *quotaManager) CheckSafetyFlags(flags RuntimeSafetyFlags) *Error {
 	missingFlags := m.safetyFlags &^ flags
 	if missingFlags != 0 {
-		return ErrNotSafe
+		return NewErrorF("missing flags: %s", strings.Join(missingFlags.Names(), " "))
 	}
 	return nil
 }

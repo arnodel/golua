@@ -58,14 +58,10 @@ func (c *luaCmd) run() (retcode int) {
 
 	// Get a Lua runtime
 	r := rt.New(nil)
-	r.UpdateCPUQuota(c.cpuLimit)
-	r.UpdateMemQuota(c.memLimit)
-	if c.noIO {
-		r.UpdateFlags(rt.RCF_NoIO)
-	}
-	if c.noGoLib {
-		r.UpdateFlags(rt.RCF_NoGoLib)
-	}
+	r.PushContext(rt.RuntimeContextDef{
+		CpuLimit: c.cpuLimit,
+		MemLimit: c.memLimit,
+	})
 	cleanup := lib.LoadAll(r)
 	defer cleanup()
 

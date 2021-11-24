@@ -10,8 +10,8 @@ import (
 // is no call stack, but you can imagine you "unwind" the call stack by
 // iterating over this slice.
 type Error struct {
-	message Value
-	context []Cont
+	message   Value
+	traceback []*DebugInfo
 }
 
 // NewError returns a new error with the given message and no context.
@@ -38,7 +38,10 @@ func NewErrorF(msg string, args ...interface{}) *Error {
 
 // AddContext returns an error message with appended context.
 func (e *Error) AddContext(cont Cont) *Error {
-	e.context = append(e.context, cont)
+	info := cont.DebugInfo()
+	if info != nil {
+		e.traceback = append(e.traceback, info)
+	}
 	return e
 }
 
@@ -57,15 +60,11 @@ func (e *Error) Error() string {
 // Traceback returns a string that represents the traceback of the error using
 // its context.
 func (e *Error) Traceback() string {
-	var tb []*DebugInfo
 	// TODO: consume CPU and mem?
-	for _, c := range e.context {
-		tb = appendTraceback(tb, c)
-	}
 	sb := strings.Builder{}
 	sb.WriteString(e.Error())
 	sb.WriteByte('\n')
-	for _, info := range tb {
+	for _, info := range e.traceback {
 		sourceInfo := info.Source
 		if info.CurrentLine > 0 {
 			sourceInfo = fmt.Sprintf("%s:%d", sourceInfo, info.CurrentLine)

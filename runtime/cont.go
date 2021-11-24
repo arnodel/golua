@@ -16,6 +16,7 @@ type Cont interface {
 // Push is a convenience method that pushes a number of values to the
 // continuation c.
 func (r *Runtime) Push(c Cont, vals ...Value) {
+	// TODO: should that consume CPU?
 	for _, v := range vals {
 		c.Push(r, v)
 	}
@@ -23,15 +24,4 @@ func (r *Runtime) Push(c Cont, vals ...Value) {
 
 func (r *Runtime) Push1(c Cont, v Value) {
 	c.Push(r, v)
-}
-
-func appendTraceback(tb []*DebugInfo, c Cont) []*DebugInfo {
-	for c != nil {
-		info := c.DebugInfo()
-		if info != nil {
-			tb = append(tb, info)
-		}
-		c = c.Next()
-	}
-	return tb
 }

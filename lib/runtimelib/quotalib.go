@@ -1,6 +1,8 @@
 package runtimelib
 
 import (
+	"strings"
+
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -41,14 +43,13 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	var (
 		memQuotaV = quotas.Get(rt.StringValue("memlimit"))
 		cpuQuotaV = quotas.Get(rt.StringValue("cpulimit"))
-		ioV       = quotas.Get(rt.StringValue("io"))
-		golibV    = quotas.Get(rt.StringValue("golib"))
+		flagsV    = quotas.Get(rt.StringValue("flags"))
 		memQuota  int64
 		cpuQuota  int64
 		ok        bool
 		f         = c.Arg(1)
 		fArgs     = c.Etc()
-		flags     rt.RuntimeContextFlags
+		flags     rt.RuntimeSafetyFlags
 	)
 	if !rt.IsNil(memQuotaV) {
 		memQuota, ok = memQuotaV.TryInt()
@@ -68,26 +69,16 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 			return nil, rt.NewErrorS("cpuquota must be positive").AddContext(c)
 		}
 	}
-	if !rt.IsNil(ioV) {
-		status, _ := ioV.TryString()
-		switch status {
-		case "off":
-			flags |= rt.RCF_NoIO
-		case "on":
-			// Nothing to do
-		default:
-			return nil, rt.NewErrorS("io must be 'on' or 'off'").AddContext(c)
+	if !rt.IsNil(flagsV) {
+		flagsStr, ok := flagsV.TryString()
+		if !ok {
+			return nil, rt.NewErrorS("flags must be a string").AddContext(c)
 		}
-	}
-	if !rt.IsNil(golibV) {
-		status, _ := golibV.TryString()
-		switch status {
-		case "off":
-			flags |= rt.RCF_NoGoLib
-		case "on":
-			// Nothing to do
-		default:
-			return nil, rt.NewErrorS("golib must be 'on' or 'off'").AddContext(c)
+		for _, name := range strings.Fields(flagsStr) {
+			flags, ok = flags.AddFlagWithName(name)
+			if !ok {
+				return nil, rt.NewErrorF("unknown flag: %q", name).AddContext(c)
+			}
 		}
 	}
 
@@ -95,9 +86,9 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	res := rt.NewTerminationWith(0, true)
 
 	ctx := t.CallContext(rt.RuntimeContextDef{
-		CpuLimit: uint64(cpuQuota),
-		MemLimit: uint64(memQuota),
-		Flags:    flags,
+		CpuLimit:    uint64(cpuQuota),
+		MemLimit:    uint64(memQuota),
+		SafetyFlags: flags,
 	}, func() {
 		retErr = rt.Call(t, f, fArgs, res)
 	})
