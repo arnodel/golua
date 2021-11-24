@@ -151,14 +151,16 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func getCode(w http.ResponseWriter, r *http.Request) (string, error) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxCodeLength+1000)
+	r.Body = http.MaxBytesReader(w, r.Body, maxCodeLength*3) // need more bytes because of encoding
 	err := r.ParseForm()
 	if err != nil {
+		log.Printf("Error parsing form: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return "", err
 	}
 	code := r.FormValue("code")
 	if len(code) > maxCodeLength {
+		log.Print("Request too large")
 		w.WriteHeader(http.StatusRequestEntityTooLarge)
 		return "", errCodeTooLarge
 	}
