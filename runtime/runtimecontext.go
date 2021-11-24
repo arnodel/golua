@@ -27,7 +27,7 @@ const (
 	ComplyMemSafe ComplianceFlags = 1 << iota
 	ComplyCpuSafe
 	ComplyIoSafe
-	rcs_limit
+	complyflagsLimit
 )
 
 var flagNames = map[ComplianceFlags]string{
@@ -49,7 +49,7 @@ func (f ComplianceFlags) AddFlagWithName(name string) (ComplianceFlags, bool) {
 
 func (f ComplianceFlags) Names() (names []string) {
 	var i ComplianceFlags
-	for i = 1; i < rcs_limit; i <<= 1 {
+	for i = 1; i < complyflagsLimit; i <<= 1 {
 		if i&f != 0 {
 			names = append(names, flagNames[i])
 		}
