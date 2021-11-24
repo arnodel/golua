@@ -4,11 +4,15 @@
     </head>
     <body>
         <h1>The Golua Playground (alpha)</h1>
-        <div>
+        <p>
             You have {{ .Cpu }} cpu units and {{ .Mem }} mem units.  Click "Run"
             to run the code, click "Save" to save the code on the server, you
             can then share the URL.
-        </div>
+        </p>
+        <p>
+            Size of script is limited to 10000 bytes.  Compilation is free :).
+            Can you break it with one script?
+        </p>
         <div>
             <form method="post">
                 <h2>
@@ -16,14 +20,14 @@
                     <button type="submit">Run</button>
                     <button typw="submit" formaction="/save">Save</button>
                 </h2>
-                <textarea rows="30" cols="100" maxlength="10000" name="code">{{ .Source }}</textarea>
+                <textarea rows="25" cols="100" maxlength="10000" name="code">{{ .Source }}</textarea>
             </form>
         </div>
         {{- if .Output }}
         <h2>Output</h2>
-        <pre>
+        <textarea readonly rows="10" cols="100" maxlength="10000">
             {{- .Output -}}
-        </pre>
+        </textarea>
         {{- end }}
         {{- if .Context }}
         <h2>Outcome</h2>
