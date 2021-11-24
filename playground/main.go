@@ -62,7 +62,7 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGet(w http.ResponseWriter, r *http.Request) {
-	err := templates.ExecuteTemplate(w, "playground.html", defaultModel)
+	err := templates.ExecuteTemplate(w, "playground.html", defaultModel())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
@@ -78,6 +78,8 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 	code := r.FormValue("code")
 	output, ctx := runCode([]byte(code))
 	err = templates.ExecuteTemplate(w, "playground.html", playgroundModel{
+		Cpu:     cpuLimit,
+		Mem:     memLimit,
 		Source:  code,
 		Output:  output,
 		Context: ctx,
@@ -133,15 +135,37 @@ func hashCode(src []byte) uint64 {
 }
 
 type playgroundModel struct {
-	Source  string
-	Output  string
-	Context rt.RuntimeContext
+	Cpu, Mem uint64
+	Source   string
+	Output   string
+	Context  rt.RuntimeContext
 }
 
-var defaultModel = playgroundModel{Source: `
+func (m playgroundModel) Status() string {
+	if m.Context == nil {
+		return "Unknown"
+	}
+	switch m.Context.Status() {
+	case rt.RCS_Done:
+		return "Completed"
+	case rt.RCS_Killed:
+		return "Killed"
+	case rt.RCS_Live:
+		return "Live"
+	default:
+		return "Unknown"
+	}
+}
+
+func defaultModel() playgroundModel {
+	return playgroundModel{
+		Cpu: cpuLimit,
+		Mem: memLimit,
+		Source: `
 local a = "x"
 while true do
 	a = a .. a
 	print(a)
 end
 `}
+}

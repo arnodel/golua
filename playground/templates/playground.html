@@ -5,7 +5,7 @@
     <body>
         <h1>The Golua Playground (alpha)</h1>
         <div>
-            You have 1000000 cpu units and 10000000 mem units.
+            You have {{ .Cpu }} cpu units and {{ .Mem }} mem units.
         </div>
         <div>
             <form method="post">
@@ -20,10 +20,11 @@
         </pre>
         {{- end }}
         {{- if .Context }}
-        <h2>Resources Used</h2>
+        <h2>Outcome</h2>
         <ul>
-            <li>cpu: {{ .Context.CpuUsed }} / {{ .Context.CpuLimit }}</li>
-            <li>mem: {{ .Context.MemUsed }} / {{ .Context.MemLimit }}</li>
+            <li>status: {{ .Status }} </li>
+            <li>cpu: used {{ .Context.CpuUsed }} / {{ .Context.CpuLimit }}</li>
+            <li>mem: used {{ .Context.MemUsed }} / {{ .Context.MemLimit }}</li>
         </ul>
         {{- end }}
     </body>
