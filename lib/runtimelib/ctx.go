@@ -1,6 +1,10 @@
 package runtimelib
 
-import rt "github.com/arnodel/golua/runtime"
+import (
+	"strings"
+
+	rt "github.com/arnodel/golua/runtime"
+)
 
 type contextMetaKeyType struct{}
 
@@ -81,19 +85,8 @@ func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		val = statusValue(ctx.Status())
 	case "parent":
 		val = rt.NilValue
-	case "io":
-		if rt.RCF_NoIO.IsSet(ctx) {
-			val = rt.StringValue("off")
-		} else {
-			val = rt.StringValue("on")
-		}
-	case "golib":
-		if rt.RCF_NoGoLib.IsSet(ctx) {
-			val = rt.StringValue("off")
-		} else {
-			val = rt.StringValue("on")
-		}
-
+	case "flags":
+		val = rt.StringValue(strings.Join(ctx.SafetyFlags().Names(), " "))
 	}
 	return c.PushingNext1(t.Runtime, val), nil
 }

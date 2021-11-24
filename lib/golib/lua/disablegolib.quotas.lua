@@ -1,29 +1,43 @@
-local ctx = runtime.context()
-print(ctx.golib)
---> =on
 
-runtime.callcontext({golib="off"}, function()
+
+-- golib not cpu safe
+runtime.callcontext({cpulimit=10000}, function()
     local ctx = runtime.context()
-    print(ctx.golib)
-    --> =off
+
     print(pcall(double, 2))
-    --> =false	go disabled
+    --> =false	missing flags: cpusafe
 
     print(pcall(function() return polly.Age end))
-    --> =false	go disabled
+    --> =false	missing flags: cpusafe
 
     print(pcall(golib.import, "fmt"))
-    --> =false	go disabled
-
-    -- Go can't be turned back on
-    runtime.callcontext({golib="on"}, function()
-        local ctx = runtime.context()
-        print(ctx.golib)
-        --> =off
-        print(pcall(double, 2))
-        --> =false	go disabled
-    end)
+    --> =false	missing flags: cpusafe
 end)
 
-print(ctx.golib)
---> =on
+-- golib not memory safe
+runtime.callcontext({memlimit=10000}, function()
+    local ctx = runtime.context()
+
+    print(pcall(double, 2))
+    --> =false	missing flags: memsafe
+
+    print(pcall(function() return polly.Age end))
+    --> =false	missing flags: memsafe
+
+    print(pcall(golib.import, "fmt"))
+    --> =false	missing flags: memsafe
+end)
+
+-- golib not io safe
+runtime.callcontext({flags="iosafe"}, function()
+    local ctx = runtime.context()
+
+    print(pcall(double, 2))
+    --> =false	missing flags: iosafe
+
+    print(pcall(function() return polly.Age end))
+    --> =false	missing flags: iosafe
+
+    print(pcall(golib.import, "fmt"))
+    --> =false	missing flags: iosafe
+end)

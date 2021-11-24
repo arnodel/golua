@@ -59,7 +59,35 @@ const (
 	RCS_MemSafe RuntimeSafetyFlags = 1 << iota
 	RCS_CpuSafe
 	RCS_IOSafe
+	rcs_limit
 )
+
+var flagNames = map[RuntimeSafetyFlags]string{
+	RCS_MemSafe: "memsafe",
+	RCS_CpuSafe: "cpusafe",
+	RCS_IOSafe:  "iosafe",
+}
+
+var nameFlags = map[string]RuntimeSafetyFlags{
+	"memsafe": RCS_MemSafe,
+	"cpusafe": RCS_CpuSafe,
+	"iosafe":  RCS_IOSafe,
+}
+
+func (f RuntimeSafetyFlags) AddFlagWithName(name string) (RuntimeSafetyFlags, bool) {
+	fn, ok := nameFlags[name]
+	return fn | f, ok
+}
+
+func (f RuntimeSafetyFlags) Names() (names []string) {
+	var i RuntimeSafetyFlags
+	for i = 1; i < rcs_limit; i <<= 1 {
+		if i&f != 0 {
+			names = append(names, flagNames[i])
+		}
+	}
+	return names
+}
 
 type RuntimeContextDef struct {
 	CpuLimit    uint64

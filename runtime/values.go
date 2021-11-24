@@ -110,6 +110,11 @@ func (f *GoFunction) Continuation(r *Runtime, next Cont) Cont {
 }
 
 func (f *GoFunction) SolemnlyDeclareSafetyFlags(flags RuntimeSafetyFlags) {
+	if flags >= rcs_limit {
+		// User is trying to register a safety flag that is not (yet) defined.
+		// This is a sign this function is not called solemnly enough!
+		panic("Invalid safety flags")
+	}
 	f.safetyFlags |= flags
 }
 
