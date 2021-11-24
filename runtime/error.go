@@ -5,13 +5,16 @@ import (
 	"strings"
 )
 
+const maxTracebackLength = 50
+
 // Error is the error type that can be produced by running continuations.  Each
 // error has a message and a context, which is a slice of continuations.  There
 // is no call stack, but you can imagine you "unwind" the call stack by
 // iterating over this slice.
 type Error struct {
-	message   Value
-	traceback []*DebugInfo
+	message      Value
+	traceback    []*DebugInfo
+	droppedLines int
 }
 
 // NewError returns a new error with the given message and no context.
@@ -38,8 +41,16 @@ func NewErrorF(msg string, args ...interface{}) *Error {
 
 // AddContext returns an error message with appended context.
 func (e *Error) AddContext(cont Cont) *Error {
+	if cont == nil {
+		return e
+	}
 	info := cont.DebugInfo()
-	if info != nil {
+	if info == nil {
+		return e
+	}
+	if len(e.traceback) >= maxTracebackLength {
+		e.droppedLines++
+	} else {
 		e.traceback = append(e.traceback, info)
 	}
 	return e
@@ -70,6 +81,9 @@ func (e *Error) Traceback() string {
 			sourceInfo = fmt.Sprintf("%s:%d", sourceInfo, info.CurrentLine)
 		}
 		sb.WriteString(fmt.Sprintf("in function %s (file %s)\n", info.Name, sourceInfo))
+	}
+	if e.droppedLines > 0 {
+		sb.WriteString(fmt.Sprintf("(... %d elided lines)", e.droppedLines))
 	}
 	return sb.String()
 }

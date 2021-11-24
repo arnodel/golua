@@ -1,60 +1,54 @@
 -- When IO is disabled, most functions return errors
 
-runtime.callcontext({io="off"}, function()
+runtime.callcontext({flags="iosafe"}, function()
 
     -- io module funtions are unavailable
 
     print(pcall(io.close, 1))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     print(pcall(io.flush, 1))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     print(pcall(io.input, 1))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     print(pcall(io.lines, "foo"))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     print(pcall(io.open, "foo"))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     print(pcall(io.output, 1))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     print(pcall(io.read, "foo"))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
    
     print(pcall(io.tmpfile, "foo"))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     print(pcall(io.write, "foo"))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     -- functions on files are unavailable
 
     print(pcall(io.stdin.read, stdin))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     print(pcall(io.stdin.lines, stdin))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     print(pcall(io.stdout.close, stdout))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     print(pcall(io.stdout.flush, stdout))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     print(pcall(io.stdin.seek, stdin, 2, 3))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
     print(pcall(io.stdin.write, stdout))
-    --> =false	io disabled
+    --> =false	missing flags: iosafe
 
-    runtime.callcontext({io="on"}, function ()
-        -- Can't turn IO back on
-
-        print(pcall(io.close, 1))
-        --> =false	io disabled
-    end)
 end)
