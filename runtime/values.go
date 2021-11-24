@@ -110,7 +110,7 @@ func (f *GoFunction) Continuation(r *Runtime, next Cont) Cont {
 }
 
 func (f *GoFunction) SolemnlyDeclareCompliance(flags ComplianceFlags) {
-	if flags >= rcs_limit {
+	if flags >= complyflagsLimit {
 		// User is trying to register a safety flag that is not (yet) defined.
 		// This is a sign this function is not called solemnly enough!
 		panic("Invalid safety flags")
