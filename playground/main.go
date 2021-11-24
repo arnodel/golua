@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"embed"
+	"errors"
 	"flag"
 	"fmt"
 	"hash/fnv"
@@ -10,6 +11,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path"
+	"strconv"
 
 	"github.com/arnodel/golua/lib"
 	"github.com/arnodel/golua/runtime"
@@ -24,7 +28,12 @@ var templates *template.Template
 var (
 	cpuLimit uint64
 	memLimit uint64
+	saveDir  string
 )
+
+const maxCodeLength = 10000
+
+var errCodeTooLarge = fmt.Errorf("Code too large (max len %d)", maxCodeLength)
 
 func main() {
 	var port uint
@@ -32,16 +41,25 @@ func main() {
 	flag.UintVar(&port, "port", 8080, "port to listen on")
 	flag.Uint64Var(&cpuLimit, "cpulimit", 1000000, "cpu limit")
 	flag.Uint64Var(&memLimit, "memlimit", 1000000, "mem limit")
+	flag.StringVar(&saveDir, "savedir", "", "directory to save source code")
 	flag.Parse()
 
 	var err error
+
+	dir, err := os.Stat(saveDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if !dir.IsDir() {
+		log.Fatalf("saveDir=%s is not a directory", saveDir)
+	}
 
 	templates, err = template.ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		log.Fatal(err)
 	}
 	http.HandleFunc("/", handleRequest)
-
+	http.HandleFunc("/save", handleSave)
 	log.Printf("Listening on :%d", port)
 
 	err = http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
@@ -61,21 +79,64 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func handleSave(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	code, err := getCode(w, r)
+	if err != nil {
+		return
+	}
+	codeBytes := []byte(code)
+	h := codeHash(codeBytes)
+	err = os.WriteFile(path.Join(saveDir, h+".lua"), codeBytes, 0600)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	newURL := *r.URL
+	newURL.Path = ""
+	newURL.RawQuery = fmt.Sprintf("h=%s", h)
+	http.Redirect(w, r, newURL.String(), http.StatusSeeOther)
+}
+
 func handleGet(w http.ResponseWriter, r *http.Request) {
-	err := templates.ExecuteTemplate(w, "playground.html", defaultModel())
+	h := r.URL.Query().Get("h")
+	var code = defaultCode
+	if h != "" {
+		filePath := path.Join(saveDir, h+".lua")
+		codeBytes, err := os.ReadFile(filePath)
+		if errors.Is(err, os.ErrNotExist) {
+			newURL := *r.URL
+			newURL.RawQuery = ""
+			http.Redirect(w, r, newURL.String(), http.StatusSeeOther)
+			return
+		}
+		if err != nil {
+			log.Printf("Error reading file %s: %s", filePath, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		code = string(codeBytes)
+	}
+
+	err := templates.ExecuteTemplate(w, "playground.html", playgroundModel{
+		Mem:    memLimit,
+		Cpu:    cpuLimit,
+		Source: code,
+	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
 func handlePost(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 20000)
-	err := r.ParseForm()
+	code, err := getCode(w, r)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	code := r.FormValue("code")
 	output, ctx := runCode([]byte(code))
 	err = templates.ExecuteTemplate(w, "playground.html", playgroundModel{
 		Cpu:     cpuLimit,
@@ -89,10 +150,25 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getCode(w http.ResponseWriter, r *http.Request) (string, error) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxCodeLength+1000)
+	err := r.ParseForm()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return "", err
+	}
+	code := r.FormValue("code")
+	if len(code) > maxCodeLength {
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		return "", errCodeTooLarge
+	}
+	return code, nil
+}
+
 func runCode(src []byte) (string, rt.RuntimeContext) {
-	h := hashCode(src)
-	log.Printf("Running code %d", h)
-	defer log.Printf("Done running code %d", h)
+	h := codeHash(src)
+	log.Printf("Running code %s", h)
+	defer log.Printf("Done running code %s", h)
 	stdout := cappedBuffer{MaxSize: 10000}
 	r := runtime.New(&stdout)
 	lib.LoadAll(r)
@@ -128,10 +204,10 @@ func (b *cappedBuffer) Write(p []byte) (n int, err error) {
 	return b.Buffer.Write(p)
 }
 
-func hashCode(src []byte) uint64 {
+func codeHash(src []byte) string {
 	h := fnv.New64a()
 	h.Write(src)
-	return h.Sum64()
+	return strconv.FormatUint(h.Sum64(), 36)
 }
 
 type playgroundModel struct {
@@ -157,15 +233,10 @@ func (m playgroundModel) Status() string {
 	}
 }
 
-func defaultModel() playgroundModel {
-	return playgroundModel{
-		Cpu: cpuLimit,
-		Mem: memLimit,
-		Source: `
+const defaultCode = `
 local a = "x"
 while true do
 	a = a .. a
 	print(a)
 end
-`}
-}
+`

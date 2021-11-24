@@ -5,11 +5,17 @@
     <body>
         <h1>The Golua Playground (alpha)</h1>
         <div>
-            You have {{ .Cpu }} cpu units and {{ .Mem }} mem units.
+            You have {{ .Cpu }} cpu units and {{ .Mem }} mem units.  Click "Run"
+            to run the code, click "Save" to save the code on the server, you
+            can then share the URL.
         </div>
         <div>
             <form method="post">
-                <h2><label for="code">Lua Code</label> <button type="submit">Run</button></h2>
+                <h2>
+                    <label for="code">Lua Code</label>
+                    <button type="submit">Run</button>
+                    <button typw="submit" formaction="/save">Save</button>
+                </h2>
                 <textarea rows="30" cols="100" maxlength="10000" name="code">{{ .Source }}</textarea>
             </form>
         </div>
