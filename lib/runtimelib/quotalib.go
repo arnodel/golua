@@ -23,6 +23,7 @@ func load(r *rt.Runtime) rt.Value {
 
 		r.SetEnvGoFunc(pkg, "callcontext", callcontext, 2, true),
 		r.SetEnvGoFunc(pkg, "context", context, 0, false),
+		r.SetEnvGoFunc(pkg, "cancelcontext", cancel, 0, false),
 	)
 
 	createContextMetatable(r)
@@ -41,32 +42,42 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		return nil, err.AddContext(c)
 	}
 	var (
-		memQuotaV = quotas.Get(rt.StringValue("memlimit"))
-		cpuQuotaV = quotas.Get(rt.StringValue("cpulimit"))
-		flagsV    = quotas.Get(rt.StringValue("flags"))
-		memQuota  int64
-		cpuQuota  int64
-		ok        bool
-		f         = c.Arg(1)
-		fArgs     = c.Etc()
-		flags     rt.ComplianceFlags
+		memQuotaV  = quotas.Get(rt.StringValue("memlimit")) // deprecated
+		cpuQuotaV  = quotas.Get(rt.StringValue("cpulimit")) // deprecated
+		flagsV     = quotas.Get(rt.StringValue("flags"))
+		limitsV    = quotas.Get(rt.StringValue("limits"))
+		memQuota   uint64
+		cpuQuota   uint64
+		timerQuota uint64
+		f          = c.Arg(1)
+		fArgs      = c.Etc()
+		flags      rt.ComplianceFlags
 	)
-	if !rt.IsNil(memQuotaV) {
-		memQuota, ok = memQuotaV.TryInt()
-		if !ok {
-			return nil, rt.NewErrorS("memquota must be an integer").AddContext(c)
+	if !rt.IsNil(limitsV) {
+		var err *rt.Error
+		cpuQuota, err = getResVal(t, limitsV, "cpu")
+		if err != nil {
+			return nil, err.AddContext(c)
 		}
-		if memQuota <= 0 {
-			return nil, rt.NewErrorS("memquota must be positive").AddContext(c)
+		memQuota, err = getResVal(t, limitsV, "mem")
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+		timerQuota, err = getResVal(t, limitsV, "timer")
+		if err != nil {
+			return nil, err.AddContext(c)
+		}
+	}
+	if !rt.IsNil(memQuotaV) {
+		memQuota, err = validateResVal("memlimit", memQuotaV)
+		if err != nil {
+			return nil, err.AddContext(c)
 		}
 	}
 	if !rt.IsNil(cpuQuotaV) {
-		cpuQuota, ok = cpuQuotaV.TryInt()
-		if !ok {
-			return nil, rt.NewErrorS("cpuquota must be an integer").AddContext(c)
-		}
-		if cpuQuota <= 0 {
-			return nil, rt.NewErrorS("cpuquota must be positive").AddContext(c)
+		cpuQuota, err = validateResVal("cpulimit", cpuQuotaV)
+		if err != nil {
+			return nil, err.AddContext(c)
 		}
 	}
 	if !rt.IsNil(flagsV) {
@@ -86,8 +97,11 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	res := rt.NewTerminationWith(0, true)
 
 	ctx := t.CallContext(rt.RuntimeContextDef{
-		CpuLimit:    uint64(cpuQuota),
-		MemLimit:    uint64(memQuota),
+		HardLimits: rt.RuntimeResources{
+			Cpu:   cpuQuota,
+			Mem:   memQuota,
+			Timer: timerQuota,
+		},
 		SafetyFlags: flags,
 	}, func() {
 		retErr = rt.Call(t, f, fArgs, res)
@@ -101,4 +115,31 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		t.Push(next, res.Etc()...)
 	}
 	return next, nil
+}
+
+func cancel(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
+	t.TerminateContext("cancelled")
+	return nil, nil
+}
+
+func getResVal(t *rt.Thread, resources rt.Value, name string) (uint64, *rt.Error) {
+	val, err := rt.Index(t, resources, rt.StringValue(name))
+	if err != nil {
+		return 0, err
+	}
+	return validateResVal(name, val)
+}
+
+func validateResVal(name string, val rt.Value) (uint64, *rt.Error) {
+	if rt.IsNil(val) {
+		return 0, nil
+	}
+	n, ok := val.TryInt()
+	if !ok {
+		return 0, rt.NewErrorF("%s must be an integer", name)
+	}
+	if n <= 0 {
+		return 0, rt.NewErrorF("%s must be a positive integer", name)
+	}
+	return uint64(n), nil
 }

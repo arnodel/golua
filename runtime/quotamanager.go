@@ -11,12 +11,11 @@ import (
 const QuotasAvailable = true
 
 type quotaManager struct {
-	cpuQuota    uint64
-	cpuUsed     uint64
-	safetyFlags ComplianceFlags
+	hardLimits    RuntimeResources
+	softLimits    RuntimeResources
+	usedResources RuntimeResources
 
-	memQuota uint64
-	memUsed  uint64
+	safetyFlags ComplianceFlags
 
 	status RuntimeContextStatus
 
@@ -25,20 +24,16 @@ type quotaManager struct {
 
 var _ RuntimeContext = (*quotaManager)(nil)
 
-func (m *quotaManager) CpuLimit() uint64 {
-	return m.cpuQuota
+func (m *quotaManager) HardResourceLimits() RuntimeResources {
+	return m.hardLimits
 }
 
-func (m *quotaManager) CpuUsed() uint64 {
-	return m.cpuUsed
+func (m *quotaManager) SoftResourceLimits() RuntimeResources {
+	return m.softLimits
 }
 
-func (m *quotaManager) MemLimit() uint64 {
-	return m.memQuota
-}
-
-func (m *quotaManager) MemUsed() uint64 {
-	return m.memUsed
+func (m *quotaManager) UsedResources() RuntimeResources {
+	return m.usedResources
 }
 
 func (m *quotaManager) Status() RuntimeContextStatus {
@@ -61,24 +56,28 @@ func (m *quotaManager) Parent() RuntimeContext {
 	return m.parent
 }
 
+func (m *quotaManager) ShouldCancel() bool {
+	return !m.softLimits.Dominates(m.usedResources)
+}
+
 func (m *quotaManager) RuntimeContext() RuntimeContext {
 	return m
 }
 
 func (m *quotaManager) PushContext(ctx RuntimeContextDef) {
 	parent := *m
-	m.cpuQuota, m.cpuUsed = m.UnusedCPU(), 0
-	m.memQuota, m.memUsed = m.UnusedMem(), 0
-	if ctx.CpuLimit > 0 && (m.cpuQuota == 0 || m.cpuQuota > ctx.CpuLimit) {
-		m.cpuQuota = ctx.CpuLimit
+	m.hardLimits = m.hardLimits.Remove(m.usedResources).Merge(ctx.HardLimits)
+	m.softLimits = m.softLimits.Remove(m.usedResources).Merge(ctx.SoftLimits)
+	m.safetyFlags |= ctx.SafetyFlags
+
+	if ctx.HardLimits.Cpu > 0 {
 		m.safetyFlags |= ComplyCpuSafe
 	}
-	if ctx.MemLimit > 0 && (m.memQuota == 0 || m.memQuota > ctx.MemLimit) {
-		m.memQuota = ctx.MemLimit
+	if ctx.HardLimits.Mem > 0 {
 		m.safetyFlags |= ComplyMemSafe
 	}
+
 	m.status = RCS_Live
-	m.safetyFlags |= ctx.SafetyFlags
 	m.parent = &parent
 }
 
@@ -99,7 +98,7 @@ func (m *quotaManager) CallContext(def RuntimeContextDef, f func()) (ctx Runtime
 	defer func() {
 		ctx = m.PopContext()
 		if r := recover(); r != nil {
-			_, ok := r.(QuotaExceededError)
+			_, ok := r.(ContextTerminationError)
 			if !ok {
 				panic(r)
 			}
@@ -113,13 +112,13 @@ func (m *quotaManager) PopQuota() {
 	if m.parent == nil {
 		return
 	}
-	m.parent.RequireCPU(m.cpuUsed)
-	m.parent.RequireMem(m.memUsed)
+	m.parent.RequireCPU(m.usedResources.Cpu)
+	m.parent.RequireMem(m.usedResources.Mem)
 	*m = *m.parent
 }
 
 func (m *quotaManager) RequireCPU(cpuAmount uint64) {
-	if m.cpuQuota > 0 {
+	if m.hardLimits.Cpu > 0 {
 		// The path with quota is "outlined" so RequireCPU can be inlined,
 		// minimising the overhead when there is no quota.
 		m.requireCPU(cpuAmount)
@@ -128,24 +127,19 @@ func (m *quotaManager) RequireCPU(cpuAmount uint64) {
 
 //go:noinline
 func (m *quotaManager) requireCPU(cpuAmount uint64) {
-	cpuUsed := m.cpuUsed + cpuAmount
-	if cpuUsed >= m.cpuQuota {
-		m.status = RCS_Killed
-		panicWithQuotaExceded("CPU limit of %d exceeded", m.cpuQuota)
+	cpuUsed := m.usedResources.Cpu + cpuAmount
+	if cpuUsed >= m.hardLimits.Cpu {
+		m.TerminateContext("CPU limit of %d exceeded", m.hardLimits.Cpu)
 	}
-	m.cpuUsed = cpuUsed
+	m.usedResources.Cpu = cpuUsed
 }
 
 func (m *quotaManager) UnusedCPU() uint64 {
-	return m.cpuQuota - m.cpuUsed
-}
-
-func (m *quotaManager) CPUQuotaStatus() (uint64, uint64) {
-	return m.cpuUsed, m.cpuQuota
+	return m.hardLimits.Cpu - m.usedResources.Cpu
 }
 
 func (m *quotaManager) RequireMem(memAmount uint64) {
-	if m.memQuota > 0 {
+	if m.hardLimits.Mem > 0 {
 		// The path with quota is "outlined" so RequireMem can be inlined,
 		// minimising the overhead when there is no quota.
 		m.requireMem(memAmount)
@@ -154,12 +148,11 @@ func (m *quotaManager) RequireMem(memAmount uint64) {
 
 //go:noinline
 func (m *quotaManager) requireMem(memAmount uint64) {
-	memUsed := m.memUsed + memAmount
-	if memUsed >= m.memQuota {
-		m.status = RCS_Killed
-		panicWithQuotaExceded("mem limit of %d exceeded", m.memQuota)
+	memUsed := m.usedResources.Mem + memAmount
+	if memUsed >= m.hardLimits.Mem {
+		m.TerminateContext("mem limit of %d exceeded", m.hardLimits.Mem)
 	}
-	m.memUsed = memUsed
+	m.usedResources.Mem = memUsed
 }
 
 func (m *quotaManager) RequireSize(sz uintptr) (mem uint64) {
@@ -183,9 +176,9 @@ func (m *quotaManager) RequireBytes(n int) (mem uint64) {
 func (m *quotaManager) ReleaseMem(memAmount uint64) {
 	// TODO: think about what to do when memory is released when unwinding from
 	// a quota exceeded error
-	if m.memQuota > 0 {
-		if memAmount <= m.memUsed {
-			m.memUsed -= memAmount
+	if m.hardLimits.Mem > 0 {
+		if memAmount <= m.usedResources.Mem {
+			m.usedResources.Mem -= memAmount
 		} else {
 			panic("Too much mem released")
 		}
@@ -205,16 +198,11 @@ func (m *quotaManager) ReleaseBytes(n int) {
 }
 
 func (m *quotaManager) UnusedMem() uint64 {
-	return m.memQuota - m.memUsed
-}
-
-func (m *quotaManager) MemQuotaStatus() (uint64, uint64) {
-	return m.memUsed, m.memQuota
+	return m.hardLimits.Mem - m.usedResources.Mem
 }
 
 func (m *quotaManager) ResetQuota() {
-	m.memUsed = 0
-	m.cpuUsed = 0
+	m.hardLimits = RuntimeResources{}
 }
 
 // LinearUnused returns an amount of resource combining memory and cpu.  It is
@@ -243,8 +231,12 @@ func (m *quotaManager) LinearRequire(cpuFactor uint64, amt uint64) {
 	m.RequireCPU(amt / cpuFactor)
 }
 
-func panicWithQuotaExceded(format string, args ...interface{}) {
-	panic(QuotaExceededError{
+func (m *quotaManager) TerminateContext(format string, args ...interface{}) {
+	if m.status != RCS_Live {
+		return
+	}
+	m.status = RCS_Killed
+	panic(ContextTerminationError{
 		message: fmt.Sprintf(format, args...),
 	})
 }

@@ -182,10 +182,10 @@ func (r *Runtime) metaGetS(v Value, k string) Value {
 	return RawGet(meta, StringValue(k))
 }
 
-type QuotaExceededError struct {
+type ContextTerminationError struct {
 	message string
 }
 
-func (p QuotaExceededError) Error() string {
-	return p.message
+func (e ContextTerminationError) Error() string {
+	return e.message
 }
