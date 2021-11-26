@@ -93,9 +93,9 @@ func TestThread_end(t *testing.T) {
 	type args struct {
 		args     []Value
 		err      *Error
-		quotaErr *QuotaExceededError
+		quotaErr *ContextTerminationError
 	}
-	quotaErr := QuotaExceededError{message: "boo!"}
+	quotaErr := ContextTerminationError{message: "boo!"}
 	tests := []struct {
 		name      string
 		thread    *Thread

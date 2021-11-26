@@ -18,7 +18,7 @@ const (
 type valuesError struct {
 	args     []Value
 	err      *Error
-	quotaErr *QuotaExceededError
+	quotaErr *ContextTerminationError
 }
 
 // A Thread is a lua thread.
@@ -76,15 +76,15 @@ func (t *Thread) Start(c Callable) {
 		var (
 			args     []Value
 			err      *Error
-			quotaErr *QuotaExceededError
+			quotaErr *ContextTerminationError
 		)
 		// If there was a panic due to an exceeded quota, we need to end the
 		// thread and propagate that panic to the calling thread
 		defer func() {
 			if r := recover(); r != nil {
-				quotaErr = new(QuotaExceededError)
+				quotaErr = new(ContextTerminationError)
 				var ok bool
-				*quotaErr, ok = r.(QuotaExceededError)
+				*quotaErr, ok = r.(ContextTerminationError)
 				if !ok {
 					panic(r)
 				}
@@ -154,7 +154,7 @@ func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 	return t.getResumeValues()
 }
 
-func (t *Thread) end(args []Value, err *Error, quotaErr *QuotaExceededError) {
+func (t *Thread) end(args []Value, err *Error, quotaErr *ContextTerminationError) {
 	caller := t.caller
 	t.mux.Lock()
 	caller.mux.Lock()
@@ -187,6 +187,6 @@ func (t *Thread) getResumeValues() ([]Value, *Error) {
 	return res.args, res.err
 }
 
-func (t *Thread) sendResumeValues(args []Value, err *Error, quotaErr *QuotaExceededError) {
+func (t *Thread) sendResumeValues(args []Value, err *Error, quotaErr *ContextTerminationError) {
 	t.resumeCh <- valuesError{args, err, quotaErr}
 }
