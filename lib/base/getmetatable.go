@@ -6,7 +6,7 @@ import (
 
 func getmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	return c.PushingNext(t.Runtime, t.Metatable(c.Arg(0))), nil
 }

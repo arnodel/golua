@@ -4,19 +4,19 @@ import rt "github.com/arnodel/golua/runtime"
 
 func ipairsIteratorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	coll := c.Arg(0)
 	n, err := c.IntArg(1)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	next := c.Next()
 	n++
 	nv := rt.IntValue(n)
 	v, err := rt.Index(t, coll, nv)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	if !v.IsNil() {
 		t.Push1(next, nv)
@@ -29,7 +29,7 @@ var ipairsIterator = rt.NewGoFunction(ipairsIteratorF, "ipairsiterator", 2, fals
 
 func ipairs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	next := c.Next()
 	t.Push1(next, rt.FunctionValue(ipairsIterator))

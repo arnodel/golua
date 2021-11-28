@@ -291,6 +291,8 @@ func (v Value) AsCont() Cont {
 		return cont
 	case *Termination:
 		return cont
+	case *MessageHandlerCont:
+		return cont
 	default:
 		panic("value is not a continuation")
 	}
@@ -328,6 +330,11 @@ func (v Value) AsFunction() Callable {
 	default:
 		panic("value is not a Callable")
 	}
+}
+
+// AsThread returns v as a *Thread (or panics).
+func (v Value) AsThread() *Thread {
+	return v.iface.(*Thread)
 }
 
 // TryInt converts v to type int64 if possible (ok is false otherwise).
@@ -411,6 +418,8 @@ func (v Value) TryCont() (c Cont, ok bool) {
 	case *LuaCont:
 		return cont, true
 	case *Termination:
+		return cont, true
+	case *MessageHandlerCont:
 		return cont, true
 	default:
 		return nil, false

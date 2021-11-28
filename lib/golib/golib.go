@@ -48,56 +48,56 @@ func NewGoValue(r *rt.Runtime, x interface{}) rt.Value {
 
 func goValueToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	u, err := c.UserDataArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	return c.PushingNext1(t.Runtime, rt.StringValue(fmt.Sprintf("%#v", u.Value()))), nil
 }
 
 func goValueIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	u, err := c.UserDataArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	val, indexErr := goIndex(t, u, c.Arg(1))
 	if indexErr != nil {
-		return nil, rt.NewErrorE(indexErr).AddContext(c)
+		return nil, rt.NewErrorE(indexErr)
 	}
 	return c.PushingNext1(t.Runtime, val), nil
 }
 
 func goValueSetIndex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(3); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	u, err := c.UserDataArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	setIndexErr := goSetIndex(t, u, c.Arg(1), c.Arg(2))
 	if setIndexErr != nil {
-		return nil, rt.NewErrorE(setIndexErr).AddContext(c)
+		return nil, rt.NewErrorE(setIndexErr)
 	}
 	return c.Next(), nil
 }
 
 func goValueCall(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	u, err := c.UserDataArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	res, callErr := goCall(t, u, c.Etc())
 	if callErr != nil {
-		return nil, rt.NewErrorE(callErr).AddContext(c)
+		return nil, rt.NewErrorE(callErr)
 	}
 	return c.PushingNext(t.Runtime, res...), nil
 }
@@ -107,11 +107,11 @@ func goimport(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, rt.NewError(rt.StringValue("cannot import go packages: plugins root not set"))
 	}
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	path, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	forceBuild := c.NArgs() >= 2 && rt.Truth(c.Arg(1))
 	exports, loadErr := goimports.LoadGoPackage(string(path), pluginsRoot, forceBuild)

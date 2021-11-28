@@ -53,7 +53,7 @@ func load(r *rt.Runtime) rt.Value {
 
 func abs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	next := c.Next()
 	n, f, tp := rt.ToNumber(c.Arg(0))
@@ -66,18 +66,18 @@ func abs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case rt.IsFloat:
 		t.Push1(next, rt.FloatValue(math.Abs(f)))
 	default:
-		return nil, rt.NewErrorS("#1 must be a number").AddContext(c)
+		return nil, rt.NewErrorS("#1 must be a number")
 	}
 	return next, nil
 }
 
 func acos(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x, err := c.FloatArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	y := rt.FloatValue(math.Acos(x))
 	return c.PushingNext1(t.Runtime, y), nil
@@ -85,11 +85,11 @@ func acos(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func asin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x, err := c.FloatArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	y := rt.FloatValue(math.Asin(x))
 	return c.PushingNext1(t.Runtime, y), nil
@@ -97,17 +97,17 @@ func asin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func atan(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	y, err := c.FloatArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	var x float64 = 1
 	if c.NArgs() >= 2 {
 		y, err = c.FloatArg(1)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 	}
 	z := rt.FloatValue(math.Atan2(y, x))
@@ -116,7 +116,7 @@ func atan(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func ceil(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	next := c.Next()
 	n, f, tp := rt.ToNumber(c.Arg(0))
@@ -127,18 +127,18 @@ func ceil(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		y := rt.FloatValue(math.Ceil(f))
 		t.Push1(next, y)
 	default:
-		return nil, rt.NewErrorS("#1 must be a number").AddContext(c)
+		return nil, rt.NewErrorS("#1 must be a number")
 	}
 	return next, nil
 }
 
 func cos(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x, err := c.FloatArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	y := rt.FloatValue(math.Cos(x))
 	return c.PushingNext1(t.Runtime, y), nil
@@ -146,11 +146,11 @@ func cos(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func deg(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x, err := c.FloatArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	y := rt.FloatValue(x * 180 / math.Pi)
 	return c.PushingNext1(t.Runtime, y), nil
@@ -158,11 +158,11 @@ func deg(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func exp(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x, err := c.FloatArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	y := rt.FloatValue(math.Exp(x))
 	return c.PushingNext1(t.Runtime, y), nil
@@ -170,7 +170,7 @@ func exp(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func floor(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	next := c.Next()
 	n, f, tp := rt.ToNumber(c.Arg(0))
@@ -181,35 +181,35 @@ func floor(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		y := rt.FloatValue(math.Floor(f))
 		t.Push1(next, y)
 	default:
-		return nil, rt.NewErrorS("#1 must be a number").AddContext(c)
+		return nil, rt.NewErrorS("#1 must be a number")
 	}
 	return next, nil
 }
 
 func fmod(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	res, err := rt.Mod(t, c.Arg(0), c.Arg(1))
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	return c.PushingNext1(t.Runtime, res), nil
 }
 
 func log(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x, err := c.FloatArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	y := math.Log(x)
 	if c.NArgs() >= 2 {
 		b, err := c.FloatArg(1)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		y = y / math.Log(b)
 	}
@@ -218,13 +218,13 @@ func log(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func max(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x := c.Arg(0)
 	for _, y := range c.Etc() {
 		lt, err := rt.Lt(t, x, y)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		if lt {
 			x = y
@@ -235,13 +235,13 @@ func max(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func min(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x := c.Arg(0)
 	for _, y := range c.Etc() {
 		lt, err := rt.Lt(t, y, x)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		if lt {
 			x = y
@@ -252,11 +252,11 @@ func min(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func modf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x, err := c.FloatArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	i, f := math.Modf(x)
 	next := c.Next()
@@ -267,11 +267,11 @@ func modf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func rad(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x, err := c.FloatArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	y := rt.FloatValue(x * math.Pi / 180)
 	return c.PushingNext1(t.Runtime, y), nil
@@ -296,10 +296,10 @@ func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		n, err = c.IntArg(0)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	if m > n {
-		return nil, rt.NewErrorS("#2 must be >= #1").AddContext(c)
+		return nil, rt.NewErrorS("#2 must be >= #1")
 	}
 	r := rt.IntValue(m + int64(rand.Intn(int(n-m))))
 	return c.PushingNext1(t.Runtime, r), nil
@@ -307,11 +307,11 @@ func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func randomseed(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	seed, err := c.IntArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	rand.Seed(int64(seed))
 	return c.Next(), nil
@@ -319,11 +319,11 @@ func randomseed(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func sin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x, err := c.FloatArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	y := rt.FloatValue(math.Sin(x))
 	return c.PushingNext1(t.Runtime, y), nil
@@ -331,11 +331,11 @@ func sin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func sqrt(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x, err := c.FloatArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	y := rt.FloatValue(math.Sqrt(x))
 	return c.PushingNext1(t.Runtime, y), nil
@@ -343,11 +343,11 @@ func sqrt(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func tan(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x, err := c.FloatArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	y := rt.FloatValue(math.Tan(x))
 	return c.PushingNext1(t.Runtime, y), nil
@@ -355,7 +355,7 @@ func tan(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func tointeger(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	n, err := c.IntArg(0)
 	if err != nil {
@@ -366,7 +366,7 @@ func tointeger(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func typef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	var tp rt.Value
 	switch c.Arg(0).NumberType() {
@@ -380,7 +380,7 @@ func typef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func ult(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	x, err := c.IntArg(0)
 	var y int64
@@ -388,7 +388,7 @@ func ult(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		y, err = c.IntArg(1)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	lt := rt.BoolValue(uint64(x) < uint64(y))
 	return c.PushingNext1(t.Runtime, lt), nil

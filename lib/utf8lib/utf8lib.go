@@ -42,10 +42,10 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	for i, r := range runes {
 		n, ok := rt.ToInt(r)
 		if !ok {
-			return nil, rt.NewErrorF("#%d should be an integer", i+1).AddContext(c)
+			return nil, rt.NewErrorF("#%d should be an integer", i+1)
 		}
 		if n < 0 || n > 0x10FFFF {
-			return nil, rt.NewErrorF("#%d value out of range", i+1).AddContext(c)
+			return nil, rt.NewErrorF("#%d value out of range", i+1)
 		}
 		sz := utf8.EncodeRune(cur, rune(n))
 		cur = cur[sz:]
@@ -57,11 +57,11 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	s, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	var p int64
 	var iterF = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -73,7 +73,7 @@ func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			case 0:
 				return next, nil
 			case 1:
-				return nil, rt.NewErrorE(errInvalidCode).AddContext(c)
+				return nil, rt.NewErrorE(errInvalidCode)
 			}
 		}
 		t.Push1(next, rt.IntValue(p+1))
@@ -88,7 +88,7 @@ func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	var ii int64 = 1
 	s, err := c.StringArg(0)
@@ -100,22 +100,22 @@ func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		jj, err = c.IntArg(2)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	next := c.Next()
 	i := rt.StringNormPos(s, int(ii))
 	if i < 1 {
-		return nil, rt.NewErrorE(errPosOutOfRange).AddContext(c)
+		return nil, rt.NewErrorE(errPosOutOfRange)
 	}
 	j := rt.StringNormPos(s, int(jj))
 	if j > len(s) {
-		return nil, rt.NewErrorE(errPosOutOfRange).AddContext(c)
+		return nil, rt.NewErrorE(errPosOutOfRange)
 	}
 	for k := i - 1; k < j; {
 		t.RequireCPU(1)
 		r, sz := utf8.DecodeRuneInString(s[k:])
 		if r == utf8.RuneError {
-			return nil, rt.NewErrorE(errInvalidCode).AddContext(c)
+			return nil, rt.NewErrorE(errInvalidCode)
 		}
 		t.Push1(next, rt.IntValue(int64(r)))
 		k += sz
@@ -125,7 +125,7 @@ func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	var ii int64 = 1
 	s, err := c.StringArg(0)
@@ -137,7 +137,7 @@ func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		jj, err = c.IntArg(2)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	var (
 		next = c.Next()
@@ -162,7 +162,7 @@ func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	var nn int64
 	ss, err := c.StringArg(0)
@@ -177,12 +177,12 @@ func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		ii, err = c.IntArg(2)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	i := rt.StringNormPos(ss, int(ii)) - 1
 	s := string(ss)
 	if i < 0 || i > len(s) {
-		return nil, rt.NewErrorS("position out of range").AddContext(c)
+		return nil, rt.NewErrorS("position out of range")
 	}
 	if nn == 0 {
 		// Special case: locate the starting position of the current
@@ -193,7 +193,7 @@ func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 	} else {
 		if i < len(s) && !utf8.RuneStart(s[i]) {
-			return nil, rt.NewErrorS("initial position is a continuation byte").AddContext(c)
+			return nil, rt.NewErrorS("initial position is a continuation byte")
 		}
 		if nn > 0 {
 			nn--

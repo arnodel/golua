@@ -59,11 +59,11 @@ func newRegex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		s, err = c.StringArg(0)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	re, compErr := regexp.Compile(string(s))
 	if compErr != nil {
-		return nil, rt.NewErrorE(compErr).AddContext(c)
+		return nil, rt.NewErrorE(compErr)
 	}
 	regexMeta := t.Registry(regexMetaKey)
 	return c.PushingNext(t.Runtime, rt.UserDataValue(rt.NewUserData(re, regexMeta.AsTable()))), nil
@@ -106,7 +106,7 @@ func regexFind(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	if err != nil {
 		// Fail if an error occurred above
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	// Find the pattern in the string and return it.
 	match := re.FindString(string(s))
@@ -121,7 +121,7 @@ func regexToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		re, err = regexArg(c, 0)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	s := rt.StringValue(fmt.Sprintf("regex(%q)", re.String()))
 	return c.PushingNext(t.Runtime, s), nil

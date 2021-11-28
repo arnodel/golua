@@ -6,14 +6,14 @@ import (
 
 func selectF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	n, err := c.IntArg(0)
 	if err != nil {
 		var s string
 		s, err = c.StringArg(0)
 		if err != nil || s != "#" {
-			return nil, rt.NewErrorS("#1 must be an integer or '#'").AddContext(c)
+			return nil, rt.NewErrorS("#1 must be an integer or '#'")
 		}
 		return c.PushingNext1(t.Runtime, rt.IntValue(int64(len(c.Etc())))), nil
 	}
@@ -22,7 +22,7 @@ func selectF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		n += int64(len(etc)) + 1
 	}
 	if n < 1 {
-		return nil, rt.NewErrorS("#1 out of range").AddContext(c)
+		return nil, rt.NewErrorS("#1 out of range")
 	}
 	next := c.Next()
 	if int(n) <= len(etc) {

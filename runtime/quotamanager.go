@@ -20,15 +20,17 @@ type quotaManager struct {
 	status RuntimeContextStatus
 
 	parent *quotaManager
+
+	messageHandler Callable
 }
 
 var _ RuntimeContext = (*quotaManager)(nil)
 
-func (m *quotaManager) HardResourceLimits() RuntimeResources {
+func (m *quotaManager) HardLimits() RuntimeResources {
 	return m.hardLimits
 }
 
-func (m *quotaManager) SoftResourceLimits() RuntimeResources {
+func (m *quotaManager) SoftLimits() RuntimeResources {
 	return m.softLimits
 }
 
@@ -78,6 +80,7 @@ func (m *quotaManager) PushContext(ctx RuntimeContextDef) {
 	}
 
 	m.status = RCS_Live
+	m.messageHandler = ctx.MessageHandler
 	m.parent = &parent
 }
 
@@ -93,7 +96,7 @@ func (m *quotaManager) PopContext() RuntimeContext {
 	return &mCopy
 }
 
-func (m *quotaManager) CallContext(def RuntimeContextDef, f func()) (ctx RuntimeContext) {
+func (m *quotaManager) CallContext(def RuntimeContextDef, f func() *Error) (ctx RuntimeContext, err *Error) {
 	m.PushContext(def)
 	defer func() {
 		ctx = m.PopContext()
@@ -104,7 +107,10 @@ func (m *quotaManager) CallContext(def RuntimeContextDef, f func()) (ctx Runtime
 			}
 		}
 	}()
-	f()
+	err = f()
+	if err != nil {
+		m.status = RCS_Error
+	}
 	return
 }
 

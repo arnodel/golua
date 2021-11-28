@@ -8,7 +8,7 @@ import (
 
 func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	nargs := c.NArgs()
 	next := c.Next()
@@ -24,14 +24,14 @@ func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	base, err := c.IntArg(1)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	if base < 2 || base > 36 {
-		return nil, rt.NewErrorS("#2 out of range").AddContext(c)
+		return nil, rt.NewErrorS("#2 out of range")
 	}
 	s, ok := n.TryString()
 	if !ok {
-		return nil, rt.NewErrorS("#1 must be a string").AddContext(c)
+		return nil, rt.NewErrorS("#1 must be a string")
 	}
 	digits := bytes.Trim([]byte(s), " ")
 	if len(digits) == 0 {

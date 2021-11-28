@@ -36,7 +36,7 @@ func create(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		f, err = c.CallableArg(0)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	co := rt.NewThread(t.Runtime)
 	co.Start(f)
@@ -50,7 +50,7 @@ func resume(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		co, err = c.ThreadArg(0)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	res, err := co.Resume(t, c.Etc())
 	next := c.Next()
@@ -85,7 +85,7 @@ func status(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		co, err = c.ThreadArg(0)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	var status string
 	if co == t {
@@ -119,14 +119,14 @@ func wrap(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		f, err = c.CallableArg(0)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	co := rt.NewThread(t.Runtime)
 	co.Start(f)
 	w := rt.NewGoFunction(func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		res, err := co.Resume(t, c.Etc())
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		return c.PushingNext(t.Runtime, res...), nil
 	}, "wrap", 0, true)

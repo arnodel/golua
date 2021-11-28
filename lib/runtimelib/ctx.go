@@ -98,28 +98,28 @@ func resourcesArg(c *rt.GoCont, n int) (rt.RuntimeResources, *rt.Error) {
 func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	ctx, err := contextArg(c, 0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	key, err := c.StringArg(1)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	val := rt.NilValue
 	switch key {
 	case "limits":
-		val = newResourcesValue(t.Runtime, ctx.HardResourceLimits())
+		val = newResourcesValue(t.Runtime, ctx.HardLimits())
 	case "used":
 		val = newResourcesValue(t.Runtime, ctx.UsedResources())
 	case "cpulimit":
 		{
-			limit := ctx.HardResourceLimits().Cpu
+			limit := ctx.HardLimits().Cpu
 			if limit > 0 {
 				val = resToVal(limit)
 			}
 		}
 	case "memlimit":
 		{
-			limit := ctx.HardResourceLimits().Mem
+			limit := ctx.HardLimits().Mem
 			if limit > 0 {
 				val = resToVal(limit)
 			}
@@ -141,7 +141,7 @@ func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 func context__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	ctx, err := contextArg(c, 0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	return c.PushingNext1(t.Runtime, statusValue(ctx.Status())), nil
 }
@@ -149,11 +149,11 @@ func context__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 func resources__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	res, err := resourcesArg(c, 0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	key, err := c.StringArg(1)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	var n uint64
 	switch key {
@@ -176,7 +176,7 @@ func resources__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 func resources__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	res, err := resourcesArg(c, 0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	vals := make([]string, 0, 3)
 	if res.Cpu > 0 {
@@ -203,6 +203,8 @@ func statusValue(st rt.RuntimeContextStatus) rt.Value {
 		return rt.StringValue(liveStatusString)
 	case rt.RCS_Done:
 		return rt.StringValue(doneStatusString)
+	case rt.RCS_Error:
+		return rt.StringValue(errorStatusString)
 	case rt.RCS_Killed:
 		return rt.StringValue(killedStatusString)
 	default:
@@ -213,5 +215,6 @@ func statusValue(st rt.RuntimeContextStatus) rt.Value {
 const (
 	liveStatusString   = "live"
 	doneStatusString   = "done"
+	errorStatusString  = "error"
 	killedStatusString = "killed"
 )

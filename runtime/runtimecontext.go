@@ -1,8 +1,8 @@
 package runtime
 
 type RuntimeContext interface {
-	HardResourceLimits() RuntimeResources
-	SoftResourceLimits() RuntimeResources
+	HardLimits() RuntimeResources
+	SoftLimits() RuntimeResources
 	UsedResources() RuntimeResources
 
 	Status() RuntimeContextStatus
@@ -13,19 +13,27 @@ type RuntimeContext interface {
 	ShouldCancel() bool
 }
 
-type RuntimeContextStatus uint8
+type RuntimeContextStatus uint16
 
 const (
 	RCS_Live RuntimeContextStatus = iota
 	RCS_Done
+	RCS_Error
 	RCS_Killed
 )
 
 type ComplianceFlags uint16
 
 const (
+	// Only execute code checks memory availability before allocating memory
 	ComplyMemSafe ComplianceFlags = 1 << iota
+
+	// Only execute code that checks cpu availability before executing a
+	// computation.
 	ComplyCpuSafe
+
+	// Only execute code that complies with IO restrictions (currently only
+	// functions that do no IO comply with this)
 	ComplyIoSafe
 	complyflagsLimit
 )
@@ -103,7 +111,8 @@ func (r RuntimeResources) Dominates(r1 RuntimeResources) bool {
 }
 
 type RuntimeContextDef struct {
-	HardLimits  RuntimeResources
-	SoftLimits  RuntimeResources
-	SafetyFlags ComplianceFlags
+	HardLimits     RuntimeResources
+	SoftLimits     RuntimeResources
+	SafetyFlags    ComplianceFlags
+	MessageHandler Callable
 }

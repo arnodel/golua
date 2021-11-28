@@ -24,6 +24,7 @@ func load(r *rt.Runtime) rt.Value {
 		r.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false),
 		r.SetEnvGoFunc(pkg, "upvaluejoin", upvaluejoin, 4, false),
 		r.SetEnvGoFunc(pkg, "setmetatable", setmetatable, 2, false),
+		r.SetEnvGoFunc(pkg, "traceback", traceback, 3, false),
 		r.SetEnvGoFunc(pkg, "upvalueid", upvalueid, 2, false),
 	)
 
@@ -32,10 +33,10 @@ func load(r *rt.Runtime) rt.Value {
 
 func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	var (
-		thread *rt.Thread = t
+		thread *rt.Thread
 		idx    int64
 		cont   rt.Cont
 		what   string
@@ -52,16 +53,16 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case rt.IntType:
 		idx = arg.AsInt()
 	case rt.FunctionType:
-		term := rt.NewTerminationWith(0, false)
+		term := rt.NewTerminationWith(c, 0, false)
 		cont = arg.AsFunction().Continuation(t.Runtime, term)
 	case rt.FloatType:
 		var tp rt.NumberType
 		idx, tp = rt.FloatToInt(arg.AsFloat())
 		if tp != rt.IsInt {
-			return nil, rt.NewErrorS("f should be an integer or function").AddContext(c)
+			return nil, rt.NewErrorS("f should be an integer or function")
 		}
 	default:
-		return nil, rt.NewErrorS("f should be an integer or function").AddContext(c)
+		return nil, rt.NewErrorS("f should be an integer or function")
 	}
 	if cont == nil {
 		cont = thread.CurrentCont()
@@ -89,15 +90,15 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func getupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	f, err := c.ClosureArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	upv, err := c.IntArg(1)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	up := int(upv) - 1
 	next := c.Next()
@@ -111,15 +112,15 @@ func getupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func setupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(3); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	f, err := c.ClosureArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	upv, err := c.IntArg(1)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	up := int(upv) - 1
 	next := c.Next()
@@ -134,28 +135,28 @@ func setupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func upvaluejoin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(4); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	f1, err := c.ClosureArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	upv1, err := c.IntArg(1)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	f2, err := c.ClosureArg(2)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	upv2, err := c.IntArg(3)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	up1 := int(upv1) - 1
 	up2 := int(upv2) - 1
 	if up1 < 0 || up1 >= int(f1.Code.UpvalueCount) || up2 < 0 || up2 >= int(f2.Code.UpvalueCount) {
-		return nil, rt.NewErrorS("Invalid upvalue index").AddContext(c)
+		return nil, rt.NewErrorS("Invalid upvalue index")
 	}
 	f1.Upvalues[up1] = f2.Upvalues[up2]
 	return c.Next(), nil
@@ -163,19 +164,19 @@ func upvaluejoin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func upvalueid(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	f, err := c.ClosureArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	upv, err := c.IntArg(1)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	up := int(upv) - 1
 	if up < 0 || up >= int(f.Code.UpvalueCount) {
-		return nil, rt.NewErrorS("Invalid upvalue index").AddContext(c)
+		return nil, rt.NewErrorS("Invalid upvalue index")
 	}
 	return c.PushingNext1(t.Runtime, rt.LightUserDataValue(rt.LightUserData{Data: f.Upvalues[up]})), nil
 }
@@ -183,16 +184,57 @@ func upvalueid(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	var err *rt.Error
 	if err = c.CheckNArgs(2); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	v := c.Arg(0)
 	var meta *rt.Table
 	if !c.Arg(1).IsNil() {
 		meta, err = c.TableArg(1)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 	}
 	t.SetRawMetatable(v, meta)
 	return c.PushingNext1(t.Runtime, v), nil
 }
+
+func traceback(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	var (
+		cont            = t.CurrentCont()
+		msgString       = ""
+		nArgs           = c.NArgs()
+		level     int64 = 1
+	)
+	if nArgs > 0 {
+		msgIndex := 0
+		arg0 := c.Arg(0)
+		if arg0.Type() == rt.ThreadType {
+			cont = arg0.AsThread().CurrentCont()
+			msgIndex = 1
+		}
+		if nArgs > msgIndex {
+			msg := c.Arg(msgIndex)
+			var ok bool
+			msgString, ok = msg.TryString()
+			if !ok {
+				return c.PushingNext1(t.Runtime, msg), nil
+			}
+			msgString += "\n"
+		}
+		if nArgs > msgIndex+1 {
+			var err *rt.Error
+			level, err = c.IntArg(msgIndex + 1)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	for level > 0 && cont != nil {
+		cont = cont.Next()
+		level--
+	}
+	tb := rt.StringValue(t.Traceback(msgString, cont))
+	return c.PushingNext1(t.Runtime, tb), nil
+}
+
+var Traceback = rt.NewGoFunction(traceback, "traceback", 3, false)

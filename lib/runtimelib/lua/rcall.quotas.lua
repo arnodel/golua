@@ -14,6 +14,11 @@ print(ctx.status, ctx.limits.mem, ctx.limits.cpu)
 print(ctx.used.cpu > 0, ctx.used.mem > 0)
 --> =true	true
 
+-- If the function called by callcontext errors, the status reflects this and
+-- the error is returned.  So callcontext "implements" pcall.
+print(runtime.callcontext({}, error, "an error"))
+--> =error	an error
+
 -- runtime.context()
 --
 -- runtime.context returns the current execution context.  It is not possible to
@@ -35,7 +40,7 @@ runtime.callcontext({limits={mem=10000, cpu=10000}}, function()
     --> =true
 end)
 
--- runtime.cancel()
+-- runtime.cancelcontext()
 --
 -- The runtime.cancelcontext function terminates the current context.
 

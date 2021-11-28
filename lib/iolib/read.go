@@ -10,31 +10,31 @@ func ioread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
 	readers, fmtErr := getFormatReaders(c.Etc())
 	if fmtErr != nil {
-		return nil, rt.NewErrorE(fmtErr).AddContext(c)
+		return nil, rt.NewErrorE(fmtErr)
 	}
 	err := read(t.Runtime, getIoData(t).defaultInputFile(), readers, next)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	return next, nil
 }
 
 func fileread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	f, err := FileArg(c, 0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	next := c.Next()
 	readers, fmtErr := getFormatReaders(c.Etc())
 	if fmtErr != nil {
-		return nil, rt.NewErrorE(fmtErr).AddContext(c)
+		return nil, rt.NewErrorE(fmtErr)
 	}
 	err = read(t.Runtime, f, readers, next)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	return next, nil
 }

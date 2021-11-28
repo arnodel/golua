@@ -6,13 +6,13 @@
 package runtime
 
 // Dummy pool.
-type luaContPool struct{}
+type goContPool struct{}
 
-// Same as new(LuaCont).
-func (p luaContPool) get() *LuaCont {
-	return new(LuaCont)
+// Same as new(GoCont).
+func (p goContPool) get() *GoCont {
+	return new(GoCont)
 }
 
 // Does nothing.
-func (p luaContPool) release(cont *LuaCont) {
+func (p goContPool) release(cont *GoCont) {
 }

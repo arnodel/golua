@@ -4,6 +4,7 @@ import "unsafe"
 
 // Termination is a 'dead-end' continuation: it cannot be run.
 type Termination struct {
+	parent    Cont
 	args      []Value
 	pushIndex int
 	etc       *[]Value
@@ -14,13 +15,13 @@ var _ Cont = (*Termination)(nil)
 // NewTermination returns a new pointer to Termination where the first len(args)
 // values will be pushed into args and the remaining ones will be added to etc
 // if it is non nil, dropped otherwise.
-func NewTermination(args []Value, etc *[]Value) *Termination {
-	return &Termination{args: args, etc: etc}
+func NewTermination(parent Cont, args []Value, etc *[]Value) *Termination {
+	return &Termination{parent: parent, args: args, etc: etc}
 }
 
 // NewTerminationWith creates a new Termination expecting nArgs args and
 // possibly gathering extra args into an etc if hasEtc is true.
-func NewTerminationWith(nArgs int, hasEtc bool) *Termination {
+func NewTerminationWith(parent Cont, nArgs int, hasEtc bool) *Termination {
 	var args []Value
 	var etc *[]Value
 	if nArgs > 0 {
@@ -29,7 +30,7 @@ func NewTerminationWith(nArgs int, hasEtc bool) *Termination {
 	if hasEtc {
 		etc = new([]Value)
 	}
-	return NewTermination(args, etc)
+	return NewTermination(parent, args, etc)
 }
 
 // Push implements Cont.Push.  It just accumulates values into
@@ -74,6 +75,10 @@ func (c *Termination) RunInThread(t *Thread) (Cont, *Error) {
 // Next implmements Cont.Next.
 func (c *Termination) Next() Cont {
 	return nil
+}
+
+func (c *Termination) Parent() Cont {
+	return c.parent
 }
 
 // DebugInfo implements Cont.DebugInfo.

@@ -10,6 +10,7 @@ type Cont interface {
 	PushEtc(*Runtime, []Value)
 	RunInThread(*Thread) (Cont, *Error)
 	Next() Cont
+	Parent() Cont
 	DebugInfo() *DebugInfo
 }
 
