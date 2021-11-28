@@ -39,7 +39,7 @@ func context(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	quotas, err := c.TableArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	var (
 		memQuotaV  = quotas.Get(rt.StringValue("memlimit")) // deprecated
@@ -57,62 +57,61 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		var err *rt.Error
 		cpuQuota, err = getResVal(t, limitsV, "cpu")
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		memQuota, err = getResVal(t, limitsV, "mem")
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		timerQuota, err = getResVal(t, limitsV, "timer")
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 	}
 	if !rt.IsNil(memQuotaV) {
 		memQuota, err = validateResVal("memlimit", memQuotaV)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 	}
 	if !rt.IsNil(cpuQuotaV) {
 		cpuQuota, err = validateResVal("cpulimit", cpuQuotaV)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 	}
 	if !rt.IsNil(flagsV) {
 		flagsStr, ok := flagsV.TryString()
 		if !ok {
-			return nil, rt.NewErrorS("flags must be a string").AddContext(c)
+			return nil, rt.NewErrorS("flags must be a string")
 		}
 		for _, name := range strings.Fields(flagsStr) {
 			flags, ok = flags.AddFlagWithName(name)
 			if !ok {
-				return nil, rt.NewErrorF("unknown flag: %q", name).AddContext(c)
+				return nil, rt.NewErrorF("unknown flag: %q", name)
 			}
 		}
 	}
 
 	next = c.Next()
-	res := rt.NewTerminationWith(0, true)
+	res := rt.NewTerminationWith(c, 0, true)
 
-	ctx := t.CallContext(rt.RuntimeContextDef{
+	ctx, err := t.CallContext(rt.RuntimeContextDef{
 		HardLimits: rt.RuntimeResources{
 			Cpu:   cpuQuota,
 			Mem:   memQuota,
 			Timer: timerQuota,
 		},
 		SafetyFlags: flags,
-	}, func() {
-		retErr = rt.Call(t, f, fArgs, res)
+	}, func() *rt.Error {
+		return rt.Call(t, f, fArgs, res)
 	})
-
-	if retErr != nil {
-		return nil, retErr
-	}
 	t.Push1(next, newContextValue(t.Runtime, ctx))
-	if ctx.Status() == rt.RCS_Done {
+	switch ctx.Status() {
+	case rt.RCS_Done:
 		t.Push(next, res.Etc()...)
+	case rt.RCS_Error:
+		t.Push1(next, err.Value())
 	}
 	return next, nil
 }

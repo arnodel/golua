@@ -215,7 +215,7 @@ func valueToFunc(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, erro
 		}
 		res := make([]rt.Value, tp.NumOut())
 		out := make([]reflect.Value, len(res))
-		term := rt.NewTermination(res, nil)
+		term := rt.NewTermination(t.CurrentCont(), res, nil)
 		if err := rt.Call(t, v, args, term); err != nil {
 			panic(err)
 		}

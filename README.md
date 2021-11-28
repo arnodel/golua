@@ -224,7 +224,7 @@ func addints(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	if err != nil {
 		// Some error occured, we return it in our context
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	// Arguments parsed!  First get the next continuation.
 	next := c.Next()
@@ -337,8 +337,8 @@ are covered with Go tests.
 The `lib` directory contains a number of package, each implementing a
 lua library.
 
-- `base`: basic library. It is done apart from `xpcall` (and the
-  implementation of `load` is not complete).
+- `base`: basic library. It is done, apart from the fact that the implementation
+  of `load` is not complete.
 - `coroutine`: the coroutine library, which is done.
 - `packagelib`: the package library. It is able to load lua modules
   but not "native" modules, which would be written in Go. Obviously
@@ -352,8 +352,9 @@ lua library.
   `file:setvbuf`, `read("n")` (reading a number)
 - `utf8lib`: the utf8 library. It is complete.
 - `debug`: partially implemented (mainly to pass the lua test suite). The
-  `getupvalue`, `setupvalue`, `upvalueid`, `upvaluejoin`, `setmetatable`
+  `getupvalue`, `setupvalue`, `upvalueid`, `upvaluejoin`, `setmetatable`,
   functions are implemented fully. The `getinfo` function is partially
-  implemented.
+  implemented.  The `traceback` function is implemented but its output is
+  different from the C Lua implementation.
 
 The `os` package is not yet implemented.

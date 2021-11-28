@@ -1,3 +1,6 @@
+//go:build !nocontpool && noquotas
+// +build !nocontpool,noquotas
+
 package runtime
 
 const goContPoolSize = 10 // Should that be configurable?

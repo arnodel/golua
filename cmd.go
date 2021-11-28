@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -15,6 +14,7 @@ import (
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/lib"
 	"github.com/arnodel/golua/lib/base"
+	"github.com/arnodel/golua/lib/debuglib"
 	"github.com/arnodel/golua/lib/iolib"
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -72,7 +72,8 @@ func (c *luaCmd) run() (retcode int) {
 			Cpu: c.cpuLimit,
 			Mem: c.memLimit,
 		},
-		SafetyFlags: flags,
+		SafetyFlags:    flags,
+		MessageHandler: debuglib.Traceback,
 	})
 	cleanup := lib.LoadAll(r)
 	defer cleanup()
@@ -141,9 +142,9 @@ func (c *luaCmd) run() (retcode int) {
 		}
 	}()
 	clos := r.LoadLuaUnit(unit, r.GlobalEnv())
-	cerr := rt.Call(r.MainThread(), rt.FunctionValue(clos), argVals, rt.NewTerminationWith(0, false))
+	cerr := rt.Call(r.MainThread(), rt.FunctionValue(clos), argVals, rt.NewTerminationWith(nil, 0, false))
 	if cerr != nil {
-		return fatal("!!! %s", cerr.Traceback())
+		return fatal("!!! %s", cerr.Error())
 	}
 	return 0
 }
@@ -236,16 +237,16 @@ func (c *luaCmd) runChunk(r *rt.Runtime, source []byte) (more bool, err error) {
 		return snErr.IsUnexpectedEOF(), err
 	}
 	t := r.MainThread()
-	term := rt.NewTerminationWith(0, true)
+	term := rt.NewTerminationWith(nil, 0, true)
 	cerr := rt.Call(t, rt.FunctionValue(clos), nil, term)
 	if cerr == nil {
 		if len(term.Etc()) > 0 {
 			cerr = base.Print(t, term.Etc())
 			if cerr != nil {
-				return false, errors.New(cerr.Traceback())
+				return false, cerr
 			}
 		}
 		return false, nil
 	}
-	return false, errors.New(cerr.Traceback())
+	return false, cerr
 }

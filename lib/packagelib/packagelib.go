@@ -117,11 +117,11 @@ func getConfig(pkg *rt.Table) *config {
 
 func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	name, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	nameVal := c.Arg(0)
 	pkg := pkgTable(t.Runtime)
@@ -129,7 +129,7 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	// First check is the module is already loaded
 	loaded, ok := pkg.Get(loadedKey).TryTable()
 	if !ok {
-		return nil, rt.NewErrorS("package.loaded must be a table").AddContext(c)
+		return nil, rt.NewErrorS("package.loaded must be a table")
 	}
 	next := c.Next()
 	if mod := loaded.Get(nameVal); !mod.IsNil() {
@@ -140,7 +140,7 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	// If not, then go through the searchers
 	searchers, ok := pkg.Get(searchersKey).TryTable()
 	if !ok {
-		return nil, rt.NewErrorS("package.searchers must be a table").AddContext(c)
+		return nil, rt.NewErrorS("package.searchers must be a table")
 	}
 
 	for i := int64(1); ; i++ {
@@ -149,7 +149,7 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			err = rt.NewErrorF("could not find package '%s'", name)
 			break
 		}
-		res := rt.NewTerminationWith(2, false)
+		res := rt.NewTerminationWith(c, 2, false)
 		if err = rt.Call(t, searcher, []rt.Value{nameVal}, res); err != nil {
 			break
 		}
@@ -157,7 +157,7 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		// We got a loader, so call it
 		if _, ok := loader.TryCallable(); ok {
 			val := res.Get(1)
-			res = rt.NewTerminationWith(2, false)
+			res = rt.NewTerminationWith(c, 2, false)
 			if err = rt.Call(t, loader, []rt.Value{nameVal, val}, res); err != nil {
 				break
 			}
@@ -170,7 +170,7 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return next, nil
 		}
 	}
-	return nil, err.AddContext(c)
+	return nil, err
 }
 
 func searchpath(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -195,7 +195,7 @@ func searchpath(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		rep, err = c.StringArg(3)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	conf.dirSep = string(rep)
 	found, templates := searchPath(string(name), string(path), string(sep), &conf)
@@ -225,11 +225,11 @@ func searchPath(name, path, dot string, conf *config) (string, []string) {
 
 func searchPreload(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	s, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	loader := pkgTable(t.Runtime).Get(preloadKey).AsTable().Get(rt.StringValue(s))
 	return c.PushingNext1(t.Runtime, loader), nil
@@ -237,16 +237,16 @@ func searchPreload(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func searchLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	s, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	pkg := pkgTable(t.Runtime)
 	path, ok := pkg.Get(pathKey).TryString()
 	if !ok {
-		return nil, rt.NewErrorS("package.path must be a string").AddContext(c)
+		return nil, rt.NewErrorS("package.path must be a string")
 	}
 	conf := getConfig(pkg)
 	found, templates := searchPath(string(s), string(path), ".", conf)
@@ -268,12 +268,12 @@ var (
 
 func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	// Arg 0 is the module name - dunno what to do with it.
 	filePath, err := c.StringArg(1)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	src, readErr := ioutil.ReadFile(string(filePath))
 	if readErr != nil {

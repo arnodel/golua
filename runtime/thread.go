@@ -57,15 +57,81 @@ func (t *Thread) IsMain() bool {
 	return t.caller == nil
 }
 
+const maxErrorsInMessageHandler = 10
+
+var errErrorInMessageHandler = StringValue("error in error handling")
+
 // RunContinuation runs the continuation c in the thread. It keeps running until
 // the next continuation is nil or an error occurs, in which case it returns the
 // error.
 func (t *Thread) RunContinuation(c Cont) (err *Error) {
-	for c != nil && err == nil {
+	var next Cont
+	var errContCount = 0
+	for c != nil {
 		t.currentCont = c
-		c, err = c.RunInThread(t)
+		next, err = c.RunInThread(t)
+		if err != nil {
+			if err.Handled() {
+				return err
+			}
+			errContCount++
+			if t.messageHandler != nil {
+				if errContCount > maxErrorsInMessageHandler {
+					return newHandledError(errErrorInMessageHandler)
+				}
+				next = t.messageHandler.Continuation(t.Runtime, newMessageHandlerCont(c))
+				next.Push(t.Runtime, err.Value())
+			} else {
+				// If there is no message handler, just return the error
+				return err
+			}
+		}
+		c = next
 	}
 	return
+}
+
+type MessageHandlerCont struct {
+	c    Cont
+	err  Value
+	done bool
+}
+
+func newMessageHandlerCont(c Cont) *MessageHandlerCont {
+	return &MessageHandlerCont{c: c}
+}
+
+var _ Cont = (*MessageHandlerCont)(nil)
+
+func (c *MessageHandlerCont) DebugInfo() *DebugInfo {
+	return c.c.DebugInfo()
+}
+
+func (c *MessageHandlerCont) Next() Cont {
+	return c.c.Next()
+}
+
+func (c *MessageHandlerCont) Parent() Cont {
+	// log.Printf("ZZZ %t", c == c.c)
+	return c.Next()
+}
+
+func (c *MessageHandlerCont) Push(r *Runtime, v Value) {
+	if !c.done {
+		c.done = true
+		c.err = v
+	}
+}
+
+func (c *MessageHandlerCont) PushEtc(r *Runtime, etc []Value) {
+	if c.done || len(etc) == 0 {
+		return
+	}
+	c.Push(r, etc[0])
+}
+
+func (c *MessageHandlerCont) RunInThread(t *Thread) (Cont, *Error) {
+	return nil, newHandledError(c.err)
 }
 
 // Start starts the thread in a goroutine, giving it the callable c to run.  the
@@ -93,7 +159,7 @@ func (t *Thread) Start(c Callable) {
 		}()
 		args, err = t.getResumeValues()
 		if err == nil {
-			next := NewTerminationWith(0, true)
+			next := NewTerminationWith(t.CurrentCont(), 0, true)
 			err = t.call(c, args, next)
 			args = next.Etc()
 		}

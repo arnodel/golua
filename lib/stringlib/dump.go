@@ -8,11 +8,11 @@ import (
 
 func dump(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	cl, err := c.ClosureArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	strip := false
 	if c.NArgs() >= 2 {
@@ -27,7 +27,7 @@ func dump(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	// worry about the rest of this codepath in this case.
 	t.LinearRequire(10, used)
 	if err != nil {
-		return nil, rt.NewErrorE(mErr).AddContext(c)
+		return nil, rt.NewErrorE(mErr)
 	}
 	return c.PushingNext1(t.Runtime, rt.StringValue(w.String())), nil
 }

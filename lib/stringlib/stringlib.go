@@ -62,17 +62,17 @@ func minpos(i, j int) int {
 
 func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	s, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	i, j := 1, 1
 	if c.NArgs() >= 2 {
 		ii, err := c.IntArg(1)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		i = rt.StringNormPos(s, int(ii))
 		j = i
@@ -80,7 +80,7 @@ func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if c.NArgs() >= 3 {
 		jj, err := c.IntArg(2)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		j = rt.StringNormPos(s, int(jj))
 	}
@@ -100,10 +100,10 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	for i, v := range vals {
 		x, ok := rt.ToInt(v)
 		if !ok {
-			return nil, rt.NewErrorS("arguments must be integers").AddContext(c)
+			return nil, rt.NewErrorS("arguments must be integers")
 		}
 		if x < 0 || x > 255 {
-			return nil, rt.NewErrorF("#%d out of range", i+1).AddContext(c)
+			return nil, rt.NewErrorF("#%d out of range", i+1)
 		}
 		buf[i] = byte(x)
 	}
@@ -113,22 +113,22 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	s, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	return c.PushingNext1(t.Runtime, rt.IntValue(int64(len(s)))), nil
 }
 
 func lower(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	s, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	t.RequireBytes(len(s))
 	s = strings.ToLower(string(s))
@@ -137,11 +137,11 @@ func lower(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func upper(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	s, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	t.RequireBytes(len(s))
 	s = strings.ToUpper(string(s))
@@ -150,25 +150,25 @@ func upper(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	ls, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	ln, err := c.IntArg(1)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	n := int(ln)
 	if n < 0 {
-		return nil, rt.NewErrorS("#2 out of range").AddContext(c)
+		return nil, rt.NewErrorS("#2 out of range")
 	}
 	var sep []byte
 	if c.NArgs() >= 3 {
 		lsep, err := c.StringArg(2)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		sep = []byte(lsep)
 	}
@@ -181,7 +181,7 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if sep == nil {
 		if len(ls)*n/n != len(ls) {
 			// Overflow
-			return nil, rt.NewErrorS("rep causes overflow").AddContext(c)
+			return nil, rt.NewErrorS("rep causes overflow")
 		}
 		t.RequireBytes(n * len(ls))
 		return c.PushingNext1(t.Runtime, rt.StringValue(strings.Repeat(string(ls), n))), nil
@@ -192,7 +192,7 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	sz2 := (n - 1) * len(sep)
 	sz := sz1 + sz2
 	if sz1/n != len(s) || sz2/(n-1) != len(sep) || sz < 0 {
-		return nil, rt.NewErrorS("rep causes overflow").AddContext(c)
+		return nil, rt.NewErrorS("rep causes overflow")
 	}
 	t.RequireBytes(n*len(s) + (n-1)*len(sep))
 	builder.Grow(sz)
@@ -210,11 +210,11 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func reverse(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	s, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	t.RequireBytes(len(s))
 	sb := []byte(s)
@@ -227,22 +227,22 @@ func reverse(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func sub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	s, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	ii, err := c.IntArg(1)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	i := rt.StringNormPos(s, int(ii))
 	j := len(s)
 	if c.NArgs() >= 3 {
 		jj, err := c.IntArg(2)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		j = rt.StringNormPos(s, int(jj))
 	}

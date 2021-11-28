@@ -83,23 +83,23 @@ Xop: an empty item that aligns according to option op (which is otherwise ignore
 
 func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	format, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	res, used, perr := PackValues(string(format), c.Etc(), t.LinearUnused(10))
 	t.LinearRequire(10, used)
 	if perr != nil {
-		return nil, rt.NewErrorE(perr).AddContext(c)
+		return nil, rt.NewErrorE(perr)
 	}
 	return c.PushingNext1(t.Runtime, rt.StringValue(res)), nil
 }
 
 func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	var (
 		format, pack string
@@ -118,12 +118,12 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		err = rt.NewErrorS("#3 out of string")
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	vals, m, used, uerr := UnpackString(string(format), string(pack), i, t.LinearUnused(10))
 	t.LinearRequire(10, used)
 	if uerr != nil {
-		return nil, rt.NewErrorE(uerr).AddContext(c)
+		return nil, rt.NewErrorE(uerr)
 	}
 	next := c.Next()
 	t.Push(next, vals...)
@@ -133,15 +133,15 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func packsize(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	format, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	size, serr := PackSize(string(format))
 	if serr != nil {
-		return nil, rt.NewErrorE(serr).AddContext(c)
+		return nil, rt.NewErrorE(serr)
 	}
 	return c.PushingNext1(t.Runtime, rt.IntValue(int64(size))), nil
 }

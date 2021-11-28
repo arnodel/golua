@@ -4,7 +4,7 @@ import rt "github.com/arnodel/golua/runtime"
 
 func assert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	arg := c.Arg(0)
 	etc := c.Etc()
@@ -15,7 +15,7 @@ func assert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		} else {
 			msg = etc[0]
 		}
-		return nil, rt.NewError(msg).AddContext(c)
+		return nil, rt.NewError(msg)
 	}
 	next := c.Next()
 	t.Push1(next, arg)

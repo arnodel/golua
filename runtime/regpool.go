@@ -1,5 +1,5 @@
-//go:build !noregpool
-// +build !noregpool
+//go:build !noregpool && noquotas
+// +build !noregpool,noquotas
 
 package runtime
 

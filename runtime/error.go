@@ -5,21 +5,22 @@ import (
 	"strings"
 )
 
-const maxTracebackLength = 50
-
 // Error is the error type that can be produced by running continuations.  Each
 // error has a message and a context, which is a slice of continuations.  There
 // is no call stack, but you can imagine you "unwind" the call stack by
 // iterating over this slice.
 type Error struct {
-	message      Value
-	traceback    []*DebugInfo
-	droppedLines int
+	message Value
+	handled bool
 }
 
 // NewError returns a new error with the given message and no context.
 func NewError(message Value) *Error {
 	return &Error{message: message}
+}
+
+func newHandledError(message Value) *Error {
+	return &Error{message: message, handled: true}
 }
 
 // NewErrorS returns a new error with a string message and no context.
@@ -39,26 +40,13 @@ func NewErrorF(msg string, args ...interface{}) *Error {
 	return NewErrorS(fmt.Sprintf(msg, args...))
 }
 
-// AddContext returns an error message with appended context.
-func (e *Error) AddContext(cont Cont) *Error {
-	if cont == nil {
-		return e
-	}
-	info := cont.DebugInfo()
-	if info == nil {
-		return e
-	}
-	if len(e.traceback) >= maxTracebackLength {
-		e.droppedLines++
-	} else {
-		e.traceback = append(e.traceback, info)
-	}
-	return e
-}
-
 // Value returns the message of the error (which can be any Lua Value).
 func (e *Error) Value() Value {
 	return e.message
+}
+
+func (e *Error) Handled() bool {
+	return e.handled
 }
 
 // Error implements the error interface.
@@ -68,22 +56,31 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("error: %s", s)
 }
 
-// Traceback returns a string that represents the traceback of the error using
-// its context.
-func (e *Error) Traceback() string {
-	// TODO: consume CPU and mem?
+// Traceback produces a traceback string of the continuation, requiring memory
+// for the string.
+func (r *Runtime) Traceback(pfx string, c Cont) string {
 	sb := strings.Builder{}
-	sb.WriteString(e.Error())
-	sb.WriteByte('\n')
-	for _, info := range e.traceback {
-		sourceInfo := info.Source
-		if info.CurrentLine > 0 {
-			sourceInfo = fmt.Sprintf("%s:%d", sourceInfo, info.CurrentLine)
+	r.RequireBytes(len(pfx))
+	sb.WriteString(pfx)
+	n := 0
+	for c != nil {
+		// log.Printf("XXX %T", c)
+		info := c.DebugInfo()
+		if info != nil {
+			if n > 0 {
+				r.RequireBytes(1)
+				sb.WriteByte('\n')
+			}
+			n++
+			sourceInfo := info.Source
+			if info.CurrentLine > 0 {
+				sourceInfo = fmt.Sprintf("%s:%d", sourceInfo, info.CurrentLine)
+			}
+			line := fmt.Sprintf("in function %s (file %s)", info.Name, sourceInfo)
+			r.RequireBytes(len(line))
+			sb.WriteString(line)
 		}
-		sb.WriteString(fmt.Sprintf("in function %s (file %s)\n", info.Name, sourceInfo))
-	}
-	if e.droppedLines > 0 {
-		sb.WriteString(fmt.Sprintf("(... %d elided lines)", e.droppedLines))
+		c = c.Parent()
 	}
 	return sb.String()
 }

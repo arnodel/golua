@@ -22,7 +22,7 @@ func RunSource(r *runtime.Runtime, source []byte) {
 		fmt.Fprintf(r.Stdout, "!!! parsing: %s", err)
 		return
 	}
-	cerr := runtime.Call(t, runtime.FunctionValue(clos), nil, runtime.NewTerminationWith(0, false))
+	cerr := runtime.Call(t, runtime.FunctionValue(clos), nil, runtime.NewTerminationWith(nil, 0, false))
 	if cerr != nil {
 		fmt.Fprintf(r.Stdout, "!!! runtime: %s", cerr)
 	}

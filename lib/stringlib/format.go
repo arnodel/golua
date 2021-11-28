@@ -10,15 +10,15 @@ import (
 
 func format(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	f, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	s, err := Format(t, f, c.Etc())
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	t.RequireBytes(len(s))
 	return c.PushingNext1(t.Runtime, rt.StringValue(s)), nil
