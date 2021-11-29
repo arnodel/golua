@@ -1,6 +1,6 @@
 # Safe Execution Environments (alpha)
 
-- [Safe Execution Environments](#safe-execution-environments)
+- [Safe Execution Environments (alpha)](#safe-execution-environments-alpha)
   - [Overview](#overview)
     - [Meaning of limiting CPU](#meaning-of-limiting-cpu)
     - [Meaning of limiting memory](#meaning-of-limiting-memory)
@@ -13,7 +13,7 @@
     - [When embedding a runtime in Go](#when-embedding-a-runtime-in-go)
       - [`(*Runtime).PushContext(RuntimeContextDef)`](#runtimepushcontextruntimecontextdef)
       - [`(*Runtime).PopContext() RuntimeContext`](#runtimepopcontext-runtimecontext)
-      - [`(*Runtime).CallContext(def RuntimeContextDef, f func()) RuntimeContext`](#runtimecallcontextdef-runtimecontextdef-f-func-runtimecontext)
+      - [`(*Runtime).CallContext(def RuntimeContextDef, f func() *Error) (RuntimeContext, *Error)`](#runtimecallcontextdef-runtimecontextdef-f-func-error-runtimecontext-error)
   - [How to implement resource limits](#how-to-implement-resource-limits)
     - [CPU limits](#cpu-limits)
       - [`(*Runtime).RequireCPU(n uint64)`](#runtimerequirecpun-uint64)
@@ -26,7 +26,9 @@
       - [`(*Runtime).ReleaseBytes(n int)`](#runtimereleasebytesn-int)
       - [`(*Runtime).ReleaseSize(sz uintptr)`](#runtimereleasesizesz-uintptr)
       - [`(*Runtime).ReleaseArrSize(sz uintptr, n int)`](#runtimereleasearrsizesz-uintptr-n-int)
-    - [Restricting access to library functions](#restricting-access-to-library-functions)
+    - [Restricting access to Go functions.](#restricting-access-to-go-functions)
+      - [`ComplicanceFlags`](#complicanceflags)
+      - [`(*GoFunction).SolemnlyDeclareCompliance(ComplianceFlags)`](#gofunctionsolemnlydeclarecompliancecomplianceflags)
   - [Random notes](#random-notes)
 ## Overview
 
@@ -366,11 +368,32 @@ memory footprint as loops.
 
 ### Restricting access to Go functions.
 
+There is a built-in mechanism for making sure that Go function called in the Lua
+runtime comply with the safe execution environment requirements.  As there are
+different levels of compliance, a number of Compliance Flags can be defined.
+Any of those can be required in an execution context, and only Go functions
+which have been declared explicitly as implementing these compliance flags will
+be allowed to be run.
+
+This approach has several advantages
+- Granularity: for each Go function it is required to define what compliance
+  flags it implements.  So a single Lua module could include Go functions with
+  different compliance profiles.
+- Future proof: if new compliance flags are added, existing functions will not
+  comply with those by default, so it limits the risk of misuse.  On the other
+  hand an existing function will still be able to be used in an environment not
+  requiring the new compliance flags.
+- Safety: It is safer than blacklisting / whilelisting access to modules.  As Lua's
+  runtime is very dynamic, it would probably be easy to circumvent such
+  measures.
+
+#### `ComplicanceFlags`
+
 The runtime defines a number of compliance flags, currently:
 
 ```golang
 
-type RuntimeContextStatus uint16
+type ComplianceFlags uint16
 
 const (
 	// Only execute code checks memory availability before allocating memory
@@ -386,10 +409,12 @@ const (
 )
 ```
 
+#### `(*GoFunction).SolemnlyDeclareCompliance(ComplianceFlags)`
+
 Any Go functions that can be called from Lua is wrapped in an instance of
 `*rt.GoFunction`.  By default this instances does not include any compliance
 flags.  It is possible to declare compliance with
-`(*GoFunction).SolemntlyDeclareComplianceFlags()`
+`(*GoFunction).SolemnlyDeclareCompliance()`
 
 Before execution, the current context's `SafetyFlags` value is checked against
 the compliance flags declared by the Go functions.  If any of the required flags
