@@ -59,7 +59,7 @@ $ golua
 >
 ```
 
-### Safe execution environment
+### Safe execution environment (alpha)
 
 A unique feature of Golua is that you can run code in a safe execution
 environment where cpu and memory are restricted.  E.g.

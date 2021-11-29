@@ -1,4 +1,4 @@
-# Safe Execution Environments
+# Safe Execution Environments (alpha)
 
 - [Safe Execution Environments](#safe-execution-environments)
   - [Overview](#overview)
@@ -29,6 +29,8 @@
     - [Restricting access to library functions](#restricting-access-to-library-functions)
   - [Random notes](#random-notes)
 ## Overview
+
+First of all: everything in this document is subject to change!
 
 It can be useful to be able to run untrusted code safely. This is why Golua
 allows code to be run in a restricted execution environment. This means the following:
