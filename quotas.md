@@ -39,7 +39,7 @@ allows code to be run in a restricted execution environment. This means the foll
 - the "amount of CPU" available to the code can be limited
 - the "amount of memory" available to the code can be limited
 - file IO can be disabled
-- the Go interface can be disabled (Golua has a non-standard `golib` builtin package)
+- unsafe Go functions accessible via modules can be disabled
 
 ### Meaning of limiting CPU
 By "amount of CPU" we mean this: the Golua VM periodically emits ticks during
@@ -79,10 +79,10 @@ as defined above shouldn't exceed a certain number.
 
 The program is required to terminate before the limit is reached.
 
-### Disabling IO access and golib
+### Other restrictions
 
 When these restricitions are in place, trying to call a function that perform IO
-access (or runs Go code) should return an error, but not terminate the program.
+access (or runs unsafe) should return an error, but not terminate the program.
 
 ## Safe Execution Interface
 
