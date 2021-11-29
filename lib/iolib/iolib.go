@@ -362,7 +362,7 @@ func write(r *rt.Runtime, vf rt.Value, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		default:
 			return nil, rt.NewErrorS("argument must be a string or a number")
 		}
-		s, _ := rt.ToString(val)
+		s, _ := val.ToString()
 		if err = f.WriteString(s); err != nil {
 			break
 		}

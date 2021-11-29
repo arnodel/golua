@@ -341,7 +341,7 @@ func subToString(r *rt.Runtime, key string, val rt.Value) (string, *rt.Error) {
 	if !rt.Truth(val) {
 		return key, nil
 	}
-	res, ok := rt.ToString(val)
+	res, ok := val.ToString()
 	if ok {
 		r.RequireBytes(len(res))
 		return res, nil

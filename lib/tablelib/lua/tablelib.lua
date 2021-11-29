@@ -45,7 +45,7 @@ do
     print(table.concat(t, "", -1, 1))
     --> =hello1
 
-    print(pcall(table.concat(t, "", 2, 5)))
+    print(pcall(table.concat, t, "", 2, 5))
     --> ~^false\t.*
 end
 

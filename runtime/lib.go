@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/astcomp"
@@ -153,34 +152,10 @@ func Call1(t *Thread, f Value, args ...Value) (Value, *Error) {
 	return term.Get(0), nil
 }
 
-// ToString returns x as a String and a boolean which is true if this is a
-// 'good' conversion. It can allocate a small amount of memory but this is
-// bounded by the maximum length of the string representation of a number.
-//
-// TODO: refactor or explain the meaning of the boolean better.
-func ToString(x Value) (string, bool) {
-	switch x.Type() {
-	case NilType:
-		return "nil", true
-	case StringType:
-		return x.AsString(), true
-	case IntType:
-		return strconv.Itoa(int(x.AsInt())), true
-	case FloatType:
-		return strconv.FormatFloat(x.AsFloat(), 'g', -1, 64), true
-	case BoolType:
-		if x.AsBool() {
-			return "true", false
-		}
-		return "false", false
-	}
-	return "", false
-}
-
 // Concat returns x .. y, possibly calling the '__concat' metamethod.
 func Concat(t *Thread, x, y Value) (Value, *Error) {
-	if sx, ok := ToString(x); ok {
-		if sy, ok := ToString(y); ok {
+	if sx, ok := x.ToString(); ok {
+		if sy, ok := y.ToString(); ok {
 			t.RequireBytes(len(sx) + len(sy))
 			return StringValue(sx + sy), nil
 		}
