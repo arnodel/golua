@@ -103,7 +103,7 @@ end
 
 do
     local function wp(x)
-        print("[" .. x .. "]")
+        print("[" .. tostring(x) .. "]")
     end
     local f = io.open("files/writetest.txt", "w")
 

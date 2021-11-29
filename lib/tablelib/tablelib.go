@@ -80,7 +80,7 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			break
 		}
 		var sb strings.Builder
-		s, ok := rt.ToString(item)
+		s, ok := item.ToString()
 		if !ok {
 			return nil, rt.NewErrorS("concat needs strings or numbers")
 		}
@@ -101,7 +101,7 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			if err != nil {
 				return nil, err
 			}
-			s, ok = rt.ToString(item)
+			s, ok = item.ToString()
 			if !ok {
 				return nil, rt.NewErrorS("concat needs strings or numbers")
 			}
