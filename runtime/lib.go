@@ -117,7 +117,8 @@ func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
 	}
 	cont, err, ok := metacont(t, f, "__call", next)
 	if !ok {
-		return nil, NewErrorF("cannot call %v", f)
+		s, _ := f.ToString()
+		return nil, NewErrorF("cannot call %s", s)
 	}
 	if cont != nil {
 		t.Push1(cont, f)
