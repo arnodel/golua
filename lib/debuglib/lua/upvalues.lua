@@ -124,3 +124,44 @@ do
     perr(debug.upvaluejoin, f1, 1, f2, 4)
     --> =Invalid upvalue index
 end
+
+-- upvalueid teests
+do
+    local f1, f2
+    local function outer(x, y, z)
+        local a, b = 1, 2
+        f1 = function ()
+            return x, y, a
+        end
+        f2 = function()
+            return a, b, x
+        end
+    end
+    outer()
+
+    local id = debug.upvalueid
+
+    print(id(f1, 1) == id(f2, 3))
+    --> =true
+
+    print(id(f1, 2) == id(f2, 3))
+    --> =false
+
+    print(id(f1, 3) == id(f2, 1))
+    --> =true
+
+    perr(id, f1)
+    --> =2 arguments needed
+
+    perr(id, print, 2)
+    --> =#1 must be a lua function
+
+    perr(id, f1, nil)
+    --> =#2 must be an integer
+
+    perr(id, f1, 0)
+    --> =Invalid upvalue index
+
+    perr(id, f1, 4)
+    --> =Invalid upvalue index
+end
