@@ -248,7 +248,7 @@ func main() {
 
 The `*runtime.Runtime` type has another method.
 
-#### `(*Runtime).CallContext(def RuntimeContextDef, f func()) RuntimeContext`
+#### `(*Runtime).CallContext(def RuntimeContextDef, f func() *Error) (RuntimeContext, *Error)`
 
 Similar to Lua's `runtime.callcontext`.  It is a convenience function to run
 some code in a given context, catching the `QuotaExceededError` panics if they
@@ -265,7 +265,7 @@ import (
 func main() {
     r := rt.NewRuntime(os.Stdout)
 
-    ctx := r.CallContext(rt.RuntimeContextDef{
+    ctx, err := r.CallContext(rt.RuntimeContextDef{
         HardLimits: rt.RuntimeResources{
           Mem: 100000,
           Cpu: 1000000,
