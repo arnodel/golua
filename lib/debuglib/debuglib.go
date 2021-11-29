@@ -104,9 +104,7 @@ func getupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	up := int(upv) - 1
 	next := c.Next()
-	if up < 0 || up >= int(f.Code.UpvalueCount) {
-		t.Push1(next, rt.NilValue)
-	} else {
+	if up >= 0 && up < int(f.Code.UpvalueCount) {
 		t.Push(next, rt.StringValue(f.Code.UpNames[up]), f.GetUpvalue(up))
 	}
 	return next, nil
