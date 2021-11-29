@@ -14,7 +14,7 @@
       - [`(*Runtime).PushContext(RuntimeContextDef)`](#runtimepushcontextruntimecontextdef)
       - [`(*Runtime).PopContext() RuntimeContext`](#runtimepopcontext-runtimecontext)
       - [`(*Runtime).CallContext(def RuntimeContextDef, f func() *Error) (RuntimeContext, *Error)`](#runtimecallcontextdef-runtimecontextdef-f-func-error-runtimecontext-error)
-  - [How to implement resource limits](#how-to-implement-resource-limits)
+  - [How to implement the safe execution environment](#how-to-implement-the-safe-execution-environment)
     - [CPU limits](#cpu-limits)
       - [`(*Runtime).RequireCPU(n uint64)`](#runtimerequirecpun-uint64)
     - [Memory limits](#memory-limits)
@@ -282,8 +282,7 @@ func main() {
 }
 ```
 
-## How to implement resource limits
-
+## How to implement the safe execution environment
 
 ### CPU limits
 
