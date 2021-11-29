@@ -45,6 +45,8 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	thread, ok := c.Arg(0).TryThread()
 	if !ok {
 		thread = t
+	} else {
+		fIdx = 1
 	}
 	if c.NArgs() < 1+fIdx {
 		return nil, rt.NewErrorS("missing argument: f")
@@ -68,7 +70,7 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		cont = thread.CurrentCont()
 	}
 	for idx > 0 && cont != nil {
-		cont = cont.Next()
+		cont = cont.Parent()
 		idx--
 	}
 	// TODO: support what arg
