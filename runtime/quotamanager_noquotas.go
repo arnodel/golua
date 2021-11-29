@@ -3,11 +3,30 @@
 
 package runtime
 
+import (
+	"fmt"
+)
+
 const QuotasAvailable = false
 
-type quotaManager struct{}
+type quotaManager struct {
+	messageHandler Callable
+	parent         *quotaManager
+}
 
 var _ RuntimeContext = (*quotaManager)(nil)
+
+func (m *quotaManager) HardLimits() (r RuntimeResources) {
+	return
+}
+
+func (m *quotaManager) SoftLimits() (r RuntimeResources) {
+	return
+}
+
+func (m *quotaManager) UsedResources() (r RuntimeResources) {
+	return
+}
 
 func (m *quotaManager) CpuLimit() uint64 {
 	return 0
@@ -29,32 +48,50 @@ func (m *quotaManager) Status() RuntimeContextStatus {
 	return RCS_Live
 }
 
-func (m *quotaManager) Flags() RuntimeContextFlags {
-	return RCF_Empty
+func (m *quotaManager) SafetyFlags() (f ComplianceFlags) {
+	return
+}
+
+func (m *quotaManager) CheckSafetyFlags(ComplianceFlags) *Error {
+	return nil
 }
 
 func (m *quotaManager) Parent() RuntimeContext {
 	return m
 }
 
+func (m *quotaManager) ShouldCancel() bool {
+	return false
+}
+
 func (m *quotaManager) RuntimeContext() RuntimeContext {
 	return m
 }
 
-func (m *quotaManager) PushContext(ctx RuntimeContext) {
+func (m *quotaManager) PushContext(ctx RuntimeContextDef) {
+	parent := *m
+	m.messageHandler = ctx.MessageHandler
+	m.parent = &parent
 }
 
 func (m *quotaManager) PopContext() RuntimeContext {
-	return m
+	*m = *m.parent
+	return nil
 }
 
-func (m *quotaManager) PushQuota(cpuQuota, memQuota uint64, flags RuntimeContextFlags) {
+func (m *quotaManager) CallContext(def RuntimeContextDef, f func() *Error) (ctx RuntimeContext, err *Error) {
+	m.PushContext(def)
+	defer m.PopContext()
+	return nil, f()
+}
+
+func (m *quotaManager) PushQuota(cpuQuota, memQuota uint64, flags ComplianceFlags) {
 }
 
 func (m *quotaManager) PopQuota() {
 }
 
-func (m *quotaManager) UpdateFlags(flags RuntimeContextFlags) {
+func (m *quotaManager) UpdateFlags(flags ComplianceFlags) {
 }
 
 func (m *quotaManager) AllowQuotaModificationsInLua() {
@@ -124,4 +161,11 @@ func (m *quotaManager) LinearRequire(cpuFactor uint64, amt uint64) {
 }
 
 func (m *quotaManager) ResetQuota() {
+}
+
+func (m *quotaManager) TerminateContext(format string, args ...interface{}) {
+	// I don't know if it should do it?
+	panic(ContextTerminationError{
+		message: fmt.Sprintf(format, args...),
+	})
 }

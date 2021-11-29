@@ -16,3 +16,6 @@ jobs:
 
     - name: Test
       run: go test -v ./...
+
+    - name: Test noquotas noregpool nocontpool
+      run go test -v -tags 'noquotas noregpool nocontpool' ./...
