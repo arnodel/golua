@@ -147,24 +147,20 @@ it inherits the `io` and `golib` flags from the current context.
 
  The argument `ctxdef` allows restricting `ctx` further.  It is a table with any
 of the following attributes.
-- `cpulimit`: if set, the CPU limit of `ctx` is set to that number unless it
-  would increase it.
-- `memlimit`: if set, the memory limit of `ctx` is set to that number unless it
-  would increase it.
-- `io`: if set to `"off"`, disables IO in `ctx` (has no effect if set to `"on"`).
-- `golib`: if set to `"off"`, disables the Go bridge in `ctx` (has no effect if
-  set to `"on"`).
+- `limits`: if set, it should be a table.  Attributes can be set in this table
+  with names `mem`, `cpu` and values a positive integer.
+- `flags`: same format as for a context definition (e.g. `"cpusafe memsafe"`)
 
 Here is a simple example of using this function in the golua repl:
 ```lua
-> ctx = runtime.callcontext({cpulimit=1000}, function() while true do end end)
+> ctx = runtime.callcontext({limits{cpu=1000}}, function() while true do end end)
 > print(ctx)
 killed
-> print(ctx.cpuused, ctx.cpulimit)
+> print(ctx.used.cpu, ctx.limits.cpu)
 999     1000
-> print(ctx.io, ctx.golib)
-on      on
-> print(ctx.memused, ctx.memlimit)
+> print(ctx.flags)
+cpusafe
+> print(ctx.used.mem, ctx.limits.mem)
 0       nil
 ```
 
