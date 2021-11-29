@@ -214,12 +214,13 @@ func traceback(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		if nArgs > msgIndex {
 			msg := c.Arg(msgIndex)
-			var ok bool
-			msgString, ok = msg.TryString()
-			if !ok {
-				return c.PushingNext1(t.Runtime, msg), nil
+			if !msg.IsNil() {
+				var ok bool
+				msgString, ok = msg.TryString()
+				if !ok {
+					return c.PushingNext1(t.Runtime, msg), nil
+				}
 			}
-			msgString += "\n"
 		}
 		if nArgs > msgIndex+1 {
 			var err *rt.Error
