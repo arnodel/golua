@@ -60,18 +60,20 @@ func (e *Error) Error() string {
 // for the string.
 func (r *Runtime) Traceback(pfx string, c Cont) string {
 	sb := strings.Builder{}
-	r.RequireBytes(len(pfx))
-	sb.WriteString(pfx)
-	n := 0
+	needNewline := false
+	if len(pfx) > 0 {
+		r.RequireBytes(len(pfx))
+		sb.WriteString(pfx)
+		needNewline = true
+	}
 	for c != nil {
 		// log.Printf("XXX %T", c)
 		info := c.DebugInfo()
 		if info != nil {
-			if n > 0 {
+			if needNewline {
 				r.RequireBytes(1)
 				sb.WriteByte('\n')
 			}
-			n++
 			sourceInfo := info.Source
 			if info.CurrentLine > 0 {
 				sourceInfo = fmt.Sprintf("%s:%d", sourceInfo, info.CurrentLine)
@@ -79,6 +81,7 @@ func (r *Runtime) Traceback(pfx string, c Cont) string {
 			line := fmt.Sprintf("in function %s (file %s)", info.Name, sourceInfo)
 			r.RequireBytes(len(line))
 			sb.WriteString(line)
+			needNewline = true
 		}
 		c = c.Parent()
 	}
