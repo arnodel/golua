@@ -16,7 +16,7 @@ foo(1)
 --> =aFunction	2	luatest
 
 foo(2)
---> =foo	7	luatest
+--> =foo	11	luatest
 
 foo(0)
 --> =getinfo	0	[Go]
@@ -45,8 +45,8 @@ print(coroutine.resume(co))
 
 -- Check getinfo in the thread
 
-pcall(foo, co)
---> ~false\tbad argument #1.*
+print(pcall(foo, co))
+--> ~false\tmissing argument: f.*
 
 foo(co, 1)
 --> =cobar	39	luatest
