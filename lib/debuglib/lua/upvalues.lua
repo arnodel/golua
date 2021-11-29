@@ -72,3 +72,55 @@ do
     perr(debug.setupvalue, inner, "x", 3)
     --> =#2 must be an integer
 end
+
+-- upvaluejoin tests
+do
+    local function maker(...)
+        local function outer(x, y, z)
+            return function()
+                return x, y, z
+            end
+        end
+        return outer(...)
+    end
+
+    local f1 = maker(1, 2, 3)
+    local f2 = maker("a", "b", "c")
+
+    debug.upvaluejoin(f1, 1, f2, 2)
+    debug.upvaluejoin(f2, 1, f1, 2)
+
+    print(f1())
+    --> =b	2	3
+
+    print(f2())
+    --> =2	b	c
+
+    debug.setupvalue(f1, 1, "x")
+    debug.setupvalue(f1, 2, "x")
+    debug.setupvalue(f1, 3, "x")
+
+    print(f1())
+    --> =x	x	x
+
+    print(f2())
+    --> =x	x	c
+
+    perr(debug.upvaluejoin, f1, 1, f2)
+    --> =4 arguments needed
+
+    perr(debug.upvaluejoin, "x", 1, f2, 2)
+    --> =#1 must be a lua function
+
+    perr(debug.upvaluejoin, f1, "x", f2, 2)
+    --> =#2 must be an integer
+
+    perr(debug.upvaluejoin, f1, 1, "x", 2)
+    --> =#3 must be a lua function
+
+    perr(debug.upvaluejoin, f1, 1, f2, "x")
+    --> =#4 must be an integer
+
+    perr(debug.upvaluejoin, f1, 1, f2, 4)
+    --> =Invalid upvalue index
+end
