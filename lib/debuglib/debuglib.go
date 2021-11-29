@@ -124,9 +124,7 @@ func setupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	up := int(upv) - 1
 	next := c.Next()
-	if up < 0 || up >= int(f.Code.UpvalueCount) {
-		t.Push1(next, rt.NilValue)
-	} else {
+	if up >= 0 && up < int(f.Code.UpvalueCount) {
 		t.Push1(next, rt.StringValue(f.Code.UpNames[up]))
 		f.SetUpvalue(up, c.Arg(2))
 	}
