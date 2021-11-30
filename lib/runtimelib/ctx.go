@@ -161,7 +161,7 @@ func resources__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		n = res.Cpu
 	case "mem":
 		n = res.Mem
-	case "ms":
+	case "time":
 		n = res.Time
 	default:
 		// We'll return nil
@@ -186,7 +186,7 @@ func resources__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		vals = append(vals, fmt.Sprintf("mem=%d", res.Mem))
 	}
 	if res.Time > 0 {
-		vals = append(vals, fmt.Sprintf("ms=%d", res.Time))
+		vals = append(vals, fmt.Sprintf("time=%d", res.Time))
 	}
 	s := "[" + strings.Join(vals, ",") + "]"
 	t.RequireBytes(len(s))

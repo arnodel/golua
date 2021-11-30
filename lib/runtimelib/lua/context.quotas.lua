@@ -53,7 +53,6 @@ print(runtime.callcontext({}, function()
 end))
 --> =killed
 
-
 -- Here the passed in function is an infinite loop, so execution will stop when
 -- the budget of 1000 cpu is consumed.
 local x = 0
