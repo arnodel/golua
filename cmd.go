@@ -72,7 +72,7 @@ func (c *luaCmd) run() (retcode int) {
 			Cpu: c.cpuLimit,
 			Mem: c.memLimit,
 		},
-		SafetyFlags:    flags,
+		RequiredFlags:  flags,
 		MessageHandler: debuglib.Traceback,
 	})
 	cleanup := lib.LoadAll(r)

@@ -180,7 +180,7 @@ type RuntimeContext interface {
 	Status() RuntimeContextStatus
 	Parent() RuntimeContext
 
-	SafetyFlags() ComplianceFlags
+	RequiredFlags() ComplianceFlags
 
 	ShouldCancel() bool
 }
@@ -193,7 +193,7 @@ to specify the properties of a new execution context to create.
 type RuntimeContextDef struct {
 	HardLimits     RuntimeResources
 	SoftLimits     RuntimeResources
-	SafetyFlags    ComplianceFlags
+	RequiredFlags    ComplianceFlags
 	MessageHandler Callable
 }
 ```
@@ -230,7 +230,7 @@ func main() {
           Mem: 100000,
           Cpu: 1000000,
         },
-        SafetyFlags: rt.ComplyIoSafe
+        RequiredFlags: rt.ComplyIoSafe
     })
     // Now executing Lua code in this runtime will be subject to these limitations
     // If the limits are exceeded, the Go runtime will panic with a
@@ -268,7 +268,7 @@ func main() {
           Mem: 100000,
           Cpu: 1000000,
         },
-        SafetyFlags: rt.ComplyIoSafe
+        RequiredFlags: rt.ComplyIoSafe
     }, func() *rt.Error {
         // Do something in this context, returning an error if appropriate.
         // That error will set the context status to "error".
@@ -411,7 +411,7 @@ Any Go functions that can be called from Lua is wrapped in an instance of
 flags.  It is possible to declare compliance with
 `(*GoFunction).SolemnlyDeclareCompliance()`
 
-Before execution, the current context's `SafetyFlags` value is checked against
+Before execution, the current context's `RequiredFlags` value is checked against
 the compliance flags declared by the Go functions.  If any of the required flags
 is not complied with by the function, execution will immediately return an error
 (but not terminate the context).

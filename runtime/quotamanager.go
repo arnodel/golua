@@ -10,93 +10,95 @@ import (
 
 const QuotasAvailable = true
 
-type quotaManager struct {
+type runtimeContextManager struct {
 	hardLimits    RuntimeResources
 	softLimits    RuntimeResources
 	usedResources RuntimeResources
 
-	safetyFlags ComplianceFlags
+	requiredFlags ComplianceFlags
 
 	status RuntimeContextStatus
 
-	parent *quotaManager
+	parent *runtimeContextManager
 
 	messageHandler Callable
 }
 
-var _ RuntimeContext = (*quotaManager)(nil)
+var _ RuntimeContext = (*runtimeContextManager)(nil)
 
-func (m *quotaManager) HardLimits() RuntimeResources {
+func (m *runtimeContextManager) HardLimits() RuntimeResources {
 	return m.hardLimits
 }
 
-func (m *quotaManager) SoftLimits() RuntimeResources {
+func (m *runtimeContextManager) SoftLimits() RuntimeResources {
 	return m.softLimits
 }
 
-func (m *quotaManager) UsedResources() RuntimeResources {
+func (m *runtimeContextManager) UsedResources() RuntimeResources {
 	return m.usedResources
 }
 
-func (m *quotaManager) Status() RuntimeContextStatus {
+func (m *runtimeContextManager) Status() RuntimeContextStatus {
 	return m.status
 }
 
-func (m *quotaManager) SafetyFlags() ComplianceFlags {
-	return m.safetyFlags
+func (m *runtimeContextManager) RequiredFlags() ComplianceFlags {
+	return m.requiredFlags
 }
 
-func (m *quotaManager) CheckSafetyFlags(flags ComplianceFlags) *Error {
-	missingFlags := m.safetyFlags &^ flags
+func (m *runtimeContextManager) CheckRequiredFlags(flags ComplianceFlags) *Error {
+	missingFlags := m.requiredFlags &^ flags
 	if missingFlags != 0 {
 		return NewErrorF("missing flags: %s", strings.Join(missingFlags.Names(), " "))
 	}
 	return nil
 }
 
-func (m *quotaManager) Parent() RuntimeContext {
+func (m *runtimeContextManager) Parent() RuntimeContext {
 	return m.parent
 }
 
-func (m *quotaManager) ShouldCancel() bool {
+func (m *runtimeContextManager) ShouldCancel() bool {
 	return !m.softLimits.Dominates(m.usedResources)
 }
 
-func (m *quotaManager) RuntimeContext() RuntimeContext {
+func (m *runtimeContextManager) RuntimeContext() RuntimeContext {
 	return m
 }
 
-func (m *quotaManager) PushContext(ctx RuntimeContextDef) {
+func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	parent := *m
 	m.hardLimits = m.hardLimits.Remove(m.usedResources).Merge(ctx.HardLimits)
 	m.softLimits = m.softLimits.Remove(m.usedResources).Merge(ctx.SoftLimits)
-	m.safetyFlags |= ctx.SafetyFlags
+	m.requiredFlags |= ctx.RequiredFlags
 
 	if ctx.HardLimits.Cpu > 0 {
-		m.safetyFlags |= ComplyCpuSafe
+		m.requiredFlags |= ComplyCpuSafe
 	}
 	if ctx.HardLimits.Mem > 0 {
-		m.safetyFlags |= ComplyMemSafe
+		m.requiredFlags |= ComplyMemSafe
 	}
 
-	m.status = RCS_Live
+	m.status = StatusLive
 	m.messageHandler = ctx.MessageHandler
 	m.parent = &parent
 }
 
-func (m *quotaManager) PopContext() RuntimeContext {
-	if m == nil {
+func (m *runtimeContextManager) PopContext() RuntimeContext {
+	if m == nil || m.parent == nil {
 		return nil
 	}
 	mCopy := *m
-	if mCopy.status == RCS_Live {
-		mCopy.status = RCS_Done
+	if mCopy.status == StatusLive {
+		mCopy.status = StatusDone
 	}
-	m.PopQuota()
+	m.parent.RequireCPU(m.usedResources.Cpu)
+	m.parent.RequireMem(m.usedResources.Mem)
+	*m = *m.parent
 	return &mCopy
 }
 
-func (m *quotaManager) CallContext(def RuntimeContextDef, f func() *Error) (ctx RuntimeContext, err *Error) {
+func (m *runtimeContextManager) CallContext(def RuntimeContextDef, f func() *Error) (ctx RuntimeContext, err *Error) {
 	m.PushContext(def)
 	defer func() {
 		ctx = m.PopContext()
@@ -109,21 +111,12 @@ func (m *quotaManager) CallContext(def RuntimeContextDef, f func() *Error) (ctx 
 	}()
 	err = f()
 	if err != nil {
-		m.status = RCS_Error
+		m.status = StatusError
 	}
 	return
 }
 
-func (m *quotaManager) PopQuota() {
-	if m.parent == nil {
-		return
-	}
-	m.parent.RequireCPU(m.usedResources.Cpu)
-	m.parent.RequireMem(m.usedResources.Mem)
-	*m = *m.parent
-}
-
-func (m *quotaManager) RequireCPU(cpuAmount uint64) {
+func (m *runtimeContextManager) RequireCPU(cpuAmount uint64) {
 	if m.hardLimits.Cpu > 0 {
 		// The path with quota is "outlined" so RequireCPU can be inlined,
 		// minimising the overhead when there is no quota.
@@ -132,7 +125,7 @@ func (m *quotaManager) RequireCPU(cpuAmount uint64) {
 }
 
 //go:noinline
-func (m *quotaManager) requireCPU(cpuAmount uint64) {
+func (m *runtimeContextManager) requireCPU(cpuAmount uint64) {
 	cpuUsed := m.usedResources.Cpu + cpuAmount
 	if cpuUsed >= m.hardLimits.Cpu {
 		m.TerminateContext("CPU limit of %d exceeded", m.hardLimits.Cpu)
@@ -140,11 +133,11 @@ func (m *quotaManager) requireCPU(cpuAmount uint64) {
 	m.usedResources.Cpu = cpuUsed
 }
 
-func (m *quotaManager) UnusedCPU() uint64 {
+func (m *runtimeContextManager) UnusedCPU() uint64 {
 	return m.hardLimits.Cpu - m.usedResources.Cpu
 }
 
-func (m *quotaManager) RequireMem(memAmount uint64) {
+func (m *runtimeContextManager) RequireMem(memAmount uint64) {
 	if m.hardLimits.Mem > 0 {
 		// The path with quota is "outlined" so RequireMem can be inlined,
 		// minimising the overhead when there is no quota.
@@ -153,7 +146,7 @@ func (m *quotaManager) RequireMem(memAmount uint64) {
 }
 
 //go:noinline
-func (m *quotaManager) requireMem(memAmount uint64) {
+func (m *runtimeContextManager) requireMem(memAmount uint64) {
 	memUsed := m.usedResources.Mem + memAmount
 	if memUsed >= m.hardLimits.Mem {
 		m.TerminateContext("mem limit of %d exceeded", m.hardLimits.Mem)
@@ -161,25 +154,25 @@ func (m *quotaManager) requireMem(memAmount uint64) {
 	m.usedResources.Mem = memUsed
 }
 
-func (m *quotaManager) RequireSize(sz uintptr) (mem uint64) {
+func (m *runtimeContextManager) RequireSize(sz uintptr) (mem uint64) {
 	mem = uint64(sz)
 	m.RequireMem(mem)
 	return
 }
 
-func (m *quotaManager) RequireArrSize(sz uintptr, n int) (mem uint64) {
+func (m *runtimeContextManager) RequireArrSize(sz uintptr, n int) (mem uint64) {
 	mem = uint64(sz) * uint64(n)
 	m.RequireMem(mem)
 	return
 }
 
-func (m *quotaManager) RequireBytes(n int) (mem uint64) {
+func (m *runtimeContextManager) RequireBytes(n int) (mem uint64) {
 	mem = uint64(n)
 	m.RequireMem(mem)
 	return
 }
 
-func (m *quotaManager) ReleaseMem(memAmount uint64) {
+func (m *runtimeContextManager) ReleaseMem(memAmount uint64) {
 	// TODO: think about what to do when memory is released when unwinding from
 	// a quota exceeded error
 	if m.hardLimits.Mem > 0 {
@@ -191,23 +184,23 @@ func (m *quotaManager) ReleaseMem(memAmount uint64) {
 	}
 }
 
-func (m *quotaManager) ReleaseSize(sz uintptr) {
+func (m *runtimeContextManager) ReleaseSize(sz uintptr) {
 	m.ReleaseMem(uint64(sz))
 }
 
-func (m *quotaManager) ReleaseArrSize(sz uintptr, n int) {
+func (m *runtimeContextManager) ReleaseArrSize(sz uintptr, n int) {
 	m.ReleaseMem(uint64(sz) * uint64(n))
 }
 
-func (m *quotaManager) ReleaseBytes(n int) {
+func (m *runtimeContextManager) ReleaseBytes(n int) {
 	m.ReleaseMem(uint64(n))
 }
 
-func (m *quotaManager) UnusedMem() uint64 {
+func (m *runtimeContextManager) UnusedMem() uint64 {
 	return m.hardLimits.Mem - m.usedResources.Mem
 }
 
-func (m *quotaManager) ResetQuota() {
+func (m *runtimeContextManager) ResetQuota() {
 	m.hardLimits = RuntimeResources{}
 }
 
@@ -215,7 +208,7 @@ func (m *quotaManager) ResetQuota() {
 // useful when calling functions whose time complexity is a linear function of
 // the size of their output.  As cpu ticks are "smaller" than memory ticks, the
 // cpuFactor arguments allows specifying an increased "weight" for cpu ticks.
-func (m *quotaManager) LinearUnused(cpuFactor uint64) uint64 {
+func (m *runtimeContextManager) LinearUnused(cpuFactor uint64) uint64 {
 	mem := m.UnusedMem()
 	cpu := m.UnusedCPU() * cpuFactor
 	switch {
@@ -232,16 +225,16 @@ func (m *quotaManager) LinearUnused(cpuFactor uint64) uint64 {
 
 // LinearRequire can be used to actually consume (part of) the resource budget
 // returned by LinearUnused (with the same cpuFactor).
-func (m *quotaManager) LinearRequire(cpuFactor uint64, amt uint64) {
+func (m *runtimeContextManager) LinearRequire(cpuFactor uint64, amt uint64) {
 	m.RequireMem(amt)
 	m.RequireCPU(amt / cpuFactor)
 }
 
-func (m *quotaManager) TerminateContext(format string, args ...interface{}) {
-	if m.status != RCS_Live {
+func (m *runtimeContextManager) TerminateContext(format string, args ...interface{}) {
+	if m.status != StatusLive {
 		return
 	}
-	m.status = RCS_Killed
+	m.status = StatusKilled
 	panic(ContextTerminationError{
 		message: fmt.Sprintf(format, args...),
 	})

@@ -28,31 +28,15 @@ func (m *quotaManager) UsedResources() (r RuntimeResources) {
 	return
 }
 
-func (m *quotaManager) CpuLimit() uint64 {
-	return 0
-}
-
-func (m *quotaManager) CpuUsed() uint64 {
-	return 0
-}
-
-func (m *quotaManager) MemLimit() uint64 {
-	return 0
-}
-
-func (m *quotaManager) MemUsed() uint64 {
-	return 0
-}
-
 func (m *quotaManager) Status() RuntimeContextStatus {
-	return RCS_Live
+	return StatusLive
 }
 
-func (m *quotaManager) SafetyFlags() (f ComplianceFlags) {
+func (m *quotaManager) RequiredFlags() (f ComplianceFlags) {
 	return
 }
 
-func (m *quotaManager) CheckSafetyFlags(ComplianceFlags) *Error {
+func (m *quotaManager) CheckRequiredFlags(ComplianceFlags) *Error {
 	return nil
 }
 
@@ -88,17 +72,7 @@ func (m *quotaManager) CallContext(def RuntimeContextDef, f func() *Error) (ctx 
 func (m *quotaManager) PushQuota(cpuQuota, memQuota uint64, flags ComplianceFlags) {
 }
 
-func (m *quotaManager) PopQuota() {
-}
-
 func (m *quotaManager) UpdateFlags(flags ComplianceFlags) {
-}
-
-func (m *quotaManager) AllowQuotaModificationsInLua() {
-}
-
-func (m *quotaManager) QuotaModificationsInLuaAllowed() bool {
-	return false
 }
 
 func (m *quotaManager) RequireCPU(cpuAmount uint64) {
@@ -142,15 +116,8 @@ func (m *quotaManager) ReleaseArrSize(sz uintptr, n int) {
 func (m *quotaManager) ReleaseBytes(n int) {
 }
 
-func (m *quotaManager) UpdateMemQuota(newQuota uint64) {
-}
-
 func (m *quotaManager) UnusedMem() uint64 {
 	return 0
-}
-
-func (m *quotaManager) MemQuotaStatus() (uint64, uint64) {
-	return 0, 0
 }
 
 func (m *quotaManager) LinearUnused(cpuFactor uint64) uint64 {

@@ -98,19 +98,19 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 
 	ctx, err := t.CallContext(rt.RuntimeContextDef{
 		HardLimits: rt.RuntimeResources{
-			Cpu:   cpuQuota,
-			Mem:   memQuota,
-			Timer: timerQuota,
+			Cpu:  cpuQuota,
+			Mem:  memQuota,
+			Time: timerQuota,
 		},
-		SafetyFlags: flags,
+		RequiredFlags: flags,
 	}, func() *rt.Error {
 		return rt.Call(t, f, fArgs, res)
 	})
 	t.Push1(next, newContextValue(t.Runtime, ctx))
 	switch ctx.Status() {
-	case rt.RCS_Done:
+	case rt.StatusDone:
 		t.Push(next, res.Etc()...)
-	case rt.RCS_Error:
+	case rt.StatusError:
 		t.Push1(next, err.Value())
 	}
 	return next, nil
