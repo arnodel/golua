@@ -133,7 +133,7 @@ func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case "parent":
 		val = rt.NilValue
 	case "flags":
-		val = rt.StringValue(strings.Join(ctx.SafetyFlags().Names(), " "))
+		val = rt.StringValue(strings.Join(ctx.RequiredFlags().Names(), " "))
 	}
 	return c.PushingNext1(t.Runtime, val), nil
 }
@@ -162,7 +162,7 @@ func resources__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case "mem":
 		n = res.Mem
 	case "ms":
-		n = res.Timer
+		n = res.Time
 	default:
 		// We'll return nil
 	}
@@ -185,8 +185,8 @@ func resources__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if res.Mem > 0 {
 		vals = append(vals, fmt.Sprintf("mem=%d", res.Mem))
 	}
-	if res.Timer > 0 {
-		vals = append(vals, fmt.Sprintf("ms=%d", res.Timer))
+	if res.Time > 0 {
+		vals = append(vals, fmt.Sprintf("ms=%d", res.Time))
 	}
 	s := "[" + strings.Join(vals, ",") + "]"
 	t.RequireBytes(len(s))
@@ -198,23 +198,9 @@ func resToVal(v uint64) rt.Value {
 }
 
 func statusValue(st rt.RuntimeContextStatus) rt.Value {
-	switch st {
-	case rt.RCS_Live:
-		return rt.StringValue(liveStatusString)
-	case rt.RCS_Done:
-		return rt.StringValue(doneStatusString)
-	case rt.RCS_Error:
-		return rt.StringValue(errorStatusString)
-	case rt.RCS_Killed:
-		return rt.StringValue(killedStatusString)
-	default:
+	s := st.String()
+	if s == "" {
 		return rt.NilValue
 	}
+	return rt.StringValue(s)
 }
-
-const (
-	liveStatusString   = "live"
-	doneStatusString   = "done"
-	errorStatusString  = "error"
-	killedStatusString = "killed"
-)
