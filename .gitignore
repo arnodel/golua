@@ -24,3 +24,7 @@ writetest*.txt
 
 # vscode workspace file
 *.code-workspace
+
+
+# The build product
+golua
