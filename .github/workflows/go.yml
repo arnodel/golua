@@ -17,23 +17,15 @@ jobs:
     - name: All tests
       run: go test -coverprofile=coverage.txt -covermode=atomic ./...
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v2
-      with:
-        files: ./coverage.txt
-        name: codecov-quotas
-        verbose: true
-
     - name: All tests noquotas noregpool nocontpool
-      run: go test -v -tags 'noquotas noregpool nocontpool' -coverprofile=coverage-noquotas.txt -covermode=atomic ./...
+      run: go test -tags 'noquotas noregpool nocontpool' -coverprofile=coverage-noquotas.txt -covermode=atomic ./...
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       with:
-        files: ./coverage-noquotas.txt
-        name: codecov-noquotas
+        files: ./coverage.txt,./coverage-noquotas.txt
+        name: codecov-all-tests
         verbose: true
-        flags: noquotas,noregpool,nocontpool
     
     - name: Build CLI
       run: go build
