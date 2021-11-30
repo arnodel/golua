@@ -18,7 +18,7 @@ jobs:
       run: go test -coverprofile=coverage.txt -covermode=atomic ./...
 
     - name: Upload coverage to Codecov
-      usees: codecov/codecov-action@v2
+      uses: codecov/codecov-action@v2
       with:
         files: ./coverage.txt
         name: codecov-quotas
@@ -28,7 +28,7 @@ jobs:
       run: go test -v -tags 'noquotas noregpool nocontpool' -coverprofile=coverage-noquotas.txt -covermode=atomic ./...
     
     - name: Upload coverage to Codecov
-      usees: codecov/codecov-action@v2
+      uses: codecov/codecov-action@v2
       with:
         files: ./coverage-noquotas.txt
         name: codecov-noquotas
