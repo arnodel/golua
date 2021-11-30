@@ -18,7 +18,7 @@
                 <h2>
                     <label for="code">Lua Code</label>
                     <button type="submit">Run</button>
-                    <button typw="submit" formaction="/save">Save</button>
+                    {{ if .SavingEnabled }}<button typw="submit" formaction="/save">Save</button>{{ end }}
                 </h2>
                 <textarea rows="25" cols="100" maxlength="10000" name="code">{{ .Source }}</textarea>
             </form>
@@ -33,8 +33,8 @@
         <h2>Outcome</h2>
         <ul>
             <li>status: {{ .Status }} </li>
-            <li>cpu: used {{ .Context.CpuUsed }} / {{ .Context.CpuLimit }}</li>
-            <li>mem: used {{ .Context.MemUsed }} / {{ .Context.MemLimit }}</li>
+            <li>cpu: used {{ .Context.UsedResources.Cpu }} / {{ .Context.HardLimits.Cpu }}</li>
+            <li>mem: used {{ .Context.UsedResources.Mem }} / {{ .Context.HardLimits.Mem }}</li>
         </ul>
         {{- end }}
     </body>

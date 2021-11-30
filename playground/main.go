@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/arnodel/golua/lib"
+	"github.com/arnodel/golua/lib/debuglib"
 	"github.com/arnodel/golua/runtime"
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -50,10 +51,11 @@ func main() {
 
 	dir, err := os.Stat(saveDir)
 	if err != nil {
-		log.Fatal(err)
-	}
-	if !dir.IsDir() {
-		log.Fatalf("saveDir=%s is not a directory", saveDir)
+		log.Printf("Saving disabled: unable to open saving directory at %s: %s", saveDir, err)
+		saveDir = ""
+	} else if !dir.IsDir() {
+		log.Printf("Saving disabled: save directory %s is not a directory", saveDir)
+		saveDir = ""
 	}
 
 	templates, err = template.ParseFS(templatesFS, "templates/*.html")
@@ -86,7 +88,10 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-
+	if saveDir == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 	code, err := getCode(w, r)
 	if err != nil {
 		return
@@ -107,7 +112,7 @@ func handleSave(w http.ResponseWriter, r *http.Request) {
 func handleGet(w http.ResponseWriter, r *http.Request) {
 	h := r.URL.Query().Get("h")
 	var code = defaultCode
-	if h != "" {
+	if h != "" && saveDir != "" {
 		filePath := path.Join(saveDir, h+".lua")
 		codeBytes, err := os.ReadFile(filePath)
 		if errors.Is(err, os.ErrNotExist) {
@@ -125,8 +130,6 @@ func handleGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := templates.ExecuteTemplate(w, "playground.html", playgroundModel{
-		Mem:    memLimit,
-		Cpu:    cpuLimit,
 		Source: code,
 	})
 	if err != nil {
@@ -141,8 +144,6 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 	}
 	output, ctx := runCode([]byte(code))
 	err = templates.ExecuteTemplate(w, "playground.html", playgroundModel{
-		Cpu:     cpuLimit,
-		Mem:     memLimit,
 		Source:  code,
 		Output:  output,
 		Context: ctx,
@@ -183,16 +184,19 @@ func runCode(src []byte) (string, rt.RuntimeContext) {
 		_, _ = io.WriteString(&stdout, err.Error())
 		return stdout.String(), nil
 	}
-	ctx := r.CallContext(rt.RuntimeContextDef{
-		CpuLimit:    cpuLimit,
-		MemLimit:    memLimit,
-		SafetyFlags: rt.ComplyCpuSafe | rt.ComplyIoSafe | rt.ComplyMemSafe,
-	}, func() {
-		cerr := rt.Call(t, rt.FunctionValue(clos), nil, rt.NewTerminationWith(0, false))
-		if cerr != nil {
-			_, _ = io.WriteString(&stdout, cerr.Traceback())
-		}
+	ctx, callErr := r.CallContext(rt.RuntimeContextDef{
+		HardLimits: rt.RuntimeResources{
+			Cpu: cpuLimit,
+			Mem: memLimit,
+		},
+		RequiredFlags:  rt.ComplyCpuSafe | rt.ComplyIoSafe | rt.ComplyMemSafe,
+		MessageHandler: debuglib.Traceback,
+	}, func() *rt.Error {
+		return rt.Call(t, rt.FunctionValue(clos), nil, rt.NewTerminationWith(nil, 0, false))
 	})
+	if callErr != nil {
+		stdout.WriteString(callErr.Error())
+	}
 	return stdout.String(), ctx
 }
 
@@ -216,10 +220,9 @@ func codeHash(src []byte) string {
 }
 
 type playgroundModel struct {
-	Cpu, Mem uint64
-	Source   string
-	Output   string
-	Context  rt.RuntimeContext
+	Source  string
+	Output  string
+	Context rt.RuntimeContext
 }
 
 func (m playgroundModel) Status() string {
@@ -227,15 +230,29 @@ func (m playgroundModel) Status() string {
 		return "Unknown"
 	}
 	switch m.Context.Status() {
-	case rt.RCS_Done:
-		return "Completed"
-	case rt.RCS_Killed:
+	case rt.StatusDone:
+		return "Completed wuccessfully"
+	case rt.StatusError:
+		return "Completed with error"
+	case rt.StatusKilled:
 		return "Killed"
-	case rt.RCS_Live:
+	case rt.StatusLive:
 		return "Live"
 	default:
 		return "Unknown"
 	}
+}
+
+func (m playgroundModel) Cpu() uint64 {
+	return cpuLimit
+}
+
+func (m playgroundModel) Mem() uint64 {
+	return memLimit
+}
+
+func (m playgroundModel) SavingEnabled() bool {
+	return saveDir != ""
 }
 
 const defaultCode = `
