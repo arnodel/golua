@@ -1,0 +1,44 @@
+# Lua base package (builtin functions) features
+
+- name: assert builtin function
+  go:
+    function: assert
+  lua:
+    module: base
+    function: assert
+  compliance:
+    - +memsafe
+    - +cpusafe
+    - +iosafe
+
+- name: load builtin function
+  go:
+    function: load
+  lua:
+    module: base
+    function: load
+  compliance:
+    - +memsafe
+    - +cpusafe
+    - +iosafe
+  tests:
+    file: lua/load.quotas.lua
+    compliance:
+      - +memsafe
+      - +iosafe
+
+- name: loadfile builtin function
+  go:
+    function: loadfile
+  lua:
+    module: base
+    function: loadfile
+  compliance:
+    - +memsafe
+    - +cpusafe
+    - -iosafe
+  tests:
+    file: lua/disableio.quotas.lua
+    compliance:
+      - -iosafe
+      
