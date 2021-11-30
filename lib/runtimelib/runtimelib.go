@@ -42,16 +42,16 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		return nil, err
 	}
 	var (
-		memQuotaV  = quotas.Get(rt.StringValue("memlimit")) // deprecated
-		cpuQuotaV  = quotas.Get(rt.StringValue("cpulimit")) // deprecated
-		flagsV     = quotas.Get(rt.StringValue("flags"))
-		limitsV    = quotas.Get(rt.StringValue("limits"))
-		memQuota   uint64
-		cpuQuota   uint64
-		timerQuota uint64
-		f          = c.Arg(1)
-		fArgs      = c.Etc()
-		flags      rt.ComplianceFlags
+		memQuotaV = quotas.Get(rt.StringValue("memlimit")) // deprecated
+		cpuQuotaV = quotas.Get(rt.StringValue("cpulimit")) // deprecated
+		flagsV    = quotas.Get(rt.StringValue("flags"))
+		limitsV   = quotas.Get(rt.StringValue("limits"))
+		memQuota  uint64
+		cpuQuota  uint64
+		timeQuota uint64
+		f         = c.Arg(1)
+		fArgs     = c.Etc()
+		flags     rt.ComplianceFlags
 	)
 	if !rt.IsNil(limitsV) {
 		var err *rt.Error
@@ -63,7 +63,7 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		if err != nil {
 			return nil, err
 		}
-		timerQuota, err = getResVal(t, limitsV, "timer")
+		timeQuota, err = getResVal(t, limitsV, "time")
 		if err != nil {
 			return nil, err
 		}
@@ -100,7 +100,7 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		HardLimits: rt.RuntimeResources{
 			Cpu:  cpuQuota,
 			Mem:  memQuota,
-			Time: timerQuota,
+			Time: timeQuota,
 		},
 		RequiredFlags: flags,
 	}, func() *rt.Error {
@@ -133,7 +133,7 @@ func validateResVal(name string, val rt.Value) (uint64, *rt.Error) {
 	if rt.IsNil(val) {
 		return 0, nil
 	}
-	n, ok := val.TryInt()
+	n, ok := rt.ToIntNoString(val)
 	if !ok {
 		return 0, rt.NewErrorF("%s must be an integer", name)
 	}
