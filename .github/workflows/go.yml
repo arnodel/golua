@@ -34,7 +34,6 @@ jobs:
         name: codecov-noquotas
         verbose: true
         flags: noquotas,noregpool,nocontpool
-        verbose: true
     
     - name: Build CLI
       run: go build
