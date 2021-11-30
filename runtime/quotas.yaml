@@ -1,0 +1,31 @@
+# Runtime package features
+
+- name: The '..' builtin operator
+  go:
+    function: Concat
+  lua:
+    operator: 'x..y'
+  compliance:
+    - +memsafe
+    - +cpusafe
+    - +iosafe
+  tests:
+    description: check that string concatenation consumes memory resources
+    file: lua/basic.quotas.lua
+    compliance:
+      - +memsafe
+
+- name: table insertion
+  go:
+    function: (*Table).Set
+  lua:
+    operator: 'x[y]=z'
+  compliance:
+    - +memsafe
+    - +cpusafe
+    - +iosafe
+  tests:
+    description: check that table insertion consumes memory resources
+    file: lua/tables/quotas.lua
+    compliance:
+      - +memsafe
