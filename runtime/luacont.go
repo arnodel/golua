@@ -95,6 +95,10 @@ func (c *LuaCont) Next() Cont {
 	return next
 }
 
+func (c *LuaCont) Parent() Cont {
+	return c.Next()
+}
+
 // RunInThread implements Cont.RunInThread.
 func (c *LuaCont) RunInThread(t *Thread) (Cont, *Error) {
 	pc := c.pc
@@ -170,7 +174,7 @@ RunLoop:
 				panic("unsupported")
 			}
 			if err != nil {
-				return nil, err.AddContext(c)
+				return nil, err
 			}
 			setReg(regs, cells, dst, res)
 			pc++
@@ -194,13 +198,13 @@ RunLoop:
 			if !opcode.GetF() {
 				val, err := Index(t, coll, idx)
 				if err != nil {
-					return nil, err.AddContext(c)
+					return nil, err
 				}
 				setReg(regs, cells, reg, val)
 			} else {
 				err := SetIndex(t, coll, idx, getReg(regs, cells, reg))
 				if err != nil {
-					return nil, err.AddContext(c)
+					return nil, err
 				}
 			}
 			pc++
@@ -303,7 +307,7 @@ RunLoop:
 				}
 			}
 			if err != nil {
-				return nil, err.AddContext(c)
+				return nil, err
 			}
 			if opcode.GetF() {
 				getReg(regs, cells, dst).AsCont().Push(t.Runtime, res)

@@ -256,6 +256,9 @@ do
     errf("%q", {})
     --> ~no literal
 
+    pf("%q %q %q", false, 1, 1.5)
+    --> =false 1 1.5
+
     errf("%t")
     --> ~not enough values
 

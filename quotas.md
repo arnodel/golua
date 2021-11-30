@@ -1,6 +1,6 @@
-# Safe Execution Environments
+# Safe Execution Environments (alpha)
 
-- [Safe Execution Environments](#safe-execution-environments)
+- [Safe Execution Environments (alpha)](#safe-execution-environments-alpha)
   - [Overview](#overview)
     - [Meaning of limiting CPU](#meaning-of-limiting-cpu)
     - [Meaning of limiting memory](#meaning-of-limiting-memory)
@@ -13,8 +13,8 @@
     - [When embedding a runtime in Go](#when-embedding-a-runtime-in-go)
       - [`(*Runtime).PushContext(RuntimeContextDef)`](#runtimepushcontextruntimecontextdef)
       - [`(*Runtime).PopContext() RuntimeContext`](#runtimepopcontext-runtimecontext)
-      - [`(*Runtime).CallContext(def RuntimeContextDef, f func()) RuntimeContext`](#runtimecallcontextdef-runtimecontextdef-f-func-runtimecontext)
-  - [How to implement resource limits](#how-to-implement-resource-limits)
+      - [`(*Runtime).CallContext(def RuntimeContextDef, f func() *Error) (RuntimeContext, *Error)`](#runtimecallcontextdef-runtimecontextdef-f-func-error-runtimecontext-error)
+  - [How to implement the safe execution environment](#how-to-implement-the-safe-execution-environment)
     - [CPU limits](#cpu-limits)
       - [`(*Runtime).RequireCPU(n uint64)`](#runtimerequirecpun-uint64)
     - [Memory limits](#memory-limits)
@@ -26,16 +26,20 @@
       - [`(*Runtime).ReleaseBytes(n int)`](#runtimereleasebytesn-int)
       - [`(*Runtime).ReleaseSize(sz uintptr)`](#runtimereleasesizesz-uintptr)
       - [`(*Runtime).ReleaseArrSize(sz uintptr, n int)`](#runtimereleasearrsizesz-uintptr-n-int)
-    - [Restricting access to library functions](#restricting-access-to-library-functions)
+    - [Restricting access to Go functions.](#restricting-access-to-go-functions)
+      - [`ComplicanceFlags`](#complicanceflags)
+      - [`(*GoFunction).SolemnlyDeclareCompliance(ComplianceFlags)`](#gofunctionsolemnlydeclarecompliancecomplianceflags)
   - [Random notes](#random-notes)
 ## Overview
+
+First of all: everything in this document is subject to change!
 
 It can be useful to be able to run untrusted code safely. This is why Golua
 allows code to be run in a restricted execution environment. This means the following:
 - the "amount of CPU" available to the code can be limited
 - the "amount of memory" available to the code can be limited
 - file IO can be disabled
-- the Go interface can be disabled (Golua has a non-standard `golib` builtin package)
+- unsafe Go functions accessible via modules can be disabled
 
 ### Meaning of limiting CPU
 By "amount of CPU" we mean this: the Golua VM periodically emits ticks during
@@ -75,10 +79,10 @@ as defined above shouldn't exceed a certain number.
 
 The program is required to terminate before the limit is reached.
 
-### Disabling IO access and golib
+### Other restrictions
 
 When these restricitions are in place, trying to call a function that perform IO
-access (or runs Go code) should return an error, but not terminate the program.
+access (or runs unsafe) should return an error, but not terminate the program.
 
 ## Safe Execution Interface
 
@@ -115,24 +119,27 @@ Golua provides a `runtime` library which exposes two functions
 Returns an object `ctx` representing the current context.  This object cannot be
 mutated but gives useful information about the execution context.
 
-- `ctx.status` is the status of the context as a string, which can be
-  `"live"` if this is the currently running context, `"done"` if this execution
-  context terminated successfully, or `"killed"` if the context terminated
-  because it would otherwise have exceeded its limits.
-- `ctx.cpulimit` is the CPU limit for the context.
-- `ctx.cpuused` is the amount of CPU used so far in the context (so that will
-  change each time for a live context).
-- `ctx.memlimit` is the memory limit for the context.
-- `ctx.memused` is the amount of memory used so far in the context (so that will
-  change each time for a live context).
-- `ctx.io` is set to the string `"on"` if IO is enabled, `"off"` otherwise.
-- `ctx.golib` is set to the string `"on"` if the Go bridge is enabled, `"off"`
-  otherwise.
+- `ctx.status` is the status of the context as a string, which can be:
+  - `"live"` if this is the currently running context;
+  - `"done"` if this execution context terminated successfully;
+  - `"error"` if this execution context terminated with an error
+  - `"killed"` if the context terminated because it would otherwise have
+    exceeded its limits.
+- `ctx.limits` returns an object giving the resource limits of `ctx` 
+- `ctx.used` returns an object giving the used resources of `ctx`
+- `ctx.flags` returns a string describing the flags that any code running in
+  this context has to comply with.  Those flags are `"memsafe"`, `"cpusafe"` and
+  `"iosafe"` currently.
 
 #### `runtime.callcontext(ctxdef, f, [arg1, ...])`
 
 This function creates a new execution context `ctx` from `ctxdef`, calls
-`f(arg1, ...)` in this context, then returns `ctx`. 
+`f(arg1, ...)` in this context, then returns `ctx`. Additionally
+- if the call was successful, it also returns the returns values of `f(arg1.
+  ...)`;
+- if there was a non-terminal error in the call, it also returns the error.  In
+  this respect, the `runtime.callcontext()` function always behaves like
+  `pcall`.
 
 By default `ctx` will inherit from the current context: its CPU and memory
 limits will be the amount of unused CPU and memory in the current context, and
@@ -140,24 +147,20 @@ it inherits the `io` and `golib` flags from the current context.
 
  The argument `ctxdef` allows restricting `ctx` further.  It is a table with any
 of the following attributes.
-- `cpulimit`: if set, the CPU limit of `ctx` is set to that number unless it
-  would increase it.
-- `memlimit`: if set, the memory limit of `ctx` is set to that number unless it
-  would increase it.
-- `io`: if set to `"off"`, disables IO in `ctx` (has no effect if set to `"on"`).
-- `golib`: if set to `"off"`, disables the Go bridge in `ctx` (has no effect if
-  set to `"on"`).
+- `limits`: if set, it should be a table.  Attributes can be set in this table
+  with names `mem`, `cpu` and values a positive integer.
+- `flags`: same format as for a context definition (e.g. `"cpusafe memsafe"`)
 
 Here is a simple example of using this function in the golua repl:
 ```lua
-> ctx = runtime.callcontext({cpulimit=1000}, function() while true do end end)
+> ctx = runtime.callcontext({limits{cpu=1000}}, function() while true do end end)
 > print(ctx)
 killed
-> print(ctx.cpuused, ctx.cpulimit)
+> print(ctx.used.cpu, ctx.limits.cpu)
 999     1000
-> print(ctx.io, ctx.golib)
-on      on
-> print(ctx.memused, ctx.memlimit)
+> print(ctx.flags)
+cpusafe
+> print(ctx.used.mem, ctx.limits.mem)
 0       nil
 ```
 
@@ -170,16 +173,16 @@ available via this interface.
 
 ```golang
 type RuntimeContext interface {
-	CpuLimit() uint64
-	CpuUsed() uint64
-
-	MemLimit() uint64
-	MemUsed() uint64
+	HardResourceLimits() RuntimeResources
+	SoftResourceLimits() RuntimeResources
+	UsedResources() RuntimeResources
 
 	Status() RuntimeContextStatus
 	Parent() RuntimeContext
 
-	Flags() RuntimeContextFlags
+	RequiredFlags() ComplianceFlags
+
+	ShouldCancel() bool
 }
 ```
 
@@ -188,14 +191,15 @@ to specify the properties of a new execution context to create.
 
 ```golang
 type RuntimeContextDef struct {
-	CpuLimit uint64
-	MemLimit uint64
-	Flags    RuntimeContextFlags
+	HardLimits     RuntimeResources
+	SoftLimits     RuntimeResources
+	RequiredFlags    ComplianceFlags
+	MessageHandler Callable
 }
 ```
 
-As mentioned above, a Lua runtime is of type `*runtime.Runtime` and implements the `RuntimeContext`
-interface.  It also implements two methods.
+As mentioned above, a Lua runtime is of type `*runtime.Runtime` and implements
+the `RuntimeContext` interface.  It also implements two methods.
 
 #### `(*Runtime).PushContext(RuntimeContextDef)`
 
@@ -222,9 +226,11 @@ func main() {
     r := rt.NewRuntime(os.Stdout)
 
     r.PushContext(rt.RuntimeContextDef{
-        MemLimit: 100000,
-        CpuLimit: 1000000,
-        Flags: rt.RCF_NoIO|rt.RCF_NoGoLib,
+        HardLimits: rt.RuntimeResources{
+          Mem: 100000,
+          Cpu: 1000000,
+        },
+        RequiredFlags: rt.ComplyIoSafe
     })
     // Now executing Lua code in this runtime will be subject to these limitations
     // If the limits are exceeded, the Go runtime will panic with a
@@ -240,7 +246,7 @@ func main() {
 
 The `*runtime.Runtime` type has another method.
 
-#### `(*Runtime).CallContext(def RuntimeContextDef, f func()) RuntimeContext`
+#### `(*Runtime).CallContext(def RuntimeContextDef, f func() *Error) (RuntimeContext, *Error)`
 
 Similar to Lua's `runtime.callcontext`.  It is a convenience function to run
 some code in a given context, catching the `QuotaExceededError` panics if they
@@ -257,20 +263,22 @@ import (
 func main() {
     r := rt.NewRuntime(os.Stdout)
 
-    ctx := r.CallContext(rt.RuntimeContextDef{
-        MemLimit: 100000,
-        CpuLimit: 1000000,
-        Flags: rt.RCF_NoIO|rt.RCF_NoGoLib,
-    }, func() {
-        // Do something in this context
+    ctx, err := r.CallContext(rt.RuntimeContextDef{
+        HardLimits: rt.RuntimeResources{
+          Mem: 100000,
+          Cpu: 1000000,
+        },
+        RequiredFlags: rt.ComplyIoSafe
+    }, func() *rt.Error {
+        // Do something in this context, returning an error if appropriate.
+        // That error will set the context status to "error".
     })
 
     // Panics due to quota exceeded will be recovered from.
 }
 ```
 
-## How to implement resource limits
-
+## How to implement the safe execution environment
 
 ### CPU limits
 
@@ -353,9 +361,62 @@ In some case it may be appropriate to return memory.  An example is when a Lua
 continuation ends.  Returning its memory allows tail-calls to have the same
 memory footprint as loops.
 
-### Restricting access to library functions
+### Restricting access to Go functions.
 
-TODO
+There is a built-in mechanism for making sure that Go function called in the Lua
+runtime comply with the safe execution environment requirements.  As there are
+different levels of compliance, a number of Compliance Flags can be defined.
+Any of those can be required in an execution context, and only Go functions
+which have been declared explicitly as implementing these compliance flags will
+be allowed to be run.
+
+This approach has several advantages
+- Granularity: for each Go function it is required to define what compliance
+  flags it implements.  So a single Lua module could include Go functions with
+  different compliance profiles.
+- Future proof: if new compliance flags are added, existing functions will not
+  comply with those by default, so it limits the risk of misuse.  On the other
+  hand an existing function will still be able to be used in an environment not
+  requiring the new compliance flags.
+- Safety: It is safer than blacklisting / whilelisting access to modules.  As Lua's
+  runtime is very dynamic, it would probably be easy to circumvent such
+  measures.
+
+#### `ComplicanceFlags`
+
+The runtime defines a number of compliance flags, currently:
+
+```golang
+
+type ComplianceFlags uint16
+
+const (
+	// Only execute code checks memory availability before allocating memory
+	ComplyMemSafe ComplianceFlags = 1 << iota
+
+	// Only execute code that checks cpu availability before executing a
+	// computation.
+	ComplyCpuSafe
+
+	// Only execute code that complies with IO restrictions (currently only
+	// functions that do no IO comply with this)
+	ComplyIoSafe
+)
+```
+
+#### `(*GoFunction).SolemnlyDeclareCompliance(ComplianceFlags)`
+
+Any Go functions that can be called from Lua is wrapped in an instance of
+`*rt.GoFunction`.  By default this instances does not include any compliance
+flags.  It is possible to declare compliance with
+`(*GoFunction).SolemnlyDeclareCompliance()`
+
+Before execution, the current context's `RequiredFlags` value is checked against
+the compliance flags declared by the Go functions.  If any of the required flags
+is not complied with by the function, execution will immediately return an error
+(but not terminate the context).
+
+
 ## Random notes
 
 TODOs:
@@ -374,3 +435,10 @@ Implementations Guidelines:
 Testing guidelines
 - write *.quotas.lua test file, using quota.rcall to check that memory and cpu
   are accounted for.
+
+- namespacing
+- filesystem restrictions
+- context:aborted()
+- context:abort()
+- . vs _ in context hard_cpu, hard.cpu
+  

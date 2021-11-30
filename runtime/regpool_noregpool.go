@@ -1,5 +1,5 @@
-//go:build noregpool
-// +build noregpool
+//go:build noregpool || !noquotas
+// +build noregpool !noquotas
 
 // This version disables the register pool.
 // TODO: remove it, as it is proved to be a fair amount slower.

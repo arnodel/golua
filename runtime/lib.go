@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/astcomp"
@@ -48,7 +47,7 @@ func Index(t *Thread, coll Value, k Value) (Value, *Error) {
 		if _, ok := metaIdx.TryTable(); ok {
 			coll = metaIdx
 		} else {
-			res := NewTerminationWith(1, false)
+			res := NewTerminationWith(t.CurrentCont(), 1, false)
 			if err := Call(t, metaIdx, []Value{coll, k}, res); err != nil {
 				return NilValue, err
 			}
@@ -83,7 +82,7 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
 		if _, ok := metaNewIndex.TryTable(); ok {
 			coll = metaNewIndex
 		} else {
-			return Call(t, metaNewIndex, []Value{coll, idx, val}, NewTermination(nil, nil))
+			return Call(t, metaNewIndex, []Value{coll, idx, val}, NewTermination(t.CurrentCont(), nil, nil))
 		}
 	}
 	return NewErrorF("'__newindex' chain too long; possible loop")
@@ -117,7 +116,8 @@ func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
 	}
 	cont, err, ok := metacont(t, f, "__call", next)
 	if !ok {
-		return nil, NewErrorF("cannot call %v", f)
+		s, _ := f.ToString()
+		return nil, NewErrorF("cannot call %s", s)
 	}
 	if cont != nil {
 		t.Push1(cont, f)
@@ -145,41 +145,17 @@ func Call(t *Thread, f Value, args []Value, next Cont) *Error {
 // Call1 is a convenience method that calls f with arguments args and returns
 // exactly one value.
 func Call1(t *Thread, f Value, args ...Value) (Value, *Error) {
-	term := NewTerminationWith(1, false)
+	term := NewTerminationWith(t.CurrentCont(), 1, false)
 	if err := Call(t, f, args, term); err != nil {
 		return NilValue, err
 	}
 	return term.Get(0), nil
 }
 
-// ToString returns x as a String and a boolean which is true if this is a
-// 'good' conversion. It can allocate a small amount of memory but this is
-// bounded by the maximum length of the string representation of a number.
-//
-// TODO: refactor or explain the meaning of the boolean better.
-func ToString(x Value) (string, bool) {
-	switch x.Type() {
-	case NilType:
-		return "nil", true
-	case StringType:
-		return x.AsString(), true
-	case IntType:
-		return strconv.Itoa(int(x.AsInt())), true
-	case FloatType:
-		return strconv.FormatFloat(x.AsFloat(), 'g', -1, 64), true
-	case BoolType:
-		if x.AsBool() {
-			return "true", false
-		}
-		return "false", false
-	}
-	return "", false
-}
-
 // Concat returns x .. y, possibly calling the '__concat' metamethod.
 func Concat(t *Thread, x, y Value) (Value, *Error) {
-	if sx, ok := ToString(x); ok {
-		if sy, ok := ToString(y); ok {
+	if sx, ok := x.ToString(); ok {
+		if sy, ok := y.ToString(); ok {
 			t.RequireBytes(len(sx) + len(sy))
 			return StringValue(sx + sy), nil
 		}
@@ -197,7 +173,7 @@ func IntLen(t *Thread, v Value) (int64, *Error) {
 	if s, ok := v.TryString(); ok {
 		return int64(len(s)), nil
 	}
-	res := NewTerminationWith(1, false)
+	res := NewTerminationWith(t.CurrentCont(), 1, false)
 	err, ok := Metacall(t, v, "__len", []Value{v}, res)
 	if ok {
 		if err != nil {
@@ -220,7 +196,7 @@ func Len(t *Thread, v Value) (Value, *Error) {
 	if s, ok := v.TryString(); ok {
 		return IntValue(int64(len(s))), nil
 	}
-	res := NewTerminationWith(1, false)
+	res := NewTerminationWith(t.CurrentCont(), 1, false)
 	err, ok := Metacall(t, v, "__len", []Value{v}, res)
 	if ok {
 		if err != nil {
@@ -368,7 +344,7 @@ func metacont(t *Thread, obj Value, method string, next Cont) (Cont, *Error, boo
 
 func metabin(t *Thread, f string, x Value, y Value) (Value, *Error, bool) {
 	xy := []Value{x, y}
-	res := NewTerminationWith(1, false)
+	res := NewTerminationWith(t.CurrentCont(), 1, false)
 	err, ok := Metacall(t, x, f, xy, res)
 	if !ok {
 		err, ok = Metacall(t, y, f, xy, res)
@@ -380,7 +356,7 @@ func metabin(t *Thread, f string, x Value, y Value) (Value, *Error, bool) {
 }
 
 func metaun(t *Thread, f string, x Value) (Value, *Error, bool) {
-	res := NewTerminationWith(1, false)
+	res := NewTerminationWith(t.CurrentCont(), 1, false)
 	err, ok := Metacall(t, x, f, []Value{x}, res)
 	if ok {
 		return res.Get(0), err, true

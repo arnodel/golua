@@ -39,8 +39,8 @@ func Load(r *rt.Runtime) {
 		r.SetEnvGoFunc(env, "tonumber", tonumber, 2, false),
 		r.SetEnvGoFunc(env, "tostring", tostring, 1, false),
 		r.SetEnvGoFunc(env, "type", typeString, 1, false),
+		r.SetEnvGoFunc(env, "xpcall", xpcall, 2, true),
 	)
-	// TODO: xpcall
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe,
 		r.SetEnvGoFunc(env, "dofile", dofile, 1, false),
@@ -49,7 +49,7 @@ func Load(r *rt.Runtime) {
 }
 
 func ToString(t *rt.Thread, v rt.Value) (string, *rt.Error) {
-	next := rt.NewTerminationWith(1, false)
+	next := rt.NewTerminationWith(t.CurrentCont(), 1, false)
 	err, ok := rt.Metacall(t, v, "__tostring", []rt.Value{v}, next)
 	if err != nil {
 		return "", err
@@ -71,7 +71,7 @@ func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	s, err := ToString(t, c.Arg(0))
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	return c.PushingNext(t.Runtime, rt.StringValue(s)), nil
 }

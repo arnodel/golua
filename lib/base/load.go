@@ -9,7 +9,7 @@ import (
 
 func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	var (
 		chunk     []byte
@@ -24,14 +24,14 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		var err *rt.Error
 		chunkEnv, err = c.TableArg(3)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		fallthrough
 	case nargs >= 3:
 		if !c.Arg(2).IsNil() {
 			mode, err := c.StringArg(2)
 			if err != nil {
-				return nil, err.AddContext(c)
+				return nil, err
 			}
 			chunkMode = string(mode)
 		}
@@ -40,7 +40,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if !c.Arg(1).IsNil() {
 			name, err := c.StringArg(1)
 			if err != nil {
-				return nil, err.AddContext(c)
+				return nil, err
 			}
 			chunkName = string(name)
 		}
@@ -81,7 +81,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			}
 			chunk = buf.Bytes()
 		default:
-			return nil, rt.NewErrorS("#1 must be a string or function").AddContext(c)
+			return nil, rt.NewErrorS("#1 must be a string or function")
 		}
 	}
 	// The chunk is no longer used once we leave this function.
@@ -100,11 +100,11 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		k, used, err := rt.UnmarshalConst(r, t.LinearUnused(10))
 		t.LinearRequire(10, used)
 		if err != nil {
-			return nil, rt.NewErrorE(err).AddContext(c)
+			return nil, rt.NewErrorE(err)
 		}
 		code, ok := k.TryCode()
 		if !ok {
-			return nil, rt.NewErrorF("Expected function to load").AddContext(c)
+			return nil, rt.NewErrorF("Expected function to load")
 		}
 		clos := rt.NewClosure(t.Runtime, code)
 		if code.UpvalueCount > 0 {

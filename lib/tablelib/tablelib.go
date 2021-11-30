@@ -36,11 +36,11 @@ func load(r *rt.Runtime) rt.Value {
 
 func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	_, err := c.TableArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	tblVal := c.Arg(0)
 	var (
@@ -49,7 +49,7 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	)
 	j, err := rt.IntLen(t, tblVal)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	switch nargs := c.NArgs(); {
 	case nargs >= 4:
@@ -80,7 +80,7 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			break
 		}
 		var sb strings.Builder
-		s, ok := rt.ToString(item)
+		s, ok := item.ToString()
 		if !ok {
 			return nil, rt.NewErrorS("concat needs strings or numbers")
 		}
@@ -99,9 +99,9 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			sb.WriteString(sep)
 			item, err = rt.Index(t, tblVal, rt.IntValue(i))
 			if err != nil {
-				return nil, err.AddContext(c)
+				return nil, err
 			}
-			s, ok = rt.ToString(item)
+			s, ok = item.ToString()
 			if !ok {
 				return nil, rt.NewErrorS("concat needs strings or numbers")
 			}
@@ -110,16 +110,16 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		return c.PushingNext1(t.Runtime, rt.StringValue(sb.String())), nil
 	}
-	return nil, err.AddContext(c)
+	return nil, err
 }
 
 func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	_, err := c.TableArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	tblVal := c.Arg(0)
 	var (
@@ -128,15 +128,15 @@ func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	)
 	tblLen, err := rt.IntLen(t, tblVal)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	if c.NArgs() >= 3 {
 		pos, err = c.IntArg(1)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		if pos <= 0 || pos > tblLen+1 {
-			return nil, rt.NewErrorS("#2 out of range").AddContext(c)
+			return nil, rt.NewErrorS("#2 out of range")
 		}
 		val = c.Arg(2)
 	} else {
@@ -151,11 +151,11 @@ func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		// Don't require CPU because rt.Index and rt.SetIndex will do
 		oldVal, err = rt.Index(t, tblVal, posVal)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		err = rt.SetIndex(t, tblVal, posVal, val)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		val = oldVal
 		pos++
@@ -163,37 +163,37 @@ func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	err = rt.SetIndex(t, tblVal, posVal, val)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	return c.Next(), nil
 }
 
 func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(4); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	_, err := c.TableArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	srcVal := c.Arg(0)
 	srcStart, err := c.IntArg(1)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	srcEnd, err := c.IntArg(2)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	dstStart, err := c.IntArg(3)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	dstVal := srcVal
 	if c.NArgs() >= 5 {
 		_, err = c.TableArg(4)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		dstVal = c.Arg(4)
 	}
@@ -210,7 +210,7 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				err = rt.SetIndex(t, dstVal, rt.IntValue(dstStart), v)
 			}
 			if err != nil {
-				return nil, err.AddContext(c)
+				return nil, err
 			}
 			srcEnd--
 			dstStart--
@@ -225,7 +225,7 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				err = rt.SetIndex(t, dstVal, rt.IntValue(dstStart), v)
 			}
 			if err != nil {
-				return nil, err.AddContext(c)
+				return nil, err
 			}
 			srcStart++
 			dstStart++
@@ -247,22 +247,22 @@ func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	_, err := c.TableArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	tblVal := c.Arg(0)
 	tblLen, err := rt.IntLen(t, tblVal)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	pos := tblLen
 	if c.NArgs() >= 2 {
 		pos, err = c.IntArg(1)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 	}
 	var val rt.Value
@@ -274,10 +274,10 @@ func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			err = rt.SetIndex(t, tblVal, posVal, rt.NilValue)
 		}
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 	case pos <= 0 || pos > tblLen:
-		return nil, rt.NewErrorS("#2 out of range").AddContext(c)
+		return nil, rt.NewErrorS("#2 out of range")
 	default:
 		var newVal rt.Value
 		for pos <= tblLen {
@@ -288,7 +288,7 @@ func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				err = rt.SetIndex(t, tblVal, tblLenVal, newVal)
 			}
 			if err != nil {
-				return nil, err.AddContext(c)
+				return nil, err
 			}
 			tblLen--
 			newVal = val
@@ -317,11 +317,11 @@ func (s *tableSorter) Len() int {
 
 func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	_, err := c.TableArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	tblVal := c.Arg(0)
 	get := func(i int) rt.Value {
@@ -352,7 +352,7 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 	var less func(i, j int) bool
 	if c.NArgs() >= 2 {
 		comp := c.Arg(1)
-		term := rt.NewTerminationWith(1, false)
+		term := rt.NewTerminationWith(c, 1, false)
 		less = func(i, j int) bool {
 			term.Reset()
 			err := rt.Call(t, comp, []rt.Value{get(i), get(j)}, term)
@@ -374,7 +374,7 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 		if r := recover(); r != nil {
 			next = nil
 			if rtErr, ok := r.(*rt.Error); ok {
-				resErr = rtErr.AddContext(c)
+				resErr = rtErr
 				return
 			}
 			panic(r)
@@ -389,11 +389,11 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 
 func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	_, err := c.TableArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	tblVal := c.Arg(0)
 	var (
@@ -404,7 +404,7 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if nargs >= 2 {
 		i, err = c.IntArg(1)
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 	}
 	if nargs >= 3 && !c.Arg(2).IsNil() {
@@ -413,14 +413,14 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		j, err = rt.IntLen(t, tblVal)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	next := c.Next()
 	for ; i <= j; i++ {
 		// rt.Index consumes cpu so the loop is OK.
 		val, err := rt.Index(t, tblVal, rt.IntValue(i))
 		if err != nil {
-			return nil, err.AddContext(c)
+			return nil, err
 		}
 		t.Push1(next, val)
 	}

@@ -2,6 +2,7 @@ package stringlib
 
 import (
 	"fmt"
+	"strconv"
 	"unsafe"
 
 	"github.com/arnodel/golua/lib/base"
@@ -10,15 +11,15 @@ import (
 
 func format(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	f, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	s, err := Format(t, f, c.Etc())
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	t.RequireBytes(len(s))
 	return c.PushingNext1(t.Runtime, rt.StringValue(s)), nil
@@ -123,18 +124,12 @@ OuterLoop:
 						return "", errNotEnoughValues
 					}
 					v := values[j]
-					if s, ok := v.TryString(); ok {
+					if s, ok := quote(v); ok {
 						tmpMem += t.RequireBytes(len(s))
-						arg = string(s)
-					} else {
-						s, ok := rt.ToString(v)
-						if !ok && s == "" {
-							return "", rt.NewErrorS("no literal")
-						}
-						tmpMem += t.RequireBytes(len(s))
-						arg = string(s)
-						// Not a string, print verbatim
+						arg = s
 						outFormat[i] = 's'
+					} else {
+						return "", rt.NewErrorS("no literal")
 					}
 					break ArgLoop
 				case 't':
@@ -167,4 +162,24 @@ OuterLoop:
 
 	// Release temporary memory
 	return fmt.Sprintf(string(outFormat), args...), nil
+}
+
+// Quote returns a string representing the value as a valid Lua literal if
+// possible, the boolean returned indicating success or failure.
+func quote(v rt.Value) (string, bool) {
+	if v.IsNil() {
+		return "nil", true
+	}
+	switch v.Type() {
+	case rt.IntType:
+		return strconv.Itoa(int(v.AsInt())), true
+	case rt.FloatType:
+		return strconv.FormatFloat(v.AsFloat(), 'g', -1, 64), true
+	case rt.BoolType:
+		return strconv.FormatBool(v.AsBool()), true
+	case rt.StringType:
+		return strconv.Quote(v.AsString()), true // An approximation
+	default:
+		return "", false
+	}
 }

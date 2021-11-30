@@ -13,7 +13,7 @@ import (
 func goIndex(t *rt.Thread, u *rt.UserData, key rt.Value) (rt.Value, error) {
 	gv := reflect.ValueOf(u.Value())
 	meta := u.Metatable()
-	field, ok := rt.ToString(key)
+	field, ok := key.ToString()
 	if ok {
 		// First try a method
 		m := gv.MethodByName(string(field))
@@ -75,7 +75,7 @@ func goSetIndex(t *rt.Thread, u *rt.UserData, key rt.Value, val rt.Value) error 
 		}
 		fallthrough
 	case reflect.Struct:
-		field, ok := rt.ToString(key)
+		field, ok := key.ToString()
 		if !ok {
 			return errors.New("can only set struct index for a string")
 		}
@@ -215,7 +215,7 @@ func valueToFunc(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, erro
 		}
 		res := make([]rt.Value, tp.NumOut())
 		out := make([]reflect.Value, len(res))
-		term := rt.NewTermination(res, nil)
+		term := rt.NewTermination(t.CurrentCont(), res, nil)
 		if err := rt.Call(t, v, args, term); err != nil {
 			panic(err)
 		}
@@ -272,7 +272,7 @@ func valueToType(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, erro
 			return reflect.ValueOf(float64(x)), nil
 		}
 	case reflect.String:
-		x, ok := rt.ToString(v)
+		x, ok := v.ToString()
 		if ok {
 			return reflect.ValueOf(string(x)), nil
 		}

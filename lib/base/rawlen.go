@@ -6,7 +6,7 @@ import (
 
 func rawlen(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	next := c.Next()
 	switch x := c.Arg(0); x.Type() {
@@ -17,5 +17,5 @@ func rawlen(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		t.Push1(next, rt.IntValue(x.AsTable().Len()))
 		return next, nil
 	}
-	return nil, rt.NewErrorS("#1 must be a string or table").AddContext(c)
+	return nil, rt.NewErrorS("#1 must be a string or table")
 }

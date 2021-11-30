@@ -5,7 +5,7 @@ import rt "github.com/arnodel/golua/runtime"
 func print(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	err := Print(t, c.Etc())
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	return c.Next(), nil
 }

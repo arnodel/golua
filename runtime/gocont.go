@@ -86,8 +86,8 @@ FillEtc:
 
 // RunInThread implements Cont.RunInThread
 func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
-	if err := t.CheckSafetyFlags(c.safetyFlags); err != nil {
-		return nil, err.AddContext(c)
+	if err := t.CheckRequiredFlags(c.safetyFlags); err != nil {
+		return nil, err
 	}
 	t.RequireCPU(1) // TODO: an appropriate amount
 	next, err = c.f(t, c)
@@ -102,6 +102,10 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
 
 // Next implements Cont.Next.
 func (c *GoCont) Next() Cont {
+	return c.next
+}
+
+func (c *GoCont) Parent() Cont {
 	return c.next
 }
 

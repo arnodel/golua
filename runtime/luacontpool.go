@@ -1,5 +1,5 @@
-//go:build !nocontpool
-// +build !nocontpool
+//go:build !nocontpool && noquotas
+// +build !nocontpool,noquotas
 
 package runtime
 

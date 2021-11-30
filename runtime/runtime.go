@@ -17,14 +17,20 @@ type Runtime struct {
 	mainThread *Thread
 	registry   *Table
 
-	// This has an empty implementation when the noquotas build tag is set.  It
-	// should allow the compiler to compile away all quota manager methods.
-	quotaManager
+	// This has an almost empty implementation when the noquotas build tag is
+	// set.  It should allow the compiler to compile away almost all runtime
+	// context manager methods.
+	runtimeContextManager
 
+	// Object pools used to minimise the overhead of Go memory management.
+	// These are not currently compatible with the quotas implementation.
+
+	// Register pools, disabled with the noregpool build tag.
 	regPool  valuePool
 	argsPool valuePool
 	cellPool cellPool
 
+	// Continuation pools, disable witht the nocontpool build tag.
 	luaContPool luaContPool
 	goContPool  goContPool
 }
@@ -180,12 +186,4 @@ func (r *Runtime) SetTableCheck(t *Table, k, v Value) error {
 func (r *Runtime) metaGetS(v Value, k string) Value {
 	meta := r.RawMetatable(v)
 	return RawGet(meta, StringValue(k))
-}
-
-type QuotaExceededError struct {
-	message string
-}
-
-func (p QuotaExceededError) Error() string {
-	return p.message
 }

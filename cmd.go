@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -15,6 +14,7 @@ import (
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/lib"
 	"github.com/arnodel/golua/lib/base"
+	"github.com/arnodel/golua/lib/debuglib"
 	"github.com/arnodel/golua/lib/iolib"
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -55,20 +55,25 @@ func (c *luaCmd) run() (retcode int) {
 	}
 	iolib.BufferedStdFiles = buffered
 
-	for _, name := range strings.Split(c.flags, ",") {
-		var ok bool
-		flags, ok = flags.AddFlagWithName(name)
-		if !ok {
-			return fatal("Unknown flag: %s", name)
+	if c.flags != "" {
+		for _, name := range strings.Split(c.flags, ",") {
+			var ok bool
+			flags, ok = flags.AddFlagWithName(name)
+			if !ok {
+				return fatal("Unknown flag: %s", name)
+			}
 		}
 	}
 
 	// Get a Lua runtime
 	r := rt.New(nil)
 	r.PushContext(rt.RuntimeContextDef{
-		CpuLimit:    c.cpuLimit,
-		MemLimit:    c.memLimit,
-		SafetyFlags: flags,
+		HardLimits: rt.RuntimeResources{
+			Cpu: c.cpuLimit,
+			Mem: c.memLimit,
+		},
+		RequiredFlags:  flags,
+		MessageHandler: debuglib.Traceback,
 	})
 	cleanup := lib.LoadAll(r)
 	defer cleanup()
@@ -128,7 +133,7 @@ func (c *luaCmd) run() (retcode int) {
 
 	defer func() {
 		if rec := recover(); rec != nil {
-			quotaExceeded, ok := rec.(rt.QuotaExceededError)
+			quotaExceeded, ok := rec.(rt.ContextTerminationError)
 			if !ok {
 				panic(r)
 			}
@@ -137,9 +142,9 @@ func (c *luaCmd) run() (retcode int) {
 		}
 	}()
 	clos := r.LoadLuaUnit(unit, r.GlobalEnv())
-	cerr := rt.Call(r.MainThread(), rt.FunctionValue(clos), argVals, rt.NewTerminationWith(0, false))
+	cerr := rt.Call(r.MainThread(), rt.FunctionValue(clos), argVals, rt.NewTerminationWith(nil, 0, false))
 	if cerr != nil {
-		return fatal("!!! %s", cerr.Traceback())
+		return fatal("!!! %s", cerr.Error())
 	}
 	return 0
 }
@@ -199,7 +204,7 @@ func (c *luaCmd) repl(r *rt.Runtime) int {
 			w = new(bytes.Buffer)
 			if err != nil {
 				fmt.Printf("!!! %s\n", err)
-				if _, ok := err.(rt.QuotaExceededError); ok {
+				if _, ok := err.(rt.ContextTerminationError); ok {
 					fmt.Print("Reset limits and continue? [yN] ")
 					line, err := reader.ReadString('\n')
 					if err == io.EOF || strings.TrimSpace(line) != "y" {
@@ -215,7 +220,7 @@ func (c *luaCmd) repl(r *rt.Runtime) int {
 func (c *luaCmd) runChunk(r *rt.Runtime, source []byte) (more bool, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {
-			quotaExceeded, ok := rec.(rt.QuotaExceededError)
+			quotaExceeded, ok := rec.(rt.ContextTerminationError)
 			if !ok {
 				panic(r)
 			}
@@ -232,16 +237,16 @@ func (c *luaCmd) runChunk(r *rt.Runtime, source []byte) (more bool, err error) {
 		return snErr.IsUnexpectedEOF(), err
 	}
 	t := r.MainThread()
-	term := rt.NewTerminationWith(0, true)
+	term := rt.NewTerminationWith(nil, 0, true)
 	cerr := rt.Call(t, rt.FunctionValue(clos), nil, term)
 	if cerr == nil {
 		if len(term.Etc()) > 0 {
 			cerr = base.Print(t, term.Etc())
 			if cerr != nil {
-				return false, errors.New(cerr.Traceback())
+				return false, cerr
 			}
 		}
 		return false, nil
 	}
-	return false, errors.New(cerr.Traceback())
+	return false, cerr
 }

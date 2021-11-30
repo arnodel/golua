@@ -45,11 +45,11 @@ func timef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 func setlocale(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	locale, err := c.StringArg(0)
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	// Just pretend we can set the "C" locale and none other
 	if locale != "C" {

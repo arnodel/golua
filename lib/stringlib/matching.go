@@ -29,7 +29,7 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	si := rt.StringNormPos(s, int(init)) - 1
 	next := c.Next()
@@ -49,7 +49,7 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	default:
 		pat, err := pattern.New(string(ptn))
 		if err != nil {
-			return nil, rt.NewErrorE(err).AddContext(c)
+			return nil, rt.NewErrorE(err)
 		}
 		captures, usedCPU := pat.MatchFromStart(string(s), si, t.UnusedCPU())
 		t.RequireCPU(usedCPU)
@@ -81,13 +81,13 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		init, err = c.IntArg(2)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	si := rt.StringNormPos(s, int(init)) - 1
 	next := c.Next()
 	pat, ptnErr := pattern.New(string(ptn))
 	if ptnErr != nil {
-		return nil, rt.NewErrorE(ptnErr).AddContext(c)
+		return nil, rt.NewErrorE(ptnErr)
 	}
 	captures, usedCPU := pat.MatchFromStart(string(s), si, t.UnusedCPU())
 	t.RequireCPU(usedCPU)
@@ -135,11 +135,11 @@ func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		ptn, err = c.StringArg(1)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	pat, ptnErr := pattern.New(string(ptn))
 	if ptnErr != nil {
-		return nil, rt.NewErrorE(ptnErr).AddContext(c)
+		return nil, rt.NewErrorE(ptnErr)
 	}
 	si := 0
 	allowEmpty := true
@@ -194,12 +194,12 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		n, err = c.IntArg(3)
 	}
 	if err != nil {
-		return nil, err.AddContext(c)
+		return nil, err
 	}
 	repl = c.Arg(2)
 	pat, ptnErr := pattern.New(string(ptn))
 	if ptnErr != nil {
-		return nil, rt.NewErrorE(ptnErr).AddContext(c)
+		return nil, rt.NewErrorE(ptnErr)
 	}
 
 	// replF will be the function that does the substitution of the match given
@@ -236,7 +236,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				case '0' <= b && b <= '9':
 					idx := int(b - '0')
 					if idx > maxIndex {
-						err = rt.NewErrorE(pattern.ErrInvalidCaptureIdx(idx)).AddContext(c)
+						err = rt.NewErrorE(pattern.ErrInvalidCaptureIdx(idx))
 						return ""
 					}
 					s := cStrings[b-'0']
@@ -247,7 +247,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 				case b == '%':
 					return x[1:]
 				default:
-					err = rt.NewErrorE(pattern.ErrInvalidPct).AddContext(c)
+					err = rt.NewErrorE(pattern.ErrInvalidPct)
 				}
 				return x[1:]
 			}), err
@@ -268,7 +268,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 	} else if replC, ok := repl.TryCallable(); ok {
 		replF = func(captures []pattern.Capture) (string, *rt.Error) {
-			term := rt.NewTerminationWith(1, false)
+			term := rt.NewTerminationWith(c, 1, false)
 			cont := replC.Continuation(t.Runtime, term)
 			gc := captures[0]
 			i := 0
@@ -285,7 +285,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return subToString(t.Runtime, s[gc.Start():gc.End()], term.Get(0))
 		}
 	} else {
-		return nil, rt.NewErrorS("#3 must be a string, table or function").AddContext(c)
+		return nil, rt.NewErrorS("#3 must be a string, table or function")
 	}
 	var (
 		si         int
@@ -305,7 +305,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if allowEmpty || start != si || end != si {
 			sub, err := replF(captures)
 			if err != nil {
-				return nil, err.AddContext(c)
+				return nil, err
 			}
 			t.RequireBytes(si - start)
 			// No need to require memory for sub as that has been done already
@@ -341,7 +341,7 @@ func subToString(r *rt.Runtime, key string, val rt.Value) (string, *rt.Error) {
 	if !rt.Truth(val) {
 		return key, nil
 	}
-	res, ok := rt.ToString(val)
+	res, ok := val.ToString()
 	if ok {
 		r.RequireBytes(len(res))
 		return res, nil

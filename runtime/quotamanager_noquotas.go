@@ -3,125 +3,136 @@
 
 package runtime
 
+import (
+	"fmt"
+)
+
 const QuotasAvailable = false
 
-type quotaManager struct{}
-
-var _ RuntimeContext = (*quotaManager)(nil)
-
-func (m *quotaManager) CpuLimit() uint64 {
-	return 0
+type runtimeContextManager struct {
+	messageHandler Callable
+	parent         *runtimeContextManager
 }
 
-func (m *quotaManager) CpuUsed() uint64 {
-	return 0
+var _ RuntimeContext = (*runtimeContextManager)(nil)
+
+func (m *runtimeContextManager) HardLimits() (r RuntimeResources) {
+	return
 }
 
-func (m *quotaManager) MemLimit() uint64 {
-	return 0
+func (m *runtimeContextManager) SoftLimits() (r RuntimeResources) {
+	return
 }
 
-func (m *quotaManager) MemUsed() uint64 {
-	return 0
+func (m *runtimeContextManager) UsedResources() (r RuntimeResources) {
+	return
 }
 
-func (m *quotaManager) Status() RuntimeContextStatus {
-	return RCS_Live
+func (m *runtimeContextManager) Status() RuntimeContextStatus {
+	return StatusLive
 }
 
-func (m *quotaManager) Flags() RuntimeContextFlags {
-	return RCF_Empty
+func (m *runtimeContextManager) RequiredFlags() (f ComplianceFlags) {
+	return
 }
 
-func (m *quotaManager) Parent() RuntimeContext {
+func (m *runtimeContextManager) CheckRequiredFlags(ComplianceFlags) *Error {
+	return nil
+}
+
+func (m *runtimeContextManager) Parent() RuntimeContext {
 	return m
 }
 
-func (m *quotaManager) RuntimeContext() RuntimeContext {
-	return m
-}
-
-func (m *quotaManager) PushContext(ctx RuntimeContext) {
-}
-
-func (m *quotaManager) PopContext() RuntimeContext {
-	return m
-}
-
-func (m *quotaManager) PushQuota(cpuQuota, memQuota uint64, flags RuntimeContextFlags) {
-}
-
-func (m *quotaManager) PopQuota() {
-}
-
-func (m *quotaManager) UpdateFlags(flags RuntimeContextFlags) {
-}
-
-func (m *quotaManager) AllowQuotaModificationsInLua() {
-}
-
-func (m *quotaManager) QuotaModificationsInLuaAllowed() bool {
+func (m *runtimeContextManager) ShouldCancel() bool {
 	return false
 }
 
-func (m *quotaManager) RequireCPU(cpuAmount uint64) {
+func (m *runtimeContextManager) RuntimeContext() RuntimeContext {
+	return m
 }
 
-func (m *quotaManager) UpdateCPUQuota(newQuota uint64) {
+func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
+	parent := *m
+	m.messageHandler = ctx.MessageHandler
+	m.parent = &parent
 }
 
-func (m *quotaManager) UnusedCPU() uint64 {
+func (m *runtimeContextManager) PopContext() RuntimeContext {
+	*m = *m.parent
+	return nil
+}
+
+func (m *runtimeContextManager) CallContext(def RuntimeContextDef, f func() *Error) (ctx RuntimeContext, err *Error) {
+	m.PushContext(def)
+	defer m.PopContext()
+	return nil, f()
+}
+
+func (m *runtimeContextManager) PushQuota(cpuQuota, memQuota uint64, flags ComplianceFlags) {
+}
+
+func (m *runtimeContextManager) UpdateFlags(flags ComplianceFlags) {
+}
+
+func (m *runtimeContextManager) RequireCPU(cpuAmount uint64) {
+}
+
+func (m *runtimeContextManager) UpdateCPUQuota(newQuota uint64) {
+}
+
+func (m *runtimeContextManager) UnusedCPU() uint64 {
 	return 0
 }
 
-func (m *quotaManager) CPUQuotaStatus() (uint64, uint64) {
+func (m *runtimeContextManager) CPUQuotaStatus() (uint64, uint64) {
 	return 0, 0
 }
 
-func (m *quotaManager) RequireMem(memAmount uint64) {
+func (m *runtimeContextManager) RequireMem(memAmount uint64) {
 }
 
-func (m *quotaManager) RequireSize(sz uintptr) uint64 {
+func (m *runtimeContextManager) RequireSize(sz uintptr) uint64 {
 	return 0
 }
 
-func (m *quotaManager) RequireArrSize(sz uintptr, n int) uint64 {
+func (m *runtimeContextManager) RequireArrSize(sz uintptr, n int) uint64 {
 	return 0
 }
 
-func (m *quotaManager) RequireBytes(n int) uint64 {
+func (m *runtimeContextManager) RequireBytes(n int) uint64 {
 	return 0
 }
 
-func (m *quotaManager) ReleaseMem(memAmount uint64) {
+func (m *runtimeContextManager) ReleaseMem(memAmount uint64) {
 }
 
-func (m *quotaManager) ReleaseSize(sz uintptr) {
+func (m *runtimeContextManager) ReleaseSize(sz uintptr) {
 }
 
-func (m *quotaManager) ReleaseArrSize(sz uintptr, n int) {
+func (m *runtimeContextManager) ReleaseArrSize(sz uintptr, n int) {
 }
 
-func (m *quotaManager) ReleaseBytes(n int) {
+func (m *runtimeContextManager) ReleaseBytes(n int) {
 }
 
-func (m *quotaManager) UpdateMemQuota(newQuota uint64) {
-}
-
-func (m *quotaManager) UnusedMem() uint64 {
+func (m *runtimeContextManager) UnusedMem() uint64 {
 	return 0
 }
 
-func (m *quotaManager) MemQuotaStatus() (uint64, uint64) {
-	return 0, 0
-}
-
-func (m *quotaManager) LinearUnused(cpuFactor uint64) uint64 {
+func (m *runtimeContextManager) LinearUnused(cpuFactor uint64) uint64 {
 	return 0
 }
 
-func (m *quotaManager) LinearRequire(cpuFactor uint64, amt uint64) {
+func (m *runtimeContextManager) LinearRequire(cpuFactor uint64, amt uint64) {
 }
 
-func (m *quotaManager) ResetQuota() {
+func (m *runtimeContextManager) ResetQuota() {
+}
+
+func (m *runtimeContextManager) TerminateContext(format string, args ...interface{}) {
+	// I don't know if it should do it?
+	panic(ContextTerminationError{
+		message: fmt.Sprintf(format, args...),
+	})
 }
