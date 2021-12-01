@@ -125,7 +125,13 @@ mutated but gives useful information about the execution context.
   - `"error"` if this execution context terminated with an error
   - `"killed"` if the context terminated because it would otherwise have
     exceeded its limits.
-- `ctx.limits` returns an object giving the resource limits of `ctx` 
+- `ctx.limits` returns an object giving the hard resource limits of `ctx`.  If
+  any of these limits are reached then the context will be terminated
+  immediately, returning execution to the parent context.  Hard limits cannot
+  exceed their parent's hard limits.
+- `ctx.softlimits` returns an object giving the resource soft limits of `ctx`.
+  Soft limits cannot exceed hard limits, but can be increased from the parent's
+  context (TODO: check this behaviour).
 - `ctx.used` returns an object giving the used resources of `ctx`
 - `ctx.flags` returns a string describing the flags that any code running in
   this context has to comply with.  Those flags are `"memsafe"`, `"cpusafe"` and
@@ -148,7 +154,10 @@ it inherits the `io` and `golib` flags from the current context.
  The argument `ctxdef` allows restricting `ctx` further.  It is a table with any
 of the following attributes.
 - `limits`: if set, it should be a table.  Attributes can be set in this table
-  with names `mem`, `cpu` and values a positive integer.
+  with names `mem`, `cpu` and values a positive integer.  This is used to set
+  the context's hard resource limits.
+- `softlimits`: same format as `limits` but describes soft limits.  It will be
+  used to set the context's soft resource limits.
 - `flags`: same format as for a context definition (e.g. `"cpusafe memsafe"`)
 
 Here is a simple example of using this function in the golua repl:
@@ -163,6 +172,21 @@ cpusafe
 > print(ctx.used.mem, ctx.limits.mem)
 0       nil
 ```
+
+#### `runtime.stopcontext()`
+
+This function terminates the current context immediately, returning to the
+parent context.  It is as if a hard resource limit had been hit. It can be used
+when a soft resource limit has been hit and the program decides to stop.
+
+[it could be a method on context, then the semantics of stopping a non-running
+context would need to be specified]
+#### `runtime.shouldstop()`
+
+This function returns true if any of the soft resource limits has been hit.
+
+[it could be a method on context, then the semantics of on a non-running
+context would need to be specified]
 
 ### When embedding a runtime in Go
 
@@ -277,6 +301,15 @@ func main() {
     // Panics due to quota exceeded will be recovered from.
 }
 ```
+
+#### `(*Runtime).ShouldStop() bool`
+
+Return true if the current context's soft limits have been hit (there could be
+other conditions in future).
+
+#### `(*Runtime).TerminateContext(format string, args ...interface{})`
+
+Terminate the context immediately if it is live.
 
 ## How to implement the safe execution environment
 

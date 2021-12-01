@@ -87,7 +87,7 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	parent := *m
 	m.startTime = now()
 	m.hardLimits = m.hardLimits.Remove(m.usedResources).Merge(ctx.HardLimits)
-	m.softLimits = m.softLimits.Remove(m.usedResources).Merge(ctx.SoftLimits)
+	m.softLimits = m.hardLimits.Merge(ctx.SoftLimits)
 	m.usedResources = RuntimeResources{}
 	m.requiredFlags |= ctx.RequiredFlags
 

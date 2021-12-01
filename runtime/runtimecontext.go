@@ -119,7 +119,7 @@ func (f ComplianceFlags) Names() (names []string) {
 
 // RuntimeResources describe amount of resources that code can consume.
 // Depending on the context, it could be available resources or consumed
-// resources.
+// resources.  For available resources, 0 means unlimited.
 type RuntimeResources struct {
 	Cpu  uint64
 	Mem  uint64
