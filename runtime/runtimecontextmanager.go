@@ -11,7 +11,12 @@ import (
 
 const QuotasAvailable = true
 
-const cpuThresholdIncrement = 1000
+// When tracking time, the runtimeContextManager will take the opportunity to
+// update the time spent in the context when the CPU is increased.  It doesn't
+// do that every time because it would slow down the runtime too much for little
+// benefit.  This value sets the amount of CPU required that triggers a time
+// update.
+const cpuThresholdIncrement = 10000
 
 type runtimeContextManager struct {
 	hardLimits    RuntimeResources
@@ -76,10 +81,14 @@ func (m *runtimeContextManager) RuntimeContext() RuntimeContext {
 }
 
 func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
+	if m.trackTime {
+		m.updateTimeUsed()
+	}
 	parent := *m
 	m.startTime = now()
 	m.hardLimits = m.hardLimits.Remove(m.usedResources).Merge(ctx.HardLimits)
 	m.softLimits = m.softLimits.Remove(m.usedResources).Merge(ctx.SoftLimits)
+	m.usedResources = RuntimeResources{}
 	m.requiredFlags |= ctx.RequiredFlags
 
 	if ctx.HardLimits.Cpu > 0 {
@@ -108,6 +117,9 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 	m.parent.RequireCPU(m.usedResources.Cpu)
 	m.parent.RequireMem(m.usedResources.Mem)
 	*m = *m.parent
+	if m.trackTime {
+		m.updateTimeUsed()
+	}
 	return &mCopy
 }
 
@@ -264,6 +276,7 @@ func (m *runtimeContextManager) TerminateContext(format string, args ...interfac
 	})
 }
 
+// Current unix time in ms
 func now() uint64 {
-	return uint64(time.Now().UnixNano())
+	return uint64(time.Now().UnixMilli())
 }

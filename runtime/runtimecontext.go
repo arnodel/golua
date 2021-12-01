@@ -146,13 +146,13 @@ func (r RuntimeResources) Remove(r1 RuntimeResources) RuntimeResources {
 // Merge treats the receiver and argument as describing resource limits and
 // returns the resources describing the intersection of those limits.
 func (r RuntimeResources) Merge(r1 RuntimeResources) RuntimeResources {
-	if r.Cpu == 0 || r.Cpu > r1.Cpu {
+	if r1.Cpu > 0 && (r.Cpu == 0 || r.Cpu > r1.Cpu) {
 		r.Cpu = r1.Cpu
 	}
-	if r.Mem == 0 || r.Mem > r1.Mem {
+	if r1.Mem > 0 && (r.Mem == 0 || r.Mem > r1.Mem) {
 		r.Mem = r1.Mem
 	}
-	if r.Time == 0 || r.Time > r1.Time {
+	if r1.Time > 0 && (r.Time == 0 || r.Time > r1.Time) {
 		r.Time = r1.Time
 	}
 	return r
