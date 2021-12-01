@@ -23,7 +23,8 @@ func load(r *rt.Runtime) rt.Value {
 
 		r.SetEnvGoFunc(pkg, "callcontext", callcontext, 2, true),
 		r.SetEnvGoFunc(pkg, "context", context, 0, false),
-		r.SetEnvGoFunc(pkg, "cancelcontext", cancel, 0, false),
+		r.SetEnvGoFunc(pkg, "stopcontext", stopcontext, 0, false),
+		r.SetEnvGoFunc(pkg, "shouldstop", shouldstop, 0, false),
 	)
 
 	createContextMetatable(r)
@@ -42,40 +43,39 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		return nil, err
 	}
 	var (
-		memQuotaV = quotas.Get(rt.StringValue("memlimit")) // deprecated
-		cpuQuotaV = quotas.Get(rt.StringValue("cpulimit")) // deprecated
-		flagsV    = quotas.Get(rt.StringValue("flags"))
-		limitsV   = quotas.Get(rt.StringValue("limits"))
-		memQuota  uint64
-		cpuQuota  uint64
-		timeQuota uint64
-		f         = c.Arg(1)
-		fArgs     = c.Etc()
-		flags     rt.ComplianceFlags
+		memQuotaV   = quotas.Get(rt.StringValue("memlimit")) // deprecated
+		cpuQuotaV   = quotas.Get(rt.StringValue("cpulimit")) // deprecated
+		flagsV      = quotas.Get(rt.StringValue("flags"))
+		limitsV     = quotas.Get(rt.StringValue("limits"))
+		softLimitsV = quotas.Get(rt.StringValue("softlimits"))
+		hardLimits  rt.RuntimeResources
+		softLimits  rt.RuntimeResources
+		f           = c.Arg(1)
+		fArgs       = c.Etc()
+		flags       rt.ComplianceFlags
 	)
 	if !rt.IsNil(limitsV) {
 		var err *rt.Error
-		cpuQuota, err = getResVal(t, limitsV, "cpu")
+		hardLimits, err = getResources(t, limitsV)
 		if err != nil {
 			return nil, err
 		}
-		memQuota, err = getResVal(t, limitsV, "mem")
-		if err != nil {
-			return nil, err
-		}
-		timeQuota, err = getResVal(t, limitsV, "time")
+	}
+	if !rt.IsNil(softLimitsV) {
+		var err *rt.Error
+		softLimits, err = getResources(t, softLimitsV)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if !rt.IsNil(memQuotaV) {
-		memQuota, err = validateResVal("memlimit", memQuotaV)
+		hardLimits.Mem, err = validateResVal("memlimit", memQuotaV)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if !rt.IsNil(cpuQuotaV) {
-		cpuQuota, err = validateResVal("cpulimit", cpuQuotaV)
+		hardLimits.Cpu, err = validateResVal("cpulimit", cpuQuotaV)
 		if err != nil {
 			return nil, err
 		}
@@ -97,11 +97,8 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	res := rt.NewTerminationWith(c, 0, true)
 
 	ctx, err := t.CallContext(rt.RuntimeContextDef{
-		HardLimits: rt.RuntimeResources{
-			Cpu:  cpuQuota,
-			Mem:  memQuota,
-			Time: timeQuota,
-		},
+		HardLimits:    hardLimits,
+		SoftLimits:    softLimits,
 		RequiredFlags: flags,
 	}, func() *rt.Error {
 		return rt.Call(t, f, fArgs, res)
@@ -116,9 +113,29 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	return next, nil
 }
 
-func cancel(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
-	t.TerminateContext("cancelled")
+func stopcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
+	t.TerminateContext("stopped")
 	return nil, nil
+}
+
+func shouldstop(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
+	return c.PushingNext1(t.Runtime, rt.BoolValue(t.ShouldStop())), nil
+}
+
+func getResources(t *rt.Thread, resources rt.Value) (res rt.RuntimeResources, err *rt.Error) {
+	res.Cpu, err = getResVal(t, resources, "cpu")
+	if err != nil {
+		return
+	}
+	res.Mem, err = getResVal(t, resources, "mem")
+	if err != nil {
+		return
+	}
+	res.Time, err = getResVal(t, resources, "time")
+	if err != nil {
+		return
+	}
+	return
 }
 
 func getResVal(t *rt.Thread, resources rt.Value, name string) (uint64, *rt.Error) {

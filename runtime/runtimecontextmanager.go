@@ -72,7 +72,7 @@ func (m *runtimeContextManager) Parent() RuntimeContext {
 	return m.parent
 }
 
-func (m *runtimeContextManager) ShouldCancel() bool {
+func (m *runtimeContextManager) ShouldStop() bool {
 	return !m.softLimits.Dominates(m.usedResources)
 }
 
@@ -177,7 +177,7 @@ func (m *runtimeContextManager) RequireMem(memAmount uint64) {
 //go:noinline
 func (m *runtimeContextManager) requireMem(memAmount uint64) {
 	memUsed := m.usedResources.Mem + memAmount
-	if memUsed >= m.hardLimits.Mem {
+	if m.hardLimits.Mem > 0 && memUsed >= m.hardLimits.Mem {
 		m.TerminateContext("mem limit of %d exceeded", m.hardLimits.Mem)
 	}
 	m.usedResources.Mem = memUsed
@@ -231,7 +231,7 @@ func (m *runtimeContextManager) UnusedMem() uint64 {
 
 func (m *runtimeContextManager) updateTimeUsed() {
 	m.usedResources.Time = now() - m.startTime
-	if m.usedResources.Time >= m.hardLimits.Time {
+	if m.hardLimits.Time > 0 && m.usedResources.Time >= m.hardLimits.Time {
 		m.TerminateContext("time limit of %d exceeded", m.hardLimits.Time)
 	}
 }
