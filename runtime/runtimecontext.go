@@ -128,15 +128,21 @@ type RuntimeResources struct {
 
 // Remove lowers the resources accounted for in the receiver by the resources
 // accounted for in the argument.
-func (r RuntimeResources) Remove(r1 RuntimeResources) RuntimeResources {
-	if r.Cpu >= r1.Cpu {
-		r.Cpu -= r1.Cpu
+func (r RuntimeResources) Remove(v RuntimeResources) RuntimeResources {
+	if r.Cpu >= v.Cpu {
+		r.Cpu -= v.Cpu
+	} else {
+		r.Cpu = 0
 	}
-	if r.Mem >= r1.Mem {
-		r.Mem -= r1.Mem
+	if r.Mem >= v.Mem {
+		r.Mem -= v.Mem
+	} else {
+		r.Mem = 0
 	}
-	if r.Time >= r1.Time {
-		r.Time -= r1.Time
+	if r.Time >= v.Time {
+		r.Time -= v.Time
+	} else {
+		r.Time = 0
 	}
 	return r
 }
@@ -144,29 +150,30 @@ func (r RuntimeResources) Remove(r1 RuntimeResources) RuntimeResources {
 // Merge treats the receiver and argument as describing resource limits and
 // returns the resources describing the intersection of those limits.
 func (r RuntimeResources) Merge(r1 RuntimeResources) RuntimeResources {
-	if r1.Cpu > 0 && (r.Cpu == 0 || r.Cpu > r1.Cpu) {
+	if smallerLimit(r1.Cpu, r.Cpu) {
 		r.Cpu = r1.Cpu
 	}
-	if r1.Mem > 0 && (r.Mem == 0 || r.Mem > r1.Mem) {
+	if smallerLimit(r1.Mem, r.Mem) {
 		r.Mem = r1.Mem
 	}
-	if r1.Time > 0 && (r.Time == 0 || r.Time > r1.Time) {
+	if smallerLimit(r1.Time, r.Time) {
 		r.Time = r1.Time
 	}
 	return r
 }
 
-// Dominates returns r.Merge(r1) == r1, i.e. true iff r1 describes stricter
-// limits than r.
-func (r RuntimeResources) Dominates(r1 RuntimeResources) bool {
-	if r.Cpu > 0 && r1.Cpu >= r.Cpu {
-		return false
-	}
-	if r.Mem > 0 && r1.Mem >= r.Mem {
-		return false
-	}
-	if r.Time > 0 && r1.Time >= r.Time {
-		return false
-	}
-	return true
+// Dominates returns true if the resource count v doesn't reach the resource
+// limit r.
+func (r RuntimeResources) Dominates(v RuntimeResources) bool {
+	return !atLimit(v.Cpu, r.Cpu) && !atLimit(v.Mem, r.Mem) && !atLimit(v.Time, r.Time)
+}
+
+// n < m, but with 0 meaning +infinity for both n and m
+func smallerLimit(n, m uint64) bool {
+	return n > 0 && (m == 0 || n < m)
+}
+
+// l <= v, but with 0 meaning +infinity for l
+func atLimit(v, l uint64) bool {
+	return l > 0 && v >= l
 }

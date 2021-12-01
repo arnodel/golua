@@ -152,7 +152,7 @@ func (m *runtimeContextManager) RequireCPU(cpuAmount uint64) {
 //go:noinline
 func (m *runtimeContextManager) requireCPU(cpuAmount uint64) {
 	cpuUsed := m.usedResources.Cpu + cpuAmount
-	if m.hardLimits.Cpu > 0 && cpuUsed >= m.hardLimits.Cpu {
+	if atLimit(cpuUsed, m.hardLimits.Cpu) {
 		m.TerminateContext("CPU limit of %d exceeded", m.hardLimits.Cpu)
 	}
 	if m.trackTime && m.nextCpuThreshold <= cpuUsed {
@@ -177,7 +177,7 @@ func (m *runtimeContextManager) RequireMem(memAmount uint64) {
 //go:noinline
 func (m *runtimeContextManager) requireMem(memAmount uint64) {
 	memUsed := m.usedResources.Mem + memAmount
-	if m.hardLimits.Mem > 0 && memUsed >= m.hardLimits.Mem {
+	if atLimit(memUsed, m.hardLimits.Mem) {
 		m.TerminateContext("mem limit of %d exceeded", m.hardLimits.Mem)
 	}
 	m.usedResources.Mem = memUsed
@@ -231,7 +231,7 @@ func (m *runtimeContextManager) UnusedMem() uint64 {
 
 func (m *runtimeContextManager) updateTimeUsed() {
 	m.usedResources.Time = now() - m.startTime
-	if m.hardLimits.Time > 0 && m.usedResources.Time >= m.hardLimits.Time {
+	if atLimit(m.usedResources.Time, m.hardLimits.Time) {
 		m.TerminateContext("time limit of %d exceeded", m.hardLimits.Time)
 	}
 }
