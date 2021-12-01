@@ -44,7 +44,7 @@ func (m *runtimeContextManager) Parent() RuntimeContext {
 	return m
 }
 
-func (m *runtimeContextManager) ShouldCancel() bool {
+func (m *runtimeContextManager) ShouldStop() bool {
 	return false
 }
 
