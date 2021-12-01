@@ -278,5 +278,5 @@ func (m *runtimeContextManager) TerminateContext(format string, args ...interfac
 
 // Current unix time in ms
 func now() uint64 {
-	return uint64(time.Now().UnixMilli())
+	return uint64(time.Now().UnixNano() / 1e6)
 }
