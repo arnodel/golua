@@ -40,14 +40,14 @@ runtime.callcontext({limits={mem=10000, cpu=10000}}, function()
     --> =true
 end)
 
--- runtime.cancelcontext()
+-- runtime.stopcontext()
 --
--- The runtime.cancelcontext function terminates the current context.
+-- The runtime.stopcontext function terminates the current context.
 
 print(runtime.callcontext({}, function()
     print("before cancel")
     --> =before cancel
-    runtime.cancelcontext()
+    runtime.stopcontext()
     print("after cancel")
     -- Not reached
 end))
