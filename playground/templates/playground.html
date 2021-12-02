@@ -5,9 +5,9 @@
     <body>
         <h1>The Golua Playground (alpha)</h1>
         <p>
-            You have {{ .Cpu }} cpu units and {{ .Mem }} mem units.  Click "Run"
-            to run the code, click "Save" to save the code on the server, you
-            can then share the URL.
+            You have {{ .Cpu }} cpu units, {{ .Mem }} mem units and {{ .Time }}
+            milliseconds.  Click "Run" to run the code, click "Save" to save the
+            code on the server, you can then share the URL.
         </p>
         <p>
             Size of script is limited to 10000 bytes.  Compilation is free :).
@@ -35,6 +35,7 @@
             <li>status: {{ .Status }} </li>
             <li>cpu: used {{ .Context.UsedResources.Cpu }} / {{ .Context.HardLimits.Cpu }}</li>
             <li>mem: used {{ .Context.UsedResources.Mem }} / {{ .Context.HardLimits.Mem }}</li>
+            <li>time: used {{ .Context.UsedResources.Time }}ms / {{ .Context.HardLimits.Time }}</li>
         </ul>
         {{- end }}
     </body>

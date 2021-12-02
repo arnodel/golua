@@ -29,9 +29,10 @@ var templatesFS embed.FS
 var templates *template.Template
 
 var (
-	cpuLimit uint64
-	memLimit uint64
-	saveDir  string
+	cpuLimit  uint64
+	memLimit  uint64
+	timeLimit uint64
+	saveDir   string
 )
 
 const maxCodeLength = 10000
@@ -44,6 +45,7 @@ func main() {
 	flag.UintVar(&port, "port", 8080, "port to listen on")
 	flag.Uint64Var(&cpuLimit, "cpulimit", 1000000, "cpu limit")
 	flag.Uint64Var(&memLimit, "memlimit", 1000000, "mem limit")
+	flag.Uint64Var(&timeLimit, "timelimit", 1000, "time limit (ms)")
 	flag.StringVar(&saveDir, "savedir", "", "directory to save source code")
 	flag.Parse()
 
@@ -186,8 +188,9 @@ func runCode(src []byte) (string, rt.RuntimeContext) {
 	}
 	ctx, callErr := r.CallContext(rt.RuntimeContextDef{
 		HardLimits: rt.RuntimeResources{
-			Cpu: cpuLimit,
-			Mem: memLimit,
+			Cpu:  cpuLimit,
+			Mem:  memLimit,
+			Time: timeLimit,
 		},
 		RequiredFlags:  rt.ComplyCpuSafe | rt.ComplyIoSafe | rt.ComplyMemSafe,
 		MessageHandler: debuglib.Traceback,
@@ -249,6 +252,10 @@ func (m playgroundModel) Cpu() uint64 {
 
 func (m playgroundModel) Mem() uint64 {
 	return memLimit
+}
+
+func (m playgroundModel) Time() uint64 {
+	return timeLimit
 }
 
 func (m playgroundModel) SavingEnabled() bool {
