@@ -17,19 +17,18 @@ func Load(r *rt.Runtime) {
 	r.SetEnv(env, "next", rt.FunctionValue(nextGoFunc))
 
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		ipairsIterator,
 		nextGoFunc,
 		r.SetEnvGoFunc(env, "assert", assert, 1, true),
-		r.SetEnvGoFunc(env, "collectgarbage", collectgarbage, 2, false),
 		r.SetEnvGoFunc(env, "error", errorF, 2, false),
 		r.SetEnvGoFunc(env, "getmetatable", getmetatable, 1, false),
 		r.SetEnvGoFunc(env, "ipairs", ipairs, 1, false),
 		r.SetEnvGoFunc(env, "load", load, 4, false),
 		r.SetEnvGoFunc(env, "pairs", pairs, 1, false),
 		r.SetEnvGoFunc(env, "pcall", pcall, 1, true),
-		r.SetEnvGoFunc(env, "print", print, 0, true),
+		r.SetEnvGoFunc(env, "print", print, 0, true), // Not really iosafe/timesafe but used in all tests...
 		r.SetEnvGoFunc(env, "rawequal", rawequal, 2, false),
 		r.SetEnvGoFunc(env, "rawget", rawget, 2, false),
 		r.SetEnvGoFunc(env, "rawlen", rawlen, 1, false),
@@ -46,6 +45,9 @@ func Load(r *rt.Runtime) {
 		r.SetEnvGoFunc(env, "dofile", dofile, 1, false),
 		r.SetEnvGoFunc(env, "loadfile", loadfile, 3, false),
 	)
+	// That's not safe!
+	r.SetEnvGoFunc(env, "collectgarbage", collectgarbage, 2, false)
+
 }
 
 func ToString(t *rt.Thread, v rt.Value) (string, *rt.Error) {

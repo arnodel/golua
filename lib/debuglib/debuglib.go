@@ -17,7 +17,7 @@ func load(r *rt.Runtime) rt.Value {
 	r.SetEnv(r.GlobalEnv(), "debug", pkgVal)
 
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "getinfo", getinfo, 3, false),
 		r.SetEnvGoFunc(pkg, "getupvalue", getupvalue, 2, false),

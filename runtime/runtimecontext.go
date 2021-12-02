@@ -81,25 +81,33 @@ const (
 	// Only execute code that complies with IO restrictions (currently only
 	// functions that do no IO comply with this)
 	ComplyIoSafe
+
+	// Only execute code that is time safe (i.e. it will not block on long
+	// running ops, typically IO)
+	ComplyTimeSafe
+
 	complyflagsLimit
 )
 
 const (
-	memSafeString = "memsafe"
-	cpuSafeString = "cpusafe"
-	ioSafeString  = "iosafe"
+	memSafeString  = "memsafe"
+	cpuSafeString  = "cpusafe"
+	timeSafeString = "timesafe"
+	ioSafeString   = "iosafe"
 )
 
 var complianceFlagNames = map[ComplianceFlags]string{
-	ComplyMemSafe: memSafeString,
-	ComplyCpuSafe: cpuSafeString,
-	ComplyIoSafe:  ioSafeString,
+	ComplyMemSafe:  memSafeString,
+	ComplyCpuSafe:  cpuSafeString,
+	ComplyTimeSafe: timeSafeString,
+	ComplyIoSafe:   ioSafeString,
 }
 
 var complianceFlagsByName = map[string]ComplianceFlags{
-	memSafeString: ComplyMemSafe,
-	cpuSafeString: ComplyCpuSafe,
-	ioSafeString:  ComplyIoSafe,
+	memSafeString:  ComplyMemSafe,
+	cpuSafeString:  ComplyCpuSafe,
+	timeSafeString: ComplyTimeSafe,
+	ioSafeString:   ComplyIoSafe,
 }
 
 func (f ComplianceFlags) AddFlagWithName(name string) (ComplianceFlags, bool) {

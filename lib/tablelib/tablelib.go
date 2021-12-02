@@ -20,7 +20,7 @@ func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "concat", concat, 4, false),
 		r.SetEnvGoFunc(pkg, "insert", insert, 3, false),
