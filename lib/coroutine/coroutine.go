@@ -15,7 +15,7 @@ func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "create", create, 1, false),
 		r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 0, false),
@@ -130,7 +130,7 @@ func wrap(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		return c.PushingNext(t.Runtime, res...), nil
 	}, "wrap", 0, true)
-	w.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyIoSafe)
+	w.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyTimeSafe | rt.ComplyIoSafe)
 	next := c.Next()
 	t.Push1(next, rt.FunctionValue(w))
 	return next, nil

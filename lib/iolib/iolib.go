@@ -43,7 +43,7 @@ func load(r *rt.Runtime) rt.Value {
 	r.SetEnv(meta, "__index", rt.TableValue(methods))
 
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(meta, "__tostring", tostring, 1, false),
 	)
@@ -83,7 +83,7 @@ func load(r *rt.Runtime) rt.Value {
 	)
 
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "type", typef, 1, false),
 	)

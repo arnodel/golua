@@ -13,7 +13,7 @@ func createContextMetatable(r *rt.Runtime) {
 	contextMeta := rt.NewTable()
 
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(contextMeta, "__index", context__index, 2, false),
 		r.SetEnvGoFunc(contextMeta, "__tostring", context__tostring, 1, false),
@@ -21,7 +21,7 @@ func createContextMetatable(r *rt.Runtime) {
 
 	resourcesMeta := rt.NewTable()
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(resourcesMeta, "__index", resources__index, 2, false),
 		r.SetEnvGoFunc(resourcesMeta, "__tostring", resources__tostring, 1, false),

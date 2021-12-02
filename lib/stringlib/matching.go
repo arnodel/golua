@@ -173,7 +173,7 @@ func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return next, nil
 	}
 	iterGof := rt.NewGoFunction(iterator, "gmatchiterator", 0, false)
-	iterGof.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyIoSafe)
+	iterGof.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyTimeSafe | rt.ComplyIoSafe)
 	return c.PushingNext(t.Runtime, rt.FunctionValue(iterGof)), nil
 }
 

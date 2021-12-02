@@ -97,7 +97,9 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	if ctx.HardLimits.Mem > 0 {
 		m.requiredFlags |= ComplyMemSafe
 	}
-
+	if ctx.HardLimits.Time > 0 {
+		m.requiredFlags |= ComplyTimeSafe
+	}
 	m.trackTime = m.hardLimits.Time > 0 || m.softLimits.Time > 0
 	m.trackCpu = m.hardLimits.Cpu > 0 || m.softLimits.Cpu > 0 || m.trackTime
 	m.trackMem = m.hardLimits.Mem > 0 || m.softLimits.Mem > 0

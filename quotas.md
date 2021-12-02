@@ -134,8 +134,8 @@ mutated but gives useful information about the execution context.
   context (TODO: check this behaviour).
 - `ctx.used` returns an object giving the used resources of `ctx`
 - `ctx.flags` returns a string describing the flags that any code running in
-  this context has to comply with.  Those flags are `"memsafe"`, `"cpusafe"` and
-  `"iosafe"` currently.
+  this context has to comply with.  Those flags are `"memsafe"`, `"cpusafe"`,
+  `"timesafe"` and `"iosafe"` currently.
 
 #### `runtime.callcontext(ctxdef, f, [arg1, ...])`
 

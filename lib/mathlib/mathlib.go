@@ -21,7 +21,7 @@ func load(r *rt.Runtime) rt.Value {
 	r.SetEnv(pkg, "pi", rt.FloatValue(math.Pi))
 
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "abs", abs, 1, false),
 		r.SetEnvGoFunc(pkg, "acos", acos, 1, false),
