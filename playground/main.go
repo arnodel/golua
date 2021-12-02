@@ -29,10 +29,11 @@ var templatesFS embed.FS
 var templates *template.Template
 
 var (
-	cpuLimit  uint64
-	memLimit  uint64
-	timeLimit uint64
-	saveDir   string
+	pathPrefix string
+	cpuLimit   uint64
+	memLimit   uint64
+	timeLimit  uint64
+	saveDir    string
 )
 
 const maxCodeLength = 10000
@@ -43,6 +44,7 @@ func main() {
 	var port uint
 
 	flag.UintVar(&port, "port", 8080, "port to listen on")
+	flag.StringVar(&pathPrefix, "pathprefix", "", "URL path prefix")
 	flag.Uint64Var(&cpuLimit, "cpulimit", 1000000, "cpu limit")
 	flag.Uint64Var(&memLimit, "memlimit", 1000000, "mem limit")
 	flag.Uint64Var(&timeLimit, "timelimit", 1000, "time limit (ms)")
@@ -64,8 +66,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	http.HandleFunc("/", handleRequest)
-	http.HandleFunc("/save", handleSave)
+	http.HandleFunc(pathPrefix+"/", handleRequest)
+	http.HandleFunc(pathPrefix+"/save", handleSave)
 	log.Printf("Listening on :%d", port)
 
 	err = http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
