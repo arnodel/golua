@@ -6,9 +6,17 @@ package runtime
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 const QuotasAvailable = true
+
+// When tracking time, the runtimeContextManager will take the opportunity to
+// update the time spent in the context when the CPU is increased.  It doesn't
+// do that every time because it would slow down the runtime too much for little
+// benefit.  This value sets the amount of CPU required that triggers a time
+// update.
+const cpuThresholdIncrement = 10000
 
 type runtimeContextManager struct {
 	hardLimits    RuntimeResources
@@ -22,6 +30,12 @@ type runtimeContextManager struct {
 	parent *runtimeContextManager
 
 	messageHandler Callable
+
+	trackCpu         bool
+	trackMem         bool
+	trackTime        bool
+	startTime        uint64
+	nextCpuThreshold uint64
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
@@ -58,7 +72,7 @@ func (m *runtimeContextManager) Parent() RuntimeContext {
 	return m.parent
 }
 
-func (m *runtimeContextManager) ShouldCancel() bool {
+func (m *runtimeContextManager) ShouldStop() bool {
 	return !m.softLimits.Dominates(m.usedResources)
 }
 
@@ -67,9 +81,14 @@ func (m *runtimeContextManager) RuntimeContext() RuntimeContext {
 }
 
 func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
+	if m.trackTime {
+		m.updateTimeUsed()
+	}
 	parent := *m
+	m.startTime = now()
 	m.hardLimits = m.hardLimits.Remove(m.usedResources).Merge(ctx.HardLimits)
-	m.softLimits = m.softLimits.Remove(m.usedResources).Merge(ctx.SoftLimits)
+	m.softLimits = m.hardLimits.Merge(ctx.SoftLimits)
+	m.usedResources = RuntimeResources{}
 	m.requiredFlags |= ctx.RequiredFlags
 
 	if ctx.HardLimits.Cpu > 0 {
@@ -78,7 +97,12 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	if ctx.HardLimits.Mem > 0 {
 		m.requiredFlags |= ComplyMemSafe
 	}
-
+	if ctx.HardLimits.Time > 0 {
+		m.requiredFlags |= ComplyTimeSafe
+	}
+	m.trackTime = m.hardLimits.Time > 0 || m.softLimits.Time > 0
+	m.trackCpu = m.hardLimits.Cpu > 0 || m.softLimits.Cpu > 0 || m.trackTime
+	m.trackMem = m.hardLimits.Mem > 0 || m.softLimits.Mem > 0
 	m.status = StatusLive
 	m.messageHandler = ctx.MessageHandler
 	m.parent = &parent
@@ -95,6 +119,9 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 	m.parent.RequireCPU(m.usedResources.Cpu)
 	m.parent.RequireMem(m.usedResources.Mem)
 	*m = *m.parent
+	if m.trackTime {
+		m.updateTimeUsed()
+	}
 	return &mCopy
 }
 
@@ -117,9 +144,9 @@ func (m *runtimeContextManager) CallContext(def RuntimeContextDef, f func() *Err
 }
 
 func (m *runtimeContextManager) RequireCPU(cpuAmount uint64) {
-	if m.hardLimits.Cpu > 0 {
-		// The path with quota is "outlined" so RequireCPU can be inlined,
-		// minimising the overhead when there is no quota.
+	if m.trackCpu {
+		// The path with limit is "outlined" so RequireCPU can be inlined,
+		// minimising the overhead when there is no limit.
 		m.requireCPU(cpuAmount)
 	}
 }
@@ -127,8 +154,12 @@ func (m *runtimeContextManager) RequireCPU(cpuAmount uint64) {
 //go:noinline
 func (m *runtimeContextManager) requireCPU(cpuAmount uint64) {
 	cpuUsed := m.usedResources.Cpu + cpuAmount
-	if cpuUsed >= m.hardLimits.Cpu {
+	if atLimit(cpuUsed, m.hardLimits.Cpu) {
 		m.TerminateContext("CPU limit of %d exceeded", m.hardLimits.Cpu)
+	}
+	if m.trackTime && m.nextCpuThreshold <= cpuUsed {
+		m.nextCpuThreshold = cpuUsed + cpuThresholdIncrement
+		m.updateTimeUsed()
 	}
 	m.usedResources.Cpu = cpuUsed
 }
@@ -138,9 +169,9 @@ func (m *runtimeContextManager) UnusedCPU() uint64 {
 }
 
 func (m *runtimeContextManager) RequireMem(memAmount uint64) {
-	if m.hardLimits.Mem > 0 {
-		// The path with quota is "outlined" so RequireMem can be inlined,
-		// minimising the overhead when there is no quota.
+	if m.trackMem {
+		// The path with limit is "outlined" so RequireMem can be inlined,
+		// minimising the overhead when there is no limit.
 		m.requireMem(memAmount)
 	}
 }
@@ -148,7 +179,7 @@ func (m *runtimeContextManager) RequireMem(memAmount uint64) {
 //go:noinline
 func (m *runtimeContextManager) requireMem(memAmount uint64) {
 	memUsed := m.usedResources.Mem + memAmount
-	if memUsed >= m.hardLimits.Mem {
+	if atLimit(memUsed, m.hardLimits.Mem) {
 		m.TerminateContext("mem limit of %d exceeded", m.hardLimits.Mem)
 	}
 	m.usedResources.Mem = memUsed
@@ -200,6 +231,13 @@ func (m *runtimeContextManager) UnusedMem() uint64 {
 	return m.hardLimits.Mem - m.usedResources.Mem
 }
 
+func (m *runtimeContextManager) updateTimeUsed() {
+	m.usedResources.Time = now() - m.startTime
+	if atLimit(m.usedResources.Time, m.hardLimits.Time) {
+		m.TerminateContext("time limit of %d exceeded", m.hardLimits.Time)
+	}
+}
+
 func (m *runtimeContextManager) ResetQuota() {
 	m.hardLimits = RuntimeResources{}
 }
@@ -238,4 +276,9 @@ func (m *runtimeContextManager) TerminateContext(format string, args ...interfac
 	panic(ContextTerminationError{
 		message: fmt.Sprintf(format, args...),
 	})
+}
+
+// Current unix time in ms
+func now() uint64 {
+	return uint64(time.Now().UnixNano() / 1e6)
 }

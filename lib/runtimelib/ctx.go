@@ -13,7 +13,7 @@ func createContextMetatable(r *rt.Runtime) {
 	contextMeta := rt.NewTable()
 
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(contextMeta, "__index", context__index, 2, false),
 		r.SetEnvGoFunc(contextMeta, "__tostring", context__tostring, 1, false),
@@ -21,7 +21,7 @@ func createContextMetatable(r *rt.Runtime) {
 
 	resourcesMeta := rt.NewTable()
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(resourcesMeta, "__index", resources__index, 2, false),
 		r.SetEnvGoFunc(resourcesMeta, "__tostring", resources__tostring, 1, false),
@@ -108,25 +108,27 @@ func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	switch key {
 	case "limits":
 		val = newResourcesValue(t.Runtime, ctx.HardLimits())
+	case "softlimits":
+		val = newResourcesValue(t.Runtime, ctx.SoftLimits())
 	case "used":
 		val = newResourcesValue(t.Runtime, ctx.UsedResources())
-	case "cpulimit":
+	case "cpulimit": // Deprecated
 		{
 			limit := ctx.HardLimits().Cpu
 			if limit > 0 {
 				val = resToVal(limit)
 			}
 		}
-	case "memlimit":
+	case "memlimit": // Deprecated
 		{
 			limit := ctx.HardLimits().Mem
 			if limit > 0 {
 				val = resToVal(limit)
 			}
 		}
-	case "cpuused":
+	case "cpuused": // Deprecated
 		val = resToVal(ctx.UsedResources().Cpu)
-	case "memused":
+	case "memused": // Deprecated
 		val = resToVal(ctx.UsedResources().Mem)
 	case "status":
 		val = statusValue(ctx.Status())
@@ -161,7 +163,7 @@ func resources__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		n = res.Cpu
 	case "mem":
 		n = res.Mem
-	case "ms":
+	case "time":
 		n = res.Time
 	default:
 		// We'll return nil
@@ -186,7 +188,7 @@ func resources__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		vals = append(vals, fmt.Sprintf("mem=%d", res.Mem))
 	}
 	if res.Time > 0 {
-		vals = append(vals, fmt.Sprintf("ms=%d", res.Time))
+		vals = append(vals, fmt.Sprintf("time=%d", res.Time))
 	}
 	s := "[" + strings.Join(vals, ",") + "]"
 	t.RequireBytes(len(s))

@@ -18,7 +18,7 @@ func load(r *rt.Runtime) rt.Value {
 	pkg := rt.NewTable()
 
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "clock", clock, 0, false),
 		r.SetEnvGoFunc(pkg, "time", timef, 1, false),

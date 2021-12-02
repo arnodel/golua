@@ -12,7 +12,7 @@ func load(r *rt.Runtime) rt.Value {
 	pkgVal := rt.TableValue(pkg)
 
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "byte", bytef, 3, false),
 		r.SetEnvGoFunc(pkg, "char", char, 0, true),
