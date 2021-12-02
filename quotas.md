@@ -4,16 +4,20 @@
   - [Overview](#overview)
     - [Meaning of limiting CPU](#meaning-of-limiting-cpu)
     - [Meaning of limiting memory](#meaning-of-limiting-memory)
-    - [Disabling IO access and golib](#disabling-io-access-and-golib)
+    - [Other restrictions](#other-restrictions)
   - [Safe Execution Interface](#safe-execution-interface)
     - [In the standalone golua interpreter](#in-the-standalone-golua-interpreter)
     - [Within a Lua program](#within-a-lua-program)
       - [`runtime.context()`](#runtimecontext)
       - [`runtime.callcontext(ctxdef, f, [arg1, ...])`](#runtimecallcontextctxdef-f-arg1-)
+      - [`runtime.stopcontext()`](#runtimestopcontext)
+      - [`runtime.shouldstop()`](#runtimeshouldstop)
     - [When embedding a runtime in Go](#when-embedding-a-runtime-in-go)
       - [`(*Runtime).PushContext(RuntimeContextDef)`](#runtimepushcontextruntimecontextdef)
       - [`(*Runtime).PopContext() RuntimeContext`](#runtimepopcontext-runtimecontext)
       - [`(*Runtime).CallContext(def RuntimeContextDef, f func() *Error) (RuntimeContext, *Error)`](#runtimecallcontextdef-runtimecontextdef-f-func-error-runtimecontext-error)
+      - [`(*Runtime).ShouldStop() bool`](#runtimeshouldstop-bool)
+      - [`(*Runtime).TerminateContext(format string, args ...interface{})`](#runtimeterminatecontextformat-string-args-interface)
   - [How to implement the safe execution environment](#how-to-implement-the-safe-execution-environment)
     - [CPU limits](#cpu-limits)
       - [`(*Runtime).RequireCPU(n uint64)`](#runtimerequirecpun-uint64)
@@ -27,7 +31,7 @@
       - [`(*Runtime).ReleaseSize(sz uintptr)`](#runtimereleasesizesz-uintptr)
       - [`(*Runtime).ReleaseArrSize(sz uintptr, n int)`](#runtimereleasearrsizesz-uintptr-n-int)
     - [Restricting access to Go functions.](#restricting-access-to-go-functions)
-      - [`ComplicanceFlags`](#complicanceflags)
+      - [`ComplianceFlags`](#complianceflags)
       - [`(*GoFunction).SolemnlyDeclareCompliance(ComplianceFlags)`](#gofunctionsolemnlydeclarecompliancecomplianceflags)
   - [Random notes](#random-notes)
 ## Overview
@@ -411,11 +415,11 @@ This approach has several advantages
   comply with those by default, so it limits the risk of misuse.  On the other
   hand an existing function will still be able to be used in an environment not
   requiring the new compliance flags.
-- Safety: It is safer than blacklisting / whilelisting access to modules.  As Lua's
-  runtime is very dynamic, it would probably be easy to circumvent such
-  measures.
+- Safety: It is safer than controlling access to modules via a
+  blocklist/allowlist.  As Lua's runtime is very dynamic, it would probably be
+  easy to circumvent such measures.
 
-#### `ComplicanceFlags`
+#### `ComplianceFlags`
 
 The runtime defines a number of compliance flags, currently:
 
