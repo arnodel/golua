@@ -28,7 +28,7 @@ func load(r *rt.Runtime) rt.Value {
 	methods := rt.NewTable()
 
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(methods, "read", fileread, 1, true),
 		r.SetEnvGoFunc(methods, "lines", filelines, 1, true),
@@ -68,7 +68,7 @@ func load(r *rt.Runtime) rt.Value {
 	r.SetEnv(pkg, "stderr", rt.UserDataValue(stderr))
 
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "close", ioclose, 1, false),
 		r.SetEnvGoFunc(pkg, "flush", ioflush, 0, false),
@@ -188,7 +188,7 @@ func input(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	)
 	switch arg.Type() {
 	case rt.StringType:
-		f, ioErr := OpenFile(arg.AsString(), "r")
+		f, ioErr := OpenFile(t.Runtime, arg.AsString(), "r")
 		if ioErr != nil {
 			return nil, rt.NewErrorE(ioErr)
 		}
@@ -217,7 +217,7 @@ func output(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	)
 	switch arg.Type() {
 	case rt.StringType:
-		f, ioErr := OpenFile(arg.AsString(), "w")
+		f, ioErr := OpenFile(t.Runtime, arg.AsString(), "w")
 		if ioErr != nil {
 			return nil, rt.NewErrorE(ioErr)
 		}
@@ -245,7 +245,7 @@ func iolines(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, err
 		}
 		var ioErr error
-		f, ioErr = OpenFile(string(fname), "r")
+		f, ioErr = OpenFile(t.Runtime, string(fname), "r")
 		if ioErr != nil {
 			return nil, rt.NewErrorE(ioErr)
 		}
@@ -294,6 +294,7 @@ func lines(r *rt.Runtime, f *File, readers []formatReader, flags int) *rt.GoFunc
 		return next, nil
 	}
 	iterGof := rt.NewGoFunction(iterator, "linesiterator", 0, false)
+	iterGof.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyIoSafe)
 	return iterGof
 
 }
@@ -313,7 +314,7 @@ func open(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, err
 		}
 	}
-	f, ioErr := OpenFile(fname, mode)
+	f, ioErr := OpenFile(t.Runtime, fname, mode)
 	if ioErr != nil {
 		return nil, rt.NewErrorE(ioErr)
 	}
@@ -422,7 +423,7 @@ func fileseek(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func tmpfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	f, err := TempFile()
+	f, err := TempFile(t.Runtime)
 	if err != nil {
 		return nil, rt.NewErrorE(err)
 	}

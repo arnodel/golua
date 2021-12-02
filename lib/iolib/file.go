@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
+	"github.com/arnodel/golua/safeio"
 )
 
 // NewFile returns a new *File from an *os.File.
@@ -45,8 +46,8 @@ func ValueToFile(v rt.Value) (*File, bool) {
 
 // TempFile tries to make a temporary file, and if successful schedules the file
 // to be removed when the process dies.
-func TempFile() (*File, error) {
-	f, err := ioutil.TempFile("", "golua")
+func TempFile(r *rt.Runtime) (*File, error) {
+	f, err := safeio.TempFile(r, "", "golua")
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +175,7 @@ func (f *File) Flush() error {
 }
 
 // OpenFile opens a file with the given name in the given lua mode.
-func OpenFile(name, mode string) (*File, error) {
+func OpenFile(r *rt.Runtime, name, mode string) (*File, error) {
 	var flag int
 	switch strings.TrimSuffix(mode, "b") {
 	case "r":
@@ -192,7 +193,7 @@ func OpenFile(name, mode string) (*File, error) {
 	default:
 		return nil, errors.New("invalid mode")
 	}
-	f, err := os.OpenFile(name, flag, 0666)
+	f, err := safeio.OpenFile(r, name, flag, 0666)
 	if err != nil {
 		return nil, err
 	}
