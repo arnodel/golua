@@ -41,5 +41,5 @@ runtime.callcontext({flags="iosafe"}, function()
     f:write("some text"):flush():close()
 end)
 
-print(io.open("files/tmp.txt", "r"):read("a"))
+print(io.open("files/writetest-safeio.txt", "r"):read("a"))
 --> =some text
