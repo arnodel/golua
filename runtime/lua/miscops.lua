@@ -29,4 +29,9 @@ do
     print(type(t))
     --> =thread
 
+    print(type(nil))
+    --> =nil
+
+    print(type(io.stdout))
+    --> =userdata
 end

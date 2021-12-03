@@ -62,3 +62,24 @@ do
     print(next(t, a))
     --> =nil	nil
 end
+
+-- custom length as used in table module functions
+do
+    local t = {"x", "y"}
+    debug.setmetatable(t, {__len=function() return 10 end})
+    table.insert(t, 5)
+    print(t[11])
+    --> =5
+end
+do
+    local t = {"x", "y"}
+    debug.setmetatable(t, {__len=function() return "hi" end})
+    print(pcall(table.insert, t, 5))
+    --> ~false\t.*
+end
+do
+    local t = {"x", "y"}
+    debug.setmetatable(t, {__len=function() error("haha") end})
+    print(pcall(table.insert, t, 5))
+    --> =false	haha
+end
