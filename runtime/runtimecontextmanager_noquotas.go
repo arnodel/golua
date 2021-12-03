@@ -41,7 +41,7 @@ func (m *runtimeContextManager) CheckRequiredFlags(ComplianceFlags) *Error {
 }
 
 func (m *runtimeContextManager) Parent() RuntimeContext {
-	return m
+	return nil
 }
 
 func (m *runtimeContextManager) ShouldStop() bool {
@@ -69,24 +69,11 @@ func (m *runtimeContextManager) CallContext(def RuntimeContextDef, f func() *Err
 	return nil, f()
 }
 
-func (m *runtimeContextManager) PushQuota(cpuQuota, memQuota uint64, flags ComplianceFlags) {
-}
-
-func (m *runtimeContextManager) UpdateFlags(flags ComplianceFlags) {
-}
-
 func (m *runtimeContextManager) RequireCPU(cpuAmount uint64) {
-}
-
-func (m *runtimeContextManager) UpdateCPUQuota(newQuota uint64) {
 }
 
 func (m *runtimeContextManager) UnusedCPU() uint64 {
 	return 0
-}
-
-func (m *runtimeContextManager) CPUQuotaStatus() (uint64, uint64) {
-	return 0, 0
 }
 
 func (m *runtimeContextManager) RequireMem(memAmount uint64) {
