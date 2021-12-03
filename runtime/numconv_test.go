@@ -268,8 +268,8 @@ func TestToFloat(t *testing.T) {
 		},
 		{
 			name: "int string",
-			v:    StringValue("1e6"),
-			want: 1e6,
+			v:    StringValue("10"),
+			want: 10,
 			ok:   true,
 		},
 		{
