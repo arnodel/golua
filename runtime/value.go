@@ -318,10 +318,10 @@ func (v Value) AsUserData() *UserData {
 	return v.iface.(*UserData)
 }
 
-// AsFunction returns v as a Callable if possible by looking at the
+// AsCallable returns v as a Callable if possible by looking at the
 // possible concrete types (ok is false otherwise).  It is an optimisation as
 // type assertion in Go seems to have a significant cost.
-func (v Value) AsFunction() Callable {
+func (v Value) AsCallable() Callable {
 	switch c := v.iface.(type) {
 	case *Closure:
 		return c
