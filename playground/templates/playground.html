@@ -18,7 +18,7 @@
                 <h2>
                     <label for="code">Lua Code</label>
                     <button type="submit">Run</button>
-                    {{ if .SavingEnabled }}<button typw="submit" formaction="/save">Save</button>{{ end }}
+                    {{ if .SavingEnabled }}<button typw="submit" formaction="./save">Save</button>{{ end }}
                 </h2>
                 <textarea rows="25" cols="100" maxlength="10000" name="code">{{ .Source }}</textarea>
             </form>
