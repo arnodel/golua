@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"encoding/binary"
+	"errors"
 	"io"
 
 	"github.com/arnodel/golua/code"
@@ -49,19 +50,22 @@ func (w *bwriter) writeConst(c Value) {
 	case FloatType:
 		w.consumeBudget(1 + 8)
 		w.write(FloatType, c.AsFloat())
-	case BoolType:
-		w.consumeBudget(1 + 1)
-		w.write(BoolType, c.AsBool())
 	case StringType:
 		w.consumeBudget(1 + 0) // w.writeString will consume the string budget
 		w.write(StringType, c.AsString())
-	case NilType:
-		w.consumeBudget(1)
-		w.write(NilType)
 	case CodeType:
 		w.writeCode(c.AsCode())
+	// Booleans and nil are inlined so this shouldn't be neeeded.  Keeping
+	// around in case this is reversed
+	//
+	//  case BoolType:
+	//  w.consumeBudget(1 + 1)
+	//  w.write(BoolType, c.AsBool())
+	// case NilType:
+	//  w.consumeBudget(1)
+	//  w.write(NilType)
 	default:
-		panic("invalid value type")
+		w.err = errInvalidValueType
 	}
 }
 
@@ -156,18 +160,21 @@ func (r *breader) readConst() (v Value) {
 	case StringType:
 		s := r.readString()
 		v = StringValue(s)
-	case BoolType:
-		var x bool
-		r.read(1, &x)
-		v = BoolValue(x)
-	case NilType:
-		v = NilValue
 	case CodeType:
 		x := new(Code)
 		r.readCode(x)
 		v = CodeValue(x)
+	// Booleans and nil are inlined so this shouldn't be needed.  Keeping around
+	// in case this is reversed.
+	//
+	// case BoolType:
+	// 	var x bool
+	// 	r.read(1, &x)
+	// 	v = BoolValue(x)
+	// case NilType:
+	// 	v = NilValue
 	default:
-		panic("invalid value type")
+		r.err = errInvalidValueType
 	}
 	if r.err != nil {
 		return NilValue
@@ -257,3 +264,5 @@ func (r *breader) consumeBudget(amount uint64) {
 	}
 	r.budget -= amount
 }
+
+var errInvalidValueType = errors.New("Invalid value type")
