@@ -21,3 +21,10 @@ print(t)
 --> =in function print (file [Go])
 --> =in function <main chunk> (file luatest:17)
 --> =HAHA
+
+-- Test debug info for a function
+
+print(debug.getinfo(print).name)
+--> =print
+print(debug.getinfo(foo).name)
+--> =foo
