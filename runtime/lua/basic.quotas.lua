@@ -79,7 +79,7 @@ print(runtime.callcontext({cpulimit=1000}, ifib, 1000))
 --> =killed
 
 --
--- Check that strinc concatenation consumes memory
+-- Check that string concatenation consumes memory
 --
 
 -- strpex(x, n) is x concatenated to itself 2^n timees
@@ -137,3 +137,41 @@ print(runtime.callcontext({memlimit=1000}, len, table.unpack(numbers(10))))
 -- Passing a long list of arguments requires a lot of memory.
 print(runtime.callcontext({memlimit=8000}, len, table.unpack(numbers(500))))
 --> =killed
+
+--
+-- Check soft limits and stopping
+--
+
+local c = 0
+print(runtime.callcontext({softlimits={cpu=1000}}, function()
+    print(runtime.context().softlimits.cpu)
+    --> =1000
+    while not runtime.shouldstop() do
+        c = c + 1
+    end
+    runtime.stopcontext()
+end))
+--> =killed
+print(c > 10)
+--> =true
+
+--
+-- Check time limits
+--
+local c = 0
+print(runtime.callcontext({limits={time=10}}, function()
+    while true do
+        c = c + 1
+    end
+end))
+--> =killed
+print(c > 10)
+--> =true
+
+--
+-- Check compliance flags
+--
+print(runtime.callcontext({flags="cpusafe"}, function()
+    golib.import('fmt').Println("hello")
+end))
+--> =error	missing flags: cpusafe
