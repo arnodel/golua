@@ -318,9 +318,8 @@ func (v Value) AsUserData() *UserData {
 	return v.iface.(*UserData)
 }
 
-// AsCallable returns v as a Callable if possible by looking at the
-// possible concrete types (ok is false otherwise).  It is an optimisation as
-// type assertion in Go seems to have a significant cost.
+// AsCallable returns v as a Callable if possible (or panics)).  It is an
+// optimisation as type assertion in Go seems to have a significant cost.
 func (v Value) AsCallable() Callable {
 	switch c := v.iface.(type) {
 	case *Closure:
@@ -413,11 +412,15 @@ func (v Value) TryBool() (b bool, ok bool) {
 // assertion in Go seems to have a significant cost.
 func (v Value) TryCont() (c Cont, ok bool) {
 	switch cont := v.iface.(type) {
-	case *GoCont:
-		return cont, true
 	case *LuaCont:
 		return cont, true
 	case *Termination:
+		return cont, true
+	// These cases come after because this function is only used in
+	// LuaCont.Next() and in that context it is unlikely that the next
+	// continuation will be a *GoCont, and probably impossible that it is a
+	// *MessageHandlerCont.
+	case *GoCont:
 		return cont, true
 	case *MessageHandlerCont:
 		return cont, true
