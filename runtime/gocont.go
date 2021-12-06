@@ -91,6 +91,12 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
 	}
 	t.RequireCPU(1) // TODO: an appropriate amount
 	next, err = c.f(t, c)
+	if err != nil {
+		// If there is an error, c is still potentially needed for error
+		// handling, so do not return it to the pool.  It will get GCed when no
+		// longer referenced, so it's OK.
+		return
+	}
 	if c.args != nil {
 		t.ReleaseArrSize(unsafe.Sizeof(Value{}), c.nArgs)
 		t.argsPool.release(c.args)
