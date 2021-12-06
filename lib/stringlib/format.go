@@ -52,7 +52,11 @@ func Format(t *rt.Thread, format string, values []rt.Value) (string, *rt.Error) 
 OuterLoop:
 	for i := 0; i < len(format); i++ {
 		if format[i] == '%' {
-			var arg interface{}
+			var (
+				arg          interface{}
+				length, prec int
+				foundDot     bool
+			)
 		ArgLoop:
 			for i++; i < len(format); i++ {
 				switch format[i] {
@@ -95,6 +99,10 @@ OuterLoop:
 						arg = int64(n)
 					}
 					break ArgLoop
+				case 'a', 'A':
+					// Hexadecimal float verbs
+					outFormat[i] += 'x' - 'a'
+					fallthrough
 				case 'e', 'E', 'f', 'F', 'g', 'G':
 					// float verbs
 					if len(args) <= j {
@@ -144,9 +152,22 @@ OuterLoop:
 					tmpMem += t.RequireBytes(5)
 					arg = bool(b)
 					break ArgLoop
-				case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '-', '#', ' ', '.':
+				case '.':
+					foundDot = true
+				case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+					if foundDot {
+						prec = prec*10 + int(format[i]-'0')
+						if prec >= 100 {
+							return "", rt.NewErrorS("length too long")
+						}
+					} else {
+						length = length*10 + int(format[i]-'0')
+						if length >= 100 {
+							return "", rt.NewErrorS("precision too long")
+						}
+					}
+				case '+', '-', '#', ' ':
 					// flag characters
-					continue
 				default:
 					// Unrecognised verbs
 					return "", rt.NewErrorS("invalid format string")

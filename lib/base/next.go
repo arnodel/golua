@@ -20,7 +20,9 @@ func next(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, rt.NewErrorS("invalid key for 'next'")
 	}
 	t.Push1(next, nk)
-	t.Push1(next, nv)
+	if !nk.IsNil() {
+		t.Push1(next, nv)
+	}
 	return next, nil
 }
 

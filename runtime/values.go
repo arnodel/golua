@@ -50,7 +50,17 @@ func stringToInt(s string) (int64, NumberType) {
 
 func stringToNumber(s string) (n int64, f float64, tp NumberType) {
 	var err error
-	if strings.ContainsAny(s, ".eE") {
+	if len(s) == 0 {
+		tp = NaN
+		return
+	}
+	// If the string starts with -?0[xX] then it may be an hex number
+	var i0 = 0
+	if s[0] == '-' {
+		i0++
+	}
+	var isHex = len(s) >= 2+i0 && s[i0] == '0' && (s[i0+1] == 'x' || s[i0+1] == 'X')
+	if isHex && strings.ContainsAny(s, ".pP") || !isHex && strings.ContainsAny(s, ".eE") {
 		f, err = strconv.ParseFloat(s, 64)
 		if err != nil {
 			tp = NaN

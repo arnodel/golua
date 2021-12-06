@@ -61,7 +61,7 @@ func (r *Runtime) RefactorCodeConsts(c *Code) *Code {
 }
 
 // LoadLuaUnit turns a code unit into a closure given an environment env.
-func (r *Runtime) LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
+func (r *Runtime) LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 	r.RequireArrSize(unsafe.Sizeof(Value{}), len(unit.Constants))
 	constants := make([]Value, len(unit.Constants))
 
@@ -110,8 +110,7 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env *Table) *Closure {
 	mainCode := constants[0].AsCode() // It must be some code
 	clos := NewClosure(r, mainCode)
 	if mainCode.UpvalueCount > 0 {
-		envVal := TableValue(env)
-		clos.AddUpvalue(Cell{&envVal})
+		clos.AddUpvalue(Cell{&env})
 	}
 	return clos
 }

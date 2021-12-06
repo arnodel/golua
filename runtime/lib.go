@@ -321,7 +321,7 @@ func (r *Runtime) CompileLuaChunk(name string, source []byte) (*code.Unit, uint6
 
 // CompileAndLoadLuaChunk parses, compiles and loads a Lua chunk from source and
 // returns the closure that runs the chunk in the given global environment.
-func (r *Runtime) CompileAndLoadLuaChunk(name string, source []byte, env *Table) (*Closure, error) {
+func (r *Runtime) CompileAndLoadLuaChunk(name string, source []byte, env Value) (*Closure, error) {
 	unit, unitSize, err := r.CompileLuaChunk(name, source)
 	defer r.ReleaseMem(unitSize)
 	if err != nil {

@@ -340,7 +340,7 @@ func (t *hashTable) cleanup() {
 
 func (t *hashTable) next(k Value) (next Value, v Value, ok bool) {
 	if t == nil {
-		return
+		return NilValue, NilValue, k.IsNil()
 	}
 
 	// Find the starting point

@@ -15,17 +15,13 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		chunk     []byte
 		chunkName = "chunk"
 		chunkMode = "bt"
-		chunkEnv  = t.GlobalEnv()
+		chunkEnv  = rt.TableValue(t.GlobalEnv())
 		next      = c.Next()
 	)
 
 	switch nargs := c.NArgs(); {
 	case nargs >= 4:
-		var err *rt.Error
-		chunkEnv, err = c.TableArg(3)
-		if err != nil {
-			return nil, err
-		}
+		chunkEnv = c.Arg(3)
 		fallthrough
 	case nargs >= 3:
 		if !c.Arg(2).IsNil() {
@@ -108,8 +104,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		clos := rt.NewClosure(t.Runtime, code)
 		if code.UpvalueCount > 0 {
-			envVal := rt.TableValue(chunkEnv)
-			clos.AddUpvalue(rt.NewCell(envVal))
+			clos.AddUpvalue(rt.NewCell(chunkEnv))
 			t.RequireCPU(uint64(code.UpvalueCount))
 			for i := int16(1); i < code.UpvalueCount; i++ {
 				clos.AddUpvalue(rt.NewCell(rt.NilValue))

@@ -13,16 +13,18 @@ import (
 // happen, perhaps panic instead?).
 func NewNumber(id *token.Token) (ExpNode, error) {
 	loc := LocFromToken(id)
-	nstring := string(id.Lit)
-	if isFloatToken(id) {
-		f, err := strconv.ParseFloat(nstring, 64)
+	if ft := toFloatToken(id); ft != "" {
+		f, err := strconv.ParseFloat(ft, 64)
 		if err != nil {
 			return nil, err
 		}
 		return Float{Location: loc, Val: f}, nil
 	}
-	var n uint64
-	var err error
+	var (
+		nstring = string(id.Lit)
+		n       uint64
+		err     error
+	)
 	if strings.HasPrefix(nstring, "0x") || strings.HasPrefix(nstring, "0X") {
 		nstring = nstring[2:]
 		if len(nstring) > 16 {
@@ -111,13 +113,22 @@ type numberOracle interface {
 	isNumber() bool
 }
 
-func isFloatToken(tok *token.Token) bool {
+func toFloatToken(tok *token.Token) string {
 	switch tok.Type {
 	case token.NUMDEC:
-		return bytes.ContainsAny(tok.Lit, ".eE")
+		if !bytes.ContainsAny(tok.Lit, ".eE") {
+			return ""
+		}
+		return string(tok.Lit)
 	case token.NUMHEX:
-		return bytes.ContainsAny(tok.Lit, ".pP")
+		if !bytes.ContainsAny(tok.Lit, ".pP") {
+			return ""
+		}
+		if !bytes.ContainsAny(tok.Lit, "pP") {
+			return string(tok.Lit) + "p0"
+		}
+		return string(tok.Lit)
 	default:
-		return false
+		return ""
 	}
 }

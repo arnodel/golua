@@ -28,7 +28,7 @@ func PackSize(format string) (uint, error) {
 		case 'f':
 			_ = s.align(4) && s.inc(4)
 		case 'i', 'I':
-			_ = s.smallOptSize(4) && s.align(s.optSize) && s.inc(s.optSize)
+			_ = s.smallOptSize(8) && s.align(s.optSize) && s.inc(s.optSize)
 		case 'c':
 			_ = s.align(0) && s.mustGetOptSize() && s.inc(s.optSize)
 		case 'x':

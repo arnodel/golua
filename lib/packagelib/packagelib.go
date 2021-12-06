@@ -279,7 +279,7 @@ func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if readErr != nil {
 		return nil, rt.NewErrorF("error reading file: %s", readErr)
 	}
-	clos, compErr := t.CompileAndLoadLuaChunk(string(filePath), src, t.GlobalEnv())
+	clos, compErr := t.CompileAndLoadLuaChunk(string(filePath), src, rt.TableValue(t.GlobalEnv()))
 	if compErr != nil {
 		return nil, rt.NewErrorF("error compiling file: %s", compErr)
 	}
