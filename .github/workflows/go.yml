@@ -6,6 +6,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+
     steps:
     - uses: actions/checkout@v2
 
@@ -17,18 +18,24 @@ jobs:
     - name: All tests
       run: go test -coverprofile=coverage.txt -covermode=atomic ./...
 
-    - name: All tests noquotas noregpool nocontpool
-      run: go test -tags 'noquotas noregpool nocontpool' -coverprofile=coverage-noquotas.txt -covermode=atomic ./...
-    
+    - name: All tests noquotas
+      run: go test -tags 'noquotas' -coverprofile=coverage-noquotas.txt -covermode=atomic ./...
+
+    - name: All tests nopools
+      run: go test -tags 'nocontpool noregpool' -coverprofile=coverage-nopools.txt -covermode=atomic ./...
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       with:
-        files: ./coverage.txt,./coverage-noquotas.txt
+        files: ./coverage.txt,./coverage-noquotas.txt,./coverage-nopools.txt
         name: codecov-all-tests
         verbose: true
     
     - name: Build CLI
       run: go build
     
-    - name: Build CLI noquotas noregpool nocontpool
-      run: go build -tags 'noquotas noregpool nocontpool'
+    - name: Build CLI noquotas
+      run: go build -tags 'noquotas'
+
+    - name: Build CLI nopools
+      run: go build -tags 'nopools'

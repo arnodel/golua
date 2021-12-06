@@ -1,5 +1,5 @@
-//go:build nocontpool || !noquotas
-// +build nocontpool !noquotas
+//go:build nocontpool
+// +build nocontpool
 
 // This tag disables the continuation pool
 

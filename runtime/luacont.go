@@ -341,7 +341,9 @@ RunLoop:
 				// anyway, so that's ok semantically.
 				c.clearReg(contReg)
 				if opcode.GetF() {
-					// It's a tail call
+					// It's a tail call.  There is no error, so nothing will
+					// reference c anymore, therefore we are safe to give it to
+					// the pool for reuse.
 					c.release(t.Runtime)
 				}
 				return next, nil
