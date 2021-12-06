@@ -228,7 +228,7 @@ func (v Value) ToString() (string, bool) {
 	case string:
 		return v.AsString(), true
 	case *Table:
-		return fmt.Sprintf("table: %p", x), false
+		return fmt.Sprintf("%s: %p", getName("table", x.Metatable()), x), false
 	case *Code:
 		return fmt.Sprintf("code: %p", x), false
 	case *GoFunction:
@@ -238,10 +238,20 @@ func (v Value) ToString() (string, bool) {
 	case *Thread:
 		return fmt.Sprintf("thread: %p", x), false
 	case *UserData:
-		return fmt.Sprintf("userdata: %p", x), false
+		return fmt.Sprintf("%s: %p", getName("userdata", x.Metatable()), x), false
 	default:
 		return "<unknown>", false
 	}
+}
+
+func getName(defaultName string, meta *Table) string {
+	if v := RawGet(meta, StringValue("__name")); !v.IsNil() {
+		s, ok := v.ToString()
+		if ok {
+			return s
+		}
+	}
+	return defaultName
 }
 
 // NumberType return the ValueType of v if it is a number, otherwise

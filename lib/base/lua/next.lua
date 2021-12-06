@@ -6,3 +6,6 @@ print(pcall(next, 123))
 
 print(pcall(next, {}, "abc"))
 --> ~false\t.*invalid key
+
+print(next({}))
+--> =nil

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -159,8 +160,8 @@ func TestValue_ToString(t *testing.T) {
 		},
 		{
 			name: "TableValue",
-			recv: TableValue(nil),
-			want: "table: 0x0",
+			recv: TableValue(NewTable()),
+			want: "table: 0x",
 		},
 		{
 			name: "CodeValue",
@@ -184,8 +185,8 @@ func TestValue_ToString(t *testing.T) {
 		},
 		{
 			name: "UserData",
-			recv: UserDataValue((*UserData)(nil)),
-			want: "userdata: 0x0",
+			recv: UserDataValue(NewUserData(nil, nil)),
+			want: "userdata: 0x",
 		},
 		{
 			name: "other type",
@@ -196,7 +197,7 @@ func TestValue_ToString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, got1 := tt.recv.ToString()
-			if got != tt.want {
+			if !strings.HasPrefix(got, tt.want) {
 				t.Errorf("Value.ToString() got = %v, want %v", got, tt.want)
 			}
 			if got1 != tt.ok {

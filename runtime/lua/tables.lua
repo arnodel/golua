@@ -53,14 +53,17 @@ do
     --> =12	xy
 
     print(next(t, b))
-    --> =nil	nil
+    --> =nil
 
     print(pcall(next, t, "abc"))
     --> ~^false
 
     t[b] = nil
     print(next(t, a))
-    --> =nil	nil
+    --> =nil
+
+    print(next({}))
+    --> =nil
 end
 
 -- custom length as used in table module functions

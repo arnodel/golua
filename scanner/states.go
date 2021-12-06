@@ -4,6 +4,21 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
+func scanFirstLine(l *Scanner) stateFn {
+	if l.next() == '#' {
+		for {
+			c := l.next()
+			if c == '\n' || c == '\r' {
+				l.ignore()
+				break
+			}
+		}
+	} else {
+		l.backup()
+	}
+	return scanToken
+}
+
 func scanToken(l *Scanner) stateFn {
 	for {
 		switch c := l.next(); {

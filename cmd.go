@@ -26,12 +26,14 @@ type luaCmd struct {
 	cpuLimit       uint64
 	memLimit       uint64
 	flags          string
+	exec           execFlags
 }
 
 func (c *luaCmd) setFlags() {
 	flag.BoolVar(&c.disFlag, "dis", false, "Disassemble source instead of running it")
 	flag.BoolVar(&c.astFlag, "ast", false, "Print AST instead of running code")
 	flag.BoolVar(&c.unbufferedFlag, "u", false, "Force unbuffered output")
+	flag.Var(&c.exec, "e", "statement to execute")
 
 	if rt.QuotasAvailable {
 		flag.Uint64Var(&c.cpuLimit, "cpulimit", 0, "CPU limit")
@@ -47,6 +49,8 @@ func (c *luaCmd) run() (retcode int) {
 		err       error
 		args      []string
 		flags     rt.ComplianceFlags
+		readStdin bool
+		repl      bool
 	)
 
 	buffered := !isaTTY(os.Stdin) || flag.NArg() > 0
@@ -81,42 +85,18 @@ func (c *luaCmd) run() (retcode int) {
 	// Run finalizers before we exit
 	defer runtime.GC()
 
-	switch flag.NArg() {
-	case 0:
+	if len(c.exec) == 0 && flag.NArg() == 0 {
 		chunkName = "<stdin>"
-		if isaTTY(os.Stdin) {
-			return c.repl(r)
-		}
-		chunk, err = ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			return fatal("Error reading <stdin>: %s", err)
-		}
-	default:
+		readStdin = true
+		repl = isaTTY(os.Stdin)
+	}
+	if flag.NArg() > 0 {
 		chunkName = flag.Arg(0)
 		chunk, err = ioutil.ReadFile(chunkName)
 		if err != nil {
 			return fatal("Error reading '%s': %s", chunkName, err)
 		}
 		args = flag.Args()[1:]
-	}
-	if c.astFlag {
-		stat, _, err := r.ParseLuaChunk(chunkName, chunk)
-		if err != nil {
-			return fatal("Error parsing %s: %s", chunkName, err)
-		}
-		w := ast.NewIndentWriter(os.Stdout)
-		stat.HWrite(w)
-		return 0
-	}
-	chunk = removeSlashBangLine(chunk)
-	unit, _, err := r.CompileLuaChunk(chunkName, chunk)
-	if err != nil {
-		return fatal("Error parsing %s: %s", chunkName, err)
-	}
-
-	if c.disFlag {
-		unit.Disassemble(os.Stdout)
-		return 0
 	}
 
 	var argVals []rt.Value
@@ -131,6 +111,47 @@ func (c *luaCmd) run() (retcode int) {
 		r.SetTable(r.GlobalEnv(), rt.StringValue("arg"), rt.TableValue(argTable))
 	}
 
+	for _, src := range c.exec {
+		unit, _, err := r.CompileLuaChunk("<exec>", []byte(src))
+		if err != nil {
+			return fatal("Error parsing %q: %s", src, err)
+		}
+		clos := r.LoadLuaUnit(unit, rt.TableValue(r.GlobalEnv()))
+		cerr := rt.Call(r.MainThread(), rt.FunctionValue(clos), argVals, rt.NewTerminationWith(nil, 0, false))
+		if cerr != nil {
+			return fatal("!!! %s", cerr.Error())
+		}
+	}
+
+	if readStdin {
+		if repl {
+			return c.repl(r)
+		}
+		chunk, err = ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			return fatal("Error reading <stdin>: %s", err)
+		}
+	}
+
+	if c.astFlag {
+		stat, _, err := r.ParseLuaChunk(chunkName, chunk)
+		if err != nil {
+			return fatal("Error parsing %s: %s", chunkName, err)
+		}
+		w := ast.NewIndentWriter(os.Stdout)
+		stat.HWrite(w)
+		return 0
+	}
+	// chunk = removeSlashBangLine(chunk)
+	unit, _, err := r.CompileLuaChunk(chunkName, chunk)
+	if err != nil {
+		return fatal("Error parsing %s: %s", chunkName, err)
+	}
+	if c.disFlag {
+		unit.Disassemble(os.Stdout)
+		return 0
+	}
+
 	defer func() {
 		if rec := recover(); rec != nil {
 			quotaExceeded, ok := rec.(rt.ContextTerminationError)
@@ -141,7 +162,7 @@ func (c *luaCmd) run() (retcode int) {
 			retcode = 2
 		}
 	}()
-	clos := r.LoadLuaUnit(unit, r.GlobalEnv())
+	clos := r.LoadLuaUnit(unit, rt.TableValue(r.GlobalEnv()))
 	cerr := rt.Call(r.MainThread(), rt.FunctionValue(clos), argVals, rt.NewTerminationWith(nil, 0, false))
 	if cerr != nil {
 		return fatal("!!! %s", cerr.Error())
@@ -159,21 +180,22 @@ func isaTTY(f *os.File) bool {
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
-func removeSlashBangLine(chunk []byte) []byte {
-	if len(chunk) < 2 {
-		return chunk
-	}
-	if chunk[0] != '#' || chunk[1] != '!' {
-		return chunk
-	}
-	i := 3
-	for i < len(chunk) {
-		if chunk[i] == '\n' || chunk[i] == '\r' {
-			return chunk[i+1:]
-		}
-	}
-	return nil
-}
+// func removeSlashBangLine(chunk []byte) []byte {
+// 	if len(chunk) < 2 {
+// 		return chunk
+// 	}
+// 	if chunk[0] != '#' || chunk[1] != '!' {
+// 		return chunk
+// 	}
+// 	i := 3
+// 	for i < len(chunk) {
+// 		if chunk[i] == '\n' || chunk[i] == '\r' {
+// 			return chunk[i+1:]
+// 		}
+// 		i++
+// 	}
+// 	return nil
+// }
 
 func (c *luaCmd) repl(r *rt.Runtime) int {
 	reader := bufio.NewReader(os.Stdin)
@@ -228,7 +250,7 @@ func (c *luaCmd) runChunk(r *rt.Runtime, source []byte) (more bool, err error) {
 			more = false
 		}
 	}()
-	clos, err := r.CompileAndLoadLuaChunk("<stdin>", source, r.GlobalEnv())
+	clos, err := r.CompileAndLoadLuaChunk("<stdin>", source, rt.TableValue(r.GlobalEnv()))
 	if err != nil {
 		snErr, ok := err.(*rt.SyntaxError)
 		if !ok {
@@ -249,4 +271,15 @@ func (c *luaCmd) runChunk(r *rt.Runtime, source []byte) (more bool, err error) {
 		return false, nil
 	}
 	return false, cerr
+}
+
+type execFlags []string
+
+func (e *execFlags) String() string {
+	return strings.Join(*e, "; ")
+}
+
+func (e *execFlags) Set(value string) error {
+	*e = append(*e, value)
+	return nil
 }

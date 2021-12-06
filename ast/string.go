@@ -2,7 +2,7 @@ package ast
 
 import (
 	"bytes"
-	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 
@@ -92,7 +92,7 @@ func replaceEscapeSeq(e []byte) []byte {
 			panic(err)
 		}
 		if b >= 256 {
-			panic(errors.New("decimal escape sequence out of range"))
+			panic(fmt.Errorf("decimal escape sequence out of range near '%s'", e))
 		}
 		return []byte{byte(b)}
 	case 'u', 'U':
@@ -101,7 +101,7 @@ func replaceEscapeSeq(e []byte) []byte {
 			panic(err)
 		}
 		if i >= 0x110000 {
-			panic(errors.New("unicode escape sequence out of range"))
+			panic(fmt.Errorf("unicode escape sequence out of range near '%s'", e))
 		}
 		return []byte(string(rune(i)))
 	default:

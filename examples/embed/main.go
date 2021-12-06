@@ -15,7 +15,7 @@ func main() {
 	source := []byte(`return function(x, y) return x + y end`)
 
 	// Compile the chunk. Note that compiling doesn't require a runtime.
-	chunk, _ := r.CompileAndLoadLuaChunk("test", source, r.GlobalEnv())
+	chunk, _ := r.CompileAndLoadLuaChunk("test", source, rt.TableValue(r.GlobalEnv()))
 
 	// Run the chunk in the runtime's main thread.  Its output is the Lua adding
 	// function.

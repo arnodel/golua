@@ -222,7 +222,9 @@ do
     --> =2
 
     ps("c10i")
-    --> =14
+    -- Was 14 but moved packsize of i to 8
+    -- --> =14
+    --> =18
 
     ps("lx")
     --> =9

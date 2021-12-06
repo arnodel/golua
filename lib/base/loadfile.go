@@ -11,14 +11,10 @@ func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, rt.NewErrorE(err)
 	}
 	var chunkMode string
-	var chunkEnv = t.GlobalEnv()
+	var chunkEnv = rt.TableValue(t.GlobalEnv())
 	switch nargs := c.NArgs(); {
 	case nargs >= 3:
-		var err *rt.Error
-		chunkEnv, err = c.TableArg(2)
-		if err != nil {
-			return nil, err
-		}
+		chunkEnv = c.Arg(2)
 		fallthrough
 	case nargs >= 2:
 		mode, err := c.StringArg(1)

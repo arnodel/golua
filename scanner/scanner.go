@@ -27,7 +27,7 @@ func New(name string, input []byte) *Scanner {
 	l := &Scanner{
 		name:  name,
 		input: normalizeNewLines(input),
-		state: scanToken,
+		state: scanFirstLine,
 		items: make(chan *token.Token, 2), // Two items sufficient.
 		pos:   token.Pos{Line: 1, Column: 1},
 		start: token.Pos{Line: 1, Column: 1},

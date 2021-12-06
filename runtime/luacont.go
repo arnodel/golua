@@ -112,6 +112,8 @@ RunLoop:
 	for {
 		t.RequireCPU(1)
 		// fmt.Println("PC", pc)
+		// fmt.Println(c.DebugInfo().String())
+
 		opcode := opcodes[pc]
 		if opcode.HasType1() {
 			dst := opcode.GetA()

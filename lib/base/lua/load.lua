@@ -22,9 +22,6 @@ loadfile("lua/loadfile.lua.notest")()
 loadfile("lua/loadfile.lua.notest", "t", {print=print, ggg = "global"})()
 --> =global
 
-print(pcall(loadfile, "lua/loadfile.lua.notest", "t", 123))
---> ~false\t.*must be a table
-
 print(pcall(loadfile, "lua/loadfile.lua.notest", 123))
 --> ~false\t.*must be a string
 
