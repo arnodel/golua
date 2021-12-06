@@ -6,6 +6,14 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_tags:
+          - ''
+          - 'noquotas'
+          - 'nocontpool noregpool'
+          - 'noquotas nocontpool noregpool'
+
     steps:
     - uses: actions/checkout@v2
 
@@ -15,20 +23,14 @@ jobs:
         go-version: 1.16
 
     - name: All tests
-      run: go test -coverprofile=coverage.txt -covermode=atomic ./...
+      run: go test -tags '${{ matrix.build_tags }}' -coverprofile=coverage.txt -covermode=atomic ./...
 
-    - name: All tests noquotas noregpool nocontpool
-      run: go test -tags 'noquotas noregpool nocontpool' -coverprofile=coverage-noquotas.txt -covermode=atomic ./...
-    
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       with:
-        files: ./coverage.txt,./coverage-noquotas.txt
+        files: ./coverage.txt
         name: codecov-all-tests
         verbose: true
     
     - name: Build CLI
-      run: go build
-    
-    - name: Build CLI noquotas noregpool nocontpool
-      run: go build -tags 'noquotas noregpool nocontpool'
+      run: go build -tags '${{ matrix.build_tags }}'
