@@ -98,3 +98,4 @@ type patternItem struct {
 var errInvalidPattern = errors.New("malformed pattern")
 var errUnfinishedCapture = errors.New("unfinished capture")
 var errInvalidPatternCapture = errors.New("invalid pattern capture")
+var errPatternTooComplex = errors.New("pattern too complex")

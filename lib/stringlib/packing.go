@@ -167,7 +167,7 @@ func init() {
 }
 
 var (
-	errBadOptionArg           = errors.New("arg out of limits: must be between 1 and 16")
+	errBadOptionArg           = errors.New("arg out of limits [1,16]")
 	errMissingSize            = errors.New("missing size")
 	errBadType                = errors.New("bad value type") // TODO: better error
 	errOutOfBounds            = errors.New("overflow")       // TODO: better error

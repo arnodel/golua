@@ -7,15 +7,16 @@ import (
 func scanFirstLine(l *Scanner) stateFn {
 	if l.next() == '#' {
 		for {
-			c := l.next()
-			if c == '\n' || c == '\r' {
+			switch l.next() {
+			case '\n', '\r':
 				l.ignore()
-				break
+				return scanToken
+			case -1:
+				return l.errorf("<eof> in # line")
 			}
 		}
-	} else {
-		l.backup()
 	}
+	l.backup()
 	return scanToken
 }
 
@@ -145,7 +146,7 @@ func scanLong(comment bool) stateFn {
 					closeLevel++
 				}
 			case -1:
-				return l.errorf("Illegal EOF in long bracket of level %d", level)
+				return l.errorf("illegal <eof> in long bracket of level %d", level)
 			default:
 				closeLevel = -1
 			}
@@ -202,7 +203,7 @@ func scanShortString(q rune) stateFn {
 			case '\n', '\r':
 				return l.errorf("Illegal new line in string literal")
 			case -1:
-				return l.errorf("Illegal EOF in string literal")
+				return l.errorf("illegal <eof> in string literal")
 			}
 		}
 	}

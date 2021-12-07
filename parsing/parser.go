@@ -12,7 +12,12 @@ import (
 
 // Parser can parse lua statements or expressions
 type Parser struct {
-	getToken func() *token.Token
+	scanner Scanner
+}
+
+type Scanner interface {
+	Scan() *token.Token
+	ErrorMsg() string
 }
 
 type Error struct {
@@ -22,7 +27,9 @@ type Error struct {
 
 func (e Error) Error() string {
 	expected := e.Expected
-	if expected == "" {
+	if e.Got.Type == token.INVALID {
+		expected = "invalid token: " + expected
+	} else if expected == "" {
 		expected = "unexpected symbol"
 	} else {
 		expected = "expected " + expected
@@ -38,7 +45,7 @@ func (e Error) Error() string {
 
 // ParseExp takes in a function that returns tokens and builds an ExpNode for it
 // (or returns an error).
-func ParseExp(getToken func() *token.Token) (exp ast.ExpNode, err error) {
+func ParseExp(scanner Scanner) (exp ast.ExpNode, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			exp = nil
@@ -49,16 +56,16 @@ func ParseExp(getToken func() *token.Token) (exp ast.ExpNode, err error) {
 			}
 		}
 	}()
-	parser := &Parser{getToken}
+	parser := &Parser{scanner}
 	var t *token.Token
-	exp, t = parser.Exp(getToken())
+	exp, t = parser.Exp(parser.Scan())
 	expectType(t, token.EOF, "<eof>")
 	return
 }
 
 // ParseChunk takes in a function that returns tokens and builds a BlockStat for it
 // (or returns an error).
-func ParseChunk(getToken func() *token.Token) (stat ast.BlockStat, err error) {
+func ParseChunk(scanner Scanner) (stat ast.BlockStat, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			stat = ast.BlockStat{}
@@ -69,16 +76,20 @@ func ParseChunk(getToken func() *token.Token) (stat ast.BlockStat, err error) {
 			}
 		}
 	}()
-	parser := &Parser{getToken}
+	parser := &Parser{scanner}
 	var t *token.Token
-	stat, t = parser.Block(getToken())
+	stat, t = parser.Block(parser.Scan())
 	expectType(t, token.EOF, "<eof>")
 	return
 }
 
 // Scan returns the next token.
 func (p *Parser) Scan() *token.Token {
-	return p.getToken()
+	tok := p.scanner.Scan()
+	if tok.Type == token.INVALID {
+		panic(Error{Got: tok, Expected: p.scanner.ErrorMsg()})
+	}
+	return tok
 }
 
 // Stat parses any statement.

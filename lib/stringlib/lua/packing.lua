@@ -7,10 +7,10 @@ do
     --> =100	200
 
     pack("<i", 1)
-    --> =1	0	0	0
+    --> =1	0	0	0	0	0	0	0
 
     pack(">i", 1)
-    --> =0	0	0	1
+    --> =0	0	0	0	0	0	0	1
 
     pack("!2bh", 10, 20)
     --> =10	0	20	0
@@ -114,10 +114,10 @@ do
     unpack("b", "A")
     --> =65	2
 
-    unpack("<i", "abcd")
+    unpack("<i4", "abcd")
     --> =1684234849	5
 
-    unpack(">i", "abcd")
+    unpack(">i4", "abcd")
     --> =1633837924	5
 
     unpack("<bc2H", "Bhi\x00\x04")
@@ -129,7 +129,7 @@ do
     unpack("B", "1234\xff678", 5)
     --> =255	6
 
-    unpack("<!4zi", "hi\x00*\x00\x00\x01\x00")
+    unpack("<!4zi4", "hi\x00*\x00\x00\x01\x00")
     --> =hi	65536	9
 
     unpack("!4c1Xlc1", "A***B")
@@ -141,7 +141,7 @@ do
     unpack("<J", "\x00\x00\x01\x00\x00\x00\x00\x00")
     --> =65536	9
 
-    unpack(">I", "\xff\xff\xff\xff")
+    unpack(">I4", "\xff\xff\xff\xff")
     --> =4294967295	5
 
     unpack("<f", "\x00\x00\x00\x00")

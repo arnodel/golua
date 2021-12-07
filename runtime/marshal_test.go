@@ -77,15 +77,24 @@ func TestUnmarshalConst(t *testing.T) {
 		{
 			name: "consume the budget",
 			args: args{
-				r:      bytes.NewBuffer([]byte{byte(StringType), 1, 1, 1, 1, 1, 1, 1, 1}), // would be very long
+				r:      bytes.NewBuffer([]byte{6, 0, 4, byte(StringType), 1, 1, 1, 1, 1, 1, 1, 1}), // would be very long
 				budget: 1000,
 			},
 			wantUsed: 1000,
 		},
 		{
+			name: "wrong prefix",
+			args: args{
+				r:      bytes.NewBuffer([]byte{6, 1, 4, byte(StringType), 1, 1, 1, 1, 1, 1, 1, 1}), // would be very long
+				budget: 1000,
+			},
+			wantErr: true,
+		},
+
+		{
 			name: "read wrong type",
 			args: args{
-				r: bytes.NewBuffer([]byte{byte(FunctionType)}),
+				r: bytes.NewBuffer([]byte{6, 0, 4, byte(FunctionType)}),
 			},
 			wantErr: true,
 		},

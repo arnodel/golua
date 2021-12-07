@@ -21,3 +21,11 @@ end
 local f = fib(1, 1)
 print(f(), f(), f(), f(), f(), f())
 --> =1	1	2	3	5	8
+
+-- equality of closures
+local function mkf()
+    return function(x) return x + _ENV.x end
+end
+
+print(mkf() == mkf())
+--> =true

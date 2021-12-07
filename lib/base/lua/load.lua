@@ -56,7 +56,7 @@ print(pcall(load, {}))
 --> ~false\t.*string or function
 
 print(load("\x00", "", "t"))
---> ~nil\t.*binary chunk
+--> ~nil\t.*invalid token
 
 print(load("hi", "", "b"))
 --> ~nil\t.*text chunk
@@ -66,4 +66,4 @@ load(string.dump(function() print("hi", z) end))()
 --> =hi	nil
 
 print(load("???", "", "t"))
---> ~nil\t.*unexpected
+--> ~nil\t.*invalid token
