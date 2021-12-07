@@ -268,7 +268,7 @@ func (c *compiler) ProcessRepeatStat(s ast.RepeatStat) {
 
 	loopLbl := c.GetNewLabel()
 	c.EmitLabel(loopLbl)
-	pop := c.compileBlockNoPop(s.Body)
+	pop := c.compileBlockNoPop(s.Body, false)
 	condReg := c.compileExpNoDestHint(s.Cond)
 	negReg := c.GetFreeRegister()
 	c.emitInstr(s.Cond, ir.Transform{
@@ -311,13 +311,16 @@ func (c *compiler) CompileStat(s ast.Stat) {
 //
 
 func (c *compiler) compileBlock(s ast.BlockStat) {
-	c.compileBlockNoPop(s)()
+	c.compileBlockNoPop(s, true)()
 }
 
-func (c *compiler) compileBlockNoPop(s ast.BlockStat) func() {
+func (c *compiler) compileBlockNoPop(s ast.BlockStat, complete bool) func() {
 	totalDepth := 0
 	getLabels(c.CodeBuilder, s.Stats)
-	truncLen := len(s.Stats) - getBackLabels(c.CodeBuilder, s.Stats)
+	truncLen := len(s.Stats)
+	if complete {
+		truncLen -= getBackLabels(c.CodeBuilder, s.Stats)
+	}
 	for i, stat := range s.Stats {
 		switch stat.(type) {
 		case ast.LocalStat, ast.LocalFunctionStat:
@@ -364,12 +367,15 @@ func getLabels(c *ir.CodeBuilder, statements []ast.Stat) {
 func getBackLabels(c *ir.CodeBuilder, statements []ast.Stat) int {
 	count := 0
 	for i := len(statements) - 1; i >= 0; i-- {
-		if lbl, ok := statements[i].(ast.LabelStat); ok {
-			count++
-			c.DeclareGotoLabel(ir.Name(lbl.Name.Val))
-		} else {
-			break
+		switch s := statements[i].(type) {
+		case ast.EmptyStat:
+			// That doesn't count
+		case ast.LabelStat:
+			c.DeclareGotoLabel(ir.Name(s.Name.Val))
+		default:
+			return count
 		}
+		count++
 	}
 	return count
 }
