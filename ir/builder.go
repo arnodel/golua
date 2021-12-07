@@ -167,7 +167,7 @@ func (c *CodeBuilder) EmitJump(lblName Name, line int) {
 		}
 		c.emitClearReg(top)
 	}
-	panic("Undefined label for jump")
+	panic(fmt.Errorf("undefined label '%s' at line %d", lblName, line))
 }
 
 func (c *CodeBuilder) DeclareLocal(name Name, reg Register) {

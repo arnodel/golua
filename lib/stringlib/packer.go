@@ -75,12 +75,12 @@ func PackValues(format string, values []rt.Value, budget uint64) (string, uint64
 				p.checkBounds(0, math.MaxInt64) &&
 				p.write(8, uint64(p.intVal))
 		case 'i':
-			_ = p.smallOptSize(4) &&
+			_ = p.smallOptSize(8) &&
 				p.align(p.optSize) &&
 				p.nextIntValue() &&
 				p.packInt()
 		case 'I':
-			_ = p.smallOptSize(4) &&
+			_ = p.smallOptSize(8) &&
 				p.align(p.optSize) &&
 				p.nextIntValue() &&
 				p.packUint()

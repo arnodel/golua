@@ -262,7 +262,7 @@ func (r *Runtime) ParseLuaChunk(name string, source []byte) (stat *ast.BlockStat
 	r.LinearRequire(4, uint64(len(source))) // 4 is a factor pulled out of thin air
 
 	stat = new(ast.BlockStat)
-	*stat, err = parsing.ParseChunk(s.Scan)
+	*stat, err = parsing.ParseChunk(s)
 	if err != nil {
 		r.ReleaseMem(statSize)
 		parseErr, ok := err.(parsing.Error)
@@ -294,10 +294,15 @@ func (r *Runtime) CompileLuaChunk(name string, source []byte) (*code.Unit, uint6
 	defer r.ReleaseMem(constsSize)
 
 	// Compile ast to ir
-	kidx, constants := astcomp.CompileLuaChunk(name, *stat)
+	kidx, constants, err := astcomp.CompileLuaChunk(name, *stat)
 
-	// We no longer need the AST
+	// We no longer need the AST (whether that succeeded or not)
 	r.ReleaseMem(statSize)
+
+	if err != nil {
+		return nil, 0, fmt.Errorf("%s: %s", name, err)
+	}
+
 	statSize = 0 // So that the deferred function above doesn't release the memory again.
 
 	// "Optimise" the ir code

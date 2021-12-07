@@ -77,12 +77,12 @@ func UnpackString(format, pack string, j int, budget uint64) (vals []rt.Value, n
 				u.read(8, &x) &&
 				u.add(rt.IntValue(int64(x)))
 		case 'i':
-			_ = u.smallOptSize(4) &&
+			_ = u.smallOptSize(8) &&
 				u.align(u.optSize) &&
 				u.readVarInt() &&
 				u.add(rt.IntValue(u.intVal))
 		case 'I':
-			_ = u.smallOptSize(4) &&
+			_ = u.smallOptSize(8) &&
 				u.align(u.optSize) &&
 				u.readVarUint() &&
 				u.add(rt.IntValue(u.intVal))

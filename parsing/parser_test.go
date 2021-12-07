@@ -10,15 +10,20 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
-func testScanner(src string) func() *token.Token {
-	s := scanner.New("test", []byte(src))
-	return func() *token.Token {
-		tok := s.Scan()
-		if tok != nil {
-			tok.Pos = token.Pos{Offset: -1}
-		}
-		return tok
+type testScanner struct {
+	*scanner.Scanner
+}
+
+func (s testScanner) Scan() *token.Token {
+	tok := s.Scanner.Scan()
+	if tok != nil {
+		tok.Pos = token.Pos{Offset: -1}
 	}
+	return tok
+}
+
+func newTestScanner(src string) Scanner {
+	return testScanner{scanner.New("test", []byte(src))}
 }
 
 func tok(tp token.Type, lit string) *token.Token {
@@ -76,7 +81,7 @@ func TestParser_Return(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.Return(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.Return() got = %v, want %v", got, tt.want)
@@ -163,7 +168,7 @@ func TestParser_PrefixExp(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.PrefixExp(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.PrefixExp() got = %v, want %v", got, tt.want)
@@ -243,7 +248,7 @@ func TestParser_TableConstructor(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.TableConstructor(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.TableConstructor() got = %v, want %v", got, tt.want)
@@ -380,7 +385,7 @@ func TestParser_ShortExp(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.ShortExp(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.ShortExp() got = %v, want %v", got, tt.want)
@@ -454,7 +459,7 @@ func TestParser_FunctionDef(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.FunctionDef(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.FunctionDef() got = %v, want %v", got, tt.want)
@@ -522,7 +527,7 @@ func TestParser_Args(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.Args(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.Args() got = %v, want %v", got, tt.want)
@@ -572,7 +577,7 @@ func TestParser_Field(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.Field(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.Field() got = %v, want %v", got, tt.want)
@@ -684,7 +689,7 @@ func TestParser_Exp(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.Exp(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.Exp() got = %+v, want %+v", got, tt.want)
@@ -764,7 +769,7 @@ func TestParser_Block(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.Block(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.Block() got = %v, want %v", got, tt.want)
@@ -861,7 +866,7 @@ func TestParser_If(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.If(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.If() got = %+v, want %+v", got, tt.want)
@@ -937,7 +942,7 @@ func TestParser_For(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.For(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.For() got = %v, want %v", got, tt.want)
@@ -1006,7 +1011,7 @@ func TestParser_Local(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.Local(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.Local() got = %v, want %v", got, tt.want)
@@ -1076,7 +1081,7 @@ func TestParser_FunctionStat(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.FunctionStat(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.FunctionStat() got = %v, want %v", got, tt.want)
@@ -1219,7 +1224,7 @@ func TestParser_Stat(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{getToken: testScanner(tt.input)}
+			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.Stat(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.Stat() got = %v, want %v", got, tt.want)
@@ -1254,7 +1259,7 @@ func TestParseChunk(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotStat, err := ParseChunk(testScanner(tt.input))
+			gotStat, err := ParseChunk(newTestScanner(tt.input))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseChunk() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1292,7 +1297,7 @@ func TestParseExp(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotExp, err := ParseExp(testScanner(tt.input))
+			gotExp, err := ParseExp(newTestScanner(tt.input))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseExp() error = %v, wantErr %v", err, tt.wantErr)
 				return

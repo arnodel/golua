@@ -85,33 +85,34 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 	canBeBinary := strings.IndexByte(chunkMode, 'b') >= 0
 	canBeText := strings.IndexByte(chunkMode, 't') >= 0
-	if len(chunk) > 0 && chunk[0] < byte(rt.ConstTypeMaj) {
-		// binary chunk
-		if !canBeBinary {
-			t.Push(next, rt.NilValue, rt.StringValue("attempt to load a binary chunk"))
-			return next, nil
-		}
+
+	if canBeBinary {
 		r := bytes.NewBuffer(chunk)
-		// TODO consume memory / cpu to unmarshal
 		k, used, err := rt.UnmarshalConst(r, t.LinearUnused(10))
 		t.LinearRequire(10, used)
-		if err != nil {
-			return nil, rt.NewErrorE(err)
-		}
-		code, ok := k.TryCode()
-		if !ok {
-			return nil, rt.NewErrorF("Expected function to load")
-		}
-		clos := rt.NewClosure(t.Runtime, code)
-		if code.UpvalueCount > 0 {
-			clos.AddUpvalue(rt.NewCell(chunkEnv))
-			t.RequireCPU(uint64(code.UpvalueCount))
-			for i := int16(1); i < code.UpvalueCount; i++ {
-				clos.AddUpvalue(rt.NewCell(rt.NilValue))
+		if err != rt.ErrInvalidMarshalPrefix {
+			if err != nil {
+				return nil, rt.NewErrorE(err)
 			}
+			code, ok := k.TryCode()
+			if !ok {
+				return nil, rt.NewErrorF("Expected function to load")
+			}
+			clos := rt.NewClosure(t.Runtime, code)
+			if code.UpvalueCount > 0 {
+				clos.AddUpvalue(rt.NewCell(chunkEnv))
+				t.RequireCPU(uint64(code.UpvalueCount))
+				for i := int16(1); i < code.UpvalueCount; i++ {
+					clos.AddUpvalue(rt.NewCell(rt.NilValue))
+				}
+			}
+			return c.PushingNext(t.Runtime, rt.FunctionValue(clos)), nil
 		}
-		return c.PushingNext(t.Runtime, rt.FunctionValue(clos)), nil
-	} else if !canBeText {
+	} else if rt.HasMarshalPrefix(chunk) {
+		t.Push(next, rt.NilValue, rt.StringValue("attempt to load a binary chunk"))
+	}
+
+	if !canBeText {
 		t.Push(next, rt.NilValue, rt.StringValue("attempt to load a text chunk"))
 		return next, nil
 	}

@@ -5,6 +5,8 @@ import (
 	"fmt"
 )
 
+const maxPatternSize = 100000
+
 type patternBuilder struct {
 	items                   []patternItem
 	ciMax                   uint64
@@ -24,10 +26,15 @@ func (pb *patternBuilder) getPattern() (*Pattern, error) {
 	// 	anchorRight = true
 	// 	pb.ptn = pb.ptn[:last]
 	// }
+	sz := 0
 	for pb.i < len(pb.ptn) {
 		err := pb.getPatternItem()
 		if err != nil {
 			return nil, err
+		}
+		sz++
+		if sz > maxPatternSize {
+			return nil, errPatternTooComplex
 		}
 	}
 	if len(pb.cStack) != 0 {

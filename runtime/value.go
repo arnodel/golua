@@ -79,7 +79,7 @@ func (v Value) Equals(v2 Value) bool {
 	if v.scalar != v2.scalar || ifaceType(v.iface) != ifaceType(v2.iface) {
 		return false
 	}
-	switch v.iface.(type) {
+	switch x := v.iface.(type) {
 	case int64, float64:
 		return true
 	case string:
@@ -87,6 +87,8 @@ func (v Value) Equals(v2 Value) bool {
 		if v.scalar != 0 {
 			return true
 		}
+	case *Closure:
+		return x.Equals(v2.iface.(*Closure))
 	}
 	return v.iface == v2.iface
 }

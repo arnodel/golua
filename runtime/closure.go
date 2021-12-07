@@ -21,6 +21,18 @@ func NewClosure(r *Runtime, c *Code) *Closure {
 	}
 }
 
+func (c *Closure) Equals(c1 *Closure) bool {
+	if c.Code != c1.Code || len(c.Upvalues) != len(c1.Upvalues) {
+		return false
+	}
+	for i, upv := range c.Upvalues {
+		if c1.Upvalues[i] != upv {
+			return false
+		}
+	}
+	return true
+}
+
 // AddUpvalue append a new upvalue to the closure.
 func (c *Closure) AddUpvalue(cell Cell) {
 	c.Upvalues[c.upvalueIndex] = cell

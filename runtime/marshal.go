@@ -1,12 +1,20 @@
 package runtime
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
 
 	"github.com/arnodel/golua/code"
 )
+
+var marshalPrefix = []byte{6, 0, 4}
+var ErrInvalidMarshalPrefix = errors.New("Invalid marshal prefix")
+
+func HasMarshalPrefix(bs []byte) bool {
+	return len(bs) >= len(marshalPrefix) && bytes.Equal(marshalPrefix, bs[:len(marshalPrefix)])
+}
 
 // MarshalConst serializes a const value to the writer w.
 func MarshalConst(w io.Writer, c Value, budget uint64) (used uint64, err error) {
@@ -15,6 +23,9 @@ func MarshalConst(w io.Writer, c Value, budget uint64) (used uint64, err error) 
 			used = budget
 		}
 	}()
+	if _, err := w.Write(marshalPrefix); err != nil {
+		return 0, err
+	}
 	bw := bwriter{w: w, budget: budget}
 	bw.writeConst(c)
 	return budget - bw.budget, bw.err
@@ -27,6 +38,14 @@ func UnmarshalConst(r io.Reader, budget uint64) (v Value, used uint64, err error
 			used = budget
 		}
 	}()
+	pfx := make([]byte, len(marshalPrefix))
+	_, err = r.Read(pfx)
+	if !bytes.Equal(pfx, marshalPrefix) {
+		err = ErrInvalidMarshalPrefix
+	}
+	if err != nil {
+		return
+	}
 	br := breader{r: r, budget: budget}
 	v = br.readConst()
 	return v, budget - br.budget, br.err

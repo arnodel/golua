@@ -141,7 +141,7 @@ func TestScanner(t *testing.T) {
 		{
 			`   [===[foo]==]`,
 			[]tok{{token.INVALID, `[===[foo]==]`, 3, 1, 4}},
-			"Illegal EOF in long bracket of level 3",
+			"illegal <eof> in long bracket of level 3",
 		},
 		//
 		// Short strings
@@ -191,7 +191,7 @@ func TestScanner(t *testing.T) {
 		{
 			`"foo\"`,
 			[]tok{{token.INVALID, `"foo\"`, 0, 1, 1}},
-			"Illegal EOF in string literal",
+			"illegal <eof> in string literal",
 		},
 		{
 			`"\o"`,
