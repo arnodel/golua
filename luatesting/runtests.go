@@ -61,7 +61,6 @@ func RunLuaTestFile(t *testing.T, path string, setup func(*runtime.Runtime) func
 		}
 		err = RunLuaTest(src, setup)
 		if err != nil {
-			t.Error("XXX")
 			t.Error(err)
 		}
 	})

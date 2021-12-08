@@ -34,5 +34,5 @@ func errorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			}
 		}
 	}
-	return nil, rt.NewError(c.Arg(0))
+	return nil, rt.NewError(msg)
 }

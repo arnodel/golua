@@ -13,7 +13,7 @@ do
     print(#t)
     --> =3
 
-    f = function() error("hi") end
+    f = function() error("hi", 0) end
     print(pcall(function() return #t end))
     --> =false	hi
 
@@ -33,5 +33,5 @@ do
     --> =nil
 
     print(type(io.stdout))
-    --> =userdata
+    --> =file
 end

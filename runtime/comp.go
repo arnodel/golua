@@ -103,5 +103,5 @@ func le(t *Thread, x, y Value) (bool, *Error) {
 }
 
 func compareError(x, y Value) *Error {
-	return NewErrorF("attempt to compare a '%s' with a '%s'", x.TypeName(), y.TypeName())
+	return NewErrorF("attempt to compare a %s value with a %s value", x.TypeName(), y.TypeName())
 }

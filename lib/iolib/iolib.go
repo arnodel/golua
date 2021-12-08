@@ -40,6 +40,7 @@ func load(r *rt.Runtime) rt.Value {
 	)
 
 	meta := rt.NewTable()
+	r.SetEnv(meta, "__name", rt.StringValue("file"))
 	r.SetEnv(meta, "__index", rt.TableValue(methods))
 
 	rt.SolemnlyDeclareCompliance(

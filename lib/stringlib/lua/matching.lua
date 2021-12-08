@@ -187,10 +187,10 @@ do
     local replt = {}
     setmetatable(replt, {__index=function() error("boo") end})
     errgs("xyz", "xyz", replt)
-    --> =boo
+    --> ~boo
 
     errgs("xyz", "xyz", function () error("baa") end)
-    --> =baa
+    --> ~baa
 
     errgs("xyz", "xyz", false)
     --> ~must be a string, table or function

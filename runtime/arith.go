@@ -143,6 +143,9 @@ func idiv(t *Thread, x Value, y Value) (Value, *Error) {
 	case IsInt:
 		switch ky {
 		case IsInt:
+			if ny == 0 {
+				return NilValue, NewErrorS("attempt to divide by zero")
+			}
 			return IntValue(floordivInt(nx, ny)), nil
 		case IsFloat:
 			return FloatValue(floordivFloat(float64(nx), fy)), nil
@@ -186,6 +189,9 @@ func Mod(t *Thread, x Value, y Value) (Value, *Error) {
 	case IsInt:
 		switch ky {
 		case IsInt:
+			if ny == 0 {
+				return NilValue, NewErrorS("attempt to perform 'n%0'")
+			}
 			return IntValue(modInt(nx, ny)), nil
 		case IsFloat:
 			return FloatValue(modFloat(float64(nx), fy)), nil
@@ -245,5 +251,5 @@ func binaryArithmeticError(op string, x, y Value, kx, ky NumberType) *Error {
 	default:
 		return NewErrorF("attempt to %s a '%s' with a '%s'", op, x.TypeName(), y.TypeName())
 	}
-	return NewErrorF("attempt to perform arithmetic on a '%s'", wrongVal.TypeName())
+	return NewErrorF("attempt to perform arithmetic on a %s value", wrongVal.TypeName())
 }

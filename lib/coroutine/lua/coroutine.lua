@@ -46,7 +46,7 @@ do
     end
     local co = coroutine.create(cof)
     print(coroutine.resume(co))
-    --> ~^false\tboo$
+    --> ~^false\t.* boo$
     print(coroutine.status(co))
     --> =dead
 end

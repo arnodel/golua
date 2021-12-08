@@ -59,7 +59,7 @@ p(1, 2, 3)
 --> =>>>	1	2	3
 
 local function g(x)
-  error(x .. "ld!")
+  error(x .. "ld!", 0)
 end
 local function f(x)
     g(x .. ", wor")

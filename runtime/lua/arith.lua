@@ -55,3 +55,9 @@ print(3^2, 9^0.5, 0.5^2, 4.0^1.5)
 
 testbin(function(x, y) return x^y end, 1, {})
 --> =true
+
+print(pcall(function() return 1//0 end))
+--> ~false\t.*divide by zero
+
+print(pcall(function() return 1%0 end))
+--> ~false\t.*perform 'n%0'

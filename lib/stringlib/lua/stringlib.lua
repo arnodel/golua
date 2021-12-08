@@ -243,7 +243,7 @@ do
     --> ~not enough values
 
     local t = {}
-    setmetatable(t, {__tostring=function() error("bad") end})
+    setmetatable(t, {__tostring=function() error("bad", 0) end})
     errf("%s", t)
     --> =bad
 
