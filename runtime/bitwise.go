@@ -10,7 +10,7 @@ func band(t *Thread, x, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("band expects bandable values")
+	return NilValue, binaryBitwiseError("and", x, y, okx, oky)
 }
 
 func bor(t *Thread, x, y Value) (Value, *Error) {
@@ -23,7 +23,7 @@ func bor(t *Thread, x, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("bor expects bordable values")
+	return NilValue, binaryBitwiseError("or", x, y, okx, oky)
 }
 
 func bxor(t *Thread, x, y Value) (Value, *Error) {
@@ -36,7 +36,7 @@ func bxor(t *Thread, x, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("bxor expects bxordable values")
+	return NilValue, binaryBitwiseError("xor", x, y, okx, oky)
 }
 
 func shl(t *Thread, x, y Value) (Value, *Error) {
@@ -52,7 +52,7 @@ func shl(t *Thread, x, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("shl expects shldable values")
+	return NilValue, binaryBitwiseError("shl", x, y, okx, oky)
 }
 
 func shr(t *Thread, x, y Value) (Value, *Error) {
@@ -68,7 +68,7 @@ func shr(t *Thread, x, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("shr expects shrdable values")
+	return NilValue, binaryBitwiseError("shr", x, y, okx, oky)
 }
 
 func bnot(t *Thread, x Value) (Value, *Error) {
@@ -80,5 +80,26 @@ func bnot(t *Thread, x Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("bnot expects a bnotable value")
+	return NilValue, binaryBitwiseError("not", x, x, false, true)
+}
+
+func binaryBitwiseError(op string, x, y Value, okx, oky bool) *Error {
+	var wrongVal Value
+	switch {
+	case oky:
+		wrongVal = x
+	case okx:
+		wrongVal = y
+	case x.Type() != FloatType:
+		wrongVal = x
+	case y.Type() != FloatType:
+		wrongVal = y
+	default:
+		// Both x, and y are floats
+		wrongVal = x
+	}
+	if wrongVal.Type() == FloatType {
+		return NewErrorF("number has no integer representation")
+	}
+	return NewErrorF("attempt to perform bitwise %s on a '%s", op, wrongVal.TypeName())
 }

@@ -9,10 +9,10 @@ do
     --> =false	true
 
     test("hi", 0)
-    --> ~false\t.*must be > 0
+    --> ~false\t.*hi
 
     test()
-    --> ~false\t.*value needed
+    --> ~false\t.*nil
 
     test("foo", "bar")
     --> ~false\t.*must be an integer

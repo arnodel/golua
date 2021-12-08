@@ -22,7 +22,7 @@ do
 
     setmetatable(t, {__tostring=1})
     test(t)
-    --> ~.*expects a callable
+    --> ~.*attempt to call
 
     test({})
     --> ~table:.*

@@ -66,7 +66,7 @@ func Lt(t *Thread, x, y Value) (bool, *Error) {
 	if ok {
 		return Truth(res), err
 	}
-	return false, NewErrorS("lt expects ltable values")
+	return false, compareError(x, y)
 }
 
 func le(t *Thread, x, y Value) (bool, *Error) {
@@ -99,5 +99,9 @@ func le(t *Thread, x, y Value) (bool, *Error) {
 	if ok {
 		return !Truth(res), err
 	}
-	return false, NewErrorS("le expects leable values")
+	return false, compareError(x, y)
+}
+
+func compareError(x, y Value) *Error {
+	return NewErrorF("attempt to compare a '%s' with a '%s'", x.TypeName(), y.TypeName())
 }

@@ -346,5 +346,5 @@ func subToString(r *rt.Runtime, key string, val rt.Value) (string, *rt.Error) {
 		r.RequireBytes(len(res))
 		return res, nil
 	}
-	return "", rt.NewErrorF("invalid replacement value (a %s)", rt.Type(val))
+	return "", rt.NewErrorF("invalid replacement value (a %s)", val.TypeName())
 }
