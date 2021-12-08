@@ -84,5 +84,5 @@ do
     local t = {"x", "y"}
     debug.setmetatable(t, {__len=function() error("haha") end})
     print(pcall(table.insert, t, 5))
-    --> =false	haha
+    --> ~false\t.* haha
 end

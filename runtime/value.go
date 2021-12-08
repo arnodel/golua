@@ -228,7 +228,7 @@ func (v Value) TypeName() string {
 	case string:
 		return "string"
 	case *Table:
-		return "table"
+		return getName("table", v.iface.(*Table).Metatable())
 	case *Code:
 		return "code"
 	case *GoFunction, *Closure:
@@ -236,7 +236,7 @@ func (v Value) TypeName() string {
 	case *Thread:
 		return "thread"
 	case *UserData:
-		return "userdata"
+		return getName("userdata", v.iface.(*UserData).Metatable())
 	default:
 		return "<unknown type>"
 	}

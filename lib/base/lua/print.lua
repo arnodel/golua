@@ -1,7 +1,7 @@
 _tostring = tostring
 function tostring(x)
     if x == 42 then
-        error("42!!")
+        error("42!!", 0)
     elseif x == 43 then
         return 43
     end

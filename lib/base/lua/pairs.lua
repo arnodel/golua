@@ -27,4 +27,4 @@ print(pcall(pairs))
 
 setmetatable(tt, {__pairs=function(x) error("nono") end})
 print(pcall(pairs, tt))
---> ~false	nono
+--> ~false\t.* nono

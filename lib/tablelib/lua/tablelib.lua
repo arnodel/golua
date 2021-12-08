@@ -74,7 +74,7 @@ do
     local tt = {}
     setmetatable(tt, {
         __len=function() return 3 end,
-        __index=function() error("g") end
+        __index=function() error("g", 0) end
     })
     print(pcall(table.insert, tt, 1, 12))
     --> =false	g
@@ -83,7 +83,7 @@ do
     setmetatable(tt, {
         __len=function() return 3 end,
         __index=function() return 2 end,
-        __newindex=function() error("s") end
+        __newindex=function() error("s", 0) end
     })
     print(pcall(table.insert, tt, 1, 12))
     --> =false	s
@@ -187,7 +187,7 @@ do
     local tt = {}
     setmetatable(tt, {
         __len=function() return 3 end,
-        __index=function() error("g") end
+        __index=function() error("g", 0) end
     })
     print(pcall(table.remove, tt))
     --> =false	g
@@ -196,7 +196,7 @@ do
     setmetatable(tt, {
         __len=function() return 3 end,
         __index=function(n, i) return -i end,
-        __newindex=function() error("s") end
+        __newindex=function() error("s", 0) end
     })
     print(pcall(table.remove, tt))
     --> =false	s
@@ -229,7 +229,7 @@ do
     local tt = {}
     setmetatable(tt, {
         __len=function() return 3 end,
-        __index=function() error("g") end
+        __index=function() error("g", 0) end
     })
     print(pcall(table.sort, tt))
     --> =false	g
@@ -238,7 +238,7 @@ do
     setmetatable(tt, {
         __len=function() return 3 end,
         __index=function(n, i) return -i end,
-        __newindex=function() error("s") end
+        __newindex=function() error("s", 0) end
     })
     print(pcall(table.sort, tt))
     --> =false	s
@@ -275,5 +275,5 @@ do
         __index=function() error("g") end
     })
     print(pcall(table.unpack, tt))
-    --> =false	g
+    --> ~false\t.* g
 end

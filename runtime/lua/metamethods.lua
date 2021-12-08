@@ -133,7 +133,7 @@ do
         __newindex = function(t, x) error(x) end,
     })
     print(pcall(function() return t.booo end))
-    --> =false	booo
+    --> ~false\t.* booo
     print(pcall(function() t.arghh = 42 end))
-    --> =false	arghh
+    --> ~false\t.* arghh
 end

@@ -1,7 +1,7 @@
 -- A function that produces an error
 function foo(x) bar(x) end
 function bar(x) baz(x) end
-function baz(x) error(x) end
+function baz(x) error(x, 0) end
 
 -- A dummy error handler
 function bye() return "bye" end
@@ -55,7 +55,7 @@ print(n >= 10 and n <= 100)
 
 -- Error handlers are just called once.
 t = {}
-debug.setmetatable(t, {__index=function() error("abc") end})
+debug.setmetatable(t, {__index=function() error("abc", 0) end})
 
 function p(x)
     print("debug", x)

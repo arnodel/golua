@@ -101,5 +101,5 @@ func binaryBitwiseError(op string, x, y Value, okx, oky bool) *Error {
 	if wrongVal.Type() == FloatType {
 		return NewErrorF("number has no integer representation")
 	}
-	return NewErrorF("attempt to perform bitwise %s on a '%s", op, wrongVal.TypeName())
+	return NewErrorF("attempt to perform bitwise %s on a %s value", op, wrongVal.TypeName())
 }
