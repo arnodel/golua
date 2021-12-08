@@ -16,7 +16,7 @@ func unm(t *Thread, x Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("cannot neg")
+	return NilValue, NewErrorF("attempt to unm a '%s'", x.TypeName())
 }
 
 func add(t *Thread, x Value, y Value) (Value, *Error) {
@@ -42,7 +42,7 @@ func add(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("add expects addable values")
+	return NilValue, binaryArithmeticError("add", x, y, kx, ky)
 }
 
 func sub(t *Thread, x Value, y Value) (Value, *Error) {
@@ -68,7 +68,7 @@ func sub(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("sub expects subtractable values")
+	return NilValue, binaryArithmeticError("sub", x, y, kx, ky)
 }
 
 func mul(t *Thread, x Value, y Value) (Value, *Error) {
@@ -94,7 +94,7 @@ func mul(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("mul expects multipliable values")
+	return NilValue, binaryArithmeticError("mul", x, y, kx, ky)
 }
 
 func div(t *Thread, x Value, y Value) (Value, *Error) {
@@ -120,7 +120,7 @@ func div(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("div expects dividable values")
+	return NilValue, binaryArithmeticError("div", x, y, kx, ky)
 }
 
 func floordivInt(x, y int64) int64 {
@@ -159,7 +159,7 @@ func idiv(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("idiv expects idividable values")
+	return NilValue, binaryArithmeticError("idiv", x, y, kx, ky)
 }
 
 func modInt(x, y int64) int64 {
@@ -202,7 +202,7 @@ func Mod(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("mod expects modable values")
+	return NilValue, binaryArithmeticError("mod", x, y, kx, ky)
 }
 
 func powFloat(x, y float64) float64 {
@@ -232,5 +232,18 @@ func pow(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("pow expects powidable values")
+	return NilValue, binaryArithmeticError("pow", x, y, kx, ky)
+}
+
+func binaryArithmeticError(op string, x, y Value, kx, ky NumberType) *Error {
+	var wrongVal Value
+	switch {
+	case ky != NaN:
+		wrongVal = x
+	case kx != NaN:
+		wrongVal = y
+	default:
+		return NewErrorF("attempt to %s a '%s' with a '%s'", op, x.TypeName(), y.TypeName())
+	}
+	return NewErrorF("attempt to perform arithmetic on a '%s'", wrongVal.TypeName())
 }

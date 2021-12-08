@@ -8,5 +8,5 @@ func typeString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
-	return c.PushingNext1(t.Runtime, rt.StringValue(rt.Type(c.Arg(0)))), nil
+	return c.PushingNext1(t.Runtime, rt.StringValue(c.Arg(0).TypeName())), nil
 }

@@ -106,7 +106,7 @@ func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (*Er
 	return nil, false
 }
 
-// Continue tries tried to continue the value f or else use its '__call'
+// Continue tries to continue the value f or else use its '__call'
 // metamethod and returns the continuations that needs to be run to get the
 // results.
 func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
@@ -116,8 +116,7 @@ func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
 	}
 	cont, err, ok := metacont(t, f, "__call", next)
 	if !ok {
-		s, _ := f.ToString()
-		return nil, NewErrorF("cannot call %s", s)
+		return nil, NewErrorF("attempt to call a %s value", f.TypeName())
 	}
 	if cont != nil {
 		t.Push1(cont, f)
@@ -139,7 +138,7 @@ func Call(t *Thread, f Value, args []Value, next Cont) *Error {
 	if ok {
 		return err
 	}
-	return NewErrorS("call expects a callable")
+	return NewErrorF("attempt to call a %s value", f.TypeName())
 }
 
 // Call1 is a convenience method that calls f with arguments args and returns
@@ -154,8 +153,10 @@ func Call1(t *Thread, f Value, args ...Value) (Value, *Error) {
 
 // Concat returns x .. y, possibly calling the '__concat' metamethod.
 func Concat(t *Thread, x, y Value) (Value, *Error) {
-	if sx, ok := x.ToString(); ok {
-		if sy, ok := y.ToString(); ok {
+	var sx, sy string
+	var okx, oky bool
+	if sx, okx = x.ToString(); okx {
+		if sy, oky = y.ToString(); oky {
 			t.RequireBytes(len(sx) + len(sy))
 			return StringValue(sx + sy), nil
 		}
@@ -164,7 +165,20 @@ func Concat(t *Thread, x, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorS("concat expects concatable values")
+	return NilValue, concatError(x, y, okx, oky)
+}
+
+func concatError(x, y Value, okx, oky bool) *Error {
+	var wrongVal Value
+	switch {
+	case oky:
+		wrongVal = x
+	case okx:
+		wrongVal = y
+	default:
+		return NewErrorF("attempt to concatenate a %s value with a %s value", x.TypeName(), y.TypeName())
+	}
+	return NewErrorF("attempt to concatenate a %s value", wrongVal.TypeName())
 }
 
 // IntLen returns the length of v as an int64, possibly calling the '__len'
@@ -188,7 +202,7 @@ func IntLen(t *Thread, v Value) (int64, *Error) {
 	if tbl, ok := v.TryTable(); ok {
 		return tbl.Len(), nil
 	}
-	return 0, NewErrorS("Cannot compute len")
+	return 0, lenError(v)
 }
 
 // Len returns the length of v, possibly calling the '__len' metamethod.
@@ -207,30 +221,11 @@ func Len(t *Thread, v Value) (Value, *Error) {
 	if tbl, ok := v.TryTable(); ok {
 		return IntValue(tbl.Len()), nil
 	}
-	return NilValue, NewErrorS("Cannot compute len")
+	return NilValue, lenError(v)
 }
 
-// Type returns a string describing the Lua type of v.
-func Type(v Value) string {
-	switch v.Type() {
-	case NilType:
-		return "nil"
-	case StringType:
-		return "string"
-	case IntType, FloatType:
-		return "number"
-	case TableType:
-		return "table"
-	case BoolType:
-		return "boolean"
-	case FunctionType:
-		return "function"
-	case ThreadType:
-		return "thread"
-	case UserDataType:
-		return "userdata"
-	}
-	return fmt.Sprintf("unknown(%+v)", v)
+func lenError(x Value) *Error {
+	return NewErrorF("attempt to get length of a %s value", x.TypeName())
 }
 
 // SetEnv sets the item in the table t for a string key.  Useful when writing

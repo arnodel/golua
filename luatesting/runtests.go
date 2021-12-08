@@ -3,8 +3,8 @@ package luatesting
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -61,6 +61,7 @@ func RunLuaTestFile(t *testing.T, path string, setup func(*runtime.Runtime) func
 		}
 		err = RunLuaTest(src, setup)
 		if err != nil {
+			t.Error("XXX")
 			t.Error(err)
 		}
 	})
@@ -68,16 +69,16 @@ func RunLuaTestFile(t *testing.T, path string, setup func(*runtime.Runtime) func
 
 // RunLuaTestsInDir runs a test for each .lua file in the directory provided.
 func RunLuaTestsInDir(t *testing.T, dirpath string, setup func(*runtime.Runtime) func(), filters ...string) {
-	runTest := func(path string, info os.FileInfo, err error) error {
+	runTest := func(path string, entry fs.DirEntry, err error) error {
 		for _, filter := range filters {
-			if !strings.Contains(info.Name(), filter) {
+			if !strings.Contains(entry.Name(), filter) {
 				return nil
 			}
 		}
 		RunLuaTestFile(t, path, setup)
 		return nil
 	}
-	if err := filepath.Walk(dirpath, runTest); err != nil {
+	if err := filepath.WalkDir(dirpath, runTest); err != nil {
 		t.Error(err)
 	}
 }

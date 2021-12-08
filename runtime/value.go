@@ -216,6 +216,32 @@ func (v Value) Type() ValueType {
 	}
 }
 
+func (v Value) TypeName() string {
+	if v.iface == nil {
+		return "nil"
+	}
+	switch v.iface.(type) {
+	case int64, float64:
+		return "number"
+	case bool:
+		return "boolean"
+	case string:
+		return "string"
+	case *Table:
+		return "table"
+	case *Code:
+		return "code"
+	case *GoFunction, *Closure:
+		return "function"
+	case *Thread:
+		return "thread"
+	case *UserData:
+		return "userdata"
+	default:
+		return "<unknown type>"
+	}
+}
+
 func (v Value) ToString() (string, bool) {
 	if v.iface == nil {
 		return "nil", false
