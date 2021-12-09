@@ -360,7 +360,7 @@ func TestParser_ShortExp(t *testing.T) {
 		{
 			name:  "power",
 			input: "x^y+z",
-			want:  ast.NewBinOp(name("x"), ops.OpPow, name("y")),
+			want:  ast.NewBinOp(name("x"), ops.OpPow, nil, name("y")),
 			want1: tok(token.SgPlus, "+"),
 		},
 		{
@@ -368,7 +368,7 @@ func TestParser_ShortExp(t *testing.T) {
 			input: "-x^y+z",
 			want: &ast.UnOp{
 				Op:      ops.OpNeg,
-				Operand: ast.NewBinOp(name("x"), ops.OpPow, name("y")),
+				Operand: ast.NewBinOp(name("x"), ops.OpPow, nil, name("y")),
 			},
 			want1: tok(token.SgPlus, "+"),
 		},
@@ -378,7 +378,8 @@ func TestParser_ShortExp(t *testing.T) {
 			want: ast.NewBinOp(
 				name("x"),
 				ops.OpPow,
-				ast.NewBinOp(name("y"), ops.OpPow, name("z")),
+				nil,
+				ast.NewBinOp(name("y"), ops.OpPow, nil, name("z")),
 			),
 			want1: tok(token.SgSlash, "/"),
 		},
@@ -611,15 +612,16 @@ func TestParser_Exp(t *testing.T) {
 		{
 			name:  "binop",
 			input: "x + y)",
-			want:  ast.NewBinOp(name("x"), ops.OpAdd, name("y")),
+			want:  ast.NewBinOp(name("x"), ops.OpAdd, nil, name("y")),
 			want1: tok(token.SgCloseBkt, ")"),
 		},
 		{
 			name:  "2 binops of precedence",
 			input: "x + y - z then",
 			want: ast.NewBinOp(
-				ast.NewBinOp(name("x"), ops.OpAdd, name("y")),
+				ast.NewBinOp(name("x"), ops.OpAdd, nil, name("y")),
 				ops.OpSub,
+				nil,
 				name("z"),
 			),
 			want1: tok(token.KwThen, "then"),
@@ -628,8 +630,9 @@ func TestParser_Exp(t *testing.T) {
 			name:  "2 binops of decreasing precedence",
 			input: "x * y + z then",
 			want: ast.NewBinOp(
-				ast.NewBinOp(name("x"), ops.OpMul, name("y")),
+				ast.NewBinOp(name("x"), ops.OpMul, nil, name("y")),
 				ops.OpAdd,
+				nil,
 				name("z"),
 			),
 			want1: tok(token.KwThen, "then"),
@@ -640,7 +643,8 @@ func TestParser_Exp(t *testing.T) {
 			want: ast.NewBinOp(
 				name("x"),
 				ops.OpBitOr,
-				ast.NewBinOp(name("y"), ops.OpAdd, name("z")),
+				nil,
+				ast.NewBinOp(name("y"), ops.OpAdd, nil, name("z")),
 			),
 			want1: tok(token.KwThen, "then"),
 		},
@@ -649,11 +653,13 @@ func TestParser_Exp(t *testing.T) {
 			input: "x * y + z or t then",
 			want: ast.NewBinOp(
 				ast.NewBinOp(
-					ast.NewBinOp(name("x"), ops.OpMul, name("y")),
+					ast.NewBinOp(name("x"), ops.OpMul, nil, name("y")),
 					ops.OpAdd,
+					nil,
 					name("z"),
 				),
 				ops.OpOr,
+				nil,
 				name("t"),
 			),
 			want1: tok(token.KwThen, "then"),
@@ -664,10 +670,12 @@ func TestParser_Exp(t *testing.T) {
 			want: ast.NewBinOp(
 				name("x"),
 				ops.OpShiftL,
+				nil,
 				ast.NewBinOp(
 					name("y"),
 					ops.OpConcat,
-					ast.NewBinOp(name("z"), ops.OpMod, name("t")),
+					nil,
+					ast.NewBinOp(name("z"), ops.OpMod, nil, name("t")),
 				),
 			),
 			want1: tok(token.SgCloseSquareBkt, "]"),
@@ -678,10 +686,12 @@ func TestParser_Exp(t *testing.T) {
 			want: ast.NewBinOp(
 				name("x"),
 				ops.OpConcat,
+				nil,
 				ast.NewBinOp(
 					name("y"),
 					ops.OpConcat,
-					ast.NewBinOp(name("z"), ops.OpConcat, name("t")),
+					nil,
+					ast.NewBinOp(name("z"), ops.OpConcat, nil, name("t")),
 				),
 			),
 			want1: tok(token.KwUntil, "until"),

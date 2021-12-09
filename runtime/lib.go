@@ -35,14 +35,18 @@ func RawGet(t *Table, k Value) Value {
 func Index(t *Thread, coll Value, k Value) (Value, *Error) {
 	for i := 0; i < maxIndexChainLength; i++ {
 		t.RequireCPU(1)
-		if tbl, ok := coll.TryTable(); ok {
+		tbl, ok := coll.TryTable()
+		if ok {
 			if val := RawGet(tbl, k); !val.IsNil() {
 				return val, nil
 			}
 		}
 		metaIdx := t.metaGetS(coll, "__index")
 		if metaIdx.IsNil() {
-			return NilValue, nil
+			if ok {
+				return NilValue, nil
+			}
+			return NilValue, indexError(coll)
 		}
 		if _, ok := metaIdx.TryTable(); ok {
 			coll = metaIdx
@@ -55,6 +59,10 @@ func Index(t *Thread, coll Value, k Value) (Value, *Error) {
 		}
 	}
 	return NilValue, NewErrorF("'__index' chain too long; possible loop")
+}
+
+func indexError(coll Value) *Error {
+	return NewErrorF("attempt to index a %s value", coll.TypeName())
 }
 
 // SetIndex sets the item in a collection for the given key, using the
@@ -313,7 +321,10 @@ func (r *Runtime) CompileLuaChunk(name string, source []byte) (*code.Unit, uint6
 	r.LinearRequire(4, unitSize) // 4 is a factor pulled out of thin air
 
 	// Compile IR to code
-	unit := kc.CompileQueue()
+	unit, err := kc.CompileQueue()
+	if err != nil {
+		return nil, 0, err
+	}
 
 	// We no longer need the constants
 	return unit, unitSize, nil

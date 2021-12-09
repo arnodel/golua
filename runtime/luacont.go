@@ -176,6 +176,7 @@ RunLoop:
 				panic("unsupported")
 			}
 			if err != nil {
+				c.pc = pc
 				return nil, err
 			}
 			setReg(regs, cells, dst, res)
@@ -200,12 +201,14 @@ RunLoop:
 			if !opcode.GetF() {
 				val, err := Index(t, coll, idx)
 				if err != nil {
+					c.pc = pc
 					return nil, err
 				}
 				setReg(regs, cells, reg, val)
 			} else {
 				err := SetIndex(t, coll, idx, getReg(regs, cells, reg))
 				if err != nil {
+					c.pc = pc
 					return nil, err
 				}
 			}
@@ -309,6 +312,7 @@ RunLoop:
 				}
 			}
 			if err != nil {
+				c.pc = pc
 				return nil, err
 			}
 			if opcode.GetF() {

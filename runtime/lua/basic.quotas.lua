@@ -174,4 +174,4 @@ print(c > 10)
 print(runtime.callcontext({flags="cpusafe"}, function()
     golib.import('fmt').Println("hello")
 end))
---> =error	missing flags: cpusafe
+--> ~error\t.*missing flags: cpusafe

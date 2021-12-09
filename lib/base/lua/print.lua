@@ -12,6 +12,6 @@ print(pcall(print, 42))
 --> =false	42!!
 
 print(pcall(print, 43))
---> =false	tostring must return a string
+--> ~false\t.*: tostring must return a string
 
 tostring = _tostring

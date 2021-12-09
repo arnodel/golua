@@ -8,10 +8,10 @@ local function test(...)
 end
 
 test()
---> =2 arguments needed
+--> ~.*: 2 arguments needed
 
 test(1)
---> =2 arguments needed
+--> ~.*: 2 arguments needed
 
 test(1, 2)
 --> ~.*must be a table
@@ -19,7 +19,7 @@ test(1, 2)
 t = {}
 setmetatable(t, {__metatable={}})
 test(t, nil)
---> =cannot set metatable
+--> ~.*: cannot set metatable
 
 t = {}
 test(t, nil)

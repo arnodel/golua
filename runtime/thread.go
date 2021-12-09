@@ -74,6 +74,7 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 			if err.Handled() {
 				return err
 			}
+			err.AddContext(c, -1)
 			errContCount++
 			if t.messageHandler != nil {
 				if errContCount > maxErrorsInMessageHandler {
@@ -112,7 +113,6 @@ func (c *MessageHandlerCont) Next() Cont {
 }
 
 func (c *MessageHandlerCont) Parent() Cont {
-	// log.Printf("ZZZ %t", c == c.c)
 	return c.Next()
 }
 

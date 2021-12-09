@@ -110,7 +110,7 @@ print(tbl .. 1, 1 .. tbl)
 --> =...	...
 
 print(pcall(function() return tbl(1, 2) end))
---> ~false\tattempt to call a table.*
+--> ~false\t.*attempt to call a table.*
 
 function m.__call(t, x, y) return "call(" .. tostring(x) .. "," .. tostring(y) .. ")" end
 print(tbl(1, 2))

@@ -17,7 +17,7 @@ print(ctx.used.cpu > 0, ctx.used.mem > 0)
 -- If the function called by callcontext errors, the status reflects this and
 -- the error is returned.  So callcontext "implements" pcall.
 print(runtime.callcontext({}, error, "an error"))
---> =error	an error
+--> ~error\t.*: an error
 
 -- runtime.context()
 --

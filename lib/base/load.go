@@ -7,6 +7,8 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
+const maxChunkNameLen = 59
+
 func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
@@ -38,7 +40,10 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			if err != nil {
 				return nil, err
 			}
-			chunkName = string(name)
+			chunkName = name
+			if len(name) > maxChunkNameLen {
+				chunkName = chunkName[:maxChunkNameLen]
+			}
 		}
 		fallthrough
 	case nargs >= 1:

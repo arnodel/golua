@@ -57,12 +57,10 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 	loopLbl := c.GetNewLabel()
 	c.EmitLabel(loopLbl)
 
-	// TODO: better locations
-
 	c.CompileStat(ast.LocalStat{
 		Names: s.Vars,
 		Values: []ast.ExpNode{ast.FunctionCall{BFunctionCall: &ast.BFunctionCall{
-			Location: s.Location,
+			Location: s.Params[0].Locate(), // To report the line where the function is if it fails
 			Target:   ast.Name{Location: s.Location, Val: string(loopFRegName)},
 			Args: []ast.ExpNode{
 				ast.Name{Location: s.Location, Val: string(loopSRegName)},
@@ -98,7 +96,7 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	r := c.compileExp(s.Start, startReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, startReg, r)
 	if !ast.IsNumber(s.Start) {
-		c.EmitNoLine(ir.Transform{
+		c.emitInstr(s.Start, ir.Transform{
 			Dst: startReg,
 			Src: startReg,
 			Op:  ops.OpToNumber,
@@ -110,7 +108,7 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	r = c.compileExp(s.Stop, stopReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, stopReg, r)
 	if !ast.IsNumber(s.Stop) {
-		c.EmitNoLine(ir.Transform{
+		c.emitInstr(s.Stop, ir.Transform{
 			Dst: stopReg,
 			Src: stopReg,
 			Op:  ops.OpToNumber,
@@ -122,7 +120,7 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	r = c.compileExp(s.Step, stepReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, stepReg, r)
 	if !ast.IsNumber(s.Step) {
-		c.EmitNoLine(ir.Transform{
+		c.emitInstr(s.Step, ir.Transform{
 			Dst: stepReg,
 			Src: stepReg,
 			Op:  ops.OpToNumber,
@@ -133,7 +131,7 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	zReg := c.GetFreeRegister()
 	c.TakeRegister(zReg)
 	c.emitLoadConst(nil, ir.Int(0), zReg)
-	c.EmitNoLine(ir.Combine{
+	c.emitInstr(s, ir.Combine{
 		Op:   ops.OpLt,
 		Dst:  zReg,
 		Lsrc: stepReg,

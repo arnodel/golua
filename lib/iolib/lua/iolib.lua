@@ -207,7 +207,7 @@ do
     --> =file
 
     print(pcall(f.seek, f, "wat"))
-    --> =false	#1 must be "cur", "set" or "end"
+    --> ~false\t.*: #1 must be "cur", "set" or "end"
 
     -- TODO: do something with the file
 end

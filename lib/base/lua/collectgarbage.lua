@@ -37,7 +37,7 @@ do
     --> ~true\t
 
     test("blah")
-    --> =false	invalid option
+    --> ~false\t.*: invalid option
 
     test(1)
     --> ~false\t.*must be a string

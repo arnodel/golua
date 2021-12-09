@@ -59,7 +59,7 @@ print(twice(function(n) return 2*n end)(5))
 --> =20
 
 print(pcall(panic))
---> ~false\tpanic in go call: OMG
+--> ~false\t.*: panic in go call: OMG
 
 print(tostring(polly))
 --> =golib_test.TestStruct{Age:10, Name:"Polly"}

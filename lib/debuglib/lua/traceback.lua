@@ -25,7 +25,7 @@ bar()
 --> =in function <main chunk> (file luatest:20)
 
 print(xpcall(error, debug.traceback, "bar"))
---> =false	bar
+--> ~false\t.*: bar
 --> =in function error (file [Go])
 --> =in function xpcall (file [Go])
 --> =in function <main chunk> (file luatest:27)
@@ -73,4 +73,4 @@ print(debug.traceback({}))
 --> ~table:.*
 
 print(pcall(debug.traceback, "foo", "bar"))
---> =false	#2 must be an integer
+--> ~false\t.*#2 must be an integer

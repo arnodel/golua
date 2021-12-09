@@ -7,6 +7,6 @@ import (
 	"github.com/arnodel/golua/luatesting"
 )
 
-func TestBaseLib(t *testing.T) {
+func TestDebugLib(t *testing.T) {
 	luatesting.RunLuaTestsInDir(t, "lua", lib.LoadAll)
 }
