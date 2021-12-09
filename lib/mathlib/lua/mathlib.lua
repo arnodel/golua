@@ -98,6 +98,13 @@ do
 
     print(math.modf(-1.5))
     --> =-1	-0.5
+
+    print(math.modf(1/0))
+    --> =+Inf	0
+
+    print(math.modf(-1/0))
+    --> =-Inf	0
+
 end
 
 do

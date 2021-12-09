@@ -126,7 +126,7 @@ func div(t *Thread, x Value, y Value) (Value, *Error) {
 func floordivInt(x, y int64) int64 {
 	r := x % y
 	q := x / y
-	if (r < 0) != (y < 0) {
+	if r != 0 && (r < 0) != (y < 0) {
 		q--
 	}
 	return q
