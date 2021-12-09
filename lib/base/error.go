@@ -1,38 +1,28 @@
 package base
 
 import (
-	"fmt"
-
 	rt "github.com/arnodel/golua/runtime"
 )
 
 func errorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	var (
+		err   *rt.Error
+		level int64 = 1
+	)
 	if c.NArgs() == 0 {
-		return nil, rt.NewError(rt.NilValue)
+		err = rt.NewError(rt.NilValue)
+	} else {
+		err = rt.NewError(c.Arg(0))
 	}
-	next := c.Next()
 	if c.NArgs() >= 2 {
-		level, err := c.IntArg(1)
-		if err != nil {
-			return nil, err
-		}
-		if level < 1 {
-			next = nil
-		}
-		for level > 1 && next != nil {
-			next = next.Next()
-			level--
+		var argErr *rt.Error
+		level, argErr = c.IntArg(1)
+		if argErr != nil {
+			return nil, argErr
 		}
 	}
-	msg := c.Arg(0)
-	if next != nil {
-		s, ok := msg.TryString()
-		if ok {
-			info := next.DebugInfo()
-			if info != nil {
-				msg = rt.StringValue(fmt.Sprintf("%s:%d: %s", info.Source, info.CurrentLine, s))
-			}
-		}
+	if level != 1 {
+		err.AddContext(c.Next(), int(level))
 	}
-	return nil, rt.NewError(msg)
+	return nil, err
 }

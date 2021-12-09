@@ -3,7 +3,7 @@ do
         print(pcall(error, ...))
     end
     test("hello")
-    --> =false	hello
+    --> ~false.*: hello
 
     test(true)
     --> =false	true
@@ -18,5 +18,5 @@ do
     --> ~false\t.*must be an integer
 
     test("baz", 2)
-    --> =false	baz
+    --> ~false.*: baz
 end

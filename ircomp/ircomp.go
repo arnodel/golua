@@ -104,7 +104,27 @@ func (kc *ConstantCompiler) QueueConstant(ki uint) int {
 	return kc.offset - 1
 }
 
-func (kc *ConstantCompiler) CompileQueue() *code.Unit {
+func (kc *ConstantCompiler) CompileQueue() (unit *code.Unit, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			cp, ok := r.(*CompilationPanic)
+			if !ok {
+				panic(r)
+			}
+			// Try to recover where we were, this is not always accurate but a
+			// refactor would be required to get accurate info
+			//
+			// TODO: make more accurate
+			unit := kc.builder.GetUnit()
+			for i := len(unit.Lines) - 1; i >= 0; i-- {
+				if line := unit.Lines[i]; line > 0 {
+					cp.line = line
+					break
+				}
+			}
+			err = cp
+		}
+	}()
 	for kc.queue != nil {
 		queue := kc.queue
 		kc.queue = nil
@@ -115,5 +135,5 @@ func (kc *ConstantCompiler) CompileQueue() *code.Unit {
 			}
 		}
 	}
-	return kc.builder.GetUnit()
+	return kc.builder.GetUnit(), nil
 }

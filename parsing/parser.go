@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/arnodel/golua/luastrings"
 	"github.com/arnodel/golua/ops"
 	"github.com/arnodel/golua/token"
 
@@ -38,7 +39,7 @@ func (e Error) Error() string {
 	if e.Got.Type == token.EOF {
 		tok = "<eof>"
 	} else {
-		tok = "'" + string(e.Got.Lit) + "'"
+		tok = luastrings.Quote(string(e.Got.Lit), '\'')
 	}
 	return fmt.Sprintf("%d:%d: %s near %s", e.Got.Line, e.Got.Column, expected, tok)
 }
@@ -233,8 +234,8 @@ func (p *Parser) For(t *token.Token) (ast.Stat, *token.Token) {
 
 // Local parses a "local" statement (function definition of variable
 // declaration).  It assumes that t is the "local" token.
-func (p *Parser) Local(t *token.Token) (ast.Stat, *token.Token) {
-	t = p.Scan()
+func (p *Parser) Local(*token.Token) (ast.Stat, *token.Token) {
+	t := p.Scan()
 	if t.Type == token.KwFunction {
 		name, t := p.Name(p.Scan())
 		fx, t := p.FunctionDef(t)
@@ -256,7 +257,7 @@ func (p *Parser) Local(t *token.Token) (ast.Stat, *token.Token) {
 
 // FunctionStat parses a function definition statement. It assumes that t is the
 // "function" token.
-func (p *Parser) FunctionStat(t *token.Token) (ast.Stat, *token.Token) {
+func (p *Parser) FunctionStat(*token.Token) (ast.Stat, *token.Token) {
 	name, t := p.Name(p.Scan())
 	var v ast.Var = name
 	var method ast.Name
@@ -292,8 +293,8 @@ func (p *Parser) Block(t *token.Token) (ast.BlockStat, *token.Token) {
 }
 
 // Return parses a return statement.
-func (p *Parser) Return(t *token.Token) ([]ast.ExpNode, *token.Token) {
-	t = p.Scan()
+func (p *Parser) Return(*token.Token) ([]ast.ExpNode, *token.Token) {
+	t := p.Scan()
 	switch t.Type {
 	case token.SgSemicolon:
 		return []ast.ExpNode{}, p.Scan()
@@ -311,12 +312,13 @@ func (p *Parser) Return(t *token.Token) ([]ast.ExpNode, *token.Token) {
 type item struct {
 	exp ast.ExpNode
 	op  ops.Op
+	tok *token.Token
 }
 
 func mergepop(stack []item, it item) ([]item, item) {
 	i := len(stack) - 1
 	top := stack[i]
-	top.exp = ast.NewBinOp(top.exp, it.op, it.exp)
+	top.exp = ast.NewBinOp(top.exp, it.op, it.tok, it.exp)
 	return stack[:i], top
 }
 
@@ -325,10 +327,12 @@ func (p *Parser) Exp(t *token.Token) (ast.ExpNode, *token.Token) {
 	var exp ast.ExpNode
 	exp, t = p.ShortExp(t)
 	var op ops.Op
+	var opTok *token.Token
 	var stack []item
-	last := item{exp, op}
+	last := item{exp: exp}
 	for t.Type.IsBinOp() {
 		op = binopMap[t.Type]
+		opTok = t
 		exp, t = p.ShortExp(p.Scan())
 		for len(stack) > 0 {
 			pdiff := op.Precedence() - last.op.Precedence()
@@ -338,7 +342,7 @@ func (p *Parser) Exp(t *token.Token) (ast.ExpNode, *token.Token) {
 			stack, last = mergepop(stack, last)
 		}
 		stack = append(stack, last)
-		last = item{exp, op}
+		last = item{exp: exp, op: op, tok: opTok}
 	}
 	// We are left with a stack of strictly increasing precedence
 	for len(stack) > 0 {
@@ -390,7 +394,7 @@ func (p *Parser) ShortExp(t *token.Token) (ast.ExpNode, *token.Token) {
 	if t.Type == token.SgHat {
 		var pow ast.ExpNode
 		pow, t = p.ShortExp(p.Scan())
-		exp = ast.NewBinOp(exp, ops.OpPow, pow)
+		exp = ast.NewBinOp(exp, ops.OpPow, t, pow)
 	}
 	return exp, t
 }

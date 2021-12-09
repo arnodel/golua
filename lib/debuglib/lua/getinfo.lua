@@ -25,7 +25,7 @@ foo(10)
 --> =none
 
 print(pcall(debug.getinfo))
---> ~false\tbad argument #1.*
+--> ~false\t.*: bad argument #1.*
 
 foo(foo)
 --> =foo	-1	luatest
@@ -46,7 +46,7 @@ print(coroutine.resume(co))
 -- Check getinfo in the thread
 
 print(pcall(foo, co))
---> ~false\tmissing argument: f.*
+--> ~false\t.*: missing argument: f.*
 
 foo(co, 1)
 --> =cobar	39	luatest

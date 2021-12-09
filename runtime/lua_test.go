@@ -8,5 +8,5 @@ import (
 )
 
 func TestRuntime(t *testing.T) {
-	luatesting.RunLuaTestsInDir(t, "lua", lib.LoadAll)
+	luatesting.RunLuaTestsInDir(t, "lua", lib.LoadAll, "errors")
 }

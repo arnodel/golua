@@ -13,8 +13,8 @@ do
     --> ~table:.*
 
     print(pcall(debug.setmetatable, t, false))
-    --> =false	#2 must be a table
+    --> ~false\t.*: #2 must be a table
 
     print(pcall(debug.setmetatable, t))
-    --> =false	2 arguments needed
+    --> ~false\t.*: 2 arguments needed
 end

@@ -286,13 +286,6 @@ func (a *regAllocator) codeReg(r ir.Register) code.Reg {
 	return cr
 }
 
-func regType(rData ir.RegData) code.RegType {
-	if rData.IsCell {
-		return code.CellRegType
-	}
-	return code.ValueRegType
-}
-
 func allocReg(regs []int) ([]int, uint8) {
 	for i, c := range regs {
 		if c == 0 {
@@ -300,8 +293,24 @@ func allocReg(regs []int) ([]int, uint8) {
 		}
 	}
 	if len(regs) == math.MaxUint8 {
-		panic("runnning out of registers")
+		panic(newPanic("not enough registers"))
 	}
 	i := len(regs)
 	return append(regs, 0), uint8(i)
+}
+
+type CompilationPanic struct {
+	msg  string
+	line int32
+}
+
+func (p *CompilationPanic) Error() string {
+	if p.line > 0 {
+		return fmt.Sprintf("%s (around line %d)", p.msg, p.line)
+	}
+	return p.msg
+}
+
+func newPanic(msg string) *CompilationPanic {
+	return &CompilationPanic{msg: msg}
 }

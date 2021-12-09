@@ -5,19 +5,19 @@ runtime.callcontext({flags="iosafe"}, function()
     -- io module funtions are unavailable
 
     print(pcall(io.open, "foo.txt"))
-    --> =false	safeio: operation not allowed
+    --> ~false\t.*: safeio: operation not allowed
 
     print(pcall(io.input, "foo.txt"))
-    --> =false	safeio: operation not allowed
+    --> ~false\t.*: safeio: operation not allowed
 
     print(pcall(io.lines, "foo.txt"))
-    --> =false	safeio: operation not allowed
+    --> ~false\t.*: safeio: operation not allowed
 
     print(pcall(io.output, "foo.txt"))
-    --> =false	safeio: operation not allowed
+    --> ~false\t.*: safeio: operation not allowed
 
     print(pcall(io.tmpfile))
-    --> =false	safeio: operation not allowed
+    --> ~false\t.*: safeio: operation not allowed
 
 end)
 

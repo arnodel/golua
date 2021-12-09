@@ -2,6 +2,7 @@ package ast
 
 import (
 	"github.com/arnodel/golua/ops"
+	"github.com/arnodel/golua/token"
 )
 
 // A BinOp is a expression node that represents any binary operator.  The right
@@ -27,7 +28,7 @@ type Operation struct {
 // NewBinOp creates a new BinOp from the given arguments.  If the left node is
 // already a BinOp node with the same operator type, a new node based on that
 // will be created.
-func NewBinOp(left ExpNode, op ops.Op, right ExpNode) *BinOp {
+func NewBinOp(left ExpNode, op ops.Op, opTok *token.Token, right ExpNode) *BinOp {
 	loc := MergeLocations(left, right)
 	leftOp, ok := left.(*BinOp)
 	opType := op.Type()
@@ -40,8 +41,8 @@ func NewBinOp(left ExpNode, op ops.Op, right ExpNode) *BinOp {
 		}
 	}
 	return &BinOp{
-		Location: loc,
-		Left:     left.(ExpNode),
+		Location: LocFromToken(opTok),
+		Left:     left,
 		OpType:   opType,
 		Right:    []Operation{{op, right}},
 	}

@@ -2,8 +2,8 @@
 
 runtime.callcontext({flags="iosafe"}, function () 
     print(pcall(loadfile, "foo"))
-    --> =false	missing flags: iosafe
+    --> ~false\t.*: missing flags: iosafe
 
     print(pcall(dofile, "bar"))
-    --> =false	missing flags: iosafe
+    --> ~false\t.*: missing flags: iosafe
 end)

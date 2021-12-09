@@ -73,6 +73,18 @@ func (f BFunctionCall) ProcessExp(p ExpProcessor) {
 	p.ProcessBFunctionCallExp(f)
 }
 
+// func (f BFunctionCall) MethodLocation() Location {
+// 	// If we have a method, that's going to be the location, else if the call if
+// 	// of the form "a.x()" then point to "x".
+// 	if f.Method.Val != "" {
+// 		return f.Method.Locate()
+// 	}
+// 	if e, ok := f.Target.(IndexExp); ok {
+// 		return e.Idx.Locate()
+// 	}
+// 	return f.Location
+// }
+
 // HWrite prints a tree representation of the node.
 func (f BFunctionCall) HWrite(w HWriter) {
 	w.Writef("call")
