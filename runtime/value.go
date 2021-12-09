@@ -72,11 +72,23 @@ func ifaceType(iface interface{}) uintptr {
 	return *(*uintptr)(unsafe.Pointer(&iface))
 }
 
+var float64IfaceType = ifaceType(float64(1))
+
 // Equals returns true if v is equal to v2.  Provided that v and v2 have been
 // built with the official constructor functions, it is equivalent to but
 // slightly faster than '=='.
 func (v Value) Equals(v2 Value) bool {
-	if v.scalar != v2.scalar || ifaceType(v.iface) != ifaceType(v2.iface) {
+	ift := ifaceType(v.iface)
+	if ift != ifaceType(v2.iface) {
+		return false
+	}
+	if ift == float64IfaceType {
+		// Special case for floats, as some non bitwise equal floats can be equal and vice-versa
+		// NaN != NaN
+		// -0 == +0
+		return v.AsFloat() == v2.AsFloat()
+	}
+	if v.scalar != v2.scalar {
 		return false
 	}
 	switch x := v.iface.(type) {

@@ -254,12 +254,24 @@ func modf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
-	x, err := c.FloatArg(0)
-	if err != nil {
-		return nil, err
-	}
-	i, f := math.Modf(x)
 	next := c.Next()
+	arg := c.Arg(0)
+	if _, ok := arg.TryInt(); ok {
+		t.Push1(next, arg)
+		t.Push1(next, rt.FloatValue(0))
+		return next, nil
+	}
+
+	x, ok := arg.TryFloat()
+	if !ok {
+		return nil, rt.NewErrorS("#1 must be numeric")
+	}
+	var i, f float64
+	if math.IsInf(x, 0) {
+		i, f = x, 0
+	} else {
+		i, f = math.Modf(x)
+	}
 	t.Push1(next, rt.FloatValue(i))
 	t.Push1(next, rt.FloatValue(f))
 	return next, nil

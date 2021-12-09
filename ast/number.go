@@ -34,6 +34,13 @@ func NewNumber(id *token.Token) (ExpNode, error) {
 		n, err = strconv.ParseUint(nstring, 16, 64)
 	} else {
 		n, err = strconv.ParseUint(nstring, 10, 64)
+		// If an integer is too big let's make it a float
+		if err != nil {
+			f, err := strconv.ParseFloat(nstring, 64)
+			if err == nil {
+				return Float{Location: loc, Val: f}, nil
+			}
+		}
 	}
 	if err != nil {
 		return nil, err

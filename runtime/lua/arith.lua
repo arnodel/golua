@@ -61,3 +61,12 @@ print(pcall(function() return 1//0 end))
 
 print(pcall(function() return 1%0 end))
 --> ~false\t.*perform 'n%0'
+
+print(0/0 == 0/0)
+--> =false
+
+print(1/0 == 1/0)
+--> =true
+
+print(-0.0 == 0.0)
+--> =true

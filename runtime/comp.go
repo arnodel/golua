@@ -9,14 +9,19 @@ func RawEqual(x, y Value) (bool, bool) {
 	switch x.NumberType() {
 	case IntType:
 		if fy, ok := y.TryFloat(); ok {
-			return float64(x.AsInt()) == fy, true
+			return compareIntAndFloat(x.AsInt(), fy), true
 		}
 	case FloatType:
 		if ny, ok := y.TryInt(); ok {
-			return x.AsFloat() == float64(ny), true
+			return compareIntAndFloat(ny, x.AsFloat()), true
 		}
 	}
 	return false, false
+}
+
+func compareIntAndFloat(n int64, f float64) bool {
+	nf := int64(f)
+	return float64(nf) == f && nf == n
 }
 
 func eq(t *Thread, x, y Value) (bool, *Error) {
