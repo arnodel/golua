@@ -135,7 +135,7 @@ print(runtime.callcontext({memlimit=1000}, len, table.unpack(numbers(10))))
 --> =done	10
 
 -- Passing a long list of arguments requires a lot of memory.
-print(runtime.callcontext({memlimit=8000}, len, table.unpack(numbers(500))))
+print(runtime.callcontext({memlimit=2000}, len, table.unpack(numbers(200))))
 --> =killed
 
 --
