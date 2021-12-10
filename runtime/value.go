@@ -5,6 +5,7 @@ package runtime
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"unsafe"
 )
@@ -488,4 +489,12 @@ func (v Value) TryCode() (c *Code, ok bool) {
 // IsNil returns true if v is nil.
 func (v Value) IsNil() bool {
 	return v.iface == nil
+}
+
+func (v Value) IsNaN() bool {
+	if ifaceType(v.iface) != float64IfaceType {
+		return false
+	}
+	x := v.AsFloat()
+	return math.IsNaN(x)
 }

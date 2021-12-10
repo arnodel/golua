@@ -167,7 +167,7 @@ func idiv(t *Thread, x Value, y Value) (Value, *Error) {
 
 func modInt(x, y int64) int64 {
 	r := x % y
-	if (r < 0) != (y < 0) {
+	if r != 0 && (r < 0) != (y < 0) {
 		r += y
 	}
 	return r
@@ -175,7 +175,7 @@ func modInt(x, y int64) int64 {
 
 func modFloat(x, y float64) float64 {
 	r := math.Mod(x, y)
-	if (r < 0) != (y < 0) {
+	if r != 0 && (r < 0) != (y < 0) {
 		r += y
 	}
 	return r
@@ -216,29 +216,16 @@ func powFloat(x, y float64) float64 {
 }
 
 func pow(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	ny, fy, ky := ToNumber(y)
-	switch kx {
-	case IsInt:
-		switch ky {
-		case IsInt:
-			return FloatValue(powFloat(float64(nx), float64(ny))), nil
-		case IsFloat:
-			return FloatValue(powFloat(float64(nx), fy)), nil
-		}
-	case IsFloat:
-		switch ky {
-		case IsInt:
-			return FloatValue(powFloat(fx, float64(ny))), nil
-		case IsFloat:
-			return FloatValue(powFloat(fx, fy)), nil
-		}
+	fx, okx := ToFloat(x)
+	fy, oky := ToFloat(y)
+	if okx && oky {
+		return FloatValue(powFloat(fx, fy)), nil
 	}
 	res, err, ok := metabin(t, "__pow", x, y)
 	if ok {
 		return res, err
 	}
-	return NilValue, binaryArithmeticError("pow", x, y, kx, ky)
+	return NilValue, binaryArithmeticError("pow", x, y, numberType(x), numberType(y))
 }
 
 func binaryArithmeticError(op string, x, y Value, kx, ky NumberType) *Error {

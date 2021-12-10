@@ -105,7 +105,7 @@ func atan(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	var x float64 = 1
 	if c.NArgs() >= 2 {
-		y, err = c.FloatArg(1)
+		x, err = c.FloatArg(1)
 		if err != nil {
 			return nil, err
 		}
@@ -124,8 +124,13 @@ func ceil(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case rt.IsInt:
 		t.Push1(next, rt.IntValue(n))
 	case rt.IsFloat:
-		y := rt.FloatValue(math.Ceil(f))
-		t.Push1(next, y)
+		f = math.Ceil(f)
+		n = int64(f)
+		if float64(n) == f {
+			t.Push1(next, rt.IntValue(n))
+		} else {
+			t.Push1(next, rt.FloatValue(f))
+		}
 	default:
 		return nil, rt.NewErrorS("#1 must be a number")
 	}
@@ -178,8 +183,13 @@ func floor(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case rt.IsInt:
 		t.Push1(next, rt.IntValue(n))
 	case rt.IsFloat:
-		y := rt.FloatValue(math.Floor(f))
-		t.Push1(next, y)
+		f = math.Floor(f)
+		n = int64(f)
+		if float64(n) == f {
+			t.Push1(next, rt.IntValue(n))
+		} else {
+			t.Push1(next, rt.FloatValue(f))
+		}
 	default:
 		return nil, rt.NewErrorS("#1 must be a number")
 	}
@@ -291,21 +301,21 @@ func rad(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 // TODO: have a per runtime random generator
 func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if c.NArgs() == 0 {
-		return c.PushingNext1(t.Runtime, rt.FloatValue(rand.Float64())), nil
-	}
 	var (
 		err *rt.Error
 		m   int64 = 1
 		n   int64
 	)
-	if c.NArgs() >= 2 {
+	switch c.NArgs() {
+	case 0:
+		return c.PushingNext1(t.Runtime, rt.FloatValue(rand.Float64())), nil
+	case 1:
+		n, err = c.IntArg(0)
+	case 2:
 		m, err = c.IntArg(0)
 		if err == nil {
 			n, err = c.IntArg(1)
 		}
-	} else {
-		n, err = c.IntArg(0)
 	}
 	if err != nil {
 		return nil, err
@@ -313,8 +323,15 @@ func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if m > n {
 		return nil, rt.NewErrorS("#2 must be >= #1")
 	}
-	r := rt.IntValue(m + int64(rand.Intn(int(n-m))))
-	return c.PushingNext1(t.Runtime, r), nil
+	var r int64
+	if m <= 0 && m+math.MaxInt64 < n {
+		return nil, rt.NewErrorS("interval too large")
+	} else if m+math.MaxInt64 == n {
+		r = rand.Int63()
+	} else {
+		r = rand.Int63n(n - m + 1)
+	}
+	return c.PushingNext1(t.Runtime, rt.IntValue(m+r)), nil
 }
 
 func randomseed(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

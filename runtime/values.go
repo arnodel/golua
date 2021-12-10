@@ -1,10 +1,5 @@
 package runtime
 
-import (
-	"strconv"
-	"strings"
-)
-
 // Callable is the interface for callable values.
 type Callable interface {
 	Continuation(*Runtime, Cont) Cont
@@ -22,61 +17,6 @@ func (r *Runtime) ContWithArgs(c Callable, args []Value, next Cont) Cont {
 //
 // Float
 //
-
-// FloatToInt turns a float64 into an int64 if possible.
-func FloatToInt(f float64) (int64, NumberType) {
-	n := int64(f)
-	if float64(n) == f {
-		return n, IsInt
-	}
-	return 0, NaI
-}
-
-//
-// String
-//
-
-// stringToInt turns a string into and int64 if possible.
-func stringToInt(s string) (int64, NumberType) {
-	n, f, tp := stringToNumber(s)
-	switch tp {
-	case IsInt:
-		return n, IsInt
-	case IsFloat:
-		return FloatToInt(f)
-	}
-	return 0, NaN
-}
-
-func stringToNumber(s string) (n int64, f float64, tp NumberType) {
-	var err error
-	if len(s) == 0 {
-		tp = NaN
-		return
-	}
-	// If the string starts with -?0[xX] then it may be an hex number
-	var i0 = 0
-	if s[0] == '-' {
-		i0++
-	}
-	var isHex = len(s) >= 2+i0 && s[i0] == '0' && (s[i0+1] == 'x' || s[i0+1] == 'X')
-	if isHex && strings.ContainsAny(s, ".pP") || !isHex && strings.ContainsAny(s, ".eE") {
-		f, err = strconv.ParseFloat(s, 64)
-		if err != nil {
-			tp = NaN
-			return
-		}
-		tp = IsFloat
-		return
-	}
-	n, err = strconv.ParseInt(s, 0, 64)
-	if err != nil {
-		tp = NaN
-		return
-	}
-	tp = IsInt
-	return
-}
 
 // StringNormPos returns a normalised position in the string
 // i.e. -1 -> len(s)

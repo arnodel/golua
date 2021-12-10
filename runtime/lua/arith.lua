@@ -56,6 +56,12 @@ print(3^2, 9^0.5, 0.5^2, 4.0^1.5)
 testbin(function(x, y) return x^y end, 1, {})
 --> =true
 
+testbin(function(x, y) return x^y end, 1, "a")
+--> =true
+
+testbin(function(x, y) return x+y end, 1, "12x")
+--> =true
+
 print(pcall(function() return 1//0 end))
 --> ~false\t.*divide by zero
 
@@ -70,3 +76,36 @@ print(1/0 == 1/0)
 
 print(-0.0 == 0.0)
 --> =true
+
+print(" 2 " * " 70")
+--> =140
+
+print(" 2e3  " ^ "  2.0" == 4000000)
+--> =true
+
+do
+    local n = 100000000000000000000
+
+    print(n == 1e20)
+    --> =true
+
+    print(math.type(n))
+    --> =float
+end
+
+print("0x8.8" + 0)
+--> =8.5
+
+print("0x0.4p2" + 0)
+--> =1
+
+n=-12
+print(n%n)
+--> =0
+
+n=math.mininteger
+print(n%n)
+--> =0
+
+print("0xffff00000000000000000000000000000000001" + 1)
+--> =2

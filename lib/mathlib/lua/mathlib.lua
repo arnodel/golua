@@ -45,6 +45,9 @@ do
 
     print(math.ceil("888.5673"))
     --> =889
+
+    print(math.type(math.floor(3.5)))
+    --> =integer
 end
 
 do
@@ -71,6 +74,9 @@ do
 
     print(math.floor("888.5673"))
     --> =888
+
+    print(math.type(math.floor(3.5)))
+    --> =integer
 end
 
 do
@@ -148,6 +154,25 @@ do
     end
     print(out, diff)
     --> =0	0
+
+    print(math.random(5, 5))
+    --> =5
+
+    local t={}
+    for i = 1, 100 do
+        t[math.random(-2,-1)] = true
+    end
+    print(t[-2] and t[-1])
+    --> =true
+
+    print((pcall(math.random, 2, 1)))
+    --> =false
+
+    print(pcall(math.random, -1, math.maxinteger))
+    --> ~false\t.*: interval too large
+
+    print(math.random(0, math.maxinteger) >= 0)
+    --> =true
 end
 
 do
@@ -224,6 +249,9 @@ do
 
     print(atan(-1), atan(0), atan(1))
     --> =-1	0	1
+
+    print(math.atan(1, 0) == math.pi/2)
+    --> =true
 end
 
 do
@@ -282,6 +310,9 @@ end
 do
     print(math.fmod(5, 2))
     --> =1
+
+    print(math.fmod(-6, -6) == 0, math.fmod(-6.0, -6) == 0)
+    --> =true	true
 
     -- TODO: fix implementation
     -- print(math.fmod(-5, 2))
