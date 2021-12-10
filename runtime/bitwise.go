@@ -42,11 +42,14 @@ func bxor(t *Thread, x, y Value) (Value, *Error) {
 func shl(t *Thread, x, y Value) (Value, *Error) {
 	ix, okx := ToInt(x)
 	iy, oky := ToInt(y)
+
+	// We turn the value into an uint64 before shifting so that it's a logical
+	// shift, not arithmetic.
 	if okx && oky {
 		if iy < 0 {
-			return IntValue(ix >> uint64(-iy)), nil
+			return IntValue(int64(uint64(ix) >> uint64(-iy))), nil
 		}
-		return IntValue(ix << uint64(iy)), nil
+		return IntValue(int64(uint64(ix) << uint64(iy))), nil
 	}
 	res, err, ok := metabin(t, "__shl", x, y)
 	if ok {
@@ -58,11 +61,14 @@ func shl(t *Thread, x, y Value) (Value, *Error) {
 func shr(t *Thread, x, y Value) (Value, *Error) {
 	ix, okx := ToInt(x)
 	iy, oky := ToInt(y)
+
+	// We turn the value into an uint64 before shifting so that it's a logical
+	// shift, not arithmetic.
 	if okx && oky {
 		if iy < 0 {
-			return IntValue(ix << uint64(iy)), nil
+			return IntValue(int64(uint64(ix) << uint64(-iy))), nil
 		}
-		return IntValue(ix >> uint64(iy)), nil
+		return IntValue(int64(uint64(ix) >> uint64(iy))), nil
 	}
 	res, err, ok := metabin(t, "__shr", x, y)
 	if ok {
