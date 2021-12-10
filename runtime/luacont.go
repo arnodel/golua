@@ -219,7 +219,7 @@ RunLoop:
 			var val Value
 			switch opcode.GetY() {
 			case code.OpInt16:
-				val = IntValue(int64(n))
+				val = IntValue(int64(int16(n)))
 			case code.OpStr2:
 				val = StringValue(string(code.Lit16(n).ToStr2()))
 			case code.OpK:

@@ -75,6 +75,8 @@ x, y = f()
 print(x + y)
 --> =3
 
+print(0xffffffffffffffffffffffffffffff)
+--> =-1
+
 error("hello")
 --> ~^!!! runtime:
-
