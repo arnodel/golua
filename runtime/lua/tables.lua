@@ -41,6 +41,9 @@ print(t.xxx)
 print(pcall(function() t[nil] = 2 end))
 --> ~false\t.*index is nil
 
+print(pcall(function() t[0/0] = 2 end))
+--> ~false\t.*index is NaN
+
 do
     local t = {"x", "y"}
     local a, x = next(t)

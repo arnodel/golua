@@ -174,10 +174,14 @@ func (r *Runtime) SetTable(t *Table, k, v Value) {
 }
 
 var errTableIndexIsNil = errors.New("table index is nil")
+var errTableIndexIsNaN = errors.New("table index is NaN")
 
 func (r *Runtime) SetTableCheck(t *Table, k, v Value) error {
 	if k.IsNil() {
 		return errTableIndexIsNil
+	}
+	if k.IsNaN() {
+		return errTableIndexIsNaN
 	}
 	r.SetTable(t, k, v)
 	return nil

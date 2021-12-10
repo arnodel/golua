@@ -75,15 +75,17 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
 	for i := 0; i < maxIndexChainLength; i++ {
 		t.RequireCPU(1)
 		tbl, isTable := coll.TryTable()
+		if isTable && idx.IsNaN() {
+			return NewErrorE(errTableIndexIsNaN)
+		}
 		if isTable && tbl.Reset(idx, val) {
 			return nil
 		}
 		metaNewIndex := t.metaGetS(coll, "__newindex")
 		if metaNewIndex.IsNil() {
 			if isTable {
-				if err := t.SetTableCheck(tbl, idx, val); err != nil {
-					return NewErrorE(err)
-				}
+				// No need to call SetTableCheck
+				t.SetTable(tbl, idx, val)
 			}
 			return nil
 		}

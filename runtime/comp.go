@@ -9,17 +9,17 @@ func RawEqual(x, y Value) (bool, bool) {
 	switch x.NumberType() {
 	case IntType:
 		if fy, ok := y.TryFloat(); ok {
-			return compareIntAndFloat(x.AsInt(), fy), true
+			return equalIntAndFloat(x.AsInt(), fy), true
 		}
 	case FloatType:
 		if ny, ok := y.TryInt(); ok {
-			return compareIntAndFloat(ny, x.AsFloat()), true
+			return equalIntAndFloat(ny, x.AsFloat()), true
 		}
 	}
 	return false, false
 }
 
-func compareIntAndFloat(n int64, f float64) bool {
+func equalIntAndFloat(n int64, f float64) bool {
 	nf := int64(f)
 	return float64(nf) == f && nf == n
 }
@@ -52,12 +52,12 @@ func Lt(t *Thread, x, y Value) (bool, *Error) {
 		case IntType:
 			return x.AsInt() < y.AsInt(), nil
 		case FloatType:
-			return float64(x.AsInt()) < y.AsFloat(), nil
+			return ltIntAndFloat(x.AsInt(), y.AsFloat()), nil
 		}
 	case FloatType:
 		switch y.NumberType() {
 		case IntType:
-			return x.AsFloat() < float64(y.AsInt()), nil
+			return ltFloatAndInt(x.AsFloat(), y.AsInt()), nil
 		case FloatType:
 			return x.AsFloat() < y.AsFloat(), nil
 		}
@@ -74,6 +74,38 @@ func Lt(t *Thread, x, y Value) (bool, *Error) {
 	return false, compareError(x, y)
 }
 
+func ltIntAndFloat(n int64, f float64) bool {
+	nf := int64(f)
+	if float64(nf) == f {
+		return n < nf
+	}
+	return float64(n) < f
+}
+
+func ltFloatAndInt(f float64, n int64) bool {
+	nf := int64(f)
+	if float64(nf) == f {
+		return nf < n
+	}
+	return f < float64(n)
+}
+
+func leIntAndFloat(n int64, f float64) bool {
+	nf := int64(f)
+	if float64(nf) == f {
+		return n <= nf
+	}
+	return float64(n) <= f
+}
+
+func leFloatAndInt(f float64, n int64) bool {
+	nf := int64(f)
+	if float64(nf) == f {
+		return nf <= n
+	}
+	return f <= float64(n)
+}
+
 func le(t *Thread, x, y Value) (bool, *Error) {
 	switch x.NumberType() {
 	case IntType:
@@ -81,12 +113,12 @@ func le(t *Thread, x, y Value) (bool, *Error) {
 		case IntType:
 			return x.AsInt() <= y.AsInt(), nil
 		case FloatType:
-			return float64(x.AsInt()) <= y.AsFloat(), nil
+			return leIntAndFloat(x.AsInt(), y.AsFloat()), nil
 		}
 	case FloatType:
 		switch y.NumberType() {
 		case IntType:
-			return x.AsFloat() <= float64(y.AsInt()), nil
+			return leFloatAndInt(x.AsFloat(), y.AsInt()), nil
 		case FloatType:
 			return x.AsFloat() <= y.AsFloat(), nil
 		}

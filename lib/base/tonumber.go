@@ -33,16 +33,20 @@ func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if !ok {
 		return nil, rt.NewErrorS("#1 must be a string")
 	}
-	digits := bytes.Trim([]byte(s), " ")
+	digits := bytes.TrimSpace([]byte(s))
 	if len(digits) == 0 {
+		t.Push1(next, rt.NilValue)
 		return next, nil
 	}
 	var number int64
 	var sign int64 = 1
-	if digits[0] == '-' {
-		sign = -1
+	if digits[0] == '-' || digits[0] == '+' {
+		if digits[0] == '-' {
+			sign = -1
+		}
 		digits = digits[1:]
 		if len(digits) == 0 {
+			t.Push1(next, rt.NilValue)
 			return next, nil
 		}
 	}
@@ -56,9 +60,11 @@ func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		case 'A' <= digit && digit <= 'Z':
 			d = int64(digit - 'A' + 10)
 		default:
+			t.Push1(next, rt.NilValue)
 			return next, nil
 		}
 		if d >= base {
+			t.Push1(next, rt.NilValue)
 			return next, nil
 		}
 		number = number*base + d
