@@ -97,16 +97,16 @@ do
     print(ctx)
     --> =done
 
-    print(runtime.callcontext({memlimit=10000}, table.pack, table.unpack(mk("x", 1000))))
+    print(runtime.callcontext({memlimit=5000}, table.pack, table.unpack(mk("x", 200))))
     --> =killed
 
     --table.pack consumes cpu
 
-    local ctx = runtime.callcontext({cpulimit=1000}, table.pack, table.unpack(mk("x", 100)))
+    local ctx = runtime.callcontext({cpulimit=200}, table.pack, table.unpack(mk("x", 100)))
     print(ctx)
     --> =done
 
-    print(runtime.callcontext({cpulimit=1000}, table.pack, table.unpack(mk("x", 1000))))
+    print(runtime.callcontext({cpulimit=200}, table.pack, table.unpack(mk("x", 200))))
     --> =killed
 end
 
@@ -164,15 +164,15 @@ do
     print(ctx)
     --> =done
 
-    local ctx = runtime.callcontext({memlimit=500}, function(t) table.unpack(t) end, mk("x", 1000))
+    local ctx = runtime.callcontext({memlimit=500}, function(t) table.unpack(t) end, mk("x", 200))
     print(ctx)
     --> =done
 
     --table.unpack consumes cpu
-    local ctx = runtime.callcontext({cpulimit=1000}, table.unpack, mk("x", 100))
+    local ctx = runtime.callcontext({cpulimit=200}, table.unpack, mk("x", 100))
     print(ctx)
     --> =done
 
-    print(runtime.callcontext({cpulimit=1000}, table.unpack, mk("x", 1000)))
+    print(runtime.callcontext({cpulimit=200}, table.unpack, mk("x", 200)))
     --> =killed
 end

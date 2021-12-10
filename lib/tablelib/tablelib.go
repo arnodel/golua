@@ -197,12 +197,19 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		dstVal = c.Arg(4)
 	}
-	if srcStart > srcEnd {
+	if srcStart > srcEnd || srcStart == dstStart && dstVal == srcVal {
 		// Nothing to do apparently!
+	} else if srcStart <= 0 && srcStart+math.MaxInt64 <= srcEnd {
+		return nil, rt.NewErrorS("interval too large")
 	} else if dstStart >= srcStart {
 		// Move in descending order to avoid writing at a position
 		// before moving it
-		dstStart += srcEnd - srcStart
+		offset := srcEnd - srcStart // 0 <= offset < math.MaxInt64
+		if dstStart > math.MaxInt64-offset {
+			// Not enough space to move
+			return nil, rt.NewErrorS("destination would wrap around")
+		}
+		dstStart += offset
 		for srcEnd >= srcStart {
 			// Don't require CPU because rt.Index and rt.SetIndex will do
 			v, err := rt.Index(t, srcVal, rt.IntValue(srcEnd))
@@ -211,6 +218,10 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			}
 			if err != nil {
 				return nil, err
+			}
+			if srcEnd == math.MinInt64 {
+				// Prevent wrapping around
+				break
 			}
 			srcEnd--
 			dstStart--
@@ -226,6 +237,10 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			}
 			if err != nil {
 				return nil, err
+			}
+			if srcStart == math.MaxInt64 {
+				// Prevent wrapping around
+				break
 			}
 			srcStart++
 			dstStart++
@@ -315,6 +330,8 @@ func (s *tableSorter) Len() int {
 	return s.len()
 }
 
+const maxSortSize = 1 << 40
+
 func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
@@ -342,15 +359,21 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 		set(i, y)
 		set(j, x)
 	}
+	l, err := rt.IntLen(t, tblVal)
+	if err != nil {
+		return nil, rt.NewErrorE(err)
+	}
+	if l >= maxSortSize {
+		return nil, rt.NewErrorS("too big to sort")
+	}
+	if l <= 0 {
+		return c.Next(), nil
+	}
 	len := func() int {
-		l, err := rt.IntLen(t, tblVal)
-		if err != nil {
-			panic(err)
-		}
 		return int(l)
 	}
 	var less func(i, j int) bool
-	if c.NArgs() >= 2 {
+	if c.NArgs() >= 2 && !c.Arg(1).IsNil() {
 		comp := c.Arg(1)
 		term := rt.NewTerminationWith(c, 1, false)
 		less = func(i, j int) bool {
@@ -387,6 +410,10 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 	return c.Next(), nil
 }
 
+// Maximum number of values that can be unpacked from a table.  Lua docs don't
+// specify what this number should be.
+const maxUnpackSize = 256
+
 func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
@@ -415,6 +442,9 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err
 	}
+	if i < math.MaxInt64-maxUnpackSize && i+maxUnpackSize <= j {
+		return nil, rt.NewErrorS("too many values to unpack")
+	}
 	next := c.Next()
 	for ; i <= j; i++ {
 		// rt.Index consumes cpu so the loop is OK.
@@ -423,6 +453,10 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, err
 		}
 		t.Push1(next, val)
+		if i == math.MaxInt64 {
+			// Prevent wrap around
+			break
+		}
 	}
 	return next, nil
 }

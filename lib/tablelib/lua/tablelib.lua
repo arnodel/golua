@@ -123,6 +123,13 @@ do
     local u = {}
     print(table.concat(table.move(t, 1, 4, 1, u)))
     --> =1234
+
+    -- Edge conditions
+    print(pcall(table.move, {}, 0, 10, math.maxinteger - 9))
+    --> ~false\t.*wrap around
+
+    print(pcall(table.move, {}, -10, math.maxinteger, -20))
+    --> ~false\t.*interval too large
 end
 
 do
