@@ -1,6 +1,7 @@
 package oslib
 
 import (
+	"os"
 	"syscall"
 	"time"
 
@@ -23,6 +24,7 @@ func load(r *rt.Runtime) rt.Value {
 		r.SetEnvGoFunc(pkg, "clock", clock, 0, false),
 		r.SetEnvGoFunc(pkg, "time", timef, 1, false),
 		r.SetEnvGoFunc(pkg, "setlocale", setlocale, 2, false),
+		r.SetEnvGoFunc(pkg, "getenv", getenv, 1, false),
 	)
 
 	return rt.TableValue(pkg)
@@ -56,4 +58,21 @@ func setlocale(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return c.PushingNext1(t.Runtime, rt.NilValue), nil
 	}
 	return c.PushingNext1(t.Runtime, rt.StringValue(locale)), nil
+}
+
+func getenv(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err
+	}
+	name, err := c.StringArg(0)
+	if err != nil {
+		return nil, err
+	}
+	val, ok := os.LookupEnv(name)
+	valV := rt.NilValue
+	if ok {
+		t.RequireBytes(len(val))
+		valV = rt.StringValue(val)
+	}
+	return c.PushingNext1(t.Runtime, valV), nil
 }
