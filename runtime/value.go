@@ -229,7 +229,39 @@ func (v Value) Type() ValueType {
 	}
 }
 
+// TypeName returns a string representing the type of the value (as in the Lua
+// function type(v))
 func (v Value) TypeName() string {
+	if v.iface == nil {
+		return "nil"
+	}
+	switch v.iface.(type) {
+	case int64, float64:
+		return "number"
+	case bool:
+		return "boolean"
+	case string:
+		return "string"
+	case *Table:
+		return "table"
+		// return getName("table", v.iface.(*Table).Metatable())
+	case *Code:
+		return "code"
+	case *GoFunction, *Closure:
+		return "function"
+	case *Thread:
+		return "thread"
+	case *UserData:
+		return "userdata"
+		// return getName("userdata", v.iface.(*UserData).Metatable())
+	default:
+		return "<unknown type>"
+	}
+}
+
+// CustomTypeName is like TypeName but can be changed if the metatable has a
+// __name field.
+func (v Value) CustomTypeName() string {
 	if v.iface == nil {
 		return "nil"
 	}

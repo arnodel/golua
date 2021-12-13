@@ -62,7 +62,7 @@ func Index(t *Thread, coll Value, k Value) (Value, *Error) {
 }
 
 func indexError(coll Value) *Error {
-	return NewErrorF("attempt to index a %s value", coll.TypeName())
+	return NewErrorF("attempt to index a %s value", coll.CustomTypeName())
 }
 
 // SetIndex sets the item in a collection for the given key, using the
@@ -126,7 +126,7 @@ func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
 	}
 	cont, err, ok := metacont(t, f, "__call", next)
 	if !ok {
-		return nil, NewErrorF("attempt to call a %s value", f.TypeName())
+		return nil, NewErrorF("attempt to call a %s value", f.CustomTypeName())
 	}
 	if cont != nil {
 		t.Push1(cont, f)
@@ -148,7 +148,7 @@ func Call(t *Thread, f Value, args []Value, next Cont) *Error {
 	if ok {
 		return err
 	}
-	return NewErrorF("attempt to call a %s value", f.TypeName())
+	return NewErrorF("attempt to call a %s value", f.CustomTypeName())
 }
 
 // Call1 is a convenience method that calls f with arguments args and returns
@@ -186,9 +186,9 @@ func concatError(x, y Value, okx, oky bool) *Error {
 	case okx:
 		wrongVal = y
 	default:
-		return NewErrorF("attempt to concatenate a %s value with a %s value", x.TypeName(), y.TypeName())
+		return NewErrorF("attempt to concatenate a %s value with a %s value", x.CustomTypeName(), y.CustomTypeName())
 	}
-	return NewErrorF("attempt to concatenate a %s value", wrongVal.TypeName())
+	return NewErrorF("attempt to concatenate a %s value", wrongVal.CustomTypeName())
 }
 
 // IntLen returns the length of v as an int64, possibly calling the '__len'
@@ -235,7 +235,7 @@ func Len(t *Thread, v Value) (Value, *Error) {
 }
 
 func lenError(x Value) *Error {
-	return NewErrorF("attempt to get length of a %s value", x.TypeName())
+	return NewErrorF("attempt to get length of a %s value", x.CustomTypeName())
 }
 
 // SetEnv sets the item in the table t for a string key.  Useful when writing

@@ -33,5 +33,8 @@ do
     --> =nil
 
     print(type(io.stdout))
+    --> =userdata
+
+    print(io.type(io.stdout))
     --> =file
 end

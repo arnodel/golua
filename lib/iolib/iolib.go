@@ -109,27 +109,13 @@ func (d *ioData) defaultInputFile() *File {
 	return d.defaultInput.Value().(*File)
 }
 
-func ioError(err error) *rt.Error {
-	if err != nil {
-		return rt.NewErrorE(err)
-	}
-	return nil
-}
-
-func pushIoResult(r *rt.Runtime, next rt.Cont, ioErr error) {
-	if ioErr != nil {
-		r.Push1(next, rt.NilValue)
-		// TODO: Why push a *rt.Error?
-		r.Push1(next, rt.AsValue(ioError(ioErr)))
-	} else {
-		r.Push1(next, rt.BoolValue(true))
-	}
-}
-
-func pushingNextIoResult(r *rt.Runtime, c *rt.GoCont, ioErr error) rt.Cont {
+func pushingNextIoResult(r *rt.Runtime, c *rt.GoCont, ioErr error) (rt.Cont, *rt.Error) {
 	next := c.Next()
-	pushIoResult(r, next, ioErr)
-	return next
+	if ioErr != nil {
+		return r.ProcessIoError(next, ioErr)
+	}
+	r.Push1(next, rt.BoolValue(true))
+	return next, nil
 }
 
 func ioclose(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -143,7 +129,7 @@ func ioclose(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, err
 		}
 	}
-	return pushingNextIoResult(t.Runtime, c, f.Close()), nil
+	return pushingNextIoResult(t.Runtime, c, f.Close())
 }
 
 func fileclose(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -164,7 +150,7 @@ func ioflush(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, err
 		}
 	}
-	return pushingNextIoResult(t.Runtime, c, f.Flush()), nil
+	return pushingNextIoResult(t.Runtime, c, f.Flush())
 }
 
 func fileflush(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -181,7 +167,7 @@ func errFileOrFilename() *rt.Error {
 func input(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	ioData := getIoData(t)
 	if c.NArgs() == 0 {
-		return c.PushingNext(t.Runtime, rt.UserDataValue(ioData.defaultInput)), nil
+		return c.PushingNext1(t.Runtime, rt.UserDataValue(ioData.defaultInput)), nil
 	}
 	var (
 		fv  *rt.UserData
@@ -204,13 +190,13 @@ func input(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, errFileOrFilename()
 	}
 	ioData.defaultInput = fv
-	return c.Next(), nil
+	return c.PushingNext1(t.Runtime, rt.UserDataValue(fv)), nil
 }
 
 func output(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	ioData := getIoData(t)
 	if c.NArgs() == 0 {
-		return c.PushingNext(t.Runtime, rt.UserDataValue(ioData.defaultOutput)), nil
+		return c.PushingNext1(t.Runtime, rt.UserDataValue(ioData.defaultOutput)), nil
 	}
 	var (
 		fv  *rt.UserData
@@ -233,7 +219,7 @@ func output(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, errFileOrFilename()
 	}
 	getIoData(t).defaultOutput = fv
-	return c.Next(), nil
+	return c.PushingNext1(t.Runtime, rt.UserDataValue(fv)), nil
 }
 
 func iolines(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -317,7 +303,7 @@ func open(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	f, ioErr := OpenFile(t.Runtime, fname, mode)
 	if ioErr != nil {
-		return nil, rt.NewErrorE(ioErr)
+		return pushingNextIoResult(t.Runtime, c, ioErr)
 	}
 	u := newFileUserData(f, getIoData(t).metatable)
 	return c.PushingNext(t.Runtime, rt.UserDataValue(u)), nil

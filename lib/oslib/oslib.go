@@ -7,6 +7,7 @@ import (
 
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
+	"github.com/arnodel/golua/safeio"
 )
 
 // LibLoader can load the os lib.
@@ -25,6 +26,9 @@ func load(r *rt.Runtime) rt.Value {
 		r.SetEnvGoFunc(pkg, "time", timef, 1, false),
 		r.SetEnvGoFunc(pkg, "setlocale", setlocale, 2, false),
 		r.SetEnvGoFunc(pkg, "getenv", getenv, 1, false),
+		r.SetEnvGoFunc(pkg, "tmpname", tmpname, 0, false),
+		r.SetEnvGoFunc(pkg, "remove", remove, 1, false),
+		r.SetEnvGoFunc(pkg, "rename", rename, 2, false),
 	)
 
 	return rt.TableValue(pkg)
@@ -75,4 +79,49 @@ func getenv(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		valV = rt.StringValue(val)
 	}
 	return c.PushingNext1(t.Runtime, valV), nil
+}
+
+func tmpname(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	f, ioErr := safeio.TempFile(t.Runtime, "", "")
+	if ioErr != nil {
+		return t.ProcessIoError(c.Next(), ioErr)
+	}
+	defer f.Close()
+	name := f.Name()
+	t.RequireBytes(len(name))
+	return c.PushingNext1(t.Runtime, rt.StringValue(name)), nil
+}
+
+func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err
+	}
+	name, err := c.StringArg(0)
+	if err != nil {
+		return nil, err
+	}
+	ioErr := safeio.RemoveFile(t.Runtime, name)
+	if ioErr != nil {
+		return t.ProcessIoError(c.Next(), ioErr)
+	}
+	return c.PushingNext1(t.Runtime, rt.BoolValue(true)), nil
+}
+
+func rename(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err
+	}
+	oldName, err := c.StringArg(0)
+	if err != nil {
+		return nil, err
+	}
+	newName, err := c.StringArg(1)
+	if err != nil {
+		return nil, err
+	}
+	ioErr := safeio.RenameFile(t.Runtime, oldName, newName)
+	if ioErr != nil {
+		return t.ProcessIoError(c.Next(), ioErr)
+	}
+	return c.PushingNext1(t.Runtime, rt.BoolValue(true)), nil
 }

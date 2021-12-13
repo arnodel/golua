@@ -2,12 +2,12 @@ package base
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 
 	rt "github.com/arnodel/golua/runtime"
+	"github.com/arnodel/golua/safeio"
 )
 
 func Load(r *rt.Runtime) {
@@ -92,9 +92,9 @@ func loadChunk(t *rt.Thread, args []rt.Value) (chunk []byte, chunkName string, e
 		if !ok {
 			return nil, chunkName, errors.New("#1 must be a string")
 		}
-		f, err := os.Open(chunkName)
+		f, err := safeio.OpenFile(t.Runtime, chunkName, os.O_RDONLY, 0)
 		if err != nil {
-			return nil, chunkName, fmt.Errorf("error opeing file: %s", err)
+			return nil, chunkName, err
 		}
 		defer f.Close()
 		reader = f
@@ -104,7 +104,7 @@ func loadChunk(t *rt.Thread, args []rt.Value) (chunk []byte, chunkName string, e
 	}
 	chunk, err = ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, chunkName, fmt.Errorf("error reading file: %s", err)
+		return nil, chunkName, err
 	}
 	t.LinearRequire(10, uint64(len(chunk)))
 	return chunk, chunkName, nil

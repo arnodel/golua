@@ -16,7 +16,7 @@ func unm(t *Thread, x Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, NewErrorF("attempt to unm a '%s'", x.TypeName())
+	return NilValue, NewErrorF("attempt to unm a '%s'", x.CustomTypeName())
 }
 
 func add(t *Thread, x Value, y Value) (Value, *Error) {
@@ -236,7 +236,7 @@ func binaryArithmeticError(op string, x, y Value, kx, ky NumberType) *Error {
 	case kx != NaN:
 		wrongVal = y
 	default:
-		return NewErrorF("attempt to %s a '%s' with a '%s'", op, x.TypeName(), y.TypeName())
+		return NewErrorF("attempt to %s a '%s' with a '%s'", op, x.CustomTypeName(), y.CustomTypeName())
 	}
-	return NewErrorF("attempt to perform arithmetic on a %s value", wrongVal.TypeName())
+	return NewErrorF("attempt to perform arithmetic on a %s value", wrongVal.CustomTypeName())
 }
