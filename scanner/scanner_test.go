@@ -97,7 +97,10 @@ func TestScanner(t *testing.T) {
 		// Number errors
 		{
 			"123zabc",
-			[]tok{{token.INVALID, "123", 0, 1, 1}},
+			[]tok{
+				{token.NUMDEC, "123", 0, 1, 1},
+				{token.INVALID, "z", 3, 1, 4},
+			},
 			"Illegal character following number",
 		},
 		{
