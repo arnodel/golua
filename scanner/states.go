@@ -248,6 +248,7 @@ func scanExp(l *Scanner, isDigit func(rune) bool, exp string, tp token.Type) sta
 	}
 	l.emit(tp)
 	if isAlpha(l.peek()) {
+		l.next()
 		return l.errorf("Illegal character following number")
 	}
 	return scanToken
