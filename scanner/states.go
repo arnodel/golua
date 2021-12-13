@@ -209,18 +209,32 @@ func scanShortString(q rune) stateFn {
 	}
 }
 
+// For scanning numbers e.g. in files
+func scanNumberPrefix(l *Scanner) stateFn {
+	accept(l, isSpace, -1)
+	l.accept("+-")
+	return scanNumber
+}
+
 func scanNumber(l *Scanner) stateFn {
 	isDigit := isDec
 	exp := "eE"
 	tp := token.NUMDEC
-	if l.accept("0") && l.accept("xX") {
+	leading0 := l.accept("0")
+	dcount := 0
+	if leading0 && l.accept("xX") {
 		isDigit = isHex
 		exp = "pP"
 		tp = token.NUMHEX
+	} else if leading0 {
+		dcount++
 	}
-	accept(l, isDigit, -1)
+	dcount += accept(l, isDigit, -1)
 	if l.accept(".") {
-		accept(l, isDigit, -1)
+		dcount += accept(l, isDigit, -1)
+	}
+	if dcount == 0 {
+		return l.errorf("no digits in mantissa")
 	}
 	return scanExp(l, isDigit, exp, tp)
 }
@@ -228,14 +242,14 @@ func scanNumber(l *Scanner) stateFn {
 func scanExp(l *Scanner, isDigit func(rune) bool, exp string, tp token.Type) stateFn {
 	if l.accept(exp) {
 		l.accept("+-")
-		if accept(l, isDigit, -1) == 0 {
+		if accept(l, isDec, -1) == 0 {
 			return l.errorf("Digit required after exponent")
 		}
 	}
+	l.emit(tp)
 	if isAlpha(l.peek()) {
 		return l.errorf("Illegal character following number")
 	}
-	l.emit(tp)
 	return scanToken
 }
 

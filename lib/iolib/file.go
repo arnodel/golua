@@ -11,6 +11,8 @@ import (
 
 	rt "github.com/arnodel/golua/runtime"
 	"github.com/arnodel/golua/safeio"
+	"github.com/arnodel/golua/scanner"
+	"github.com/arnodel/golua/token"
 )
 
 // NewFile returns a new *File from an *os.File.
@@ -62,6 +64,7 @@ type bufReader interface {
 	Reset(r io.Reader)
 	Buffered() int
 	Discard(int) (int, error)
+	Peek(n int) ([]byte, error)
 	ReadString(delim byte) (string, error)
 }
 
@@ -94,6 +97,13 @@ func (u *nobufReader) Discard(n int) (int, error) {
 		return 0, errors.New("nobufReader cannot discard")
 	}
 	return 0, nil
+}
+
+func (u *nobufReader) Peek(n int) ([]byte, error) {
+	if n > 0 {
+		return nil, errors.New("nobufReader cannot peek")
+	}
+	return nil, nil
 }
 
 func (u *nobufReader) ReadString(delim byte) (string, error) {
@@ -229,6 +239,19 @@ func (f *File) ReadLine(withEnd bool) (rt.Value, error) {
 
 // Read return a lua string made of up to n bytes.
 func (f *File) Read(n int) (rt.Value, error) {
+	if n == 0 {
+		// Special case when n = 0: we try to peek 1 byte ahead to decide
+		// whether it's the end of the file or not.
+		_, err := f.reader.Peek(1)
+		switch err {
+		case nil:
+			return rt.StringValue(""), nil
+		case io.EOF:
+			return rt.NilValue, nil
+		default:
+			return rt.NilValue, err
+		}
+	}
 	b := make([]byte, n)
 	n, err := f.reader.Read(b)
 	if err == nil || err == io.EOF && n > 0 {
@@ -249,7 +272,26 @@ func (f *File) ReadAll() (rt.Value, error) {
 
 // ReadNumber tries to read a number from the file.
 func (f *File) ReadNumber() (rt.Value, error) {
-	return rt.NilValue, errors.New("readNumber unimplemented")
+	const maxSize = 64
+	bytes, err := f.reader.Peek(maxSize) // Should be enough for any number
+	if err != nil && err != io.EOF {
+		return rt.NilValue, err
+	}
+	scan := scanner.New("", bytes, scanner.ForNumber())
+	tok := scan.Scan()
+	_, _ = f.reader.Discard(len(tok.Lit))
+	if tok.Type == token.INVALID || len(tok.Lit) == maxSize {
+		return rt.NilValue, nil
+	}
+	n, x, tp := rt.StringToNumber(string(tok.Lit))
+	switch tp {
+	case rt.IsInt:
+		return rt.IntValue(n), nil
+	case rt.IsFloat:
+		return rt.FloatValue(x), nil
+	default:
+		return rt.NilValue, nil
+	}
 }
 
 // WriteString writes a string to the file.

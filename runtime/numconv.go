@@ -39,7 +39,7 @@ func ToNumber(v Value) (int64, float64, NumberType) {
 		return 0, v.AsFloat(), IsFloat
 	case string:
 		s := v.AsString()
-		return stringToNumber(strings.TrimSpace(s))
+		return StringToNumber(strings.TrimSpace(s))
 	}
 	return 0, 0, NaN
 }
@@ -53,7 +53,7 @@ func ToNumberValue(v Value) (Value, NumberType) {
 		return v, IsFloat
 	}
 	if s, ok := v.TryString(); ok {
-		n, f, tp := stringToNumber(strings.TrimSpace(s))
+		n, f, tp := StringToNumber(strings.TrimSpace(s))
 		switch tp {
 		case IsInt:
 			return IntValue(n), IsInt
@@ -100,7 +100,7 @@ func ToFloat(v Value) (float64, bool) {
 	case float64:
 		return v.AsFloat(), true
 	case string:
-		n, f, tp := stringToNumber(v.AsString())
+		n, f, tp := StringToNumber(v.AsString())
 		switch tp {
 		case IsInt:
 			return float64(n), true
@@ -126,7 +126,7 @@ func FloatToInt(f float64) (int64, NumberType) {
 
 // stringToInt turns a string into and int64 if possible.
 func stringToInt(s string) (int64, NumberType) {
-	n, f, tp := stringToNumber(s)
+	n, f, tp := StringToNumber(s)
 	switch tp {
 	case IsInt:
 		return n, IsInt
@@ -136,7 +136,7 @@ func stringToInt(s string) (int64, NumberType) {
 	return 0, NaN
 }
 
-func stringToNumber(s string) (n int64, f float64, tp NumberType) {
+func StringToNumber(s string) (n int64, f float64, tp NumberType) {
 	s = strings.TrimSpace(s)
 	var err error
 	if len(s) == 0 {

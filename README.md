@@ -348,8 +348,7 @@ lua library.
 - `stringlib`: the string library. It is complete.
 - `mathlib`: the math library, It is complete.
 - `tablelib`: the table library. It is complete.
-- `iolib`: the io library. It is implemented apart from `popen`,
-  `file:setvbuf`, `read("n")` (reading a number)
+- `iolib`: the io library. It is implemented apart from `popen`, `file:setvbuf`.
 - `utf8lib`: the utf8 library. It is complete.
 - `debug`: partially implemented (mainly to pass the lua test suite). The
   `getupvalue`, `setupvalue`, `upvalueid`, `upvaluejoin`, `setmetatable`,
