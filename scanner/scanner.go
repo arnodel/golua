@@ -22,8 +22,17 @@ type Scanner struct {
 	errorMsg         string
 }
 
+type scannerOption func(*Scanner)
+
+// Specializes in scanning a number, used in file:read("n")
+func ForNumber() scannerOption {
+	return func(s *Scanner) {
+		s.state = scanNumberPrefix
+	}
+}
+
 // New creates a new scanner for the input string.
-func New(name string, input []byte) *Scanner {
+func New(name string, input []byte, opts ...scannerOption) *Scanner {
 	l := &Scanner{
 		name:  name,
 		input: normalizeNewLines(input),
@@ -31,6 +40,9 @@ func New(name string, input []byte) *Scanner {
 		items: make(chan *token.Token, 2), // Two items sufficient.
 		pos:   token.Pos{Line: 1, Column: 1},
 		start: token.Pos{Line: 1, Column: 1},
+	}
+	for _, opt := range opts {
+		opt(l)
 	}
 	return l
 }

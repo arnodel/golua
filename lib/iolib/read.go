@@ -51,14 +51,14 @@ func getFormatReader(fmt rt.Value) (reader formatReader, err error) {
 		}
 		reader = func(f *File) (rt.Value, error) { return f.Read(int(n)) }
 	} else if s, ok := fmt.TryString(); ok && len(s) > 0 {
-		switch s[0] {
-		case 'n':
+		switch s {
+		case "n", "*n":
 			reader = (*File).ReadNumber
-		case 'a':
+		case "a", "*a":
 			reader = (*File).ReadAll
-		case 'l':
+		case "l", "*l":
 			reader = lineReader(false)
-		case 'L':
+		case "L", "*L":
 			reader = lineReader(true)
 		default:
 			return nil, errInvalidFormat
