@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -144,7 +145,6 @@ func (f *File) release() {
 }
 
 func (f *File) cleanup() {
-	_ = f.Close()
 	if f.temp {
 		_ = os.Remove(f.Name())
 	}
@@ -155,8 +155,18 @@ func (f *File) IsClosed() bool {
 	return f.closed
 }
 
+var errCloseStandardFile = errors.New("cannot close standard file")
+
 // Close attempts to close the file, returns an error if not successful.
 func (f *File) Close() error {
+	if f.file.Fd() <= 2 {
+		// Lua doesn't return a Lua error, so wrap this in a PathError
+		return &fs.PathError{
+			Op:   "close",
+			Path: f.file.Name(),
+			Err:  errCloseStandardFile,
+		}
+	}
 	f.closed = true
 	errFlush := f.writer.Flush()
 	err := f.file.Close()

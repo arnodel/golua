@@ -8,7 +8,7 @@ func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	chunk, chunkName, err := loadChunk(t, c.Args())
 	defer t.ReleaseBytes(len(chunk))
 	if err != nil {
-		return nil, rt.NewErrorE(err)
+		return t.ProcessIoError(c.Next(), err)
 	}
 	var chunkMode string
 	var chunkEnv = rt.TableValue(t.GlobalEnv())
