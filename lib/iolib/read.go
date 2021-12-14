@@ -2,6 +2,7 @@ package iolib
 
 import (
 	"errors"
+	"io"
 
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -12,9 +13,9 @@ func ioread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if fmtErr != nil {
 		return nil, rt.NewErrorE(fmtErr)
 	}
-	err := read(t.Runtime, getIoData(t).defaultInputFile(), readers, next)
-	if err != nil {
-		return nil, err
+	ioErr := read(t.Runtime, getIoData(t).defaultInputFile(), readers, next)
+	if ioErr != nil && ioErr != io.EOF {
+		return t.ProcessIoError(c.Next(), ioErr)
 	}
 	return next, nil
 }
@@ -32,9 +33,9 @@ func fileread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if fmtErr != nil {
 		return nil, rt.NewErrorE(fmtErr)
 	}
-	err = read(t.Runtime, f, readers, next)
-	if err != nil {
-		return nil, err
+	ioErr := read(t.Runtime, f, readers, next)
+	if ioErr != nil && ioErr != io.EOF {
+		return t.ProcessIoError(c.Next(), ioErr)
 	}
 	return next, nil
 }
@@ -81,7 +82,7 @@ func getFormatReaders(fmts []rt.Value) ([]formatReader, error) {
 	return readers, nil
 }
 
-func read(r *rt.Runtime, f *File, readers []formatReader, next rt.Cont) *rt.Error {
+func read(r *rt.Runtime, f *File, readers []formatReader, next rt.Cont) error {
 	if len(readers) == 0 {
 		readers = []formatReader{lineReader(false)}
 	}
@@ -89,7 +90,7 @@ func read(r *rt.Runtime, f *File, readers []formatReader, next rt.Cont) *rt.Erro
 		val, readErr := reader(f)
 		r.Push1(next, val)
 		if readErr != nil {
-			break
+			return readErr
 		}
 	}
 	return nil

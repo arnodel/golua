@@ -15,14 +15,23 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
+const (
+	bufferedRead int = 1 << iota
+	bufferedWrite
+)
+
 // NewFile returns a new *File from an *os.File.
-func NewFile(file *os.File, buffered bool) *File {
+func NewFile(file *os.File, options int) *File {
 	f := &File{file: file}
-	if buffered {
+	// TODO: find out if there is mileage in having unbuffered readers.
+	if true || options&bufferedRead != 0 {
 		f.reader = bufio.NewReader(file)
-		f.writer = bufio.NewWriterSize(file, 65536)
 	} else {
 		f.reader = &nobufReader{file}
+	}
+	if options&bufferedWrite != 0 {
+		f.writer = bufio.NewWriterSize(file, 65536)
+	} else {
 		f.writer = &nobufWriter{file}
 	}
 	currentFiles[f] = struct{}{}
@@ -54,7 +63,7 @@ func TempFile(r *rt.Runtime) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	ff := NewFile(f, true)
+	ff := NewFile(f, bufferedRead|bufferedWrite)
 	ff.temp = true
 	return ff, nil
 }
@@ -107,7 +116,7 @@ func (u *nobufReader) Peek(n int) ([]byte, error) {
 }
 
 func (u *nobufReader) ReadString(delim byte) (string, error) {
-	panic("unimplemented")
+	return "", errors.New("unimplemented")
 }
 
 type nobufWriter struct {
@@ -166,6 +175,7 @@ func (f *File) IsClosed() bool {
 }
 
 var errCloseStandardFile = errors.New("cannot close standard file")
+var errFileAlreadyClosed = errors.New("file already closed")
 
 // Close attempts to close the file, returns an error if not successful.
 func (f *File) Close() error {
@@ -176,6 +186,9 @@ func (f *File) Close() error {
 			Path: f.file.Name(),
 			Err:  errCloseStandardFile,
 		}
+	}
+	if f.closed {
+		return errFileAlreadyClosed
 	}
 	f.closed = true
 	errFlush := f.writer.Flush()
@@ -196,20 +209,26 @@ func (f *File) Flush() error {
 
 // OpenFile opens a file with the given name in the given lua mode.
 func OpenFile(r *rt.Runtime, name, mode string) (*File, error) {
-	var flag int
+	var flag, options int
 	switch strings.TrimSuffix(mode, "b") {
 	case "r":
 		flag = os.O_RDONLY
+		options = bufferedRead
 	case "w":
 		flag = os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+		options = bufferedWrite
 	case "a":
 		flag = os.O_WRONLY | os.O_CREATE | os.O_APPEND
+		options = bufferedWrite
 	case "r+":
 		flag = os.O_RDWR
+		options = bufferedRead | bufferedWrite
 	case "w+":
 		flag = os.O_RDWR | os.O_CREATE | os.O_TRUNC
+		options = bufferedRead | bufferedWrite
 	case "a+":
 		flag = os.O_RDWR | os.O_CREATE | os.O_APPEND
+		options = bufferedRead | bufferedWrite
 	default:
 		return nil, errors.New("invalid mode")
 	}
@@ -217,7 +236,7 @@ func OpenFile(r *rt.Runtime, name, mode string) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewFile(f, true), nil
+	return NewFile(f, options), nil
 }
 
 // ReadLine reads a line from the file.  If withEnd is true, it will include the
@@ -254,7 +273,7 @@ func (f *File) Read(n int) (rt.Value, error) {
 	}
 	b := make([]byte, n)
 	n, err := f.reader.Read(b)
-	if err == nil || err == io.EOF && n > 0 {
+	if err == nil {
 		return rt.StringValue(string(b[:n])), nil
 	}
 	return rt.NilValue, err
@@ -281,16 +300,16 @@ func (f *File) ReadNumber() (rt.Value, error) {
 	tok := scan.Scan()
 	_, _ = f.reader.Discard(len(tok.Lit))
 	if tok.Type == token.INVALID || len(tok.Lit) == maxSize {
-		return rt.NilValue, nil
+		return rt.NilValue, err
 	}
 	n, x, tp := rt.StringToNumber(string(tok.Lit))
 	switch tp {
 	case rt.IsInt:
-		return rt.IntValue(n), nil
+		return rt.IntValue(n), err
 	case rt.IsFloat:
-		return rt.FloatValue(x), nil
+		return rt.FloatValue(x), err
 	default:
-		return rt.NilValue, nil
+		return rt.NilValue, err
 	}
 }
 
