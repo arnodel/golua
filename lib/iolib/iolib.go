@@ -49,14 +49,24 @@ func load(r *rt.Runtime) rt.Value {
 		r.SetEnvGoFunc(meta, "__tostring", tostring, 1, false),
 	)
 
-	stdoutFile := NewFile(os.Stdout, BufferedStdFiles)
+	var (
+		stdoutOpts int
+		stderrOpts int
+		stdinOpts  int
+	)
+	if BufferedStdFiles {
+		stdoutOpts = bufferedWrite
+		stdinOpts = bufferedRead
+	}
+
+	stdoutFile := NewFile(os.Stdout, stdoutOpts)
 	// This is not a good pattern - it has to do for now.
 	if r.Stdout == nil {
 		r.Stdout = stdoutFile.writer
 	}
-	stdin := newFileUserData(NewFile(os.Stdin, BufferedStdFiles), meta)
+	stdin := newFileUserData(NewFile(os.Stdin, stdinOpts), meta)
 	stdout := newFileUserData(stdoutFile, meta)
-	stderr := newFileUserData(NewFile(os.Stderr, false), meta) // I''m guessing, don't buffer stderr?
+	stderr := newFileUserData(NewFile(os.Stderr, stderrOpts), meta) // I''m guessing, don't buffer stderr?
 
 	r.SetRegistry(ioKey, rt.AsValue(&ioData{
 		defaultOutput: stdout,
@@ -218,7 +228,9 @@ func output(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	default:
 		return nil, errFileOrFilename()
 	}
-	getIoData(t).defaultOutput = fv
+	// Make sure the current output is flushed
+	ioData.defaultOutput.Value().(*File).Flush()
+	ioData.defaultOutput = fv
 	return c.PushingNext1(t.Runtime, rt.UserDataValue(fv)), nil
 }
 
@@ -271,12 +283,21 @@ func lines(r *rt.Runtime, f *File, readers []formatReader, flags int) *rt.GoFunc
 	}
 	iterator := func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next := c.Next()
+		// if f.closed {
+		// 	return nil, rt.NewErrorS("file is already closed")
+		// }
 		err := read(r, f, readers, next)
 		if err != nil {
-			if err == io.EOF && flags&closeAtEOF != 0 {
-				f.Close()
+			if err == io.EOF {
+				if flags&closeAtEOF != 0 {
+					if err := f.Close(); err != nil {
+						return t.ProcessIoError(next, err)
+					}
+				}
+				t.Push1(next, rt.NilValue)
+				return next, nil
 			}
-			return nil, err
+			return nil, rt.NewErrorE(err)
 		}
 		return next, nil
 	}
@@ -357,7 +378,7 @@ func write(r *rt.Runtime, vf rt.Value, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	next := c.Next()
 	if err != nil {
-		r.Push(next, rt.StringValue(err.Error()))
+		return r.ProcessIoError(next, err)
 	} else {
 		r.Push(next, vf)
 	}
@@ -426,8 +447,14 @@ func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err
 	}
-	s := rt.StringValue(fmt.Sprintf("file(%q)", f.Name()))
-	return c.PushingNext(t.Runtime, s), nil
+	var s string
+	if f.closed {
+		s = "file (closed)"
+	} else {
+		s = fmt.Sprintf("file (%q)", f.Name())
+	}
+	t.RequireBytes(len(s))
+	return c.PushingNext(t.Runtime, rt.StringValue(s)), nil
 }
 
 func newFileUserData(f *File, meta *rt.Table) *rt.UserData {
