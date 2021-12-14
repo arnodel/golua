@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
+	"github.com/arnodel/golua/scanner"
 )
 
 const maxChunkNameLen = 59
@@ -121,7 +122,7 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		t.Push(next, rt.NilValue, rt.StringValue("attempt to load a text chunk"))
 		return next, nil
 	}
-	clos, err := t.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv)
+	clos, err := t.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv, scanner.NoSpecialComment())
 	if err != nil {
 		t.Push(next, rt.NilValue, rt.StringValue(err.Error()))
 	} else {

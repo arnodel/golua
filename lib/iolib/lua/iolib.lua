@@ -29,7 +29,7 @@ do
 
     local f = io.open("files/iotest.txt")
     print(f)
-    --> =file("files/iotest.txt")
+    --> =file ("files/iotest.txt")
 
     print(pcall(f.read))
     --> ~^false\t.*value needed
@@ -213,13 +213,13 @@ do
 end
 
 do
-    local stdin = io.input()
-    print(io.type(stdin))
-    --> =file
+    -- local stdin = io.input()
+    -- print(io.type(stdin))
+    -- --> =file
 
     io.input("files/iotest.txt")
     print(io.input())
-    --> =file("files/iotest.txt")
+    --> =file ("files/iotest.txt")
 
     print((pcall(io.input, "files/missing")))
     --> =false
@@ -229,9 +229,9 @@ do
 end
 
 do
-    local stdout = io.output()
-    print(io.type(stdout))
-    --> =file
+    -- local stdout = io.output()
+    -- print(io.type(stdout))
+    -- --> =file
 
     testf(io.output)(false)
     --> ~^ERR

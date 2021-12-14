@@ -5,17 +5,22 @@ import (
 )
 
 func scanFirstLine(l *Scanner) stateFn {
-	if l.next() == '#' {
+	c := l.next()
+	// BOM
+	if c == rune(0xFEFF) {
+		l.ignore()
+		c = l.next()
+	}
+	if c == '#' {
 		for {
 			switch l.next() {
-			case '\n', '\r':
+			case '\n', '\r', -1:
 				l.ignore()
 				return scanToken
-			case -1:
-				return l.errorf("<eof> in # line")
 			}
 		}
 	}
+
 	l.backup()
 	return scanToken
 }

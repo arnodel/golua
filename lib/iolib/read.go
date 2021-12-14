@@ -83,13 +83,17 @@ func getFormatReaders(fmts []rt.Value) ([]formatReader, error) {
 }
 
 func read(r *rt.Runtime, f *File, readers []formatReader, next rt.Cont) error {
+	if f.closed {
+		return errFileAlreadyClosed
+	}
 	if len(readers) == 0 {
 		readers = []formatReader{lineReader(false)}
 	}
-	for _, reader := range readers {
+	for i, reader := range readers {
 		val, readErr := reader(f)
-		r.Push1(next, val)
-		if readErr != nil {
+		if readErr == nil {
+			r.Push1(next, val)
+		} else if i == 0 || readErr != io.EOF {
 			return readErr
 		}
 	}

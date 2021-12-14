@@ -235,9 +235,13 @@ func output(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func iolines(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var f *File
-	if c.NArgs() == 0 {
+	var (
+		f         *File
+		eofAction = closeAtEOF
+	)
+	if c.NArgs() == 0 || c.Arg(0) == rt.NilValue {
 		f = getIoData(t).defaultInputFile()
+		eofAction = doNotCloseAtEOF
 	} else {
 		fname, err := c.StringArg(0)
 		if err != nil {
@@ -253,7 +257,7 @@ func iolines(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if fmtErr != nil {
 		return nil, rt.NewErrorE(fmtErr)
 	}
-	return c.PushingNext(t.Runtime, rt.FunctionValue(lines(t.Runtime, f, readers, closeAtEOF))), nil
+	return c.PushingNext(t.Runtime, rt.FunctionValue(lines(t.Runtime, f, readers, eofAction))), nil
 }
 
 func filelines(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -284,7 +288,7 @@ func lines(r *rt.Runtime, f *File, readers []formatReader, flags int) *rt.GoFunc
 	iterator := func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next := c.Next()
 		// if f.closed {
-		// 	return nil, rt.NewErrorS("file is already closed")
+		// 	return next, nil
 		// }
 		err := read(r, f, readers, next)
 		if err != nil {
@@ -361,6 +365,9 @@ func write(r *rt.Runtime, vf rt.Value, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	f, ok := ValueToFile(vf)
 	if !ok {
 		return nil, rt.NewErrorS("#1 must be a file")
+	}
+	if f.closed {
+		return nil, rt.NewErrorE(errFileAlreadyClosed)
 	}
 	var err error
 	for _, val := range c.Etc() {
