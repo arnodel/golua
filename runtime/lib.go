@@ -258,8 +258,8 @@ func (r *Runtime) SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (
 }
 
 // ParseLuaChunk parses a string as a Lua statement and returns the AST.
-func (r *Runtime) ParseLuaChunk(name string, source []byte) (stat *ast.BlockStat, statSize uint64, err error) {
-	s := scanner.New(name, source)
+func (r *Runtime) ParseLuaChunk(name string, source []byte, scannerOptions ...scanner.Option) (stat *ast.BlockStat, statSize uint64, err error) {
+	s := scanner.New(name, source, scannerOptions...)
 
 	// Account for CPU and memory used to make the AST.  This is an estimate,
 	// but statSize is proportional to the size of the source.
@@ -281,8 +281,8 @@ func (r *Runtime) ParseLuaChunk(name string, source []byte) (stat *ast.BlockStat
 
 // CompileLuaChunk parses and compiles the source as a Lua Chunk and returns the
 // compile code Unit.
-func (r *Runtime) CompileLuaChunk(name string, source []byte) (*code.Unit, uint64, error) {
-	stat, statSize, err := r.ParseLuaChunk(name, source)
+func (r *Runtime) CompileLuaChunk(name string, source []byte, scannerOptions ...scanner.Option) (*code.Unit, uint64, error) {
+	stat, statSize, err := r.ParseLuaChunk(name, source, scannerOptions...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -334,8 +334,8 @@ func (r *Runtime) CompileLuaChunk(name string, source []byte) (*code.Unit, uint6
 
 // CompileAndLoadLuaChunk parses, compiles and loads a Lua chunk from source and
 // returns the closure that runs the chunk in the given global environment.
-func (r *Runtime) CompileAndLoadLuaChunk(name string, source []byte, env Value) (*Closure, error) {
-	unit, unitSize, err := r.CompileLuaChunk(name, source)
+func (r *Runtime) CompileAndLoadLuaChunk(name string, source []byte, env Value, scannerOptions ...scanner.Option) (*Closure, error) {
+	unit, unitSize, err := r.CompileLuaChunk(name, source, scannerOptions...)
 	defer r.ReleaseMem(unitSize)
 	if err != nil {
 		return nil, err

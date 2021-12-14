@@ -253,7 +253,7 @@ func (f *File) ReadLine(withEnd bool) (rt.Value, error) {
 	if !withEnd && l > 0 && s[l-1] == '\n' {
 		s = s[:l-1]
 	}
-	return rt.StringValue(s), err
+	return rt.StringValue(s), nil
 }
 
 // Read return a lua string made of up to n bytes.
@@ -272,8 +272,8 @@ func (f *File) Read(n int) (rt.Value, error) {
 		}
 	}
 	b := make([]byte, n)
-	n, err := f.reader.Read(b)
-	if err == nil {
+	n, err := io.ReadFull(f.reader, b)
+	if err == nil || err == io.ErrUnexpectedEOF {
 		return rt.StringValue(string(b[:n])), nil
 	}
 	return rt.NilValue, err
@@ -293,23 +293,23 @@ func (f *File) ReadAll() (rt.Value, error) {
 func (f *File) ReadNumber() (rt.Value, error) {
 	const maxSize = 64
 	bytes, err := f.reader.Peek(maxSize) // Should be enough for any number
-	if err != nil && err != io.EOF {
+	if err != nil && (err != io.EOF || len(bytes) == 0) {
 		return rt.NilValue, err
 	}
 	scan := scanner.New("", bytes, scanner.ForNumber())
 	tok := scan.Scan()
 	_, _ = f.reader.Discard(len(tok.Lit))
 	if tok.Type == token.INVALID || len(tok.Lit) == maxSize {
-		return rt.NilValue, err
+		return rt.NilValue, nil
 	}
 	n, x, tp := rt.StringToNumber(string(tok.Lit))
 	switch tp {
 	case rt.IsInt:
-		return rt.IntValue(n), err
+		return rt.IntValue(n), nil
 	case rt.IsFloat:
-		return rt.FloatValue(x), err
+		return rt.FloatValue(x), nil
 	default:
-		return rt.NilValue, err
+		return rt.NilValue, nil
 	}
 }
 

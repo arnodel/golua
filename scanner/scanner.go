@@ -22,17 +22,23 @@ type Scanner struct {
 	errorMsg         string
 }
 
-type scannerOption func(*Scanner)
+type Option func(*Scanner)
 
 // Specializes in scanning a number, used in file:read("n")
-func ForNumber() scannerOption {
+func ForNumber() Option {
 	return func(s *Scanner) {
 		s.state = scanNumberPrefix
 	}
 }
 
+func NoSpecialComment() Option {
+	return func(s *Scanner) {
+		s.state = scanToken
+	}
+}
+
 // New creates a new scanner for the input string.
-func New(name string, input []byte, opts ...scannerOption) *Scanner {
+func New(name string, input []byte, opts ...Option) *Scanner {
 	l := &Scanner{
 		name:  name,
 		input: normalizeNewLines(input),
