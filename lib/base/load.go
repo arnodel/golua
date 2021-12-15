@@ -89,10 +89,16 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	// The chunk is no longer used once we leave this function.
 	defer t.ReleaseBytes(len(chunk))
 
+	return compileChunk(t, next, chunkName, chunk, chunkMode, chunkEnv, scanner.NoSpecialComment())
+
+}
+
+func compileChunk(t *rt.Thread, next rt.Cont, chunkName string, chunk []byte, chunkMode string, chunkEnv rt.Value, scannerOpts ...scanner.Option) (rt.Cont, *rt.Error) {
 	canBeBinary := strings.IndexByte(chunkMode, 'b') >= 0
 	canBeText := strings.IndexByte(chunkMode, 't') >= 0
 
-	if canBeBinary {
+	switch {
+	case canBeBinary && rt.HasMarshalPrefix(chunk):
 		r := bytes.NewBuffer(chunk)
 		k, used, err := rt.UnmarshalConst(r, t.LinearUnused(10))
 		t.LinearRequire(10, used)
@@ -112,21 +118,19 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 					clos.AddUpvalue(rt.NewCell(rt.NilValue))
 				}
 			}
-			return c.PushingNext(t.Runtime, rt.FunctionValue(clos)), nil
+			t.Push1(next, rt.FunctionValue(clos))
 		}
-	} else if rt.HasMarshalPrefix(chunk) {
+	case rt.HasMarshalPrefix(chunk):
 		t.Push(next, rt.NilValue, rt.StringValue("attempt to load a binary chunk"))
-	}
-
-	if !canBeText {
+	case !canBeText:
 		t.Push(next, rt.NilValue, rt.StringValue("attempt to load a text chunk"))
-		return next, nil
-	}
-	clos, err := t.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv, scanner.NoSpecialComment())
-	if err != nil {
-		t.Push(next, rt.NilValue, rt.StringValue(err.Error()))
-	} else {
-		t.Push1(next, rt.FunctionValue(clos))
+	default:
+		clos, err := t.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv, scannerOpts...)
+		if err != nil {
+			t.Push(next, rt.NilValue, rt.StringValue(err.Error()))
+		} else {
+			t.Push1(next, rt.FunctionValue(clos))
+		}
 	}
 	return next, nil
 }

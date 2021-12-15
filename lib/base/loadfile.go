@@ -10,8 +10,10 @@ func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return t.ProcessIoError(c.Next(), err)
 	}
-	var chunkMode string
-	var chunkEnv = rt.TableValue(t.GlobalEnv())
+	var (
+		chunkMode = "bt"
+		chunkEnv  = rt.TableValue(t.GlobalEnv())
+	)
 	switch nargs := c.NArgs(); {
 	case nargs >= 3:
 		chunkEnv = c.Arg(2)
@@ -23,14 +25,5 @@ func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		chunkMode = string(mode)
 	}
-	// TODO: use mode
-	_ = chunkMode
-	next := c.Next()
-	clos, err := t.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv)
-	if err != nil {
-		t.Push(next, rt.NilValue, rt.StringValue(err.Error()))
-	} else {
-		t.Push1(next, rt.FunctionValue(clos))
-	}
-	return next, nil
+	return compileChunk(t, c.Next(), chunkName, chunk, chunkMode, chunkEnv)
 }
