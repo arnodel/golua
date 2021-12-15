@@ -11,6 +11,7 @@ func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return t.ProcessIoError(c.Next(), err)
 	}
 	var (
+		next      = c.Next()
 		chunkMode = "bt"
 		chunkEnv  = rt.TableValue(t.GlobalEnv())
 	)
@@ -25,5 +26,11 @@ func loadfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		chunkMode = string(mode)
 	}
-	return compileChunk(t, c.Next(), chunkName, chunk, chunkMode, chunkEnv)
+	clos, err := t.LoadFromSourceOrCode(chunkName, chunk, chunkMode, chunkEnv, true)
+	if err != nil {
+		t.Push(next, rt.NilValue, rt.StringValue(err.Error()))
+	} else {
+		t.Push1(next, rt.FunctionValue(clos))
+	}
+	return next, nil
 }

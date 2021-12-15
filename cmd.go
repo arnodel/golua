@@ -142,12 +142,12 @@ func (c *luaCmd) run() (retcode int) {
 		stat.HWrite(w)
 		return 0
 	}
-	// chunk = removeSlashBangLine(chunk)
-	unit, _, err := r.CompileLuaChunk(chunkName, chunk)
-	if err != nil {
-		return fatal("Error parsing %s: %s", chunkName, err)
-	}
+
 	if c.disFlag {
+		unit, _, err := r.CompileLuaChunk(chunkName, chunk)
+		if err != nil {
+			return fatal("Error parsing %s: %s", chunkName, err)
+		}
 		unit.Disassemble(os.Stdout)
 		return 0
 	}
@@ -162,7 +162,11 @@ func (c *luaCmd) run() (retcode int) {
 			retcode = 2
 		}
 	}()
-	clos := r.LoadLuaUnit(unit, rt.TableValue(r.GlobalEnv()))
+
+	clos, err := r.LoadFromSourceOrCode(chunkName, chunk, "bt", rt.TableValue(r.GlobalEnv()), true)
+	if err != nil {
+		return fatal("Error loading %s: %s", chunkName, err)
+	}
 	cerr := rt.Call(r.MainThread(), rt.FunctionValue(clos), argVals, rt.NewTerminationWith(nil, 0, false))
 	if cerr != nil {
 		return fatal("!!! %s", cerr.Error())
@@ -179,23 +183,6 @@ func isaTTY(f *os.File) bool {
 	fi, _ := f.Stat()
 	return fi.Mode()&os.ModeCharDevice != 0
 }
-
-// func removeSlashBangLine(chunk []byte) []byte {
-// 	if len(chunk) < 2 {
-// 		return chunk
-// 	}
-// 	if chunk[0] != '#' || chunk[1] != '!' {
-// 		return chunk
-// 	}
-// 	i := 3
-// 	for i < len(chunk) {
-// 		if chunk[i] == '\n' || chunk[i] == '\r' {
-// 			return chunk[i+1:]
-// 		}
-// 		i++
-// 	}
-// 	return nil
-// }
 
 func (c *luaCmd) repl(r *rt.Runtime) int {
 	reader := bufio.NewReader(os.Stdin)
