@@ -78,7 +78,6 @@ func (c *expCompiler) ProcessBinOpExp(b ast.BinOp) {
 		c.ReleaseRegister(lsrc)
 		lsrc = c.dst
 	}
-	return
 }
 
 // This implements short-circuiting in logical expressions.

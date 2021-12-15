@@ -19,7 +19,7 @@ func CompileLuaChunk(source string, s ast.BlockStat) (kidx uint, consts []ir.Con
 			}
 		}
 	}()
-	kp := new(ir.ConstantPool)
+	kp := ir.NewConstantPool()
 	rootIrC := ir.NewCodeBuilder("<global chunk>", kp)
 	rootIrC.DeclareLocal("_ENV", rootIrC.GetFreeRegister())
 	irC := rootIrC.NewChild("<main chunk>")
