@@ -17,7 +17,7 @@ import (
 func RunSource(r *runtime.Runtime, source []byte) {
 	t := r.MainThread()
 	// TODO: use the file name
-	clos, err := t.CompileAndLoadLuaChunk("luatest", source, runtime.TableValue(r.GlobalEnv()))
+	clos, err := t.LoadFromSourceOrCode("luatest", source, "t", runtime.TableValue(r.GlobalEnv()), false)
 	if err != nil {
 		fmt.Fprintf(r.Stdout, "!!! parsing: %s", err)
 		return

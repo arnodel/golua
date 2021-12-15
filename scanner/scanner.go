@@ -31,9 +31,17 @@ func ForNumber() Option {
 	}
 }
 
-func NoSpecialComment() Option {
+func WithSpecialComment() Option {
 	return func(s *Scanner) {
-		s.state = scanToken
+		s.state = scanFirstLine
+	}
+}
+
+func WithStartLine(l int) Option {
+	return func(s *Scanner) {
+		pos := token.Pos{Line: l, Column: 1}
+		s.start = pos
+		s.pos = pos
 	}
 }
 
@@ -42,7 +50,7 @@ func New(name string, input []byte, opts ...Option) *Scanner {
 	l := &Scanner{
 		name:  name,
 		input: normalizeNewLines(input),
-		state: scanFirstLine,
+		state: scanToken,
 		items: make(chan *token.Token, 2), // Two items sufficient.
 		pos:   token.Pos{Line: 1, Column: 1},
 		start: token.Pos{Line: 1, Column: 1},

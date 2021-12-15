@@ -2,10 +2,8 @@ package base
 
 import (
 	"bytes"
-	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
-	"github.com/arnodel/golua/scanner"
 )
 
 const maxChunkNameLen = 59
@@ -89,48 +87,11 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	// The chunk is no longer used once we leave this function.
 	defer t.ReleaseBytes(len(chunk))
 
-	return compileChunk(t, next, chunkName, chunk, chunkMode, chunkEnv, scanner.NoSpecialComment())
-
-}
-
-func compileChunk(t *rt.Thread, next rt.Cont, chunkName string, chunk []byte, chunkMode string, chunkEnv rt.Value, scannerOpts ...scanner.Option) (rt.Cont, *rt.Error) {
-	canBeBinary := strings.IndexByte(chunkMode, 'b') >= 0
-	canBeText := strings.IndexByte(chunkMode, 't') >= 0
-
-	switch {
-	case canBeBinary && rt.HasMarshalPrefix(chunk):
-		r := bytes.NewBuffer(chunk)
-		k, used, err := rt.UnmarshalConst(r, t.LinearUnused(10))
-		t.LinearRequire(10, used)
-		if err != rt.ErrInvalidMarshalPrefix {
-			if err != nil {
-				return nil, rt.NewErrorE(err)
-			}
-			code, ok := k.TryCode()
-			if !ok {
-				return nil, rt.NewErrorF("Expected function to load")
-			}
-			clos := rt.NewClosure(t.Runtime, code)
-			if code.UpvalueCount > 0 {
-				clos.AddUpvalue(rt.NewCell(chunkEnv))
-				t.RequireCPU(uint64(code.UpvalueCount))
-				for i := int16(1); i < code.UpvalueCount; i++ {
-					clos.AddUpvalue(rt.NewCell(rt.NilValue))
-				}
-			}
-			t.Push1(next, rt.FunctionValue(clos))
-		}
-	case rt.HasMarshalPrefix(chunk):
-		t.Push(next, rt.NilValue, rt.StringValue("attempt to load a binary chunk"))
-	case !canBeText:
-		t.Push(next, rt.NilValue, rt.StringValue("attempt to load a text chunk"))
-	default:
-		clos, err := t.CompileAndLoadLuaChunk(chunkName, chunk, chunkEnv, scannerOpts...)
-		if err != nil {
-			t.Push(next, rt.NilValue, rt.StringValue(err.Error()))
-		} else {
-			t.Push1(next, rt.FunctionValue(clos))
-		}
+	clos, err := t.LoadFromSourceOrCode(chunkName, chunk, chunkMode, chunkEnv, false)
+	if err != nil {
+		t.Push(next, rt.NilValue, rt.StringValue(err.Error()))
+	} else {
+		t.Push1(next, rt.FunctionValue(clos))
 	}
 	return next, nil
 }

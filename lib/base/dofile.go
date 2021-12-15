@@ -10,7 +10,7 @@ func dofile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, rt.NewErrorE(err)
 	}
-	clos, err := t.CompileAndLoadLuaChunk(chunkName, chunk, rt.TableValue(t.GlobalEnv()))
+	clos, err := t.LoadFromSourceOrCode(chunkName, chunk, "bt", rt.TableValue(t.GlobalEnv()), true)
 	if err != nil {
 		return nil, rt.NewErrorE(err)
 	}

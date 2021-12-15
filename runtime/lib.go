@@ -1,7 +1,10 @@
 package runtime
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/astcomp"
@@ -341,6 +344,69 @@ func (r *Runtime) CompileAndLoadLuaChunk(name string, source []byte, env Value, 
 		return nil, err
 	}
 	return r.LoadLuaUnit(unit, env), nil
+}
+
+// LoadFromSourceOrCode loads the given source, compiling it if it is source
+// code or unmarshaling it if it is dumped code.  It returns the closure that
+// runs the chunk in the given global environment.
+func (r *Runtime) LoadFromSourceOrCode(name string, source []byte, mode string, env Value, stripComment bool) (*Closure, error) {
+	var (
+		canBeBinary      = strings.IndexByte(mode, 'b') >= 0
+		canBeText        = strings.IndexByte(mode, 't') >= 0
+		firstLineSkipped = false
+	)
+	if stripComment {
+		source, firstLineSkipped = stripFirstLineComment(source)
+	}
+
+	switch {
+	case canBeBinary && HasMarshalPrefix(source):
+		buf := bytes.NewBuffer(source)
+		k, used, err := UnmarshalConst(buf, r.LinearUnused(10))
+		r.LinearRequire(10, used)
+		if err != nil {
+			return nil, err
+		}
+		code, ok := k.TryCode()
+		if !ok {
+			return nil, errors.New("Expected function to load")
+		}
+		clos := NewClosure(r, code)
+		if code.UpvalueCount > 0 {
+			clos.AddUpvalue(NewCell(env))
+			r.RequireCPU(uint64(code.UpvalueCount))
+			for i := int16(1); i < code.UpvalueCount; i++ {
+				clos.AddUpvalue(NewCell(NilValue))
+			}
+		}
+		return clos, nil
+	case HasMarshalPrefix(source):
+		return nil, errors.New("attempt to load a binary chunk")
+	case !canBeText:
+		return nil, errors.New("attempt to load a text chunk")
+	default:
+		var opts []scanner.Option
+		if firstLineSkipped {
+			opts = append(opts, scanner.WithStartLine(2))
+		}
+		return r.CompileAndLoadLuaChunk(name, source, env, opts...)
+	}
+}
+
+func stripFirstLineComment(chunk []byte) ([]byte, bool) {
+	// Skip BOM
+	if bytes.HasPrefix(chunk, []byte{0xEF, 0xBB, 0xBF}) {
+		chunk = chunk[3:]
+	}
+	if len(chunk) == 0 || chunk[0] != '#' {
+		return chunk, false
+	}
+	for i, b := range chunk {
+		if b == '\n' || b == '\r' {
+			return chunk[i+1:], true
+		}
+	}
+	return nil, true
 }
 
 func metacont(t *Thread, obj Value, method string, next Cont) (Cont, *Error, bool) {
