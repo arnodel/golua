@@ -41,3 +41,7 @@ jobs:
         repository: arnodel/golua-tests
         ref: golua
         path: ./lua-test-suite
+
+    - name: Run Lua Test Suite
+      run: ../golua -u -e "_U=true" all.lua
+      working-directory: ./lua-test-suite
