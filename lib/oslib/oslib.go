@@ -25,14 +25,17 @@ func load(r *rt.Runtime) rt.Value {
 
 		r.SetEnvGoFunc(pkg, "clock", clock, 0, false),
 		r.SetEnvGoFunc(pkg, "date", date, 2, false),
+		r.SetEnvGoFunc(pkg, "difftime", difftime, 2, false),
 		r.SetEnvGoFunc(pkg, "time", timef, 1, false),
-		r.SetEnvGoFunc(pkg, "setlocale", setlocale, 2, false),
 		r.SetEnvGoFunc(pkg, "getenv", getenv, 1, false),
 		r.SetEnvGoFunc(pkg, "tmpname", tmpname, 0, false),
 		r.SetEnvGoFunc(pkg, "remove", remove, 1, false),
 		r.SetEnvGoFunc(pkg, "rename", rename, 2, false),
 	)
-
+	// These functions are not safe - I don't know what compliance category to
+	// put them in.
+	r.SetEnvGoFunc(pkg, "setlocale", setlocale, 2, false)
+	r.SetEnvGoFunc(pkg, "exit", exit, 2, false)
 	return rt.TableValue(pkg)
 }
 
@@ -83,20 +86,7 @@ func date(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case "*t":
 		{
 			tbl := rt.NewTable()
-			t.SetEnv(tbl, "year", rt.IntValue(int64(now.Year())))
-			t.SetEnv(tbl, "month", rt.IntValue(int64(now.Month())))
-			t.SetEnv(tbl, "day", rt.IntValue(int64(now.Day())))
-			t.SetEnv(tbl, "hour", rt.IntValue(int64(now.Hour())))
-			t.SetEnv(tbl, "min", rt.IntValue(int64(now.Minute())))
-			t.SetEnv(tbl, "sec", rt.IntValue(int64(now.Second())))
-			// Weeks start on Sunday according to Lua!
-			wday := now.Weekday() + 1
-			if wday == 8 {
-				wday = 1
-			}
-			t.SetEnv(tbl, "wday", rt.IntValue(int64(wday)))
-			t.SetEnv(tbl, "yday", rt.IntValue(int64(now.YearDay())))
-			t.SetEnv(tbl, "isdst", rt.BoolValue(now.IsDST()))
+			setTableFields(t.Runtime, tbl, now)
 			date = rt.TableValue(tbl)
 		}
 	default:
@@ -111,19 +101,58 @@ func date(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, date), nil
 }
 
+func difftime(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err
+	}
+	t2, err := c.IntArg(0)
+	if err != nil {
+		return nil, err
+	}
+	t1, err := c.IntArg(1)
+	if err != nil {
+		return nil, err
+	}
+	return c.PushingNext1(t.Runtime, rt.IntValue(t2-t1)), nil
+}
+
+func exit(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	var (
+		code  = 0 // 0 for success, 1 for failure
+		close = false
+	)
+	if c.NArgs() > 0 {
+		if !rt.Truth(c.Arg(0)) {
+			code = 1
+		}
+	}
+	if c.NArgs() > 1 {
+		close = rt.Truth(c.Arg(1))
+	}
+	if close {
+		// TODO: "close" the runtime, i.e. cleanup.
+		_ = close
+	}
+	os.Exit(code)
+	return nil, nil
+}
+
 func timef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if c.NArgs() == 0 {
 		now := time.Now().Unix()
 		return c.PushingNext1(t.Runtime, rt.IntValue(now)), nil
 	}
-	tbl := c.Arg(0)
+	tbl, err := c.TableArg(0)
+	if err != nil {
+		return nil, err
+	}
 	var fieldErr *rt.Error
 	var getField = func(dest *int, name string, required bool) bool {
 		if fieldErr != nil {
 			return false
 		}
 		var val rt.Value
-		val, fieldErr = rt.Index(t, tbl, rt.StringValue(name))
+		val, fieldErr = rt.Index(t, rt.TableValue(tbl), rt.StringValue(name))
 		if fieldErr != nil {
 			return false
 		}
@@ -155,8 +184,10 @@ func timef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if !ok {
 		return nil, fieldErr
 	}
-	date := time.Date(year, time.Month(month), day, hour, min, sec, 0, time.Local)
 	// TODO: deal with DST - I have no idea how to do that.
+
+	date := time.Date(year, time.Month(month), day, hour, min, sec, 0, time.Local)
+	setTableFields(t.Runtime, tbl, date)
 	return c.PushingNext1(t.Runtime, rt.IntValue(date.Unix())), nil
 }
 
@@ -235,4 +266,26 @@ func rename(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return t.ProcessIoError(c.Next(), ioErr)
 	}
 	return c.PushingNext1(t.Runtime, rt.BoolValue(true)), nil
+}
+
+//
+// Utils
+//
+
+func setTableFields(r *rt.Runtime, tbl *rt.Table, now time.Time) {
+	r.SetEnv(tbl, "year", rt.IntValue(int64(now.Year())))
+	r.SetEnv(tbl, "month", rt.IntValue(int64(now.Month())))
+	r.SetEnv(tbl, "day", rt.IntValue(int64(now.Day())))
+	r.SetEnv(tbl, "hour", rt.IntValue(int64(now.Hour())))
+	r.SetEnv(tbl, "min", rt.IntValue(int64(now.Minute())))
+	r.SetEnv(tbl, "sec", rt.IntValue(int64(now.Second())))
+	// Weeks start on Sunday according to Lua!
+	wday := now.Weekday() + 1
+	if wday == 8 {
+		wday = 1
+	}
+	r.SetEnv(tbl, "wday", rt.IntValue(int64(wday)))
+	r.SetEnv(tbl, "yday", rt.IntValue(int64(now.YearDay())))
+	r.SetEnv(tbl, "isdst", rt.BoolValue(now.IsDST()))
+
 }
