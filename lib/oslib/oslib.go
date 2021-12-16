@@ -8,7 +8,7 @@ import (
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 	"github.com/arnodel/golua/safeio"
-	"github.com/tebeka/strftime"
+	"github.com/arnodel/strftime"
 )
 
 // LibLoader can load the os lib.
@@ -89,14 +89,19 @@ func date(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			t.SetEnv(tbl, "hour", rt.IntValue(int64(now.Hour())))
 			t.SetEnv(tbl, "min", rt.IntValue(int64(now.Minute())))
 			t.SetEnv(tbl, "sec", rt.IntValue(int64(now.Second())))
-			t.SetEnv(tbl, "wday", rt.IntValue(int64(now.Weekday())))
+			// Weeks start on Sunday according to Lua!
+			wday := now.Weekday() + 1
+			if wday == 8 {
+				wday = 1
+			}
+			t.SetEnv(tbl, "wday", rt.IntValue(int64(wday)))
 			t.SetEnv(tbl, "yday", rt.IntValue(int64(now.YearDay())))
 			t.SetEnv(tbl, "isdst", rt.BoolValue(now.IsDST()))
 			date = rt.TableValue(tbl)
 		}
 	default:
 		{
-			dateStr, fmtErr := strftime.Format(format, now)
+			dateStr, fmtErr := strftime.StrictFormat(format, now)
 			if fmtErr != nil {
 				return nil, rt.NewErrorE(fmtErr)
 			}
@@ -111,7 +116,48 @@ func timef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		now := time.Now().Unix()
 		return c.PushingNext1(t.Runtime, rt.IntValue(now)), nil
 	}
-	return nil, rt.NewErrorS("time(tbl) unimplemented")
+	tbl := c.Arg(0)
+	var fieldErr *rt.Error
+	var getField = func(dest *int, name string, required bool) bool {
+		if fieldErr != nil {
+			return false
+		}
+		var val rt.Value
+		val, fieldErr = rt.Index(t, tbl, rt.StringValue(name))
+		if fieldErr != nil {
+			return false
+		}
+		if val == rt.NilValue {
+			if required {
+				fieldErr = rt.NewErrorF("required field '%s' missing", name)
+				return false
+			}
+			return true
+		}
+		iVal, ok := val.TryInt()
+		if !ok {
+			fieldErr = rt.NewErrorF("field '%s' is not an integer", name)
+			return false
+		}
+		*dest = int(iVal)
+		return true
+	}
+	var (
+		year, month, day int
+		hour, min, sec   = 12, 0, 0
+	)
+	ok := getField(&year, "year", true) &&
+		getField(&month, "month", true) &&
+		getField(&day, "day", true) &&
+		getField(&hour, "hour", false) &&
+		getField(&min, "min", false) &&
+		getField(&sec, "sec", false)
+	if !ok {
+		return nil, fieldErr
+	}
+	date := time.Date(year, time.Month(month), day, hour, min, sec, 0, time.Local)
+	// TODO: deal with DST - I have no idea how to do that.
+	return c.PushingNext1(t.Runtime, rt.IntValue(date.Unix())), nil
 }
 
 func setlocale(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
