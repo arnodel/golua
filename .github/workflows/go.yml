@@ -37,6 +37,7 @@ jobs:
 
     - name: Check out Lua Test Suite 5.3.4
       uses: actions/checkout@v2
-      repository: golua-tests
-      ref: golua
-      path: ./lua-test-suite
+      with:
+        repository: golua-tests
+        ref: golua
+        path: ./lua-test-suite
