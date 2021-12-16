@@ -354,5 +354,5 @@ lua library.
   functions are implemented fully. The `getinfo` function is partially
   implemented.  The `traceback` function is implemented but its output is
   different from the C Lua implementation.
-- `os` package is partially implemented implemented. `difftime`, `exit`
-  are not implemented. `time` is partially implemented.
+- `os` package is almost complete - `exit` doesn't support "closing" the Lua
+  state (need to figure out what it means.)
