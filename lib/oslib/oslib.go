@@ -8,6 +8,7 @@ import (
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 	"github.com/arnodel/golua/safeio"
+	"github.com/tebeka/strftime"
 )
 
 // LibLoader can load the os lib.
@@ -23,6 +24,7 @@ func load(r *rt.Runtime) rt.Value {
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "clock", clock, 0, false),
+		r.SetEnvGoFunc(pkg, "date", date, 2, false),
 		r.SetEnvGoFunc(pkg, "time", timef, 1, false),
 		r.SetEnvGoFunc(pkg, "setlocale", setlocale, 2, false),
 		r.SetEnvGoFunc(pkg, "getenv", getenv, 1, false),
@@ -41,9 +43,72 @@ func clock(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.FloatValue(time)), nil
 }
 
+func date(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	var (
+		err    *rt.Error
+		utc    bool
+		now    time.Time
+		format string
+		date   rt.Value
+	)
+	if err = c.Check1Arg(); err != nil {
+		return nil, err
+	}
+	format, err = c.StringArg(0)
+	if err != nil {
+		return nil, err
+	}
+
+	// If format starts with "!" it means UTC
+	if len(format) > 0 && format[0] == '!' {
+		utc = true
+		format = format[1:]
+	}
+
+	// Get the time value
+	if c.NArgs() > 1 {
+		var t int64
+		t, err = c.IntArg(1)
+		if err != nil {
+			return nil, err
+		}
+		now = time.Unix(t, 0)
+	} else {
+		now = time.Now()
+	}
+	if utc {
+		now = now.UTC()
+	}
+	switch format {
+	case "*t":
+		{
+			tbl := rt.NewTable()
+			t.SetEnv(tbl, "year", rt.IntValue(int64(now.Year())))
+			t.SetEnv(tbl, "month", rt.IntValue(int64(now.Month())))
+			t.SetEnv(tbl, "day", rt.IntValue(int64(now.Day())))
+			t.SetEnv(tbl, "hour", rt.IntValue(int64(now.Hour())))
+			t.SetEnv(tbl, "min", rt.IntValue(int64(now.Minute())))
+			t.SetEnv(tbl, "sec", rt.IntValue(int64(now.Second())))
+			t.SetEnv(tbl, "wday", rt.IntValue(int64(now.Weekday())))
+			t.SetEnv(tbl, "yday", rt.IntValue(int64(now.YearDay())))
+			t.SetEnv(tbl, "isdst", rt.BoolValue(now.IsDST()))
+			date = rt.TableValue(tbl)
+		}
+	default:
+		{
+			dateStr, fmtErr := strftime.Format(format, now)
+			if fmtErr != nil {
+				return nil, rt.NewErrorE(fmtErr)
+			}
+			date = rt.StringValue(dateStr)
+		}
+	}
+	return c.PushingNext1(t.Runtime, date), nil
+}
+
 func timef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if c.NArgs() == 0 {
-		now := time.Now().UTC().Unix()
+		now := time.Now().Unix()
 		return c.PushingNext1(t.Runtime, rt.IntValue(now)), nil
 	}
 	return nil, rt.NewErrorS("time(tbl) unimplemented")
