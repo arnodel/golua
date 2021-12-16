@@ -20,6 +20,22 @@ const (
 	bufferedWrite
 )
 
+var (
+	errCloseStandardFile = errors.New("cannot close standard file")
+	errFileAlreadyClosed = errors.New("file already closed")
+	errInvalidBufferMode = errors.New("invalid buffer mode")
+	errInvalidBufferSize = errors.New("invalid buffer size")
+)
+
+// A File wraps an os.File for manipulation by iolib.
+type File struct {
+	file   *os.File
+	closed bool
+	reader bufReader
+	writer bufWriter
+	temp   bool
+}
+
 // NewFile returns a new *File from an *os.File.
 func NewFile(file *os.File, options int) *File {
 	f := &File{file: file}
@@ -36,175 +52,6 @@ func NewFile(file *os.File, options int) *File {
 	}
 	currentFiles[f] = struct{}{}
 	return f
-}
-
-// FileArg turns a continuation argument into a *File.
-func FileArg(c *rt.GoCont, n int) (*File, *rt.Error) {
-	f, ok := ValueToFile(c.Arg(n))
-	if ok {
-		return f, nil
-	}
-	return nil, rt.NewErrorF("#%d must be a file", n+1)
-}
-
-// ValueToFile turns a lua value to a *File if possible.
-func ValueToFile(v rt.Value) (*File, bool) {
-	u, ok := v.TryUserData()
-	if ok {
-		return u.Value().(*File), true
-	}
-	return nil, false
-}
-
-// TempFile tries to make a temporary file, and if successful schedules the file
-// to be removed when the process dies.
-func TempFile(r *rt.Runtime) (*File, error) {
-	f, err := safeio.TempFile(r, "", "golua")
-	if err != nil {
-		return nil, err
-	}
-	ff := NewFile(f, bufferedRead|bufferedWrite)
-	ff.temp = true
-	return ff, nil
-}
-
-type bufReader interface {
-	io.Reader
-	Reset(r io.Reader)
-	Buffered() int
-	Discard(int) (int, error)
-	Peek(n int) ([]byte, error)
-	ReadString(delim byte) (string, error)
-}
-
-type bufWriter interface {
-	io.Writer
-	Reset(w io.Writer)
-	Flush() error
-}
-type nobufReader struct {
-	io.Reader
-}
-
-var (
-	_ bufReader = (*nobufReader)(nil)
-	_ bufReader = (*bufio.Reader)(nil)
-	_ bufWriter = (*nobufWriter)(nil)
-	_ bufWriter = (*bufio.Writer)(nil)
-)
-
-func (u *nobufReader) Reset(r io.Reader) {
-	u.Reader = r
-}
-
-func (u *nobufReader) Buffered() int {
-	return 0
-}
-
-func (u *nobufReader) Discard(n int) (int, error) {
-	if n > 0 {
-		return 0, errors.New("nobufReader cannot discard")
-	}
-	return 0, nil
-}
-
-func (u *nobufReader) Peek(n int) ([]byte, error) {
-	if n > 0 {
-		return nil, errors.New("nobufReader cannot peek")
-	}
-	return nil, nil
-}
-
-func (u *nobufReader) ReadString(delim byte) (string, error) {
-	return "", errors.New("unimplemented")
-}
-
-type nobufWriter struct {
-	io.Writer
-}
-
-func (u *nobufWriter) Reset(w io.Writer) {
-	u.Writer = w
-}
-
-func (u *nobufWriter) Flush() error {
-	return nil
-}
-
-// A File wraps an os.File for manipulation by iolib.
-type File struct {
-	file   *os.File
-	closed bool
-	reader bufReader
-	writer bufWriter
-	temp   bool
-}
-
-var currentFiles = map[*File]struct{}{}
-
-func cleanupCurrentFiles() {
-	// We don't want to close the std files, that breaks testing.  In normal
-	// operation it's the end of the program so that' OK too.
-	for f := range currentFiles {
-		switch f.file {
-		case os.Stdout, os.Stderr:
-			f.Flush()
-		case os.Stdin:
-			// Nothing to do?
-		default:
-			f.cleanup()
-		}
-	}
-	currentFiles = map[*File]struct{}{}
-}
-
-func (f *File) release() {
-	delete(currentFiles, f)
-	f.cleanup()
-}
-
-func (f *File) cleanup() {
-	if f.temp {
-		_ = os.Remove(f.Name())
-	}
-}
-
-// IsClosed returns true if the file is close.
-func (f *File) IsClosed() bool {
-	return f.closed
-}
-
-var errCloseStandardFile = errors.New("cannot close standard file")
-var errFileAlreadyClosed = errors.New("file already closed")
-
-// Close attempts to close the file, returns an error if not successful.
-func (f *File) Close() error {
-	if f.file.Fd() <= 2 {
-		// Lua doesn't return a Lua error, so wrap this in a PathError
-		return &fs.PathError{
-			Op:   "close",
-			Path: f.file.Name(),
-			Err:  errCloseStandardFile,
-		}
-	}
-	if f.closed {
-		return errFileAlreadyClosed
-	}
-	f.closed = true
-	errFlush := f.writer.Flush()
-	err := f.file.Close()
-	if err == nil {
-		return errFlush
-	}
-	return err
-}
-
-// Flush attempts to sync the file, returns an error if a problem occurs.
-func (f *File) Flush() error {
-	if err := f.writer.Flush(); err != nil {
-		return err
-	}
-	return f.file.Sync()
 }
 
 // OpenFile opens a file with the given name in the given lua mode.
@@ -237,6 +84,71 @@ func OpenFile(r *rt.Runtime, name, mode string) (*File, error) {
 		return nil, err
 	}
 	return NewFile(f, options), nil
+}
+
+// TempFile tries to make a temporary file, and if successful schedules the file
+// to be removed when the process dies.
+func TempFile(r *rt.Runtime) (*File, error) {
+	f, err := safeio.TempFile(r, "", "golua")
+	if err != nil {
+		return nil, err
+	}
+	ff := NewFile(f, bufferedRead|bufferedWrite)
+	ff.temp = true
+	return ff, nil
+}
+
+// FileArg turns a continuation argument into a *File.
+func FileArg(c *rt.GoCont, n int) (*File, *rt.Error) {
+	f, ok := ValueToFile(c.Arg(n))
+	if ok {
+		return f, nil
+	}
+	return nil, rt.NewErrorF("#%d must be a file", n+1)
+}
+
+// ValueToFile turns a lua value to a *File if possible.
+func ValueToFile(v rt.Value) (*File, bool) {
+	u, ok := v.TryUserData()
+	if ok {
+		return u.Value().(*File), true
+	}
+	return nil, false
+}
+
+// IsClosed returns true if the file is close.
+func (f *File) IsClosed() bool {
+	return f.closed
+}
+
+// Close attempts to close the file, returns an error if not successful.
+func (f *File) Close() error {
+	if f.file.Fd() <= 2 {
+		// Lua doesn't return a Lua error, so wrap this in a PathError
+		return &fs.PathError{
+			Op:   "close",
+			Path: f.file.Name(),
+			Err:  errCloseStandardFile,
+		}
+	}
+	if f.closed {
+		return errFileAlreadyClosed
+	}
+	f.closed = true
+	errFlush := f.writer.Flush()
+	err := f.file.Close()
+	if err == nil {
+		return errFlush
+	}
+	return err
+}
+
+// Flush attempts to sync the file, returns an error if a problem occurs.
+func (f *File) Flush() error {
+	if err := f.writer.Flush(); err != nil {
+		return err
+	}
+	return f.file.Sync()
 }
 
 // ReadLine reads a line from the file.  If withEnd is true, it will include the
@@ -346,7 +258,65 @@ func (f *File) Seek(offset int64, whence int) (n int64, err error) {
 	return
 }
 
+func (f *File) SetWriteBuffer(mode string, size int) error {
+	if size < 0 {
+		return errInvalidBufferSize
+	}
+	f.Flush()
+	switch mode {
+	case "no":
+		f.writer = &nobufWriter{f.file}
+	case "full":
+		if size == 0 {
+			size = 65536
+		}
+		f.writer = bufio.NewWriterSize(f.file, size)
+	case "line":
+		if size == 0 {
+			size = 65536
+		}
+		f.writer = linebufWriter{bufio.NewWriterSize(f.file, size)}
+		// TODO
+	default:
+		return errInvalidBufferMode
+	}
+	return nil
+}
+
 // Name returns the file name.
 func (f *File) Name() string {
 	return f.file.Name()
+}
+
+func (f *File) release() {
+	delete(currentFiles, f)
+	f.cleanup()
+}
+
+func (f *File) cleanup() {
+	if f.temp {
+		_ = os.Remove(f.Name())
+	}
+}
+
+//
+// Current files - TODO: refactor this
+//
+
+var currentFiles = map[*File]struct{}{}
+
+func cleanupCurrentFiles() {
+	// We don't want to close the std files, that breaks testing.  In normal
+	// operation it's the end of the program so that' OK too.
+	for f := range currentFiles {
+		switch f.file {
+		case os.Stdout, os.Stderr:
+			f.Flush()
+		case os.Stdin:
+			// Nothing to do?
+		default:
+			f.cleanup()
+		}
+	}
+	currentFiles = map[*File]struct{}{}
 }

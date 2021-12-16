@@ -35,6 +35,7 @@ func load(r *rt.Runtime) rt.Value {
 		r.SetEnvGoFunc(methods, "close", fileclose, 1, false),
 		r.SetEnvGoFunc(methods, "flush", fileflush, 1, false),
 		r.SetEnvGoFunc(methods, "seek", fileseek, 3, false),
+		r.SetEnvGoFunc(methods, "setvbuf", filesetvbuf, 2, false),
 		// TODO: setvbuf,
 		r.SetEnvGoFunc(methods, "write", filewrite, 1, true),
 	)
@@ -435,6 +436,32 @@ func fileseek(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		t.Push1(next, rt.IntValue(pos))
 	}
 	return next, nil
+}
+
+func filesetvbuf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err
+	}
+	f, err := FileArg(c, 0)
+	if err != nil {
+		return nil, err
+	}
+	mode, err := c.StringArg(1)
+	if err != nil {
+		return nil, err
+	}
+	var size int64
+	if c.NArgs() > 2 {
+		size, err = c.IntArg(2)
+		if err != nil {
+			return nil, err
+		}
+	}
+	bufErr := f.SetWriteBuffer(mode, int(size))
+	if bufErr != nil {
+		return nil, rt.NewErrorE(bufErr)
+	}
+	return c.PushingNext1(t.Runtime, rt.BoolValue(true)), nil
 }
 
 func tmpfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
