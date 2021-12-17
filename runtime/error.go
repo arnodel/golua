@@ -77,7 +77,7 @@ func (e *Error) AddContext(c Cont, depth int) {
 	}
 	e.source = info.Source
 	s, ok := e.message.TryString()
-	if ok {
+	if ok && e.lineno > 0 {
 		e.message = StringValue(fmt.Sprintf("%s:%d: %s", e.source, e.lineno, s))
 	}
 }
