@@ -33,6 +33,7 @@ type Thread struct {
 	currentCont Cont
 	resumeCh    chan valuesError
 	caller      *Thread
+	DebugHooks
 }
 
 // NewThread creates a new thread out of a Runtime.  Its initial
@@ -67,6 +68,7 @@ var errErrorInMessageHandler = StringValue("error in error handling")
 func (t *Thread) RunContinuation(c Cont) (err *Error) {
 	var next Cont
 	var errContCount = 0
+	_ = t.triggerCall(t, c)
 	for c != nil {
 		t.currentCont = c
 		next, err = c.RunInThread(t)
@@ -90,48 +92,6 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 		c = next
 	}
 	return
-}
-
-type MessageHandlerCont struct {
-	c    Cont
-	err  Value
-	done bool
-}
-
-func newMessageHandlerCont(c Cont) *MessageHandlerCont {
-	return &MessageHandlerCont{c: c}
-}
-
-var _ Cont = (*MessageHandlerCont)(nil)
-
-func (c *MessageHandlerCont) DebugInfo() *DebugInfo {
-	return c.c.DebugInfo()
-}
-
-func (c *MessageHandlerCont) Next() Cont {
-	return c.c.Next()
-}
-
-func (c *MessageHandlerCont) Parent() Cont {
-	return c.Next()
-}
-
-func (c *MessageHandlerCont) Push(r *Runtime, v Value) {
-	if !c.done {
-		c.done = true
-		c.err = v
-	}
-}
-
-func (c *MessageHandlerCont) PushEtc(r *Runtime, etc []Value) {
-	if c.done || len(etc) == 0 {
-		return
-	}
-	c.Push(r, etc[0])
-}
-
-func (c *MessageHandlerCont) RunInThread(t *Thread) (Cont, *Error) {
-	return nil, newHandledError(c.err)
 }
 
 // Start starts the thread in a goroutine, giving it the callable c to run.  the
@@ -255,4 +215,46 @@ func (t *Thread) getResumeValues() ([]Value, *Error) {
 
 func (t *Thread) sendResumeValues(args []Value, err *Error, quotaErr *ContextTerminationError) {
 	t.resumeCh <- valuesError{args, err, quotaErr}
+}
+
+type messageHandlerCont struct {
+	c    Cont
+	err  Value
+	done bool
+}
+
+func newMessageHandlerCont(c Cont) *messageHandlerCont {
+	return &messageHandlerCont{c: c}
+}
+
+var _ Cont = (*messageHandlerCont)(nil)
+
+func (c *messageHandlerCont) DebugInfo() *DebugInfo {
+	return c.c.DebugInfo()
+}
+
+func (c *messageHandlerCont) Next() Cont {
+	return c.c.Next()
+}
+
+func (c *messageHandlerCont) Parent() Cont {
+	return c.Next()
+}
+
+func (c *messageHandlerCont) Push(r *Runtime, v Value) {
+	if !c.done {
+		c.done = true
+		c.err = v
+	}
+}
+
+func (c *messageHandlerCont) PushEtc(r *Runtime, etc []Value) {
+	if c.done || len(etc) == 0 {
+		return
+	}
+	c.Push(r, etc[0])
+}
+
+func (c *messageHandlerCont) RunInThread(t *Thread) (Cont, *Error) {
+	return nil, newHandledError(c.err)
 }
