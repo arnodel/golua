@@ -10,7 +10,7 @@ library is mostly implemented.
 
 - [GoLua](#golua)
 	- [Quick start: running golua](#quick-start-running-golua)
-		- [Safe execution environment](#safe-execution-environment)
+		- [Safe execution environment (alpha)](#safe-execution-environment-alpha)
 		- [Importing and using Go packages](#importing-and-using-go-packages)
 	- [Quick start: embedding golua](#quick-start-embedding-golua)
 	- [Quick start: extending golua](#quick-start-extending-golua)
@@ -22,6 +22,7 @@ library is mostly implemented.
 		- [IR → Code Compilation](#ir--code-compilation)
 		- [Runtime](#runtime)
 		- [Test Suite](#test-suite)
+		- [The "official" Lua 5.3.4 Test Suite](#the-official-lua-534-test-suite)
 		- [Standard Library](#standard-library)
 
 ## Quick start: running golua
@@ -332,6 +333,24 @@ print("ababab")
 Most of the code is covered with such Lua tests. Specific packages or functions
 are covered with Go tests.
 
+### The "official" Lua 5.3.4 Test Suite
+
+Lua provides a test suites for each version (https://www.lua.org/tests/).  There
+is an adapted version of the 5.3.4 tests
+[here](https://github.com/arnodel/golua-tests/pull/1) which is supposed to be
+passed by the latest version of Golua.  It is the form of a PR so that the
+difference with the original test suite can be seen easily.
+
+Assuming `golua` is installed on your system, those tests can be run from the
+root of the repository above as follows.
+
+```sh
+golua -u -e "_U=true" all.lua
+```
+
+For the moment `db.lua` is disabled (the file testing the debug module).  All
+other "soft" tests are run.
+
 ### Standard Library
 
 The `lib` directory contains a number of package, each implementing a
@@ -353,6 +372,8 @@ lua library.
   `getupvalue`, `setupvalue`, `upvalueid`, `upvaluejoin`, `setmetatable`,
   functions are implemented fully. The `getinfo` function is partially
   implemented.  The `traceback` function is implemented but its output is
-  different from the C Lua implementation.
+  different from the C Lua implementation.  The `sethook` and `gethook` values
+  are implemented but only the call and return masks are implemented (line and
+  count yet to be implemented).
 - `os` package is almost complete - `exit` doesn't support "closing" the Lua
   state (need to figure out what it means.)
