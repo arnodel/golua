@@ -346,6 +346,16 @@ RunLoop:
 				// garbage collection.  A continuation can only be called once
 				// anyway, so that's ok semantically.
 				c.clearReg(contReg)
+				if t.areFlagsEnabled(HookFlagCall | HookFlagReturn) {
+					switch {
+					case contReg == code.ValueReg(0):
+						_ = t.triggerReturn(t, c)
+					case opcode.GetF():
+						_ = t.triggerTailCall(t, next)
+					default:
+						_ = t.triggerCall(t, next)
+					}
+				}
 				if opcode.GetF() {
 					// It's a tail call.  There is no error, so nothing will
 					// reference c anymore, therefore we are safe to give it to

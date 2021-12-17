@@ -78,12 +78,18 @@ func (c *Termination) Next() Cont {
 }
 
 func (c *Termination) Parent() Cont {
-	return c.parent
+	if c.parent == nil {
+		return nil
+	}
+	return c.parent.Parent()
 }
 
 // DebugInfo implements Cont.DebugInfo.
 func (c *Termination) DebugInfo() *DebugInfo {
-	return nil
+	if c.parent == nil {
+		return nil
+	}
+	return c.parent.DebugInfo()
 }
 
 // Get returns the n-th arg pushed to the termination.

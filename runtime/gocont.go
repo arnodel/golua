@@ -91,6 +91,7 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
 	}
 	t.RequireCPU(1) // TODO: an appropriate amount
 	next, err = c.f(t, c)
+	_ = t.triggerReturn(t, c)
 	if err != nil {
 		// If there is an error, c is still potentially needed for error
 		// handling, so do not return it to the pool.  It will get GCed when no

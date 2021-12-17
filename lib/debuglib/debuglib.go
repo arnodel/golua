@@ -24,6 +24,7 @@ func load(r *rt.Runtime) rt.Value {
 		r.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false),
 		r.SetEnvGoFunc(pkg, "upvaluejoin", upvaluejoin, 4, false),
 		r.SetEnvGoFunc(pkg, "setmetatable", setmetatable, 2, false),
+		r.SetEnvGoFunc(pkg, "sethook", sethook, 4, false),
 		r.SetEnvGoFunc(pkg, "traceback", traceback, 3, false),
 		r.SetEnvGoFunc(pkg, "upvalueid", upvalueid, 2, false),
 	)
@@ -194,6 +195,65 @@ func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	t.SetRawMetatable(v, meta)
 	return c.PushingNext1(t.Runtime, v), nil
+}
+
+func sethook(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	var (
+		argOffset int
+		err       *rt.Error
+		thread    *rt.Thread
+		hook      rt.Value
+		mask      string
+		count     int64
+	)
+
+	// Get arguments
+
+	if err = c.CheckNArgs(2); err != nil {
+		return nil, err
+	}
+	thread, err = c.ThreadArg(0)
+	if err != nil {
+		thread = t
+	} else {
+		if err = c.CheckNArgs(3); err != nil {
+			return nil, err
+		}
+		argOffset = 1
+	}
+	hook = c.Arg(argOffset)
+	mask, err = c.StringArg(argOffset + 1)
+	if err != nil {
+		return nil, err
+	}
+	if c.NArgs() > argOffset+2 {
+		count, err = c.IntArg(argOffset + 2)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var flags rt.DebugHookFlags
+	for _, r := range mask {
+		switch r {
+		case 'c':
+			flags |= rt.HookFlagCall
+		case 'r':
+			flags |= rt.HookFlagReturn
+		case 'l':
+			flags |= rt.HookFlagLine
+		}
+	}
+	if count < 0 {
+		count = 0
+	}
+
+	thread.SetupHooks(rt.DebugHooks{
+		DebugHookFlags: flags,
+		HookLineCount:  int(count),
+		Hook:           hook,
+	})
+	return c.Next(), nil
 }
 
 func traceback(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
