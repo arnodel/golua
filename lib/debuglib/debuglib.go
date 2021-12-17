@@ -1,6 +1,8 @@
 package debuglib
 
 import (
+	"strings"
+
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -19,6 +21,7 @@ func load(r *rt.Runtime) rt.Value {
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
+		r.SetEnvGoFunc(pkg, "gethook", gethook, 1, false),
 		r.SetEnvGoFunc(pkg, "getinfo", getinfo, 3, false),
 		r.SetEnvGoFunc(pkg, "getupvalue", getupvalue, 2, false),
 		r.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false),
@@ -197,21 +200,60 @@ func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, v), nil
 }
 
+func gethook(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	var (
+		err    *rt.Error
+		thread = t
+	)
+	if c.NArgs() > 0 {
+		thread, err = c.ThreadArg(0)
+		if err != nil {
+			return nil, err
+		}
+	}
+	hooks := thread.DebugHooks
+	return c.PushingNext(t.Runtime, hooks.Hook, rt.StringValue(getMaskString(hooks.DebugHookFlags)), rt.IntValue(int64(hooks.HookLineCount))), nil
+}
+
+func getMaskString(flags rt.DebugHookFlags) string {
+	var b strings.Builder
+	if flags&rt.HookFlagCall != 0 {
+		b.WriteByte('c')
+	}
+	if flags&rt.HookFlagReturn != 0 {
+		b.WriteByte('r')
+	}
+	if flags&rt.HookFlagLine != 0 {
+		b.WriteByte('l')
+	}
+	return b.String()
+}
+
 func sethook(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	var (
 		argOffset int
 		err       *rt.Error
-		thread    *rt.Thread
+		thread    = t
 		hook      rt.Value
 		mask      string
 		count     int64
 	)
 
-	// Get arguments
+	// Special case when resetting hook
 
-	if err = c.CheckNArgs(2); err != nil {
-		return nil, err
+	if c.NArgs() == 1 {
+		thread, err = c.ThreadArg(0)
+		if err != nil {
+			return nil, err
+		}
 	}
+	if c.NArgs() < 2 {
+		thread.SetupHooks(rt.DebugHooks{})
+		return c.Next(), nil
+	}
+
+	// Get arguments (at least 2)
+
 	thread, err = c.ThreadArg(0)
 	if err != nil {
 		thread = t
