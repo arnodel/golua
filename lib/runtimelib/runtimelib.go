@@ -113,7 +113,7 @@ func getResources(t *rt.Thread, resources rt.Value) (res rt.RuntimeResources, er
 	if err != nil {
 		return
 	}
-	res.Mem, err = getResVal(t, resources, memString)
+	res.Mem, err = getResVal(t, resources, memoryString)
 	if err != nil {
 		return
 	}
@@ -154,32 +154,39 @@ func getTimeVal(t *rt.Thread, resources rt.Value) (uint64, *rt.Error) {
 		return 0, err
 	}
 	if !rt.IsNil(val) {
-		return validateTimeVal(val, 1000)
+		return validateTimeVal(val, 1000, secondsName)
 	}
 	val, err = rt.Index(t, resources, millisString)
 	if err != nil {
 		return 0, err
 	}
-	return validateTimeVal(val, 1)
+	return validateTimeVal(val, 1, millisName)
 }
 
-func validateTimeVal(val rt.Value, factor float64) (uint64, *rt.Error) {
+func validateTimeVal(val rt.Value, factor float64, name string) (uint64, *rt.Error) {
 	if rt.IsNil(val) {
 		return 0, nil
 	}
 	s, ok := rt.ToFloat(val)
 	if !ok {
-		return 0, rt.NewErrorS("seconds must be a numeric value")
+		return 0, rt.NewErrorF("%s must be a numeric value", name)
 	}
 	if s <= 0 {
-		return 0, rt.NewErrorS("secconds must be positive")
+		return 0, rt.NewErrorF("%s must be positive", name)
 	}
 	return uint64(s * factor), nil
 }
 
+const (
+	secondsName = "seconds"
+	millisName  = "millis"
+	cpuName     = "cpu"
+	memoryName  = "memory"
+)
+
 var (
-	secondsString = rt.StringValue("seconds")
-	millisString  = rt.StringValue("millis")
-	cpuString     = rt.StringValue("cpu")
-	memString     = rt.StringValue("memory")
+	secondsString = rt.StringValue(secondsName)
+	millisString  = rt.StringValue(millisName)
+	cpuString     = rt.StringValue(cpuName)
+	memoryString  = rt.StringValue(memoryName)
 )

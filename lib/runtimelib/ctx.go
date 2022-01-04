@@ -141,22 +141,22 @@ func resources__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	val := rt.NilValue
 	switch key {
-	case "cpu":
+	case cpuName:
 		n := res.Cpu
 		if n > 0 {
 			val = resToVal(n)
 		}
-	case "memory":
+	case memoryName:
 		n := res.Mem
 		if n > 0 {
 			val = resToVal(n)
 		}
-	case "seconds":
+	case secondsName:
 		n := res.Millis
 		if n > 0 {
 			val = rt.FloatValue(float64(n) / 1000)
 		}
-	case "millis":
+	case millisName:
 		n := res.Millis
 		if n > 0 {
 			val = rt.FloatValue(float64(n))
@@ -174,13 +174,13 @@ func resources__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	vals := make([]string, 0, 3)
 	if res.Cpu > 0 {
-		vals = append(vals, fmt.Sprintf("cpu=%d", res.Cpu))
+		vals = append(vals, fmt.Sprintf("%s=%d", cpuName, res.Cpu))
 	}
 	if res.Mem > 0 {
-		vals = append(vals, fmt.Sprintf("memory=%d", res.Mem))
+		vals = append(vals, fmt.Sprintf("%s=%d", memoryName, res.Mem))
 	}
 	if res.Millis > 0 {
-		vals = append(vals, fmt.Sprintf("seconds=%g", float64(res.Millis)/1000))
+		vals = append(vals, fmt.Sprintf("%s=%g", secondsName, float64(res.Millis)/1000))
 	}
 	s := "[" + strings.Join(vals, ",") + "]"
 	t.RequireBytes(len(s))
