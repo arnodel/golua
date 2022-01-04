@@ -44,8 +44,11 @@ func (m *runtimeContextManager) Parent() RuntimeContext {
 	return nil
 }
 
-func (m *runtimeContextManager) ShouldStop() bool {
+func (m *runtimeContextManager) Due() bool {
 	return false
+}
+
+func (m *runtimeContextManager) SetStopLevel(StopLevel) {
 }
 
 func (m *runtimeContextManager) RuntimeContext() RuntimeContext {

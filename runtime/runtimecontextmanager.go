@@ -18,13 +18,6 @@ const QuotasAvailable = true
 // update.
 const cpuThresholdIncrement = 10000
 
-type StopLevel uint8
-
-const (
-	SoftStop StopLevel = 1 << iota
-	HardStop
-)
-
 type runtimeContextManager struct {
 	hardLimits    RuntimeResources
 	softLimits    RuntimeResources

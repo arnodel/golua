@@ -25,6 +25,13 @@ type RuntimeContext interface {
 	Due() bool
 }
 
+type StopLevel uint8
+
+const (
+	SoftStop StopLevel = 1 << iota // Forces the context to be due
+	HardStop                       // Forces the context to terminate
+)
+
 // A ContextTerminationError is an error reserved for when the runtime context
 // should be terminated immediately.
 type ContextTerminationError struct {

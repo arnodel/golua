@@ -30,10 +30,15 @@ func Test_runtimeContextManager_RuntimeContext(t *testing.T) {
 	if m.Parent() != nil {
 		t.Fail()
 	}
-	if m.ShouldStop() {
+	if m.Due() {
 		t.Fail()
 	}
 	if m.RuntimeContext() != &m {
+		t.Fail()
+	}
+	m2 := m
+	m2.SetStopLevel(HardStop | SoftStop)
+	if m != m2 {
 		t.Fail()
 	}
 }
