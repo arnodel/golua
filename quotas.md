@@ -129,11 +129,11 @@ mutated but gives useful information about the execution context.
   - `"error"` if this execution context terminated with an error
   - `"killed"` if the context terminated because it would otherwise have
     exceeded its limits.
-- `ctx.limits` returns an object giving the hard resource limits of `ctx`.  If
+- `ctx.kill` returns an object giving the hard resource limits of `ctx`.  If
   any of these limits are reached then the context will be terminated
   immediately, returning execution to the parent context.  Hard limits cannot
   exceed their parent's hard limits.
-- `ctx.softlimits` returns an object giving the resource soft limits of `ctx`.
+- `ctx.stop` returns an object giving the resource soft limits of `ctx`.
   Soft limits cannot exceed hard limits, but can be increased from the parent's
   context (TODO: check this behaviour).
 - `ctx.used` returns an object giving the used resources of `ctx`
@@ -169,11 +169,11 @@ Here is a simple example of using this function in the golua repl:
 > ctx = runtime.callcontext({limits{cpu=1000}}, function() while true do end end)
 > print(ctx)
 killed
-> print(ctx.used.cpu, ctx.limits.cpu)
+> print(ctx.used.cpu, ctx.kill.cpu)
 999     1000
 > print(ctx.flags)
 cpusafe
-> print(ctx.used.mem, ctx.limits.mem)
+> print(ctx.used.mem, ctx.kill.mem)
 0       nil
 ```
 

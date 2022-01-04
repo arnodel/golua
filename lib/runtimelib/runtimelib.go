@@ -46,8 +46,8 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		memQuotaV   = quotas.Get(rt.StringValue("memlimit")) // deprecated
 		cpuQuotaV   = quotas.Get(rt.StringValue("cpulimit")) // deprecated
 		flagsV      = quotas.Get(rt.StringValue("flags"))
-		limitsV     = quotas.Get(rt.StringValue("limits"))
-		softLimitsV = quotas.Get(rt.StringValue("softlimits"))
+		limitsV     = quotas.Get(rt.StringValue("kill"))
+		softLimitsV = quotas.Get(rt.StringValue("stop"))
 		hardLimits  rt.RuntimeResources
 		softLimits  rt.RuntimeResources
 		f           = c.Arg(1)

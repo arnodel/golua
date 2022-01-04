@@ -143,8 +143,8 @@ print(runtime.callcontext({memlimit=2000}, len, table.unpack(numbers(200))))
 --
 
 local c = 0
-print(runtime.callcontext({softlimits={cpu=1000}}, function()
-    print(runtime.context().softlimits.cpu)
+print(runtime.callcontext({stop={cpu=1000}}, function()
+    print(runtime.context().stop.cpu)
     --> =1000
     while not runtime.shouldstop() do
         c = c + 1
@@ -159,7 +159,7 @@ print(c > 10)
 -- Check time limits
 --
 local c = 0
-print(runtime.callcontext({limits={time=10}}, function()
+print(runtime.callcontext({kill={time=10}}, function()
     while true do
         c = c + 1
     end

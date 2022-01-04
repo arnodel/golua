@@ -106,9 +106,9 @@ func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	val := rt.NilValue
 	switch key {
-	case "limits":
+	case "kill":
 		val = newResourcesValue(t.Runtime, ctx.HardLimits())
-	case "softlimits":
+	case "stop":
 		val = newResourcesValue(t.Runtime, ctx.SoftLimits())
 	case "used":
 		val = newResourcesValue(t.Runtime, ctx.UsedResources())

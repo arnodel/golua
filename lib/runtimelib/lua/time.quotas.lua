@@ -2,9 +2,9 @@
 
 -- A time bound context stops when the time is exceeded
 local n = 0
-local ctx = runtime.callcontext({limits={time=10}}, function()
+local ctx = runtime.callcontext({kill={time=10}}, function()
     local ctx = runtime.context()
-    print(ctx.limits.time)
+    print(ctx.kill.time)
     --> =10
     while true do
         n = n + 1
@@ -28,9 +28,9 @@ print(n > 50000)
 --> =true
 
 -- The outer context keeps track of time spent in the inner context
-local ctx = runtime.callcontext({limits={time=100}}, function()
+local ctx = runtime.callcontext({kill={time=100}}, function()
     for i = 1, 3 do
-        runtime.callcontext({limits={time=10}}, function()
+        runtime.callcontext({kill={time=10}}, function()
             while true do end
         end)
     end
@@ -40,13 +40,13 @@ print(ctx.used.time >= 30)
 --> =true
 
 -- Nested contexts are bound by the time limit of their parent context.
-local ctx = runtime.callcontext({limits={time=10}}, function()
+local ctx = runtime.callcontext({kill={time=10}}, function()
         runtime.callcontext({}, function ()
-            print(runtime.context().limits.time)
+            print(runtime.context().kill.time)
             --> =10
         end)
-        runtime.callcontext({limits={time=1000}}, function()
-            print(runtime.context().limits.time)
+        runtime.callcontext({kill={time=1000}}, function()
+            print(runtime.context().kill.time)
             --> =10
         end)
 end)
