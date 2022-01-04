@@ -38,7 +38,7 @@ do
     -- It doesn't consume memory
     ctx1 = runtime.callcontext({memlimit=1000}, len, ("s"):rep(100))
     ctx2 = runtime.callcontext({memlimit=1000}, len, ("s"):rep(1000))
-    print(ctx1, ctx2, ctx2.memused / ctx1.memused < 1.2)
+    print(ctx1, ctx2, ctx2.used.memory / ctx1.used.memory < 1.2)
     --> =done	done	true
 end
 

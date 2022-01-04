@@ -4,14 +4,14 @@
 -- and runs f(arg1, ...). It always returns the context in which f was run.  If
 -- that function can be executed within the resource limits in the context, it
 -- also returns its return values.
-local ctx, output = runtime.callcontext({kill={mem=1000, cpu=1000}}, function() return 1 end)
+local ctx, output = runtime.callcontext({kill={memory=1000, cpu=1000}}, function() return 1 end)
 print(output)
 --> =1
 
 -- The returned context can be inspected but is "frozen" (no longer active)
-print(ctx.status, ctx.kill.mem, ctx.kill.cpu)
+print(ctx.status, ctx.kill.memory, ctx.kill.cpu)
 --> =done	1000	1000
-print(ctx.used.cpu > 0, ctx.used.mem > 0)
+print(ctx.used.cpu > 0, ctx.used.memory > 0)
 --> =true	true
 
 -- If the function called by callcontext errors, the status reflects this and
@@ -24,7 +24,7 @@ print(runtime.callcontext({}, error, "an error"))
 -- runtime.context returns the current execution context.  It is not possible to
 -- mutate this context but it is a "live" reference.
 
-runtime.callcontext({kill={mem=10000, cpu=10000}}, function()
+runtime.callcontext({kill={memory=10000, cpu=10000}}, function()
     local ctx = runtime.context()
     print(ctx)
     --> =live
@@ -34,9 +34,9 @@ runtime.callcontext({kill={mem=10000, cpu=10000}}, function()
     print(ctx.used.cpu - cpu >= 100)
     --> =true
 
-    local mem = ctx.used.mem
+    local mem = ctx.used.memory
     s = ("a"):rep(1000)
-    print(ctx.used.mem - mem >= 1000)
+    print(ctx.used.memory - mem >= 1000)
     --> =true
 end)
 
@@ -67,7 +67,7 @@ print(ctx.used.cpu >= 990, ctx.kill.cpu)
 --> =true	1000
 
 -- If a resource is not limited its limit reported as nil
-print(ctx.kill.mem)
+print(ctx.kill.memory)
 --> =nil
 
 -- Check that runtime managed to do a few iterations before being terminated
@@ -77,7 +77,7 @@ print(x > 10)
 -- Helper function for checking limits below.
 function getCurrentLimits()
     local limits = runtime.context().kill
-    return limits.cpu, limits.mem
+    return limits.cpu, limits.memory
 end
 
 print(getCurrentLimits())
@@ -86,15 +86,15 @@ print(getCurrentLimits())
 -- Calls to callcontext can be nested but it is not possible to increase the
 -- resource available in a context.  A context is always created "as a child" of
 -- the current context.
-runtime.callcontext({kill={cpu=100000, mem=200000}}, function()
+runtime.callcontext({kill={cpu=100000, memory=200000}}, function()
     local ctx = runtime.context()
     print(getCurrentLimits())
     --> =100000	200000
 
     -- It's not possible to increase the quotas
-    runtime.callcontext({kill={cpu=20000, mem=30000}}, function()
+    runtime.callcontext({kill={cpu=20000, memory=30000}}, function()
         local limits = runtime.context().kill
-        print(limits.cpu <= 100000, limits.mem <= 200000)
+        print(limits.cpu <= 100000, limits.memory <= 200000)
         --> =true	true
     end)
 
@@ -103,9 +103,9 @@ runtime.callcontext({kill={cpu=100000, mem=200000}}, function()
     local cpu = ctx.used.cpu
 
     -- It's possible to further decrease the quotas
-    print(runtime.callcontext({kill={cpu=5000, mem=5000}}, function()
+    print(runtime.callcontext({kill={cpu=5000, memory=5000}}, function()
         local limits = runtime.context().kill
-        print(limits.cpu, limits.mem)
+        print(limits.cpu, limits.memory)
         --> =5000	5000
         while true do end
     end))
@@ -120,13 +120,13 @@ runtime.callcontext({kill={cpu=100000, mem=200000}}, function()
 
     -- Memory consumed inside the callcontext is accounted for once the callcontext has
     -- finished.
-    local mem = ctx.used.mem 
+    local mem = ctx.used.memory 
 
-    runtime.callcontext({kill={cpu=10000, mem=20000}}, function()
+    runtime.callcontext({kill={cpu=10000, memory=20000}}, function()
         -- Consume some memory to check that will be accounted for outside callcontext
         local s = ("a"):rep(10000)
     end)
-    print(ctx.used.mem - mem >= 10000)
+    print(ctx.used.memory - mem >= 10000)
     --> =true
 end)
 

@@ -161,7 +161,7 @@ func resources__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	switch key {
 	case "cpu":
 		n = res.Cpu
-	case "mem":
+	case "memory":
 		n = res.Mem
 	case "time":
 		n = res.Time

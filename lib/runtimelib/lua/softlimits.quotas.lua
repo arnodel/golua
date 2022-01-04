@@ -16,17 +16,17 @@ end))
 --> =done
 
 -- runtime.shouldstop returns true if a mem soft limit has been reached
-print(runtime.callcontext({stop={mem=1000}}, function()
+print(runtime.callcontext({stop={memory=1000}}, function()
     print(runtime.shouldstop())
     --> =false
     local ctx = runtime.context()
-    print(ctx.stop.mem)
+    print(ctx.stop.memory)
     --> =1000
     local a = "x"
     while not runtime.shouldstop() do 
         a = a .. a -- consume some memory
     end
-    print(ctx.used.mem >= 1000, ctx.used.mem <= 2000)
+    print(ctx.used.memory >= 1000, ctx.used.memory <= 2000)
     --> =true	true
 end))
 --> =done

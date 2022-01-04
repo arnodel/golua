@@ -28,7 +28,7 @@ print(ctx.status)
 --> =killed
 
 -- Check we didn't run out of memory
-print(ctx.memused < 1000)
+print(ctx.used.memory < 1000)
 --> =true
 
 -- Check we ran out of cpu

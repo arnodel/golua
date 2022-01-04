@@ -15,7 +15,7 @@ do
     local ctx, res = runtime.callcontext({memlimit=5000}, table.concat, mk(s1000, 4))
     print(ctx, #res)
     --> =done	4000
-    print(ctx.memused >= 4000)
+    print(ctx.used.memory >= 4000)
     --> =true
 
     print(runtime.callcontext({memlimit=5000}, table.concat, mk(s1000, 5)))
@@ -25,7 +25,7 @@ do
     local ctx, res = runtime.callcontext({cpulimit=1000}, table.concat, mk("x", 100))
     print(ctx, #res)
     --> =done	100
-    print(ctx.cpuused >= 100)
+    print(ctx.used.cpu >= 100)
     --> =true
 
     print(runtime.callcontext({cpulimit=1000}, table.concat, mk("x", 1000)))
@@ -38,7 +38,7 @@ do
     local ctx = runtime.callcontext({cpulimit=1000}, table.insert, mk("x", 100), 1, "new")
     print(ctx)
     --> =done
-    print(ctx.cpuused >= 100)
+    print(ctx.used.cpu >= 100)
     --> =true
 
     print(runtime.callcontext({cpulimit=1000}, table.insert, mk("x", 1000), 1, "new"))
@@ -48,14 +48,14 @@ do
     local ctx1 = runtime.callcontext({cpulimit=1000}, table.insert, mk("x", 100), "new")
     print(ctx)
     --> =done
-    print(ctx.cpuused >= 100)
+    print(ctx.used.cpu >= 100)
     --> =true
 
     local ctx2 = runtime.callcontext({cpulimit=1000}, table.insert, mk("x", 1000), "new")
     print(ctx2)
     --> =done
 
-    print(ctx2.cpuused / ctx1.cpuused < 1.2)
+    print(ctx2.used.cpu / ctx1.used.cpu < 1.2)
     --> =true
 end
 

@@ -173,7 +173,7 @@ killed
 999     1000
 > print(ctx.flags)
 cpusafe
-> print(ctx.used.mem, ctx.kill.mem)
+> print(ctx.used.memory, ctx.kill.memory)
 0       nil
 ```
 
