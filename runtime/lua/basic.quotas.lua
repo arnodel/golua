@@ -159,7 +159,7 @@ print(c > 10)
 -- Check time limits
 --
 local c = 0
-print(runtime.callcontext({kill={time=10}}, function()
+print(runtime.callcontext({kill={millis=10}}, function()
     while true do
         c = c + 1
     end

@@ -97,10 +97,10 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	if ctx.HardLimits.Mem > 0 {
 		m.requiredFlags |= ComplyMemSafe
 	}
-	if ctx.HardLimits.Time > 0 {
+	if ctx.HardLimits.Millis > 0 {
 		m.requiredFlags |= ComplyTimeSafe
 	}
-	m.trackTime = m.hardLimits.Time > 0 || m.softLimits.Time > 0
+	m.trackTime = m.hardLimits.Millis > 0 || m.softLimits.Millis > 0
 	m.trackCpu = m.hardLimits.Cpu > 0 || m.softLimits.Cpu > 0 || m.trackTime
 	m.trackMem = m.hardLimits.Mem > 0 || m.softLimits.Mem > 0
 	m.status = StatusLive
@@ -232,9 +232,9 @@ func (m *runtimeContextManager) UnusedMem() uint64 {
 }
 
 func (m *runtimeContextManager) updateTimeUsed() {
-	m.usedResources.Time = now() - m.startTime
-	if atLimit(m.usedResources.Time, m.hardLimits.Time) {
-		m.TerminateContext("time limit of %d exceeded", m.hardLimits.Time)
+	m.usedResources.Millis = now() - m.startTime
+	if atLimit(m.usedResources.Millis, m.hardLimits.Millis) {
+		m.TerminateContext("time limit of %d exceeded", m.hardLimits.Millis)
 	}
 }
 

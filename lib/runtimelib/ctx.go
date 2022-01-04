@@ -157,20 +157,30 @@ func resources__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err
 	}
-	var n uint64
+	val := rt.NilValue
 	switch key {
 	case "cpu":
-		n = res.Cpu
+		n := res.Cpu
+		if n > 0 {
+			val = resToVal(n)
+		}
 	case "memory":
-		n = res.Mem
-	case "time":
-		n = res.Time
+		n := res.Mem
+		if n > 0 {
+			val = resToVal(n)
+		}
+	case "seconds":
+		n := res.Millis
+		if n > 0 {
+			val = rt.FloatValue(float64(n) / 1000)
+		}
+	case "millis":
+		n := res.Millis
+		if n > 0 {
+			val = rt.FloatValue(float64(n))
+		}
 	default:
 		// We'll return nil
-	}
-	val := rt.NilValue
-	if n > 0 {
-		val = resToVal(n)
 	}
 	return c.PushingNext1(t.Runtime, val), nil
 }
@@ -185,10 +195,10 @@ func resources__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		vals = append(vals, fmt.Sprintf("cpu=%d", res.Cpu))
 	}
 	if res.Mem > 0 {
-		vals = append(vals, fmt.Sprintf("mem=%d", res.Mem))
+		vals = append(vals, fmt.Sprintf("memory=%d", res.Mem))
 	}
-	if res.Time > 0 {
-		vals = append(vals, fmt.Sprintf("time=%d", res.Time))
+	if res.Millis > 0 {
+		vals = append(vals, fmt.Sprintf("seconds=%g", float64(res.Millis)/1000))
 	}
 	s := "[" + strings.Join(vals, ",") + "]"
 	t.RequireBytes(len(s))

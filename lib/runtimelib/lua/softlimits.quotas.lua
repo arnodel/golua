@@ -32,28 +32,28 @@ end))
 --> =done
 
 -- runtime.shouldstop returns true if a time soft limit has been reached
-print(runtime.callcontext({stop={time=20}}, function()
+print(runtime.callcontext({stop={millis=20}}, function()
     print(runtime.shouldstop())
     --> =false
     local ctx = runtime.context()
-    print(ctx.stop.time)
+    print(ctx.stop.millis)
     --> =20
     while not runtime.shouldstop() do end
-    print(ctx.used.time >= 20, ctx.used.time <= 30)
+    print(ctx.used.millis >= 20, ctx.used.millis <= 30)
     --> =true	true
 end))
 --> =done
 
 -- soft limits cannot exceed hard limits, either in the same context or in the
 -- parent context
-runtime.callcontext({kill={time=1000}}, function() 
-    runtime.callcontext({stop={time=2000}}, function()
-        print(runtime.context().stop.time <= 1000)
+runtime.callcontext({kill={millis=1000}}, function() 
+    runtime.callcontext({stop={millis=2000}}, function()
+        print(runtime.context().stop.millis <= 1000)
         --> =true
     end)
 end)
-runtime.callcontext({kill={time=1000}, stop={time=5000}}, function()
-    print(runtime.context().stop.time <= 1000)
+runtime.callcontext({kill={millis=1000}, stop={millis=5000}}, function()
+    print(runtime.context().stop.millis <= 1000)
     --> =true
 end)
 
