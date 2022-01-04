@@ -116,7 +116,7 @@ do
     local ctx = runtime.callcontext({kill={cpu=1000}}, table.remove, mk("x", 100), 1)
     print(ctx)
     --> =done
-    print(ctx.cpuused >= 100)
+    print(ctx.used.cpu >= 100)
     --> =true
 
     print(runtime.callcontext({kill={cpu=1000}}, table.remove, mk("x", 1000), 1))
@@ -126,14 +126,14 @@ do
     local ctx1 = runtime.callcontext({kill={cpu=1000}}, table.remove, mk("x", 100))
     print(ctx)
     --> =done
-    print(ctx.cpuused >= 100)
+    print(ctx.used.cpu >= 100)
     --> =true
 
     local ctx2 = runtime.callcontext({kill={cpu=1000}}, table.remove, mk("x", 1000))
     print(ctx2)
     --> =done
 
-    print(ctx2.cpuused / ctx1.cpuused < 1.2)
+    print(ctx2.used.cpu / ctx1.used.cpu < 1.2)
     --> =true
 end
 

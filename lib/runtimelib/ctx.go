@@ -112,10 +112,6 @@ func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		val = newResourcesValue(t.Runtime, ctx.SoftLimits())
 	case "used":
 		val = newResourcesValue(t.Runtime, ctx.UsedResources())
-	case "cpuused": // Deprecated
-		val = resToVal(ctx.UsedResources().Cpu)
-	case "memused": // Deprecated
-		val = resToVal(ctx.UsedResources().Mem)
 	case "status":
 		val = statusValue(ctx.Status())
 	case "parent":
