@@ -77,7 +77,7 @@ You can even do this within Lua itself:
 ```lua
 $ golua
 > a = "a"
-> runtime.callcontext({memlimit=1000000}, function() while true do a = a..a end end)
+> runtime.callcontext({kill={memory=1000000}}, function() while true do a = a..a end end)
 killed
 > #a
 262144
