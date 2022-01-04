@@ -5,7 +5,7 @@ do
     print(runtime.callcontext({memlimit=10000}, load, function() return "print('hello')\n" end))
     --> =killed
 
-    print(runtime.callcontext({cpulimit=10000}, load, function() return "print('hello')\n" end))
+    print(runtime.callcontext({kill={cpu=10000}}, load, function() return "print('hello')\n" end))
     --> =killed
 
     -- Same if passed a big string
@@ -13,7 +13,7 @@ do
     print(runtime.callcontext({memlimit=10000}, load, ("print('hello')"):rep(1000, "\n")))
     --> =killed
 
-    print(runtime.callcontext({cpulimit=10000}, load, ("print('hello')"):rep(10000, "\n")))
+    print(runtime.callcontext({kill={cpu=10000}}, load, ("print('hello')"):rep(10000, "\n")))
     --> =killed
 end
 
@@ -28,11 +28,11 @@ do
     print(runtime.callcontext({memlimit=10000}, loadfile, "lua/big.lua.notest"))
     --> =killed
 
-    local ctx, m = runtime.callcontext({cpulimit=10000}, loadfile, "lua/big.lua.notest")
+    local ctx, m = runtime.callcontext({kill={cpu=10000}}, loadfile, "lua/big.lua.notest")
     print(ctx, m())
     --> =done	hello
 
-    print(runtime.callcontext({cpulimit=1000}, loadfile, "lua/big.lua.notest"))
+    print(runtime.callcontext({kill={cpu=1000}}, loadfile, "lua/big.lua.notest"))
     --> =killed
 end
 
@@ -47,10 +47,10 @@ do
     print(runtime.callcontext({memlimit=10000}, dofile, "lua/big.lua.notest"))
     --> =killed
 
-    local ctx, m = runtime.callcontext({cpulimit=10000}, dofile, "lua/big.lua.notest")
+    local ctx, m = runtime.callcontext({kill={cpu=10000}}, dofile, "lua/big.lua.notest")
     print(ctx, m)
     --> =done	hello
 
-    print(runtime.callcontext({cpulimit=1000}, dofile, "lua/big.lua.notest"))
+    print(runtime.callcontext({kill={cpu=1000}}, dofile, "lua/big.lua.notest"))
     --> =killed
 end

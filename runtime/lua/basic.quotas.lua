@@ -18,7 +18,7 @@ print(runtime.callcontext({memlimit=1000}, rfib, 100))
 --> =killed
 
 -- Recursion blows cpu budget
-print(runtime.callcontext({cpulimit=10000}, rfib, 100))
+print(runtime.callcontext({kill={cpu=10000}}, rfib, 100))
 --> =killed
 
 --
@@ -44,11 +44,11 @@ print(runtime.callcontext({memlimit=1000}, ifib, 100))
 --> =done	3736710778780434371
 
 -- cpu usage doesn't explode
-print(runtime.callcontext({cpulimit=10000}, ifib, 100))
+print(runtime.callcontext({kill={cpu=10000}}, ifib, 100))
 --> =done	3736710778780434371
 
 -- we can run out of cpu eventually!
-print(runtime.callcontext({cpulimit=1000}, ifib, 1000))
+print(runtime.callcontext({kill={cpu=1000}}, ifib, 1000))
 --> =killed
 
 --
@@ -71,11 +71,11 @@ print(runtime.callcontext({memlimit=1000}, ifib, 100))
 --> =done	3736710778780434371
 
 -- cpu usage doesn't explode
-print(runtime.callcontext({cpulimit=10000}, ifib, 100))
+print(runtime.callcontext({kill={cpu=10000}}, ifib, 100))
 --> =done	3736710778780434371
 
 -- we can run out of cpu eventually!
-print(runtime.callcontext({cpulimit=1000}, ifib, 1000))
+print(runtime.callcontext({kill={cpu=1000}}, ifib, 1000))
 --> =killed
 
 --
@@ -101,7 +101,7 @@ print(strexp("hi", 3))
 --> =hihihihi
 
 --> strexp doesn't consume much cpu
-ctx, bigs = runtime.callcontext({cpulimit=1000}, strexp, "hi", 16)
+ctx, bigs = runtime.callcontext({kill={cpu=1000}}, strexp, "hi", 16)
 print(ctx, #bigs)
 --> =done	65536
 

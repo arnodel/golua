@@ -12,11 +12,11 @@ do
     --> =killed
 
     -- string.pack uses cpu to produce its output
-    ctx = runtime.callcontext({cpulimit=400}, string.pack, "ssss", s1000, s, s, s)
+    ctx = runtime.callcontext({kill={cpu=400}}, string.pack, "ssss", s1000, s, s, s)
     print(ctx)
     --> =done
 
-    print(runtime.callcontext({cpulimit=400}, string.pack, "ssss", s1000, s1000, s1000, s1000))
+    print(runtime.callcontext({kill={cpu=400}}, string.pack, "ssss", s1000, s1000, s1000, s1000))
     --> =killed
 end
 
@@ -37,11 +37,11 @@ do
     --> =killed
 
     -- string.unpack uses cpu to produce its output
-    local ctx = runtime.callcontext({cpulimit=100}, string.unpack, fmt:rep(50), packed:rep(50))
+    local ctx = runtime.callcontext({kill={cpu=100}}, string.unpack, fmt:rep(50), packed:rep(50))
     print(ctx)
     --> =done
 
-    print(runtime.callcontext({cpulimit=100}, string.unpack, fmt:rep(500), packed:rep(500)))
+    print(runtime.callcontext({kill={cpu=100}}, string.unpack, fmt:rep(500), packed:rep(500)))
     --> =killed
 
     local fmt = "s"

@@ -82,12 +82,12 @@ do
     --> =10
 
     -- A function with 12 lines is ok for CPU
-    local ctx = runtime.callcontext({cpulimit=1000}, string.dump, mk(10))
+    local ctx = runtime.callcontext({kill={cpu=1000}}, string.dump, mk(10))
     print(ctx)
     --> =done
     
     -- One with 500 lines runs out of CPU
-    print(runtime.callcontext({cpulimit=1000}, string.dump, mk(500)))
+    print(runtime.callcontext({kill={cpu=1000}}, string.dump, mk(500)))
     --> =killed
 
     -- A function with 12 lines is ok for mem
@@ -96,17 +96,17 @@ do
     --> =done
     
     -- One with 500 lines runs out of mem
-    print(runtime.callcontext({cpulimit=1000}, string.dump, mk(500)))
+    print(runtime.callcontext({kill={cpu=1000}}, string.dump, mk(500)))
     --> =killed
 end
 
 -- string.format consumes memory and cpu
 do
     -- a long format needs to be scanned and uses cpu
-    print(runtime.callcontext({cpulimit=1000}, string.format, ("a"):rep(50)))
+    print(runtime.callcontext({kill={cpu=1000}}, string.format, ("a"):rep(50)))
     --> =done	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
-    print(runtime.callcontext({cpulimit=1000}, string.format, ("a"):rep(1000)))
+    print(runtime.callcontext({kill={cpu=1000}}, string.format, ("a"):rep(1000)))
     --> =killed
 
     -- format requires memory to build the formatted string

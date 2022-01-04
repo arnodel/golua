@@ -32,7 +32,7 @@ print(ctx.used.memory < 1000)
 --> =true
 
 -- Check we ran out of cpu
-print(ctx.cpuused >= ctx.cpulimit - 50)
+print(ctx.used.cpu >= ctx.kill.cpu - 50)
 --> =true
 
 -- Check we did a number of iterations
