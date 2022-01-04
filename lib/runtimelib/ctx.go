@@ -87,6 +87,13 @@ func contextArg(c *rt.GoCont, n int) (rt.RuntimeContext, *rt.Error) {
 	return nil, rt.NewErrorF("#%d must be a runtime context", n+1)
 }
 
+func optContextArg(t *rt.Thread, c *rt.GoCont, n int) (rt.RuntimeContext, *rt.Error) {
+	if n >= c.NArgs() {
+		return t.RuntimeContext(), nil
+	}
+	return contextArg(c, n)
+}
+
 func resourcesArg(c *rt.GoCont, n int) (rt.RuntimeResources, *rt.Error) {
 	res, ok := valueToResources(c.Arg(n))
 	if ok {
@@ -118,6 +125,12 @@ func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		val = rt.NilValue
 	case "flags":
 		val = rt.StringValue(strings.Join(ctx.RequiredFlags().Names(), " "))
+	case "due":
+		val = rt.BoolValue(ctx.Due())
+	case "killnow":
+		val = rt.FunctionValue(killnowGoF)
+	case "stopnow":
+		val = rt.FunctionValue(stopnowGoF)
 	}
 	return c.PushingNext1(t.Runtime, val), nil
 }
@@ -197,4 +210,45 @@ func statusValue(st rt.RuntimeContextStatus) rt.Value {
 		return rt.NilValue
 	}
 	return rt.StringValue(s)
+}
+
+func killnow(t *rt.Thread, c *rt.GoCont) (next rt.Cont, err *rt.Error) {
+	ctx, err := optContextArg(t, c, 0)
+	if err != nil {
+		return nil, err
+	}
+	ctx.SetStopLevel(rt.HardStop)
+	return nil, nil
+}
+
+func stopnow(t *rt.Thread, c *rt.GoCont) (next rt.Cont, err *rt.Error) {
+	ctx, err := optContextArg(t, c, 0)
+	if err != nil {
+		return nil, err
+	}
+	ctx.SetStopLevel(rt.SoftStop)
+	return c.Next(), nil
+}
+
+func due(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
+	ctx, err := optContextArg(t, c, 0)
+	if err != nil {
+		return nil, err
+	}
+	return c.PushingNext1(t.Runtime, rt.BoolValue(ctx.Due())), nil
+}
+
+var (
+	killnowGoF = rt.NewGoFunction(killnow, "killnow", 1, false)
+	stopnowGoF = rt.NewGoFunction(stopnow, "stopnow", 1, false)
+	dueGoF     = rt.NewGoFunction(due, "due", 1, false)
+)
+
+func init() {
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
+		killnowGoF,
+		stopnowGoF,
+		dueGoF,
+	)
 }

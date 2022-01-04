@@ -23,8 +23,9 @@ func load(r *rt.Runtime) rt.Value {
 
 		r.SetEnvGoFunc(pkg, "callcontext", callcontext, 2, true),
 		r.SetEnvGoFunc(pkg, "context", context, 0, false),
-		r.SetEnvGoFunc(pkg, "stopcontext", stopcontext, 0, false),
-		r.SetEnvGoFunc(pkg, "shouldstop", shouldstop, 0, false),
+		r.SetEnvGoFunc(pkg, "killcontext", killnow, 1, false),
+		r.SetEnvGoFunc(pkg, "stopcontext", stopnow, 1, false),
+		r.SetEnvGoFunc(pkg, "contextdue", due, 1, false),
 	)
 
 	createContextMetatable(r)
@@ -97,15 +98,6 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		t.Push1(next, err.Value())
 	}
 	return next, nil
-}
-
-func stopcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
-	t.TerminateContext("stopped")
-	return nil, nil
-}
-
-func shouldstop(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
-	return c.PushingNext1(t.Runtime, rt.BoolValue(t.ShouldStop())), nil
 }
 
 func getResources(t *rt.Thread, resources rt.Value) (res rt.RuntimeResources, err *rt.Error) {

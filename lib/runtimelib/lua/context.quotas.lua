@@ -40,18 +40,63 @@ runtime.callcontext({kill={memory=10000, cpu=10000}}, function()
     --> =true
 end)
 
--- runtime.stopcontext()
+-- runtime.killcontext()
 --
--- The runtime.stopcontext function terminates the current context.
+-- The runtime.killcontext function terminates the current context.
 
 print(runtime.callcontext({}, function()
     print("before cancel")
     --> =before cancel
-    runtime.stopcontext()
+    runtime.killcontext()
     print("after cancel")
     -- Not reached
 end))
 --> =killed
+
+-- There is also a ctx:killnow() method on the context to achieve the same.
+
+print(runtime.callcontext({}, function()
+    local ctx = runtime.context()
+    print("before cancel")
+    --> =before cancel
+    ctx:killnow()
+    print("after cancel")
+    -- Not reached
+end))
+--> =killed
+
+-- runtime.stopcontext()
+--
+-- The runtime.stopcontext function makes the current context due
+
+print(runtime.callcontext({}, function()
+    local n = 0
+    repeat
+        n = n + 1
+        if n > 1000 then
+            runtime.stopcontext()
+        end
+    until runtime.contextdue()
+    print(n)
+    --> =1001
+end))
+--> =done
+
+-- There are a ctx:stopnow() method and a ctx.due property to achieve the same.
+
+print(runtime.callcontext({}, function()
+    local ctx, n = runtime.context(), 0
+    repeat
+        n = n + 1
+        if n > 1000 then
+            ctx:stopnow()
+        end
+    until ctx.due
+    print(n)
+    --> =1001
+end))
+--> =done
+
 
 -- Here the passed in function is an infinite loop, so execution will stop when
 -- the budget of 1000 cpu is consumed.

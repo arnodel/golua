@@ -18,6 +18,13 @@ const QuotasAvailable = true
 // update.
 const cpuThresholdIncrement = 10000
 
+type StopLevel uint8
+
+const (
+	SoftStop StopLevel = 1 << iota
+	HardStop
+)
+
 type runtimeContextManager struct {
 	hardLimits    RuntimeResources
 	softLimits    RuntimeResources
@@ -34,6 +41,7 @@ type runtimeContextManager struct {
 	trackCpu         bool
 	trackMem         bool
 	trackTime        bool
+	stopLevel        StopLevel
 	startTime        uint64
 	nextCpuThreshold uint64
 }
@@ -72,8 +80,15 @@ func (m *runtimeContextManager) Parent() RuntimeContext {
 	return m.parent
 }
 
-func (m *runtimeContextManager) ShouldStop() bool {
-	return !m.softLimits.Dominates(m.usedResources)
+func (m *runtimeContextManager) SetStopLevel(stopLevel StopLevel) {
+	m.stopLevel |= stopLevel
+	if stopLevel&HardStop != 0 && m.status == StatusLive {
+		m.KillContext()
+	}
+}
+
+func (m *runtimeContextManager) Due() bool {
+	return m.stopLevel&SoftStop != 0 || !m.softLimits.Dominates(m.usedResources)
 }
 
 func (m *runtimeContextManager) RuntimeContext() RuntimeContext {
@@ -153,6 +168,9 @@ func (m *runtimeContextManager) RequireCPU(cpuAmount uint64) {
 
 //go:noinline
 func (m *runtimeContextManager) requireCPU(cpuAmount uint64) {
+	if m.stopLevel&HardStop != 0 {
+		m.KillContext()
+	}
 	cpuUsed := m.usedResources.Cpu + cpuAmount
 	if atLimit(cpuUsed, m.hardLimits.Cpu) {
 		m.TerminateContext("CPU limit of %d exceeded", m.hardLimits.Cpu)
@@ -178,9 +196,12 @@ func (m *runtimeContextManager) RequireMem(memAmount uint64) {
 
 //go:noinline
 func (m *runtimeContextManager) requireMem(memAmount uint64) {
+	if m.stopLevel&HardStop != 0 {
+		m.KillContext()
+	}
 	memUsed := m.usedResources.Memory + memAmount
 	if atLimit(memUsed, m.hardLimits.Memory) {
-		m.TerminateContext("mem limit of %d exceeded", m.hardLimits.Memory)
+		m.TerminateContext("memory limit of %d exceeded", m.hardLimits.Memory)
 	}
 	m.usedResources.Memory = memUsed
 }
@@ -266,6 +287,10 @@ func (m *runtimeContextManager) LinearUnused(cpuFactor uint64) uint64 {
 func (m *runtimeContextManager) LinearRequire(cpuFactor uint64, amt uint64) {
 	m.RequireMem(amt)
 	m.RequireCPU(amt / cpuFactor)
+}
+
+func (m *runtimeContextManager) KillContext() {
+	m.TerminateContext("force kill")
 }
 
 func (m *runtimeContextManager) TerminateContext(format string, args ...interface{}) {

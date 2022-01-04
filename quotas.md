@@ -10,13 +10,13 @@
     - [Within a Lua program](#within-a-lua-program)
       - [`runtime.context()`](#runtimecontext)
       - [`runtime.callcontext(ctxdef, f, [arg1, ...])`](#runtimecallcontextctxdef-f-arg1-)
-      - [`runtime.stopcontext()`](#runtimestopcontext)
-      - [`runtime.shouldstop()`](#runtimeshouldstop)
+      - [`runtime.killcontext()`](#runtimekillcontext)
+      - [`runtime.contextdue()`](#runtimecontextdue)
     - [When embedding a runtime in Go](#when-embedding-a-runtime-in-go)
       - [`(*Runtime).PushContext(RuntimeContextDef)`](#runtimepushcontextruntimecontextdef)
       - [`(*Runtime).PopContext() RuntimeContext`](#runtimepopcontext-runtimecontext)
       - [`(*Runtime).CallContext(def RuntimeContextDef, f func() *Error) (RuntimeContext, *Error)`](#runtimecallcontextdef-runtimecontextdef-f-func-error-runtimecontext-error)
-      - [`(*Runtime).ShouldStop() bool`](#runtimeshouldstop-bool)
+      - [`(*Runtime).ShouldStop() bool`](#runtimecontextdue-bool)
       - [`(*Runtime).TerminateContext(format string, args ...interface{})`](#runtimeterminatecontextformat-string-args-interface)
   - [How to implement the safe execution environment](#how-to-implement-the-safe-execution-environment)
     - [CPU limits](#cpu-limits)
@@ -177,7 +177,7 @@ cpusafe
 0       nil
 ```
 
-#### `runtime.stopcontext()`
+#### `runtime.killcontext()`
 
 This function terminates the current context immediately, returning to the
 parent context.  It is as if a hard resource limit had been hit. It can be used
@@ -185,7 +185,7 @@ when a soft resource limit has been hit and the program decides to stop.
 
 [it could be a method on context, then the semantics of stopping a non-running
 context would need to be specified]
-#### `runtime.shouldstop()`
+#### `runtime.contextdue()`
 
 This function returns true if any of the soft resource limits has been hit.
 

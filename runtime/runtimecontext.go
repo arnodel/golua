@@ -20,6 +20,9 @@ type RuntimeContext interface {
 	Parent() RuntimeContext
 
 	RequiredFlags() ComplianceFlags
+
+	SetStopLevel(StopLevel)
+	Due() bool
 }
 
 // A ContextTerminationError is an error reserved for when the runtime context

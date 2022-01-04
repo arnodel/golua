@@ -1,29 +1,29 @@
--- By default runtime.shouldstop returns false
-print(runtime.shouldstop())
+-- By default runtime.contextdue returns false
+print(runtime.contextdue())
 --> =false
 
--- runtime.shouldstop returns true if a cpu soft limit has been reached
+-- runtime.contextdue returns true if a cpu soft limit has been reached
 print(runtime.callcontext({stop={cpu=100}}, function()
-    print(runtime.shouldstop())
+    print(runtime.contextdue())
     --> =false
     local ctx = runtime.context()
     print(ctx.stop.cpu)
     --> =100
-    while not runtime.shouldstop() do end
+    while not runtime.contextdue() do end
     print(ctx.used.cpu >= 100, ctx.used.cpu <= 200)
     --> =true	true
 end))
 --> =done
 
--- runtime.shouldstop returns true if a mem soft limit has been reached
+-- runtime.contextdue returns true if a mem soft limit has been reached
 print(runtime.callcontext({stop={memory=1000}}, function()
-    print(runtime.shouldstop())
+    print(runtime.contextdue())
     --> =false
     local ctx = runtime.context()
     print(ctx.stop.memory)
     --> =1000
     local a = "x"
-    while not runtime.shouldstop() do 
+    while not runtime.contextdue() do 
         a = a .. a -- consume some memory
     end
     print(ctx.used.memory >= 1000, ctx.used.memory <= 2000)
@@ -31,14 +31,14 @@ print(runtime.callcontext({stop={memory=1000}}, function()
 end))
 --> =done
 
--- runtime.shouldstop returns true if a time soft limit has been reached
+-- runtime.contextdue returns true if a time soft limit has been reached
 print(runtime.callcontext({stop={millis=20}}, function()
-    print(runtime.shouldstop())
+    print(runtime.contextdue())
     --> =false
     local ctx = runtime.context()
     print(ctx.stop.millis)
     --> =20
-    while not runtime.shouldstop() do end
+    while not runtime.contextdue() do end
     print(ctx.used.millis >= 20, ctx.used.millis <= 30)
     --> =true	true
 end))

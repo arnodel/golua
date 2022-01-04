@@ -146,10 +146,10 @@ local c = 0
 print(runtime.callcontext({stop={cpu=1000}}, function()
     print(runtime.context().stop.cpu)
     --> =1000
-    while not runtime.shouldstop() do
+    while not runtime.contextdue() do
         c = c + 1
     end
-    runtime.stopcontext()
+    runtime.killcontext()
 end))
 --> =killed
 print(c > 10)
