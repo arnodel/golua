@@ -147,7 +147,7 @@ func resources__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			val = resToVal(n)
 		}
 	case memoryName:
-		n := res.Mem
+		n := res.Memory
 		if n > 0 {
 			val = resToVal(n)
 		}
@@ -176,8 +176,8 @@ func resources__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if res.Cpu > 0 {
 		vals = append(vals, fmt.Sprintf("%s=%d", cpuName, res.Cpu))
 	}
-	if res.Mem > 0 {
-		vals = append(vals, fmt.Sprintf("%s=%d", memoryName, res.Mem))
+	if res.Memory > 0 {
+		vals = append(vals, fmt.Sprintf("%s=%d", memoryName, res.Memory))
 	}
 	if res.Millis > 0 {
 		vals = append(vals, fmt.Sprintf("%s=%g", secondsName, float64(res.Millis)/1000))

@@ -113,7 +113,7 @@ func getResources(t *rt.Thread, resources rt.Value) (res rt.RuntimeResources, er
 	if err != nil {
 		return
 	}
-	res.Mem, err = getResVal(t, resources, memoryString)
+	res.Memory, err = getResVal(t, resources, memoryString)
 	if err != nil {
 		return
 	}

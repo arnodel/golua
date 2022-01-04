@@ -73,8 +73,8 @@ func (c *luaCmd) run() (retcode int) {
 	r := rt.New(nil)
 	r.PushContext(rt.RuntimeContextDef{
 		HardLimits: rt.RuntimeResources{
-			Cpu: c.cpuLimit,
-			Mem: c.memLimit,
+			Cpu:    c.cpuLimit,
+			Memory: c.memLimit,
 		},
 		RequiredFlags:  flags,
 		MessageHandler: debuglib.Traceback,

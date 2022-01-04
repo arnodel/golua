@@ -94,7 +94,7 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	if ctx.HardLimits.Cpu > 0 {
 		m.requiredFlags |= ComplyCpuSafe
 	}
-	if ctx.HardLimits.Mem > 0 {
+	if ctx.HardLimits.Memory > 0 {
 		m.requiredFlags |= ComplyMemSafe
 	}
 	if ctx.HardLimits.Millis > 0 {
@@ -102,7 +102,7 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	}
 	m.trackTime = m.hardLimits.Millis > 0 || m.softLimits.Millis > 0
 	m.trackCpu = m.hardLimits.Cpu > 0 || m.softLimits.Cpu > 0 || m.trackTime
-	m.trackMem = m.hardLimits.Mem > 0 || m.softLimits.Mem > 0
+	m.trackMem = m.hardLimits.Memory > 0 || m.softLimits.Memory > 0
 	m.status = StatusLive
 	m.messageHandler = ctx.MessageHandler
 	m.parent = &parent
@@ -117,7 +117,7 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 		mCopy.status = StatusDone
 	}
 	m.parent.RequireCPU(m.usedResources.Cpu)
-	m.parent.RequireMem(m.usedResources.Mem)
+	m.parent.RequireMem(m.usedResources.Memory)
 	*m = *m.parent
 	if m.trackTime {
 		m.updateTimeUsed()
@@ -178,11 +178,11 @@ func (m *runtimeContextManager) RequireMem(memAmount uint64) {
 
 //go:noinline
 func (m *runtimeContextManager) requireMem(memAmount uint64) {
-	memUsed := m.usedResources.Mem + memAmount
-	if atLimit(memUsed, m.hardLimits.Mem) {
-		m.TerminateContext("mem limit of %d exceeded", m.hardLimits.Mem)
+	memUsed := m.usedResources.Memory + memAmount
+	if atLimit(memUsed, m.hardLimits.Memory) {
+		m.TerminateContext("mem limit of %d exceeded", m.hardLimits.Memory)
 	}
-	m.usedResources.Mem = memUsed
+	m.usedResources.Memory = memUsed
 }
 
 func (m *runtimeContextManager) RequireSize(sz uintptr) (mem uint64) {
@@ -206,9 +206,9 @@ func (m *runtimeContextManager) RequireBytes(n int) (mem uint64) {
 func (m *runtimeContextManager) ReleaseMem(memAmount uint64) {
 	// TODO: think about what to do when memory is released when unwinding from
 	// a quota exceeded error
-	if m.hardLimits.Mem > 0 {
-		if memAmount <= m.usedResources.Mem {
-			m.usedResources.Mem -= memAmount
+	if m.hardLimits.Memory > 0 {
+		if memAmount <= m.usedResources.Memory {
+			m.usedResources.Memory -= memAmount
 		} else {
 			panic("Too much mem released")
 		}
@@ -228,7 +228,7 @@ func (m *runtimeContextManager) ReleaseBytes(n int) {
 }
 
 func (m *runtimeContextManager) UnusedMem() uint64 {
-	return m.hardLimits.Mem - m.usedResources.Mem
+	return m.hardLimits.Memory - m.usedResources.Memory
 }
 
 func (m *runtimeContextManager) updateTimeUsed() {

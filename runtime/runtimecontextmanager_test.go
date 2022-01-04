@@ -35,7 +35,7 @@ func Test_runtimeContextManager_LinearUnused(t *testing.T) {
 		{
 			name: "no cpu limit",
 			fields: fields{
-				hardLimits: RuntimeResources{Mem: 1000},
+				hardLimits: RuntimeResources{Memory: 1000},
 			},
 			args: args{cpuFactor: 5},
 			want: 1000,
@@ -43,7 +43,7 @@ func Test_runtimeContextManager_LinearUnused(t *testing.T) {
 		{
 			name: "cpu wins",
 			fields: fields{
-				hardLimits: RuntimeResources{Mem: 1000, Cpu: 100},
+				hardLimits: RuntimeResources{Memory: 1000, Cpu: 100},
 			},
 			args: args{cpuFactor: 5},
 			want: 500,
@@ -51,7 +51,7 @@ func Test_runtimeContextManager_LinearUnused(t *testing.T) {
 		{
 			name: "mem wins",
 			fields: fields{
-				hardLimits: RuntimeResources{Mem: 1000, Cpu: 500},
+				hardLimits: RuntimeResources{Memory: 1000, Cpu: 500},
 			},
 			args: args{cpuFactor: 10},
 			want: 1000,

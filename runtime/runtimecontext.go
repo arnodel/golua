@@ -130,7 +130,7 @@ func (f ComplianceFlags) Names() (names []string) {
 // resources.  For available resources, 0 means unlimited.
 type RuntimeResources struct {
 	Cpu    uint64
-	Mem    uint64
+	Memory uint64
 	Millis uint64
 }
 
@@ -142,10 +142,10 @@ func (r RuntimeResources) Remove(v RuntimeResources) RuntimeResources {
 	} else {
 		r.Cpu = 0
 	}
-	if r.Mem >= v.Mem {
-		r.Mem -= v.Mem
+	if r.Memory >= v.Memory {
+		r.Memory -= v.Memory
 	} else {
-		r.Mem = 0
+		r.Memory = 0
 	}
 	if r.Millis >= v.Millis {
 		r.Millis -= v.Millis
@@ -161,8 +161,8 @@ func (r RuntimeResources) Merge(r1 RuntimeResources) RuntimeResources {
 	if smallerLimit(r1.Cpu, r.Cpu) {
 		r.Cpu = r1.Cpu
 	}
-	if smallerLimit(r1.Mem, r.Mem) {
-		r.Mem = r1.Mem
+	if smallerLimit(r1.Memory, r.Memory) {
+		r.Memory = r1.Memory
 	}
 	if smallerLimit(r1.Millis, r.Millis) {
 		r.Millis = r1.Millis
@@ -173,7 +173,7 @@ func (r RuntimeResources) Merge(r1 RuntimeResources) RuntimeResources {
 // Dominates returns true if the resource count v doesn't reach the resource
 // limit r.
 func (r RuntimeResources) Dominates(v RuntimeResources) bool {
-	return !atLimit(v.Cpu, r.Cpu) && !atLimit(v.Mem, r.Mem) && !atLimit(v.Millis, r.Millis)
+	return !atLimit(v.Cpu, r.Cpu) && !atLimit(v.Memory, r.Memory) && !atLimit(v.Millis, r.Millis)
 }
 
 // n < m, but with 0 meaning +infinity for both n and m
