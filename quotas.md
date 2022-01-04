@@ -12,11 +12,11 @@
       - [`runtime.callcontext(ctxdef, f, [arg1, ...])`](#runtimecallcontextctxdef-f-arg1-)
       - [`runtime.killcontext()`](#runtimekillcontext)
       - [`runtime.contextdue()`](#runtimecontextdue)
+      - [`runtime.stopcontext()`](#runtimestopcontext)
     - [When embedding a runtime in Go](#when-embedding-a-runtime-in-go)
       - [`(*Runtime).PushContext(RuntimeContextDef)`](#runtimepushcontextruntimecontextdef)
       - [`(*Runtime).PopContext() RuntimeContext`](#runtimepopcontext-runtimecontext)
       - [`(*Runtime).CallContext(def RuntimeContextDef, f func() *Error) (RuntimeContext, *Error)`](#runtimecallcontextdef-runtimecontextdef-f-func-error-runtimecontext-error)
-      - [`(*Runtime).ShouldStop() bool`](#runtimecontextdue-bool)
       - [`(*Runtime).TerminateContext(format string, args ...interface{})`](#runtimeterminatecontextformat-string-args-interface)
   - [How to implement the safe execution environment](#how-to-implement-the-safe-execution-environment)
     - [CPU limits](#cpu-limits)
@@ -120,8 +120,8 @@ Golua provides a `runtime` library which exposes two functions
 
 #### `runtime.context()`
 
-Returns an object `ctx` representing the current context.  This object cannot be
-mutated but gives useful information about the execution context.
+Returns an object `ctx` representing the current context.  This object mostly
+cannot be mutated but gives useful information about the execution context.
 
 - `ctx.status` is the status of the context as a string, which can be:
   - `"live"` if this is the currently running context;
@@ -140,6 +140,16 @@ mutated but gives useful information about the execution context.
 - `ctx.flags` returns a string describing the flags that any code running in
   this context has to comply with.  Those flags are `"memsafe"`, `"cpusafe"`,
   `"timesafe"` and `"iosafe"` currently.
+- `ctx.due` returns true if any of the context's soft limits have been
+  exhausted.
+
+Additionally there are two methods that allow mutation of the context.
+
+- `ctx:killnow()` updates the context's state so that its hard limits are
+  considered exhausted.  The effect on a running context will be to be
+  terminated immediately.
+- `ctx:stopnow()` update the context's state so that its soft limits are
+  considered exhausted.  The effect is that `ctx.due` returns true.
 
 #### `runtime.callcontext(ctxdef, f, [arg1, ...])`
 
@@ -157,16 +167,16 @@ it inherits the `io` and `golib` flags from the current context.
 
  The argument `ctxdef` allows restricting `ctx` further.  It is a table with any
 of the following attributes.
-- `limits`: if set, it should be a table.  Attributes can be set in this table
+- `kill`: if set, it should be a table.  Attributes can be set in this table
   with names `mem`, `cpu` and values a positive integer.  This is used to set
   the context's hard resource limits.
-- `softlimits`: same format as `limits` but describes soft limits.  It will be
-  used to set the context's soft resource limits.
+- `stop`: same format as `kill` but describes soft limits.  It will be used to
+  set the context's soft resource limits.
 - `flags`: same format as for a context definition (e.g. `"cpusafe memsafe"`)
 
 Here is a simple example of using this function in the golua repl:
 ```lua
-> ctx = runtime.callcontext({limits{cpu=1000}}, function() while true do end end)
+> ctx = runtime.callcontext({kill={cpu=1000}}, function() while true do end end)
 > print(ctx)
 killed
 > print(ctx.used.cpu, ctx.kill.cpu)
@@ -183,14 +193,24 @@ This function terminates the current context immediately, returning to the
 parent context.  It is as if a hard resource limit had been hit. It can be used
 when a soft resource limit has been hit and the program decides to stop.
 
-[it could be a method on context, then the semantics of stopping a non-running
-context would need to be specified]
+Alternatively contexts have a method to achieve the same: `ctx:killnow()`.  On a
+context that is not currently running, the effect is to kill it as soon at it is
+resumed.
 #### `runtime.contextdue()`
 
-This function returns true if any of the soft resource limits has been hit.
+This function returns true if any of the soft resource limits has been hit on
+the currently running context.
 
-[it could be a method on context, then the semantics of on a non-running
-context would need to be specified]
+Alternatively contexts have a property `ctx.due` that is set to true if the
+context `ctx` has exhausted any of its soft limits.
+
+
+#### `runtime.stopcontext()`
+
+This function updates the current context so that its soft limits are considered
+exhaused.
+
+Alternatively contexts have a method to achieve the same: `ctx:stopnow()`.
 
 ### When embedding a runtime in Go
 
@@ -210,7 +230,8 @@ type RuntimeContext interface {
 
 	RequiredFlags() ComplianceFlags
 
-	ShouldCancel() bool
+	SetStopLevel(StopLevel)
+	Due() bool
 }
 ```
 
@@ -305,11 +326,6 @@ func main() {
     // Panics due to quota exceeded will be recovered from.
 }
 ```
-
-#### `(*Runtime).ShouldStop() bool`
-
-Return true if the current context's soft limits have been hit (there could be
-other conditions in future).
 
 #### `(*Runtime).TerminateContext(format string, args ...interface{})`
 
