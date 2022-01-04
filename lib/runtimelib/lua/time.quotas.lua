@@ -1,11 +1,11 @@
--- Test time bound contexts (time is in ms)
+-- Test time bound contexts
 
 -- A time bound context stops when the time is exceeded
 local n = 0
 local ctx = runtime.callcontext({kill={millis=10}}, function()
     local ctx = runtime.context()
-    print(ctx.kill.millis)
-    --> =10
+    print(ctx.kill.millis, ctx.kill.seconds)
+    --> =10	0.01
     while true do
         n = n + 1
     end
@@ -28,7 +28,7 @@ print(n > 50000)
 --> =true
 
 -- The outer context keeps track of time spent in the inner context
-local ctx = runtime.callcontext({kill={millis=100}}, function()
+local ctx = runtime.callcontext({kill={seconds=0.1}}, function()
     for i = 1, 3 do
         runtime.callcontext({kill={millis=10}}, function()
             while true do end
@@ -45,7 +45,7 @@ local ctx = runtime.callcontext({kill={millis=10}}, function()
             print(runtime.context().kill.millis)
             --> =10
         end)
-        runtime.callcontext({kill={millis=1000}}, function()
+        runtime.callcontext({kill={seconds=1}}, function()
             print(runtime.context().kill.millis)
             --> =10
         end)
