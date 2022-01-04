@@ -3,37 +3,37 @@ local s1000 = s:rep(1000)
 
 -- string.lower, string.upper, string.reverse consume memory
 do
-    print(runtime.callcontext({memlimit=4000}, string.lower, s))
+    print(runtime.callcontext({kill={memory=4000}}, string.lower, s))
     --> =done	hello
 
-    print(runtime.callcontext({memlimit=4000}, string.lower, s1000))
+    print(runtime.callcontext({kill={memory=4000}}, string.lower, s1000))
     --> =killed
 
 
     -- string.upper consumes memory
 
-    print(runtime.callcontext({memlimit=4000}, string.upper, s))
+    print(runtime.callcontext({kill={memory=4000}}, string.upper, s))
     --> =done	HELLO
 
-    print(runtime.callcontext({memlimit=4000}, string.upper, s1000))
+    print(runtime.callcontext({kill={memory=4000}}, string.upper, s1000))
     --> =killed
 
 
     -- string.reverse consumes memory
 
-    print(runtime.callcontext({memlimit=4000}, string.reverse, s))
+    print(runtime.callcontext({kill={memory=4000}}, string.reverse, s))
     --> =done	OLleh
 
-    print(runtime.callcontext({memlimit=4000}, string.reverse, s1000))
+    print(runtime.callcontext({kill={memory=4000}}, string.reverse, s1000))
     --> =killed
 end
 
 -- string.sub consumes memory
 do
-    print(runtime.callcontext({memlimit=1000}, string.sub, s, 3, 2000))
+    print(runtime.callcontext({kill={memory=1000}}, string.sub, s, 3, 2000))
     --> =done	lLO
 
-    print(runtime.callcontext({memlimit=1000}, string.sub, s1000, 3, 2000))
+    print(runtime.callcontext({kill={memory=1000}}, string.sub, s1000, 3, 2000))
     --> =killed
 end
 
@@ -47,24 +47,24 @@ do
     print(len("foobar"))
     --> =6
 
-    print(runtime.callcontext({memlimit=10000}, len, s1000))
+    print(runtime.callcontext({kill={memory=10000}}, len, s1000))
     --> =killed
 
     -- string.char consumes memory
 
-    print(runtime.callcontext({memlimit=1000}, string.char, s:byte(1, #s)))
+    print(runtime.callcontext({kill={memory=1000}}, string.char, s:byte(1, #s)))
     --> =done	helLO
 
-    print(runtime.callcontext({memlimit=1000}, string.char, s1000:byte(1, 1200)))
+    print(runtime.callcontext({kill={memory=1000}}, string.char, s1000:byte(1, 1200)))
     --> =killed
 
 
     -- string.rep consumes memory
 
-    print(runtime.callcontext({memlimit=1000}, string.rep, "ha", 10))
+    print(runtime.callcontext({kill={memory=1000}}, string.rep, "ha", 10))
     --> =done	hahahahahahahahahaha
 
-    print(runtime.callcontext({memlimit=1000}, string.rep, "ha", 600))
+    print(runtime.callcontext({kill={memory=1000}}, string.rep, "ha", 600))
     --> =killed
 end
 
@@ -91,7 +91,7 @@ do
     --> =killed
 
     -- A function with 12 lines is ok for mem
-    local ctx = runtime.callcontext({memlimit=1000}, string.dump, mk(10))
+    local ctx = runtime.callcontext({kill={memory=1000}}, string.dump, mk(10))
     print(ctx)
     --> =done
     
@@ -111,10 +111,10 @@ do
 
     -- format requires memory to build the formatted string
     local s = "aa"
-    print(runtime.callcontext({memlimit=1000}, string.format, "%s %s %s %s %s", s, s, s, s, s))
+    print(runtime.callcontext({kill={memory=1000}}, string.format, "%s %s %s %s %s", s, s, s, s, s))
     --> =done	aa aa aa aa aa
 
     s = ("a"):rep(1000)
-    print(runtime.callcontext({memlimit=5000}, string.format, "%s %s %s %s %s", s, s, s, s, s))
+    print(runtime.callcontext({kill={memory=5000}}, string.format, "%s %s %s %s %s", s, s, s, s, s))
     --> =killed
 end

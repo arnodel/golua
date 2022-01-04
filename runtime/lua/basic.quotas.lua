@@ -14,7 +14,7 @@ print(rfib(1), rfib(2), rfib(3), rfib(10))
 --> =1	1	2	55
 
 -- Recursion blows memory budget
-print(runtime.callcontext({memlimit=1000}, rfib, 100))
+print(runtime.callcontext({kill={memory=1000}}, rfib, 100))
 --> =killed
 
 -- Recursion blows cpu budget
@@ -40,7 +40,7 @@ print(ifib(1), ifib(2), ifib(3), ifib(10))
 --> =1	1	2	55
 
 -- memory usage doesn't explode
-print(runtime.callcontext({memlimit=1000}, ifib, 100))
+print(runtime.callcontext({kill={memory=1000}}, ifib, 100))
 --> =done	3736710778780434371
 
 -- cpu usage doesn't explode
@@ -67,7 +67,7 @@ print(trfib(1), trfib(2), trfib(3), trfib(10))
 --> =1	1	2	55
 
 -- memory usage doesn't explode
-print(runtime.callcontext({memlimit=1000}, ifib, 100))
+print(runtime.callcontext({kill={memory=1000}}, ifib, 100))
 --> =done	3736710778780434371
 
 -- cpu usage doesn't explode
@@ -106,7 +106,7 @@ print(ctx, #bigs)
 --> =done	65536
 
 --> but it consumes memory!
-print(runtime.callcontext({memlimit=50000}, strexp, "hi", 16))
+print(runtime.callcontext({kill={memory=50000}}, strexp, "hi", 16))
 --> =killed
 
 --
@@ -131,11 +131,11 @@ print(table.unpack(numbers(5)))
 print(len(table.unpack(numbers(4))))
 --> =4
 
-print(runtime.callcontext({memlimit=1000}, len, table.unpack(numbers(10))))
+print(runtime.callcontext({kill={memory=1000}}, len, table.unpack(numbers(10))))
 --> =done	10
 
 -- Passing a long list of arguments requires a lot of memory.
-print(runtime.callcontext({memlimit=2000}, len, table.unpack(numbers(200))))
+print(runtime.callcontext({kill={memory=2000}}, len, table.unpack(numbers(200))))
 --> =killed
 
 --

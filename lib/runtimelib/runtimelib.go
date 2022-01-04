@@ -43,8 +43,6 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		return nil, err
 	}
 	var (
-		memQuotaV   = quotas.Get(rt.StringValue("memlimit")) // deprecated
-		cpuQuotaV   = quotas.Get(rt.StringValue("cpulimit")) // deprecated
 		flagsV      = quotas.Get(rt.StringValue("flags"))
 		limitsV     = quotas.Get(rt.StringValue("kill"))
 		softLimitsV = quotas.Get(rt.StringValue("stop"))
@@ -64,18 +62,6 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	if !rt.IsNil(softLimitsV) {
 		var err *rt.Error
 		softLimits, err = getResources(t, softLimitsV)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if !rt.IsNil(memQuotaV) {
-		hardLimits.Mem, err = validateResVal(rt.StringValue("memlimit"), memQuotaV)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if !rt.IsNil(cpuQuotaV) {
-		hardLimits.Cpu, err = validateResVal(rt.StringValue("cpulimit"), cpuQuotaV)
 		if err != nil {
 			return nil, err
 		}

@@ -12,13 +12,13 @@ do
 
     -- table.concat uses memory
 
-    local ctx, res = runtime.callcontext({memlimit=5000}, table.concat, mk(s1000, 4))
+    local ctx, res = runtime.callcontext({kill={memory=5000}}, table.concat, mk(s1000, 4))
     print(ctx, #res)
     --> =done	4000
     print(ctx.used.memory >= 4000)
     --> =true
 
-    print(runtime.callcontext({memlimit=5000}, table.concat, mk(s1000, 5)))
+    print(runtime.callcontext({kill={memory=5000}}, table.concat, mk(s1000, 5)))
     --> =killed
 
     -- table.concat uses cpu
@@ -63,15 +63,15 @@ end
 do
     -- table.move consumes memory
 
-    local ctx = runtime.callcontext({memlimit=10000}, table.move, mk("x", 100), 1, 100, 101)
+    local ctx = runtime.callcontext({kill={memory=10000}}, table.move, mk("x", 100), 1, 100, 101)
     print(ctx)
     --> =done
 
-    print(runtime.callcontext({memlimit=10000}, table.move, mk("x", 1000), 1, 1000, 1001))
+    print(runtime.callcontext({kill={memory=10000}}, table.move, mk("x", 1000), 1, 1000, 1001))
     --> =killed
 
     -- consumes less memory when ranges overlap
-    ctx = runtime.callcontext({memlimit=10000}, table.move, mk("x", 1000), 1, 1000, 101)
+    ctx = runtime.callcontext({kill={memory=10000}}, table.move, mk("x", 1000), 1, 1000, 101)
     print(ctx)
     --> =done
 
@@ -93,11 +93,11 @@ end
 do
     --table.pack consumes memory
 
-    local ctx = runtime.callcontext({memlimit=10000}, table.pack, table.unpack(mk("x", 100)))
+    local ctx = runtime.callcontext({kill={memory=10000}}, table.pack, table.unpack(mk("x", 100)))
     print(ctx)
     --> =done
 
-    print(runtime.callcontext({memlimit=5000}, table.pack, table.unpack(mk("x", 200))))
+    print(runtime.callcontext({kill={memory=5000}}, table.pack, table.unpack(mk("x", 200))))
     --> =killed
 
     --table.pack consumes cpu
@@ -160,11 +160,11 @@ do
     -- table.unpack consumes no memory if the result is discarded. We wrap
     -- table.unpack in a function so as not to accumulate its results and
     -- consume memory in that way
-    local ctx = runtime.callcontext({memlimit=500}, function(t) table.unpack(t) end, mk("x", 100))
+    local ctx = runtime.callcontext({kill={memory=500}}, function(t) table.unpack(t) end, mk("x", 100))
     print(ctx)
     --> =done
 
-    local ctx = runtime.callcontext({memlimit=500}, function(t) table.unpack(t) end, mk("x", 200))
+    local ctx = runtime.callcontext({kill={memory=500}}, function(t) table.unpack(t) end, mk("x", 200))
     print(ctx)
     --> =done
 
