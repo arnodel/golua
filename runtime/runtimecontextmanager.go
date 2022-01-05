@@ -252,10 +252,6 @@ func (m *runtimeContextManager) updateTimeUsed() {
 	}
 }
 
-func (m *runtimeContextManager) ResetQuota() {
-	m.hardLimits = RuntimeResources{}
-}
-
 // LinearUnused returns an amount of resource combining memory and cpu.  It is
 // useful when calling functions whose time complexity is a linear function of
 // the size of their output.  As cpu ticks are "smaller" than memory ticks, the
