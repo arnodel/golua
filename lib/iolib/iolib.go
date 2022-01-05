@@ -33,7 +33,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(methods, "close", fileclose, 1, false),
 		r.SetEnvGoFunc(methods, "flush", fileflush, 1, false),
 		r.SetEnvGoFunc(methods, "seek", fileseek, 3, false),
-		r.SetEnvGoFunc(methods, "setvbuf", filesetvbuf, 2, false),
+		r.SetEnvGoFunc(methods, "setvbuf", filesetvbuf, 3, false),
 		// TODO: setvbuf,
 		r.SetEnvGoFunc(methods, "write", filewrite, 1, true),
 	)

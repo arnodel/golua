@@ -240,6 +240,70 @@ do
     io.write("hello")
     io.write("bye")
     io.close()
+    print(pcall(io.close))
+    --> ~false\t.*file already closed
     print(io.open("files/outputtest.txt"):read())
     --> =hellobye
+end
+
+do
+    local f = io.open("files/iotest.txt")
+    print(f:read(0))
+    --> =
+    print(f:read("L"))
+    --> =hello
+    --> =
+    print(f:read("n"))
+    --> =123
+    print(f:read("n"))
+    --> =nil
+    print(f:read("a"))
+    --> =bye
+    --> =
+    print(f:read(0))
+    --> =nil
+end
+
+do
+    print(io.stdout:close())
+    --> ~nil\t.*cannot close standard file
+
+    print(io.stdin:close())
+    --> ~nil\t.*cannot close standard file
+
+    print(io.stderr:close())
+    --> ~nil\t.*cannot close standard file
+end
+
+do
+    local f = io.open("files/writetest3.txt", "w")
+    -- hard to test what it does, at least make sure the correct modes are accepted
+    f:setvbuf("no")
+    f:setvbuf("full")
+    f:setvbuf("line")
+    f:setvbuf("full", 0)
+    f:setvbuf("full", 2000)
+    f:setvbuf("line", 1000)
+
+    local function perr(...)
+        print(pcall(function(...) f:setvbuf(...) end, ...))
+    end
+
+    perr("line", -1)
+    --> ~false\t.*invalid buffer size
+
+    perr("full", -1000)
+    --> ~false\t.*invalid buffer size
+
+    perr("blah")
+    --> ~false\t.*invalid buffer mode
+
+    perr()
+    --> ~false\t.*2 arguments needed
+
+    perr(100)
+    --> ~false\t.*#2 must be a string
+
+    perr("full", {})
+    --> ~false\t.*#3 must be an integer
 end

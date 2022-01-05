@@ -133,6 +133,7 @@ func (f *File) Close() error {
 		}
 	}
 	if f.closed {
+		// Also this is undocumented, in this case an error is returned
 		return errFileAlreadyClosed
 	}
 	f.closed = true
