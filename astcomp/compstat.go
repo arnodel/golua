@@ -260,6 +260,9 @@ func (c *compiler) ProcessLocalStat(s ast.LocalStat) {
 	for i, reg := range localRegs {
 		c.ReleaseRegister(reg)
 		c.DeclareLocal(ir.Name(s.NameAttribs[i].Name.Val), reg)
+		if s.NameAttribs[i].IsConst() {
+			c.MarkConstantReg(reg)
+		}
 	}
 }
 

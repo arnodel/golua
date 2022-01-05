@@ -1,6 +1,8 @@
 package astcomp
 
 import (
+	"fmt"
+
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/ir"
 )
@@ -13,7 +15,12 @@ func (c *compiler) emitInstr(l ast.Locator, instr ir.Instruction) {
 }
 
 func (c *compiler) emitJump(l ast.Locator, lbl ir.Name) {
-	c.CodeBuilder.EmitJump(lbl, getLine(l))
+	if !c.CodeBuilder.EmitJump(lbl, getLine(l)) {
+		panic(Error{
+			Where:   l,
+			Message: fmt.Sprintf("undefined label '%s'", lbl),
+		})
+	}
 }
 
 func (c *compiler) emitLoadConst(l ast.Locator, k ir.Constant, reg ir.Register) {

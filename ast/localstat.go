@@ -58,3 +58,7 @@ func NewNameAttrib(name Name, attrib *Name) NameAttrib {
 		Attrib:   attrib,
 	}
 }
+
+func (na NameAttrib) IsConst() bool {
+	return na.Attrib != nil && na.Attrib.Val == "const"
+}
