@@ -9,8 +9,9 @@ import (
 type Name string
 
 type RegData struct {
-	IsCell   bool
-	refCount int
+	IsCell     bool
+	IsConstant bool
+	refCount   int
 }
 
 const regHasUpvalue uint = 1
@@ -124,7 +125,9 @@ func (c *CodeBuilder) GetFreeRegister() Register {
 
 func (c *CodeBuilder) TakeRegister(reg Register) {
 	c.registers[reg].refCount++
-	c.EmitNoLine(TakeRegister{Reg: reg})
+	if c.registers[reg].refCount == 1 {
+		c.EmitNoLine(TakeRegister{Reg: reg})
+	}
 }
 
 func (c *CodeBuilder) ReleaseRegister(reg Register) {
@@ -132,7 +135,9 @@ func (c *CodeBuilder) ReleaseRegister(reg Register) {
 		panic("cannot release register")
 	}
 	c.registers[reg].refCount--
-	c.EmitNoLine(ReleaseRegister{Reg: reg})
+	if c.registers[reg].refCount == 0 {
+		c.EmitNoLine(ReleaseRegister{Reg: reg})
+	}
 }
 
 func (c *CodeBuilder) PushContext() {
@@ -159,23 +164,31 @@ func (c *CodeBuilder) emitClearReg(m lexicalScope) {
 	}
 }
 
-func (c *CodeBuilder) EmitJump(lblName Name, line int) {
+func (c *CodeBuilder) EmitJump(lblName Name, line int) bool {
 	lc := c.context
 	var top lexicalScope
 	for len(lc) > 0 {
 		lc, top = lc.pop()
 		if lbl, ok := top.label[lblName]; ok {
 			c.Emit(Jump{Label: lbl}, line)
-			return
+			return true
 		}
 		c.emitClearReg(top)
 	}
-	panic(fmt.Errorf("undefined label '%s' at line %d", lblName, line))
+	return false
 }
 
 func (c *CodeBuilder) DeclareLocal(name Name, reg Register) {
 	c.TakeRegister(reg)
 	c.context.addToTop(name, reg)
+}
+
+func (c *CodeBuilder) MarkConstantReg(reg Register) {
+	c.registers[reg].IsConstant = true
+}
+
+func (c *CodeBuilder) IsConstantReg(reg Register) bool {
+	return c.registers[reg].IsConstant
 }
 
 func (c *CodeBuilder) EmitNoLine(instr Instruction) {
