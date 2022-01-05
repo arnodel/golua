@@ -196,10 +196,10 @@ local ctx = runtime.callcontext({kill={cpu=1000000, millis=2000}, stop={memory=2
     repeat until ctx.used.seconds
 end)
 print(ctx.kill)
---> =[cpu=1000,seconds=2]
+--> =[cpu=1000000,seconds=2]
 
 print(ctx.stop)
---> =[cpu=1000,memory=20000,seconds=2]
+--> =[cpu=1000000,memory=20000,seconds=2]
 
 print(ctx.used)
 --> ~\[cpu=\d+,memory=\d+,seconds=[0-9.]+\]
