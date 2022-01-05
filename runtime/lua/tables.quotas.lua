@@ -1,6 +1,6 @@
 -- Filling a table consumes memory
 local t = {}
-print(runtime.callcontext({memlimit=1000}, function()
+print(runtime.callcontext({kill={memory=1000}}, function()
     local i = 1
     while true do
         t[i] = i
@@ -16,7 +16,7 @@ print(#t > 10, #t < 100)
 local t = {1}
 
 local ctx = runtime.callcontext(
-    {memlimit=10000, cpulimit=10000},
+    {kill={memory=10000, cpu=10000}},
     function()
         while true do
             t[1] = t[1] + 1
@@ -28,11 +28,11 @@ print(ctx.status)
 --> =killed
 
 -- Check we didn't run out of memory
-print(ctx.memused < 1000)
+print(ctx.used.memory < 1000)
 --> =true
 
 -- Check we ran out of cpu
-print(ctx.cpuused >= ctx.cpulimit - 50)
+print(ctx.used.cpu >= ctx.kill.cpu - 50)
 --> =true
 
 -- Check we did a number of iterations

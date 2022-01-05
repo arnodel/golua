@@ -259,8 +259,8 @@ func (c *luaCmd) runChunk(r *rt.Runtime, source []byte) (more bool, err error) {
 func (c *luaCmd) pushContext(r *rt.Runtime) {
 	r.PushContext(rt.RuntimeContextDef{
 		HardLimits: rt.RuntimeResources{
-			Cpu: c.cpuLimit,
-			Mem: c.memLimit,
+			Cpu:    c.cpuLimit,
+			Memory: c.memLimit,
 		},
 		RequiredFlags:  c.complianceFlags,
 		MessageHandler: debuglib.Traceback,

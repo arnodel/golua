@@ -87,6 +87,13 @@ func contextArg(c *rt.GoCont, n int) (rt.RuntimeContext, *rt.Error) {
 	return nil, rt.NewErrorF("#%d must be a runtime context", n+1)
 }
 
+func optContextArg(t *rt.Thread, c *rt.GoCont, n int) (rt.RuntimeContext, *rt.Error) {
+	if n >= c.NArgs() {
+		return t.RuntimeContext(), nil
+	}
+	return contextArg(c, n)
+}
+
 func resourcesArg(c *rt.GoCont, n int) (rt.RuntimeResources, *rt.Error) {
 	res, ok := valueToResources(c.Arg(n))
 	if ok {
@@ -106,36 +113,24 @@ func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	val := rt.NilValue
 	switch key {
-	case "limits":
+	case "kill":
 		val = newResourcesValue(t.Runtime, ctx.HardLimits())
-	case "softlimits":
+	case "stop":
 		val = newResourcesValue(t.Runtime, ctx.SoftLimits())
 	case "used":
 		val = newResourcesValue(t.Runtime, ctx.UsedResources())
-	case "cpulimit": // Deprecated
-		{
-			limit := ctx.HardLimits().Cpu
-			if limit > 0 {
-				val = resToVal(limit)
-			}
-		}
-	case "memlimit": // Deprecated
-		{
-			limit := ctx.HardLimits().Mem
-			if limit > 0 {
-				val = resToVal(limit)
-			}
-		}
-	case "cpuused": // Deprecated
-		val = resToVal(ctx.UsedResources().Cpu)
-	case "memused": // Deprecated
-		val = resToVal(ctx.UsedResources().Mem)
 	case "status":
 		val = statusValue(ctx.Status())
 	case "parent":
 		val = rt.NilValue
 	case "flags":
 		val = rt.StringValue(strings.Join(ctx.RequiredFlags().Names(), " "))
+	case "due":
+		val = rt.BoolValue(ctx.Due())
+	case "killnow":
+		val = rt.FunctionValue(killnowGoF)
+	case "stopnow":
+		val = rt.FunctionValue(stopnowGoF)
 	}
 	return c.PushingNext1(t.Runtime, val), nil
 }
@@ -157,20 +152,30 @@ func resources__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err
 	}
-	var n uint64
+	val := rt.NilValue
 	switch key {
-	case "cpu":
-		n = res.Cpu
-	case "mem":
-		n = res.Mem
-	case "time":
-		n = res.Time
+	case cpuName:
+		n := res.Cpu
+		if n > 0 {
+			val = resToVal(n)
+		}
+	case memoryName:
+		n := res.Memory
+		if n > 0 {
+			val = resToVal(n)
+		}
+	case secondsName:
+		n := res.Millis
+		if n > 0 {
+			val = rt.FloatValue(float64(n) / 1000)
+		}
+	case millisName:
+		n := res.Millis
+		if n > 0 {
+			val = rt.FloatValue(float64(n))
+		}
 	default:
 		// We'll return nil
-	}
-	val := rt.NilValue
-	if n > 0 {
-		val = resToVal(n)
 	}
 	return c.PushingNext1(t.Runtime, val), nil
 }
@@ -182,13 +187,13 @@ func resources__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	vals := make([]string, 0, 3)
 	if res.Cpu > 0 {
-		vals = append(vals, fmt.Sprintf("cpu=%d", res.Cpu))
+		vals = append(vals, fmt.Sprintf("%s=%d", cpuName, res.Cpu))
 	}
-	if res.Mem > 0 {
-		vals = append(vals, fmt.Sprintf("mem=%d", res.Mem))
+	if res.Memory > 0 {
+		vals = append(vals, fmt.Sprintf("%s=%d", memoryName, res.Memory))
 	}
-	if res.Time > 0 {
-		vals = append(vals, fmt.Sprintf("time=%d", res.Time))
+	if res.Millis > 0 {
+		vals = append(vals, fmt.Sprintf("%s=%g", secondsName, float64(res.Millis)/1000))
 	}
 	s := "[" + strings.Join(vals, ",") + "]"
 	t.RequireBytes(len(s))
@@ -205,4 +210,45 @@ func statusValue(st rt.RuntimeContextStatus) rt.Value {
 		return rt.NilValue
 	}
 	return rt.StringValue(s)
+}
+
+func killnow(t *rt.Thread, c *rt.GoCont) (next rt.Cont, err *rt.Error) {
+	ctx, err := optContextArg(t, c, 0)
+	if err != nil {
+		return nil, err
+	}
+	ctx.SetStopLevel(rt.HardStop)
+	return nil, nil
+}
+
+func stopnow(t *rt.Thread, c *rt.GoCont) (next rt.Cont, err *rt.Error) {
+	ctx, err := optContextArg(t, c, 0)
+	if err != nil {
+		return nil, err
+	}
+	ctx.SetStopLevel(rt.SoftStop)
+	return c.Next(), nil
+}
+
+func due(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
+	ctx, err := optContextArg(t, c, 0)
+	if err != nil {
+		return nil, err
+	}
+	return c.PushingNext1(t.Runtime, rt.BoolValue(ctx.Due())), nil
+}
+
+var (
+	killnowGoF = rt.NewGoFunction(killnow, "killnow", 1, false)
+	stopnowGoF = rt.NewGoFunction(stopnow, "stopnow", 1, false)
+	dueGoF     = rt.NewGoFunction(due, "due", 1, false)
+)
+
+func init() {
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
+		killnowGoF,
+		stopnowGoF,
+		dueGoF,
+	)
 }

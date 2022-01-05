@@ -12,50 +12,50 @@ do
 
     -- table.concat uses memory
 
-    local ctx, res = runtime.callcontext({memlimit=5000}, table.concat, mk(s1000, 4))
+    local ctx, res = runtime.callcontext({kill={memory=5000}}, table.concat, mk(s1000, 4))
     print(ctx, #res)
     --> =done	4000
-    print(ctx.memused >= 4000)
+    print(ctx.used.memory >= 4000)
     --> =true
 
-    print(runtime.callcontext({memlimit=5000}, table.concat, mk(s1000, 5)))
+    print(runtime.callcontext({kill={memory=5000}}, table.concat, mk(s1000, 5)))
     --> =killed
 
     -- table.concat uses cpu
-    local ctx, res = runtime.callcontext({cpulimit=1000}, table.concat, mk("x", 100))
+    local ctx, res = runtime.callcontext({kill={cpu=1000}}, table.concat, mk("x", 100))
     print(ctx, #res)
     --> =done	100
-    print(ctx.cpuused >= 100)
+    print(ctx.used.cpu >= 100)
     --> =true
 
-    print(runtime.callcontext({cpulimit=1000}, table.concat, mk("x", 1000)))
+    print(runtime.callcontext({kill={cpu=1000}}, table.concat, mk("x", 1000)))
     --> =killed
 end
 
 -- table.insert
 do
     -- cpu is consumed when inserting at the front
-    local ctx = runtime.callcontext({cpulimit=1000}, table.insert, mk("x", 100), 1, "new")
+    local ctx = runtime.callcontext({kill={cpu=1000}}, table.insert, mk("x", 100), 1, "new")
     print(ctx)
     --> =done
-    print(ctx.cpuused >= 100)
+    print(ctx.used.cpu >= 100)
     --> =true
 
-    print(runtime.callcontext({cpulimit=1000}, table.insert, mk("x", 1000), 1, "new"))
+    print(runtime.callcontext({kill={cpu=1000}}, table.insert, mk("x", 1000), 1, "new"))
     --> =killed
 
     -- at the back, cpu doesn't depend on the size of the table
-    local ctx1 = runtime.callcontext({cpulimit=1000}, table.insert, mk("x", 100), "new")
+    local ctx1 = runtime.callcontext({kill={cpu=1000}}, table.insert, mk("x", 100), "new")
     print(ctx)
     --> =done
-    print(ctx.cpuused >= 100)
+    print(ctx.used.cpu >= 100)
     --> =true
 
-    local ctx2 = runtime.callcontext({cpulimit=1000}, table.insert, mk("x", 1000), "new")
+    local ctx2 = runtime.callcontext({kill={cpu=1000}}, table.insert, mk("x", 1000), "new")
     print(ctx2)
     --> =done
 
-    print(ctx2.cpuused / ctx1.cpuused < 1.2)
+    print(ctx2.used.cpu / ctx1.used.cpu < 1.2)
     --> =true
 end
 
@@ -63,29 +63,29 @@ end
 do
     -- table.move consumes memory
 
-    local ctx = runtime.callcontext({memlimit=10000}, table.move, mk("x", 100), 1, 100, 101)
+    local ctx = runtime.callcontext({kill={memory=10000}}, table.move, mk("x", 100), 1, 100, 101)
     print(ctx)
     --> =done
 
-    print(runtime.callcontext({memlimit=10000}, table.move, mk("x", 1000), 1, 1000, 1001))
+    print(runtime.callcontext({kill={memory=10000}}, table.move, mk("x", 1000), 1, 1000, 1001))
     --> =killed
 
     -- consumes less memory when ranges overlap
-    ctx = runtime.callcontext({memlimit=10000}, table.move, mk("x", 1000), 1, 1000, 101)
+    ctx = runtime.callcontext({kill={memory=10000}}, table.move, mk("x", 1000), 1, 1000, 101)
     print(ctx)
     --> =done
 
     -- table.move consumes cpu
 
-    local ctx = runtime.callcontext({cpulimit=1000}, table.move, mk("x", 100), 1, 100, 101)
+    local ctx = runtime.callcontext({kill={cpu=1000}}, table.move, mk("x", 100), 1, 100, 101)
     print(ctx)
     --> =done
 
-    print(runtime.callcontext({cpulimit=1000}, table.move, mk("x", 1000), 1, 1000, 1001))
+    print(runtime.callcontext({kill={cpu=1000}}, table.move, mk("x", 1000), 1, 1000, 1001))
     --> =killed
 
     -- still consumes as much cpu when ranges overlap
-    print(runtime.callcontext({cpulimit=1000}, table.move, mk("x", 1000), 1, 1000, 101))
+    print(runtime.callcontext({kill={cpu=1000}}, table.move, mk("x", 1000), 1, 1000, 101))
     --> =killed
 end
 
@@ -93,47 +93,47 @@ end
 do
     --table.pack consumes memory
 
-    local ctx = runtime.callcontext({memlimit=10000}, table.pack, table.unpack(mk("x", 100)))
+    local ctx = runtime.callcontext({kill={memory=10000}}, table.pack, table.unpack(mk("x", 100)))
     print(ctx)
     --> =done
 
-    print(runtime.callcontext({memlimit=5000}, table.pack, table.unpack(mk("x", 200))))
+    print(runtime.callcontext({kill={memory=5000}}, table.pack, table.unpack(mk("x", 200))))
     --> =killed
 
     --table.pack consumes cpu
 
-    local ctx = runtime.callcontext({cpulimit=200}, table.pack, table.unpack(mk("x", 100)))
+    local ctx = runtime.callcontext({kill={cpu=200}}, table.pack, table.unpack(mk("x", 100)))
     print(ctx)
     --> =done
 
-    print(runtime.callcontext({cpulimit=200}, table.pack, table.unpack(mk("x", 200))))
+    print(runtime.callcontext({kill={cpu=200}}, table.pack, table.unpack(mk("x", 200))))
     --> =killed
 end
 
 -- table.remove
 do
     -- cpu is consumed when removing at the front
-    local ctx = runtime.callcontext({cpulimit=1000}, table.remove, mk("x", 100), 1)
+    local ctx = runtime.callcontext({kill={cpu=1000}}, table.remove, mk("x", 100), 1)
     print(ctx)
     --> =done
-    print(ctx.cpuused >= 100)
+    print(ctx.used.cpu >= 100)
     --> =true
 
-    print(runtime.callcontext({cpulimit=1000}, table.remove, mk("x", 1000), 1))
+    print(runtime.callcontext({kill={cpu=1000}}, table.remove, mk("x", 1000), 1))
     --> =killed
 
     -- at the back, cpu doesn't depend on the size of the table
-    local ctx1 = runtime.callcontext({cpulimit=1000}, table.remove, mk("x", 100))
+    local ctx1 = runtime.callcontext({kill={cpu=1000}}, table.remove, mk("x", 100))
     print(ctx)
     --> =done
-    print(ctx.cpuused >= 100)
+    print(ctx.used.cpu >= 100)
     --> =true
 
-    local ctx2 = runtime.callcontext({cpulimit=1000}, table.remove, mk("x", 1000))
+    local ctx2 = runtime.callcontext({kill={cpu=1000}}, table.remove, mk("x", 1000))
     print(ctx2)
     --> =done
 
-    print(ctx2.cpuused / ctx1.cpuused < 1.2)
+    print(ctx2.used.cpu / ctx1.used.cpu < 1.2)
     --> =true
 end
 
@@ -148,10 +148,10 @@ do
         return t
     end
 
-    print(runtime.callcontext({cpulimit=1000}, table.sort, unsorted(10)))
+    print(runtime.callcontext({kill={cpu=1000}}, table.sort, unsorted(10)))
     --> =done
 
-    print(runtime.callcontext({cpulimit=1000}, table.sort, unsorted(100)))
+    print(runtime.callcontext({kill={cpu=1000}}, table.sort, unsorted(100)))
     --> =killed
 end
 
@@ -160,19 +160,19 @@ do
     -- table.unpack consumes no memory if the result is discarded. We wrap
     -- table.unpack in a function so as not to accumulate its results and
     -- consume memory in that way
-    local ctx = runtime.callcontext({memlimit=500}, function(t) table.unpack(t) end, mk("x", 100))
+    local ctx = runtime.callcontext({kill={memory=500}}, function(t) table.unpack(t) end, mk("x", 100))
     print(ctx)
     --> =done
 
-    local ctx = runtime.callcontext({memlimit=500}, function(t) table.unpack(t) end, mk("x", 200))
+    local ctx = runtime.callcontext({kill={memory=500}}, function(t) table.unpack(t) end, mk("x", 200))
     print(ctx)
     --> =done
 
     --table.unpack consumes cpu
-    local ctx = runtime.callcontext({cpulimit=200}, table.unpack, mk("x", 100))
+    local ctx = runtime.callcontext({kill={cpu=200}}, table.unpack, mk("x", 100))
     print(ctx)
     --> =done
 
-    print(runtime.callcontext({cpulimit=200}, table.unpack, mk("x", 200)))
+    print(runtime.callcontext({kill={cpu=200}}, table.unpack, mk("x", 200)))
     --> =killed
 end

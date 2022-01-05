@@ -3,7 +3,9 @@
 
 package runtime
 
-import "testing"
+import (
+	"testing"
+)
 
 func Test_runtimeContextManager_LinearUnused(t *testing.T) {
 	type fields struct {
@@ -35,7 +37,7 @@ func Test_runtimeContextManager_LinearUnused(t *testing.T) {
 		{
 			name: "no cpu limit",
 			fields: fields{
-				hardLimits: RuntimeResources{Mem: 1000},
+				hardLimits: RuntimeResources{Memory: 1000},
 			},
 			args: args{cpuFactor: 5},
 			want: 1000,
@@ -43,7 +45,7 @@ func Test_runtimeContextManager_LinearUnused(t *testing.T) {
 		{
 			name: "cpu wins",
 			fields: fields{
-				hardLimits: RuntimeResources{Mem: 1000, Cpu: 100},
+				hardLimits: RuntimeResources{Memory: 1000, Cpu: 100},
 			},
 			args: args{cpuFactor: 5},
 			want: 500,
@@ -51,7 +53,7 @@ func Test_runtimeContextManager_LinearUnused(t *testing.T) {
 		{
 			name: "mem wins",
 			fields: fields{
-				hardLimits: RuntimeResources{Mem: 1000, Cpu: 500},
+				hardLimits: RuntimeResources{Memory: 1000, Cpu: 500},
 			},
 			args: args{cpuFactor: 10},
 			want: 1000,
@@ -66,6 +68,60 @@ func Test_runtimeContextManager_LinearUnused(t *testing.T) {
 			if got := m.LinearUnused(tt.args.cpuFactor); got != tt.want {
 				t.Errorf("runtimeContextManager.LinearUnused() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func Test_runtimeContextManager_TerminateContext(t *testing.T) {
+	type fields struct {
+		status RuntimeContextStatus
+	}
+	tests := []struct {
+		name      string
+		fields    fields
+		wantPanic bool
+	}{
+		{
+			name:      "live context",
+			fields:    fields{status: StatusLive},
+			wantPanic: true,
+		},
+		{
+			name:      "done context",
+			fields:    fields{status: StatusDone},
+			wantPanic: false,
+		},
+		{
+			name:      "error context",
+			fields:    fields{status: StatusError},
+			wantPanic: false,
+		},
+		{
+			name:      "killed context",
+			fields:    fields{status: StatusKilled},
+			wantPanic: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &runtimeContextManager{
+				status: tt.fields.status,
+			}
+			defer func() {
+				switch recover() {
+				case nil:
+					if tt.wantPanic {
+						t.Error("should panic")
+					}
+				default:
+					if !tt.wantPanic {
+						t.Error("should not panic")
+					} else if m.status != StatusKilled {
+						t.Error("context status should be StatusKilled")
+					}
+				}
+			}()
+			m.TerminateContext("error")
 		})
 	}
 }

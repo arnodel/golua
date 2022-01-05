@@ -1,19 +1,19 @@
 -- utf8.char
 do
     -- utf8.char uses memory to build a string
-    local ctx, s = runtime.callcontext({memlimit=10000}, utf8.char, utf8.codepoint(("x"):rep(100), 1, 100))
+    local ctx, s = runtime.callcontext({kill={memory=10000}}, utf8.char, utf8.codepoint(("x"):rep(100), 1, 100))
     print(ctx, #s)
     --> =done	100
 
-    print(runtime.callcontext({memlimit=10000}, utf8.char, utf8.codepoint(("x"):rep(1000), 1, 1000)))
+    print(runtime.callcontext({kill={memory=10000}}, utf8.char, utf8.codepoint(("x"):rep(1000), 1, 1000)))
     --> =killed
 
     -- utf8.cahr uses cpu to build a string
-    local ctx, s = runtime.callcontext({cpulimit=1000}, utf8.char, utf8.codepoint(("x"):rep(100), 1, 100))
+    local ctx, s = runtime.callcontext({kill={cpu=1000}}, utf8.char, utf8.codepoint(("x"):rep(100), 1, 100))
     print(ctx, #s)
     --> =done	100
 
-    print(runtime.callcontext({cpulimit=1000}, utf8.char, utf8.codepoint(("x"):rep(1000), 1, 1000)))
+    print(runtime.callcontext({kill={cpu=1000}}, utf8.char, utf8.codepoint(("x"):rep(1000), 1, 1000)))
     --> =killed
 end
 
@@ -29,16 +29,16 @@ do
     end
 
     -- Iterating over utf8.codes(s) consumes cpu
-    print(runtime.callcontext({cpulimit=1000}, len, ("s"):rep(50)))
+    print(runtime.callcontext({kill={cpu=1000}}, len, ("s"):rep(50)))
     --> =done	50
 
-    print(runtime.callcontext({cpulimit=1000}, len, ("s"):rep(500)))
+    print(runtime.callcontext({kill={cpu=1000}}, len, ("s"):rep(500)))
     --> =killed
 
     -- It doesn't consume memory
-    ctx1 = runtime.callcontext({memlimit=1000}, len, ("s"):rep(100))
-    ctx2 = runtime.callcontext({memlimit=1000}, len, ("s"):rep(1000))
-    print(ctx1, ctx2, ctx2.memused / ctx1.memused < 1.2)
+    ctx1 = runtime.callcontext({kill={memory=1000}}, len, ("s"):rep(100))
+    ctx2 = runtime.callcontext({kill={memory=1000}}, len, ("s"):rep(1000))
+    print(ctx1, ctx2, ctx2.used.memory / ctx1.used.memory < 1.2)
     --> =done	done	true
 end
 
@@ -51,10 +51,10 @@ do
 
     -- utf8.codepoint requires cpu proportional to input size
 
-    print(runtime.callcontext({cpulimit=1000}, codepoint, ("a"):rep(500)))
+    print(runtime.callcontext({kill={cpu=1000}}, codepoint, ("a"):rep(500)))
     --> =done
 
-    print(runtime.callcontext({cpulimit=1000}, codepoint, ("a"):rep(1000)))
+    print(runtime.callcontext({kill={cpu=1000}}, codepoint, ("a"):rep(1000)))
     --> =killed
 end
 
@@ -62,10 +62,10 @@ end
 do
     -- utf8.len requires cpu proportional to input size
 
-    print(runtime.callcontext({cpulimit=1000}, utf8.len, ("a"):rep(500)))
+    print(runtime.callcontext({kill={cpu=1000}}, utf8.len, ("a"):rep(500)))
     --> =done	500
 
-    print(runtime.callcontext({cpulimit=1000}, utf8.len, ("a"):rep(1000)))
+    print(runtime.callcontext({kill={cpu=1000}}, utf8.len, ("a"):rep(1000)))
     --> =killed
 end
 
@@ -73,16 +73,16 @@ end
 do
     -- utf8.offset requires cpu proportional to the displacement
 
-    print(runtime.callcontext({cpulimit=1000}, utf8.offset, ("日本誒"):rep(100), 200))
+    print(runtime.callcontext({kill={cpu=1000}}, utf8.offset, ("日本誒"):rep(100), 200))
     --> =done	598
 
-    print(runtime.callcontext({cpulimit=1000}, utf8.offset, ("日本誒"):rep(100), -200))
+    print(runtime.callcontext({kill={cpu=1000}}, utf8.offset, ("日本誒"):rep(100), -200))
     --> =done	301
 
-    print(runtime.callcontext({cpulimit=2000}, utf8.offset, ("日本誒"):rep(1000), 2000))
+    print(runtime.callcontext({kill={cpu=2000}}, utf8.offset, ("日本誒"):rep(1000), 2000))
     --> =killed
 
-    print(runtime.callcontext({cpulimit=2000}, utf8.offset, ("日本誒"):rep(1000), -2000))
+    print(runtime.callcontext({kill={cpu=2000}}, utf8.offset, ("日本誒"):rep(1000), -2000))
     --> =killed
 end
 

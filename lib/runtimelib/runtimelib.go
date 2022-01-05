@@ -23,8 +23,9 @@ func load(r *rt.Runtime) rt.Value {
 
 		r.SetEnvGoFunc(pkg, "callcontext", callcontext, 2, true),
 		r.SetEnvGoFunc(pkg, "context", context, 0, false),
-		r.SetEnvGoFunc(pkg, "stopcontext", stopcontext, 0, false),
-		r.SetEnvGoFunc(pkg, "shouldstop", shouldstop, 0, false),
+		r.SetEnvGoFunc(pkg, "killcontext", killnow, 1, false),
+		r.SetEnvGoFunc(pkg, "stopcontext", stopnow, 1, false),
+		r.SetEnvGoFunc(pkg, "contextdue", due, 1, false),
 	)
 
 	createContextMetatable(r)
@@ -43,11 +44,9 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		return nil, err
 	}
 	var (
-		memQuotaV   = quotas.Get(rt.StringValue("memlimit")) // deprecated
-		cpuQuotaV   = quotas.Get(rt.StringValue("cpulimit")) // deprecated
 		flagsV      = quotas.Get(rt.StringValue("flags"))
-		limitsV     = quotas.Get(rt.StringValue("limits"))
-		softLimitsV = quotas.Get(rt.StringValue("softlimits"))
+		limitsV     = quotas.Get(rt.StringValue("kill"))
+		softLimitsV = quotas.Get(rt.StringValue("stop"))
 		hardLimits  rt.RuntimeResources
 		softLimits  rt.RuntimeResources
 		f           = c.Arg(1)
@@ -64,18 +63,6 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	if !rt.IsNil(softLimitsV) {
 		var err *rt.Error
 		softLimits, err = getResources(t, softLimitsV)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if !rt.IsNil(memQuotaV) {
-		hardLimits.Mem, err = validateResVal("memlimit", memQuotaV)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if !rt.IsNil(cpuQuotaV) {
-		hardLimits.Cpu, err = validateResVal("cpulimit", cpuQuotaV)
 		if err != nil {
 			return nil, err
 		}
@@ -113,49 +100,85 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 	return next, nil
 }
 
-func stopcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
-	t.TerminateContext("stopped")
-	return nil, nil
-}
-
-func shouldstop(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
-	return c.PushingNext1(t.Runtime, rt.BoolValue(t.ShouldStop())), nil
-}
-
 func getResources(t *rt.Thread, resources rt.Value) (res rt.RuntimeResources, err *rt.Error) {
-	res.Cpu, err = getResVal(t, resources, "cpu")
+	res.Cpu, err = getResVal(t, resources, cpuString)
 	if err != nil {
 		return
 	}
-	res.Mem, err = getResVal(t, resources, "mem")
+	res.Memory, err = getResVal(t, resources, memoryString)
 	if err != nil {
 		return
 	}
-	res.Time, err = getResVal(t, resources, "time")
+	res.Millis, err = getTimeVal(t, resources)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func getResVal(t *rt.Thread, resources rt.Value, name string) (uint64, *rt.Error) {
-	val, err := rt.Index(t, resources, rt.StringValue(name))
+func getResVal(t *rt.Thread, resources rt.Value, key rt.Value) (uint64, *rt.Error) {
+	val, err := rt.Index(t, resources, key)
 	if err != nil {
 		return 0, err
 	}
-	return validateResVal(name, val)
+	return validateResVal(key, val)
 }
 
-func validateResVal(name string, val rt.Value) (uint64, *rt.Error) {
+func validateResVal(key rt.Value, val rt.Value) (uint64, *rt.Error) {
 	if rt.IsNil(val) {
 		return 0, nil
 	}
 	n, ok := rt.ToIntNoString(val)
 	if !ok {
+		name, _ := key.ToString()
 		return 0, rt.NewErrorF("%s must be an integer", name)
 	}
 	if n <= 0 {
+		name, _ := key.ToString()
 		return 0, rt.NewErrorF("%s must be a positive integer", name)
 	}
 	return uint64(n), nil
 }
+
+func getTimeVal(t *rt.Thread, resources rt.Value) (uint64, *rt.Error) {
+	val, err := rt.Index(t, resources, secondsString)
+	if err != nil {
+		return 0, err
+	}
+	if !rt.IsNil(val) {
+		return validateTimeVal(val, 1000, secondsName)
+	}
+	val, err = rt.Index(t, resources, millisString)
+	if err != nil {
+		return 0, err
+	}
+	return validateTimeVal(val, 1, millisName)
+}
+
+func validateTimeVal(val rt.Value, factor float64, name string) (uint64, *rt.Error) {
+	if rt.IsNil(val) {
+		return 0, nil
+	}
+	s, ok := rt.ToFloat(val)
+	if !ok {
+		return 0, rt.NewErrorF("%s must be a numeric value", name)
+	}
+	if s <= 0 {
+		return 0, rt.NewErrorF("%s must be positive", name)
+	}
+	return uint64(s * factor), nil
+}
+
+const (
+	secondsName = "seconds"
+	millisName  = "millis"
+	cpuName     = "cpu"
+	memoryName  = "memory"
+)
+
+var (
+	secondsString = rt.StringValue(secondsName)
+	millisString  = rt.StringValue(millisName)
+	cpuString     = rt.StringValue(cpuName)
+	memoryString  = rt.StringValue(memoryName)
+)

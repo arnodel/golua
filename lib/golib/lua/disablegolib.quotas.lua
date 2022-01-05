@@ -1,7 +1,7 @@
 
 
 -- golib not cpu safe
-runtime.callcontext({cpulimit=10000}, function()
+runtime.callcontext({kill={cpu=10000}}, function()
     local ctx = runtime.context()
 
     print(pcall(double, 2))
@@ -15,7 +15,7 @@ runtime.callcontext({cpulimit=10000}, function()
 end)
 
 -- golib not memory safe
-runtime.callcontext({memlimit=10000}, function()
+runtime.callcontext({kill={memory=10000}}, function()
     local ctx = runtime.context()
 
     print(pcall(double, 2))

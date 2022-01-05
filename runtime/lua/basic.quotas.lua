@@ -14,11 +14,11 @@ print(rfib(1), rfib(2), rfib(3), rfib(10))
 --> =1	1	2	55
 
 -- Recursion blows memory budget
-print(runtime.callcontext({memlimit=1000}, rfib, 100))
+print(runtime.callcontext({kill={memory=1000}}, rfib, 100))
 --> =killed
 
 -- Recursion blows cpu budget
-print(runtime.callcontext({cpulimit=10000}, rfib, 100))
+print(runtime.callcontext({kill={cpu=10000}}, rfib, 100))
 --> =killed
 
 --
@@ -40,15 +40,15 @@ print(ifib(1), ifib(2), ifib(3), ifib(10))
 --> =1	1	2	55
 
 -- memory usage doesn't explode
-print(runtime.callcontext({memlimit=1000}, ifib, 100))
+print(runtime.callcontext({kill={memory=1000}}, ifib, 100))
 --> =done	3736710778780434371
 
 -- cpu usage doesn't explode
-print(runtime.callcontext({cpulimit=10000}, ifib, 100))
+print(runtime.callcontext({kill={cpu=10000}}, ifib, 100))
 --> =done	3736710778780434371
 
 -- we can run out of cpu eventually!
-print(runtime.callcontext({cpulimit=1000}, ifib, 1000))
+print(runtime.callcontext({kill={cpu=1000}}, ifib, 1000))
 --> =killed
 
 --
@@ -67,15 +67,15 @@ print(trfib(1), trfib(2), trfib(3), trfib(10))
 --> =1	1	2	55
 
 -- memory usage doesn't explode
-print(runtime.callcontext({memlimit=1000}, ifib, 100))
+print(runtime.callcontext({kill={memory=1000}}, ifib, 100))
 --> =done	3736710778780434371
 
 -- cpu usage doesn't explode
-print(runtime.callcontext({cpulimit=10000}, ifib, 100))
+print(runtime.callcontext({kill={cpu=10000}}, ifib, 100))
 --> =done	3736710778780434371
 
 -- we can run out of cpu eventually!
-print(runtime.callcontext({cpulimit=1000}, ifib, 1000))
+print(runtime.callcontext({kill={cpu=1000}}, ifib, 1000))
 --> =killed
 
 --
@@ -101,12 +101,12 @@ print(strexp("hi", 3))
 --> =hihihihi
 
 --> strexp doesn't consume much cpu
-ctx, bigs = runtime.callcontext({cpulimit=1000}, strexp, "hi", 16)
+ctx, bigs = runtime.callcontext({kill={cpu=1000}}, strexp, "hi", 16)
 print(ctx, #bigs)
 --> =done	65536
 
 --> but it consumes memory!
-print(runtime.callcontext({memlimit=50000}, strexp, "hi", 16))
+print(runtime.callcontext({kill={memory=50000}}, strexp, "hi", 16))
 --> =killed
 
 --
@@ -131,11 +131,11 @@ print(table.unpack(numbers(5)))
 print(len(table.unpack(numbers(4))))
 --> =4
 
-print(runtime.callcontext({memlimit=1000}, len, table.unpack(numbers(10))))
+print(runtime.callcontext({kill={memory=1000}}, len, table.unpack(numbers(10))))
 --> =done	10
 
 -- Passing a long list of arguments requires a lot of memory.
-print(runtime.callcontext({memlimit=2000}, len, table.unpack(numbers(200))))
+print(runtime.callcontext({kill={memory=2000}}, len, table.unpack(numbers(200))))
 --> =killed
 
 --
@@ -143,13 +143,13 @@ print(runtime.callcontext({memlimit=2000}, len, table.unpack(numbers(200))))
 --
 
 local c = 0
-print(runtime.callcontext({softlimits={cpu=1000}}, function()
-    print(runtime.context().softlimits.cpu)
+print(runtime.callcontext({stop={cpu=1000}}, function()
+    print(runtime.context().stop.cpu)
     --> =1000
-    while not runtime.shouldstop() do
+    while not runtime.contextdue() do
         c = c + 1
     end
-    runtime.stopcontext()
+    runtime.killcontext()
 end))
 --> =killed
 print(c > 10)
@@ -159,7 +159,7 @@ print(c > 10)
 -- Check time limits
 --
 local c = 0
-print(runtime.callcontext({limits={time=10}}, function()
+print(runtime.callcontext({kill={millis=10}}, function()
     while true do
         c = c + 1
     end

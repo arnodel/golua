@@ -19,32 +19,32 @@ func TestRuntimeResources_Dominates(t *testing.T) {
 		{
 			name: "v > 0",
 			v: RuntimeResources{
-				Cpu:  1,
-				Mem:  2,
-				Time: 3,
+				Cpu:    1,
+				Memory: 2,
+				Millis: 3,
 			},
 			want: true,
 		},
 		{
 			name: "r > 0",
 			r: RuntimeResources{
-				Cpu:  1,
-				Mem:  2,
-				Time: 3,
+				Cpu:    1,
+				Memory: 2,
+				Millis: 3,
 			},
 			want: true,
 		},
 		{
 			name: "r > v > 0",
 			r: RuntimeResources{
-				Cpu:  10,
-				Mem:  20,
-				Time: 30,
+				Cpu:    10,
+				Memory: 20,
+				Millis: 30,
 			},
 			v: RuntimeResources{
-				Cpu:  5,
-				Mem:  10,
-				Time: 10,
+				Cpu:    5,
+				Memory: 10,
+				Millis: 10,
 			},
 			want: true,
 		},
@@ -61,10 +61,10 @@ func TestRuntimeResources_Dominates(t *testing.T) {
 		{
 			name: "r.Mem == v.Mem",
 			r: RuntimeResources{
-				Mem: 10,
+				Memory: 10,
 			},
 			v: RuntimeResources{
-				Mem: 10,
+				Memory: 10,
 			},
 			want: false,
 		},
@@ -92,49 +92,49 @@ func TestRuntimeResources_Merge(t *testing.T) {
 		{
 			name: "Mix",
 			r: RuntimeResources{
-				Cpu:  10,
-				Mem:  20,
-				Time: 30,
+				Cpu:    10,
+				Memory: 20,
+				Millis: 30,
 			},
 			r1: RuntimeResources{
-				Cpu: 20,
-				Mem: 10,
+				Cpu:    20,
+				Memory: 10,
 			},
 			want: RuntimeResources{
-				Cpu:  10,
-				Mem:  10,
-				Time: 30,
+				Cpu:    10,
+				Memory: 10,
+				Millis: 30,
 			},
 		},
 		{
 			name: "r == 0",
 			r1: RuntimeResources{
-				Cpu:  10,
-				Mem:  20,
-				Time: 30,
+				Cpu:    10,
+				Memory: 20,
+				Millis: 30,
 			},
 			want: RuntimeResources{
-				Cpu:  10,
-				Mem:  20,
-				Time: 30,
+				Cpu:    10,
+				Memory: 20,
+				Millis: 30,
 			},
 		},
 		{
 			name: "r1 > r",
 			r: RuntimeResources{
-				Cpu:  10,
-				Mem:  20,
-				Time: 30,
+				Cpu:    10,
+				Memory: 20,
+				Millis: 30,
 			},
 			r1: RuntimeResources{
-				Cpu:  100,
-				Mem:  200,
-				Time: 300,
+				Cpu:    100,
+				Memory: 200,
+				Millis: 300,
 			},
 			want: RuntimeResources{
-				Cpu:  10,
-				Mem:  20,
-				Time: 30,
+				Cpu:    10,
+				Memory: 20,
+				Millis: 30,
 			},
 		},
 
@@ -166,24 +166,24 @@ func TestRuntimeResources_Remove(t *testing.T) {
 		{
 			name: "r == 0",
 			v: RuntimeResources{
-				Cpu: 10,
-				Mem: 100,
+				Cpu:    10,
+				Memory: 100,
 			},
 		},
 		{
 			name: "r > 0",
 			r: RuntimeResources{
-				Cpu:  100,
-				Mem:  10,
-				Time: 50,
+				Cpu:    100,
+				Memory: 10,
+				Millis: 50,
 			},
 			v: RuntimeResources{
-				Cpu:  50,
-				Time: 100,
+				Cpu:    50,
+				Millis: 100,
 			},
 			want: RuntimeResources{
-				Cpu: 50,
-				Mem: 10,
+				Cpu:    50,
+				Memory: 10,
 			},
 		},
 		// TODO: Add test cases.
