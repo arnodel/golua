@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
@@ -19,12 +18,11 @@ var ioKey = rt.AsValue(ioKeyType{})
 
 // LibLoader can load the io lib.
 var LibLoader = packagelib.Loader{
-	Load:    load,
-	Name:    "io",
-	Cleanup: func(*rt.Runtime) { cleanupCurrentFiles() },
+	Load: load,
+	Name: "io",
 }
 
-func load(r *rt.Runtime) rt.Value {
+func load(r *rt.Runtime) (rt.Value, func()) {
 	methods := rt.NewTable()
 
 	rt.SolemnlyDeclareCompliance(
@@ -35,7 +33,7 @@ func load(r *rt.Runtime) rt.Value {
 		r.SetEnvGoFunc(methods, "close", fileclose, 1, false),
 		r.SetEnvGoFunc(methods, "flush", fileflush, 1, false),
 		r.SetEnvGoFunc(methods, "seek", fileseek, 3, false),
-		r.SetEnvGoFunc(methods, "setvbuf", filesetvbuf, 2, false),
+		r.SetEnvGoFunc(methods, "setvbuf", filesetvbuf, 3, false),
 		// TODO: setvbuf,
 		r.SetEnvGoFunc(methods, "write", filewrite, 1, true),
 	)
@@ -61,13 +59,14 @@ func load(r *rt.Runtime) rt.Value {
 	}
 
 	stdoutFile := NewFile(os.Stdout, stdoutOpts)
+	stderrFile := NewFile(os.Stderr, stderrOpts)
 	// This is not a good pattern - it has to do for now.
 	if r.Stdout == nil {
 		r.Stdout = stdoutFile.writer
 	}
 	stdin := newFileUserData(NewFile(os.Stdin, stdinOpts), meta)
 	stdout := newFileUserData(stdoutFile, meta)
-	stderr := newFileUserData(NewFile(os.Stderr, stderrOpts), meta) // I''m guessing, don't buffer stderr?
+	stderr := newFileUserData(stderrFile, meta) // I''m guessing, don't buffer stderr?
 
 	r.SetRegistry(ioKey, rt.AsValue(&ioData{
 		defaultOutput: stdout,
@@ -99,7 +98,15 @@ func load(r *rt.Runtime) rt.Value {
 
 		r.SetEnvGoFunc(pkg, "type", typef, 1, false),
 	)
-	return rt.TableValue(pkg)
+
+	// This function should make sure known buffers are flushed before quitting
+	var cleanup = func() {
+		getIoData(r).defaultOutputFile().Flush()
+		stdoutFile.Flush()
+		stderrFile.Flush()
+	}
+
+	return rt.TableValue(pkg), cleanup
 }
 
 type ioData struct {
@@ -108,8 +115,8 @@ type ioData struct {
 	metatable     *rt.Table
 }
 
-func getIoData(t *rt.Thread) *ioData {
-	return t.Registry(ioKey).Interface().(*ioData)
+func getIoData(r *rt.Runtime) *ioData {
+	return r.Registry(ioKey).Interface().(*ioData)
 }
 
 func (d *ioData) defaultOutputFile() *File {
@@ -132,7 +139,7 @@ func pushingNextIoResult(r *rt.Runtime, c *rt.GoCont, ioErr error) (rt.Cont, *rt
 func ioclose(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	var f *File
 	if c.NArgs() == 0 {
-		f = getIoData(t).defaultOutputFile()
+		f = getIoData(t.Runtime).defaultOutputFile()
 	} else {
 		var err *rt.Error
 		f, err = FileArg(c, 0)
@@ -153,7 +160,7 @@ func fileclose(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 func ioflush(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	var f *File
 	if c.NArgs() == 0 {
-		f = getIoData(t).defaultOutputFile()
+		f = getIoData(t.Runtime).defaultOutputFile()
 	} else {
 		var err *rt.Error
 		f, err = FileArg(c, 0)
@@ -176,7 +183,7 @@ func errFileOrFilename() *rt.Error {
 }
 
 func input(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	ioData := getIoData(t)
+	ioData := getIoData(t.Runtime)
 	if c.NArgs() == 0 {
 		return c.PushingNext1(t.Runtime, rt.UserDataValue(ioData.defaultInput)), nil
 	}
@@ -205,7 +212,7 @@ func input(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func output(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	ioData := getIoData(t)
+	ioData := getIoData(t.Runtime)
 	if c.NArgs() == 0 {
 		return c.PushingNext1(t.Runtime, rt.UserDataValue(ioData.defaultOutput)), nil
 	}
@@ -241,7 +248,7 @@ func iolines(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		eofAction = closeAtEOF
 	)
 	if c.NArgs() == 0 || c.Arg(0) == rt.NilValue {
-		f = getIoData(t).defaultInputFile()
+		f = getIoData(t.Runtime).defaultInputFile()
 		eofAction = doNotCloseAtEOF
 	} else {
 		fname, err := c.StringArg(0)
@@ -331,7 +338,7 @@ func open(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if ioErr != nil {
 		return pushingNextIoResult(t.Runtime, c, ioErr)
 	}
-	u := newFileUserData(f, getIoData(t).metatable)
+	u := newFileUserData(f, getIoData(t.Runtime).metatable)
 	return c.PushingNext(t.Runtime, rt.UserDataValue(u)), nil
 }
 
@@ -352,7 +359,7 @@ func typef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func iowrite(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	return write(t.Runtime, rt.UserDataValue(getIoData(t).defaultOutput), c)
+	return write(t.Runtime, rt.UserDataValue(getIoData(t.Runtime).defaultOutput), c)
 }
 
 func filewrite(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -469,7 +476,7 @@ func tmpfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, rt.NewErrorE(err)
 	}
-	fv := newFileUserData(f, getIoData(t).metatable)
+	fv := newFileUserData(f, getIoData(t.Runtime).metatable)
 	return c.PushingNext(t.Runtime, rt.UserDataValue(fv)), nil
 }
 
@@ -492,12 +499,5 @@ func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func newFileUserData(f *File, meta *rt.Table) *rt.UserData {
-	u := rt.NewUserData(f, meta)
-	runtime.SetFinalizer(u, finalizeFileUserData)
-	return u
-}
-
-func finalizeFileUserData(u *rt.UserData) {
-	f := u.Value().(*File)
-	f.release()
+	return rt.NewUserData(f, meta)
 }

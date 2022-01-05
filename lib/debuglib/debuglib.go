@@ -13,7 +13,7 @@ var LibLoader = packagelib.Loader{
 	Name: "debug",
 }
 
-func load(r *rt.Runtime) rt.Value {
+func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
 	pkgVal := rt.TableValue(pkg)
 	r.SetEnv(r.GlobalEnv(), "debug", pkgVal)
@@ -32,7 +32,7 @@ func load(r *rt.Runtime) rt.Value {
 		r.SetEnvGoFunc(pkg, "upvalueid", upvalueid, 2, false),
 	)
 
-	return pkgVal
+	return pkgVal, nil
 }
 
 func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

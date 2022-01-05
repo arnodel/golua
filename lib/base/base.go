@@ -6,11 +6,16 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
 	"github.com/arnodel/golua/safeio"
 )
 
-func Load(r *rt.Runtime) {
+var LibLoader = packagelib.Loader{
+	Load: Load,
+}
+
+func Load(r *rt.Runtime) (rt.Value, func()) {
 	env := r.GlobalEnv()
 	r.SetEnv(env, "_G", rt.TableValue(env))
 	r.SetEnv(env, "_VERSION", rt.StringValue("Golua 5.3"))
@@ -47,7 +52,7 @@ func Load(r *rt.Runtime) {
 	)
 	// That's not safe!
 	r.SetEnvGoFunc(env, "collectgarbage", collectgarbage, 2, false)
-
+	return rt.NilValue, nil
 }
 
 func ToString(t *rt.Thread, v rt.Value) (string, *rt.Error) {

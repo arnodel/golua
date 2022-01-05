@@ -12,9 +12,9 @@ var LibLoader = packagelib.Loader{
 	Name: "runtime",
 }
 
-func load(r *rt.Runtime) rt.Value {
+func load(r *rt.Runtime) (rt.Value, func()) {
 	if !rt.QuotasAvailable {
-		return rt.NilValue
+		return rt.NilValue, nil
 	}
 	pkg := rt.NewTable()
 
@@ -30,7 +30,7 @@ func load(r *rt.Runtime) rt.Value {
 
 	createContextMetatable(r)
 
-	return rt.TableValue(pkg)
+	return rt.TableValue(pkg), nil
 }
 
 func context(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
@@ -50,7 +51,7 @@ func NewFile(file *os.File, options int) *File {
 	} else {
 		f.writer = &nobufWriter{file}
 	}
-	currentFiles[f] = struct{}{}
+	runtime.SetFinalizer(f, (*File).cleanup)
 	return f
 }
 
@@ -132,6 +133,7 @@ func (f *File) Close() error {
 		}
 	}
 	if f.closed {
+		// Also this is undocumented, in this case an error is returned
 		return errFileAlreadyClosed
 	}
 	f.closed = true
@@ -288,35 +290,12 @@ func (f *File) Name() string {
 	return f.file.Name()
 }
 
-func (f *File) release() {
-	delete(currentFiles, f)
-	f.cleanup()
-}
-
+// Best effort to flush and close files when they are no longer accessible.
 func (f *File) cleanup() {
+	if !f.closed {
+		f.Close()
+	}
 	if f.temp {
 		_ = os.Remove(f.Name())
 	}
-}
-
-//
-// Current files - TODO: refactor this
-//
-
-var currentFiles = map[*File]struct{}{}
-
-func cleanupCurrentFiles() {
-	// We don't want to close the std files, that breaks testing.  In normal
-	// operation it's the end of the program so that' OK too.
-	for f := range currentFiles {
-		switch f.file {
-		case os.Stdout, os.Stderr:
-			f.Flush()
-		case os.Stdin:
-			// Nothing to do?
-		default:
-			f.cleanup()
-		}
-	}
-	currentFiles = map[*File]struct{}{}
 }

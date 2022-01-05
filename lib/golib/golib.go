@@ -22,7 +22,7 @@ type govalueKeyType struct{}
 // TODO: a better value?
 var govalueKey = rt.AsValue(govalueKeyType{})
 
-func load(r *rt.Runtime) rt.Value {
+func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
 	r.SetEnvGoFunc(pkg, "import", goimport, 1, false)
 
@@ -34,7 +34,7 @@ func load(r *rt.Runtime) rt.Value {
 
 	r.SetRegistry(govalueKey, rt.TableValue(meta))
 
-	return rt.TableValue(pkg)
+	return rt.TableValue(pkg), nil
 }
 
 func getMeta(r *rt.Runtime) *rt.Table {
