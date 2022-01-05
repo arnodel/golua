@@ -25,5 +25,5 @@ func main() {
 	sum, _ := rt.Call1(r.MainThread(), add, rt.IntValue(40), rt.IntValue(2))
 
 	// --> 42
-	fmt.Println(sum)
+	fmt.Println(sum.AsInt())
 }
