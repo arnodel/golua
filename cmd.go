@@ -27,6 +27,8 @@ type luaCmd struct {
 	memLimit       uint64
 	flags          string
 	exec           execFlags
+
+	complianceFlags rt.ComplianceFlags
 }
 
 func (c *luaCmd) setFlags() {
@@ -48,7 +50,6 @@ func (c *luaCmd) run() (retcode int) {
 		chunk     []byte
 		err       error
 		args      []string
-		flags     rt.ComplianceFlags
 		readStdin bool
 		repl      bool
 	)
@@ -62,7 +63,7 @@ func (c *luaCmd) run() (retcode int) {
 	if c.flags != "" {
 		for _, name := range strings.Split(c.flags, ",") {
 			var ok bool
-			flags, ok = flags.AddFlagWithName(name)
+			c.complianceFlags, ok = c.complianceFlags.AddFlagWithName(name)
 			if !ok {
 				return fatal("Unknown flag: %s", name)
 			}
@@ -71,14 +72,8 @@ func (c *luaCmd) run() (retcode int) {
 
 	// Get a Lua runtime
 	r := rt.New(nil)
-	r.PushContext(rt.RuntimeContextDef{
-		HardLimits: rt.RuntimeResources{
-			Cpu: c.cpuLimit,
-			Mem: c.memLimit,
-		},
-		RequiredFlags:  flags,
-		MessageHandler: debuglib.Traceback,
-	})
+	c.pushContext(r)
+
 	cleanup := lib.LoadAll(r)
 	defer cleanup()
 
@@ -219,7 +214,8 @@ func (c *luaCmd) repl(r *rt.Runtime) int {
 					if err == io.EOF || strings.TrimSpace(line) != "y" {
 						return 0
 					}
-					r.ResetQuota()
+					r.PopContext()
+					c.pushContext(r)
 				}
 			}
 		}
@@ -258,6 +254,17 @@ func (c *luaCmd) runChunk(r *rt.Runtime, source []byte) (more bool, err error) {
 		return false, nil
 	}
 	return false, cerr
+}
+
+func (c *luaCmd) pushContext(r *rt.Runtime) {
+	r.PushContext(rt.RuntimeContextDef{
+		HardLimits: rt.RuntimeResources{
+			Cpu: c.cpuLimit,
+			Mem: c.memLimit,
+		},
+		RequiredFlags:  c.complianceFlags,
+		MessageHandler: debuglib.Traceback,
+	})
 }
 
 type execFlags []string
