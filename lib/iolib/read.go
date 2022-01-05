@@ -13,7 +13,7 @@ func ioread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if fmtErr != nil {
 		return nil, rt.NewErrorE(fmtErr)
 	}
-	ioErr := read(t.Runtime, getIoData(t).defaultInputFile(), readers, next)
+	ioErr := read(t.Runtime, getIoData(t.Runtime).defaultInputFile(), readers, next)
 	if ioErr != nil && ioErr != io.EOF {
 		return t.ProcessIoError(c.Next(), ioErr)
 	}

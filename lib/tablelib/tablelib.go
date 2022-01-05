@@ -16,7 +16,7 @@ var LibLoader = packagelib.Loader{
 	Name: "table",
 }
 
-func load(r *rt.Runtime) rt.Value {
+func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
 
 	rt.SolemnlyDeclareCompliance(
@@ -31,7 +31,7 @@ func load(r *rt.Runtime) rt.Value {
 		r.SetEnvGoFunc(pkg, "unpack", unpack, 3, false),
 	)
 
-	return rt.TableValue(pkg)
+	return rt.TableValue(pkg), nil
 }
 
 func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

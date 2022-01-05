@@ -16,20 +16,35 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func LoadAll(r *rt.Runtime) func() {
-	base.Load(r)
-	packagelib.LibLoader.Run(r)
-	coroutine.LibLoader.Run(r)
-	stringlib.LibLoader.Run(r)
-	tablelib.LibLoader.Run(r)
-	mathlib.LibLoader.Run(r)
-	iolib.LibLoader.Run(r)
-	utf8lib.LibLoader.Run(r)
-	oslib.LibLoader.Run(r)
-	debuglib.LibLoader.Run(r)
-	golib.LibLoader.Run(r)
-	runtimelib.LibLoader.Run(r)
-	return func() {
-		iolib.LibLoader.Cleanup(r)
+func LoadLibs(r *rt.Runtime, loaders ...packagelib.Loader) func() {
+	var cleanups []func()
+	for _, loader := range loaders {
+		cleanup := loader.Run(r)
+		if cleanup != nil {
+			cleanups = append(cleanups, cleanup)
+		}
 	}
+	return func() {
+		for i := len(cleanups) - 1; i >= 0; i-- {
+			cleanups[i]()
+		}
+	}
+}
+
+func LoadAll(r *rt.Runtime) func() {
+	return LoadLibs(
+		r,
+		base.LibLoader,
+		packagelib.LibLoader,
+		coroutine.LibLoader,
+		stringlib.LibLoader,
+		tablelib.LibLoader,
+		mathlib.LibLoader,
+		iolib.LibLoader,
+		utf8lib.LibLoader,
+		oslib.LibLoader,
+		debuglib.LibLoader,
+		golib.LibLoader,
+		runtimelib.LibLoader,
+	)
 }

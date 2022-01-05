@@ -14,7 +14,7 @@ var LibLoader = packagelib.Loader{
 	Name: "utf8",
 }
 
-func load(r *rt.Runtime) rt.Value {
+func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
 	r.SetEnv(pkg, "charpattern", rt.StringValue("[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"))
 
@@ -28,7 +28,7 @@ func load(r *rt.Runtime) rt.Value {
 		r.SetEnvGoFunc(pkg, "offset", offset, 3, false),
 	)
 
-	return rt.TableValue(pkg)
+	return rt.TableValue(pkg), nil
 }
 
 func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

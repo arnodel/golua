@@ -30,7 +30,7 @@ var LibLoader = packagelib.Loader{
 
 // This function is the Load function of the LibLoader defined above.  It sets
 // up a package (which is a lua table and returns it).
-func load(r *rt.Runtime) rt.Value {
+func load(r *rt.Runtime) (rt.Value, func()) {
 	// First build a table of methods.
 	regexMethods := rt.NewTable()
 	r.SetEnvGoFunc(regexMethods, "find", regexFind, 2, false)
@@ -48,7 +48,7 @@ func load(r *rt.Runtime) rt.Value {
 	r.SetEnvGoFunc(pkg, "new", newRegex, 1, false)
 
 	// Return the package table
-	return rt.TableValue(pkg)
+	return rt.TableValue(pkg), nil
 }
 
 // Creates a new regex userdata from a string.

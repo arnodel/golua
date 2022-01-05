@@ -13,7 +13,7 @@ var LibLoader = packagelib.Loader{
 	Name: "math",
 }
 
-func load(r *rt.Runtime) rt.Value {
+func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
 	r.SetEnv(pkg, "huge", rt.FloatValue(math.Inf(1)))
 	r.SetEnv(pkg, "maxinteger", rt.IntValue(math.MaxInt64))
@@ -48,7 +48,7 @@ func load(r *rt.Runtime) rt.Value {
 		r.SetEnvGoFunc(pkg, "ult", ult, 2, false),
 	)
 
-	return rt.TableValue(pkg)
+	return rt.TableValue(pkg), nil
 }
 
 func abs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

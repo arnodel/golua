@@ -11,7 +11,7 @@ var LibLoader = packagelib.Loader{
 	Name: "coroutine",
 }
 
-func load(r *rt.Runtime) rt.Value {
+func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
 
 	rt.SolemnlyDeclareCompliance(
@@ -26,7 +26,7 @@ func load(r *rt.Runtime) rt.Value {
 		r.SetEnvGoFunc(pkg, "yield", yield, 0, true),
 	)
 
-	return rt.TableValue(pkg)
+	return rt.TableValue(pkg), nil
 }
 
 func create(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

@@ -17,7 +17,7 @@ var LibLoader = packagelib.Loader{
 	Name: "os",
 }
 
-func load(r *rt.Runtime) rt.Value {
+func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
 
 	rt.SolemnlyDeclareCompliance(
@@ -36,7 +36,7 @@ func load(r *rt.Runtime) rt.Value {
 	// put them in.
 	r.SetEnvGoFunc(pkg, "setlocale", setlocale, 2, false)
 	r.SetEnvGoFunc(pkg, "exit", exit, 2, false)
-	return rt.TableValue(pkg)
+	return rt.TableValue(pkg), nil
 }
 
 func clock(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

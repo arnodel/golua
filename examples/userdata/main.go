@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/arnodel/golua/examples/userdata/regexlib"
+	"github.com/arnodel/golua/lib"
 	"github.com/arnodel/golua/lib/base"
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
@@ -18,10 +19,13 @@ print("found:", match)
 `
 
 func main() {
-	r := rt.New(os.Stdout)      // Create runtime
-	base.Load(r)                // Load base lib (needed for print)
-	packagelib.LibLoader.Run(r) // Load package lib (needed for require)
-	regexlib.LibLoader.Run(r)   // Load our example lib
+	r := rt.New(os.Stdout) // Create runtime
+	lib.LoadLibs(
+		r,
+		base.LibLoader,       // Load base lib (needed for print)
+		packagelib.LibLoader, // Load package lib (needed for require)
+		regexlib.LibLoader,   // Load our example lib
+	)
 
 	// Now compile and run the lua code
 	chunk, _ := r.CompileAndLoadLuaChunk("test", []byte(code), rt.TableValue(r.GlobalEnv()))

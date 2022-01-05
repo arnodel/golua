@@ -7,7 +7,13 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func load(r *rt.Runtime) rt.Value {
+// LibLoader specifies how to load the string lib
+var LibLoader = packagelib.Loader{
+	Load: load,
+	Name: "string",
+}
+
+func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
 	pkgVal := rt.TableValue(pkg)
 
@@ -37,13 +43,7 @@ func load(r *rt.Runtime) rt.Value {
 	r.SetEnv(stringMeta, "__index", pkgVal)
 	r.SetStringMeta(stringMeta)
 
-	return pkgVal
-}
-
-// LibLoader specifies how to load the string lib
-var LibLoader = packagelib.Loader{
-	Load: load,
-	Name: "string",
+	return pkgVal, nil
 }
 
 func maxpos(i, j int) int {

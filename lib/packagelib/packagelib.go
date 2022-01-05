@@ -24,7 +24,7 @@ const defaultPath = `./?.lua;./?/init.lua`
 // Loader is used to register libraries
 type Loader struct {
 	// Function that creates the package and returns it
-	Load func(r *rt.Runtime) rt.Value
+	Load func(r *rt.Runtime) (rt.Value, func())
 
 	// Function that cleans up at the end (optional)
 	Cleanup func(r *rt.Runtime)
@@ -35,16 +35,17 @@ type Loader struct {
 
 // Run will create the package, associate it with its name in the global env and
 // cache it.
-func (l Loader) Run(r *rt.Runtime) {
-	pkg := l.Load(r)
+func (l Loader) Run(r *rt.Runtime) func() {
+	pkg, cleanup := l.Load(r)
 	if l.Name == "" || pkg.IsNil() {
-		return
+		return cleanup
 	}
 	r.SetEnv(r.GlobalEnv(), l.Name, pkg)
 	err := savePackage(r, l.Name, pkg)
 	if err != nil {
 		panic(fmt.Sprintf("Unable to load %s: %s", l.Name, err))
 	}
+	return cleanup
 }
 
 // LibLoader allows loading the package lib.
@@ -53,7 +54,7 @@ var LibLoader = Loader{
 	Name: "package",
 }
 
-func load(r *rt.Runtime) rt.Value {
+func load(r *rt.Runtime) (rt.Value, func()) {
 	env := r.GlobalEnv()
 	pkg := rt.NewTable()
 	pkgVal := rt.TableValue(pkg)
@@ -70,7 +71,7 @@ func load(r *rt.Runtime) rt.Value {
 	r.SetEnvGoFunc(pkg, "searchpath", searchpath, 4, false)
 	r.SetEnvGoFunc(env, "require", require, 1, false)
 
-	return pkgVal
+	return pkgVal, nil
 }
 
 type config struct {
