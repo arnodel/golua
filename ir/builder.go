@@ -70,15 +70,16 @@ func (c *CodeBuilder) getGotoLabel(name Name) (Label, bool) {
 	return c.context.getLabel(name)
 }
 
-func (c *CodeBuilder) EmitGotoLabel(name Name) {
+func (c *CodeBuilder) EmitGotoLabel(name Name) error {
 	label, ok := c.getGotoLabel(name)
 	if !ok {
-		panic(fmt.Errorf("cannot emit undeclared label '%s'", name))
+		return fmt.Errorf("cannot emit undeclared label '%s'", name)
 	}
 	if c.labels[label] {
-		panic(fmt.Errorf("label '%s' used twice", name))
+		return fmt.Errorf("label '%s' used twice", name)
 	}
 	c.EmitLabel(label)
+	return nil
 }
 
 func (c *CodeBuilder) GetNewLabel() Label {
