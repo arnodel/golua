@@ -97,6 +97,17 @@ print(runtime.callcontext({}, function()
 end))
 --> =done
 
+-- The killcontext, stopcontext and contextdue functions require a context
+-- argument (or none for the current context)
+
+print(pcall(runtime.killcontext, "hello"))
+--> ~=false\t.*must be a runtime context
+
+print(pcall(runtime.stopcontext, {}))
+--> ~=false\t.*must be a runtime context
+
+print(pcall(runtime.contextdue, 123))
+--> ~=false\t.*must be a runtime context
 
 -- Here the passed in function is an infinite loop, so execution will stop when
 -- the budget of 1000 cpu is consumed.
@@ -178,3 +189,20 @@ end)
 -- Quotas get reset to their initial value
 print(getCurrentLimits())
 --> =nil	nil
+
+-- String representation of context resources
+local ctx = runtime.callcontext({kill={cpu=1000000, millis=2000}, stop={memory=20000}}, function()
+    local ctx = runtime.context()
+    repeat until ctx.used.seconds
+end)
+print(ctx.kill)
+--> =[cpu=1000,seconds=2]
+
+print(ctx.stop)
+--> =[cpu=1000,memory=20000,seconds=2]
+
+print(ctx.used)
+--> ~\[cpu=\d+,memory=\d+,seconds=[0-9.]+\]
+
+print(ctx.flags)
+--> =cpusafe timesafe
