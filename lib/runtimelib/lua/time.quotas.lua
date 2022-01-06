@@ -24,7 +24,7 @@ print(ctx.used.millis <= 12)
 --> =true
 
 -- Significant work was done while it lasted (could be flaky)
-print(n > 50000)
+print(n > 20000)
 --> =true
 
 -- The outer context keeps track of time spent in the inner context
