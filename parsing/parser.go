@@ -242,17 +242,17 @@ func (p *Parser) Local(*token.Token) (ast.Stat, *token.Token) {
 		return ast.NewLocalFunctionStat(name, fx), t
 	}
 	// local namelist ['=' explist]
-	name, t := p.Name(t)
-	names := []ast.Name{name}
+	nameAttrib, t := p.NameAttrib(t)
+	nameAttribs := []ast.NameAttrib{nameAttrib}
 	for t.Type == token.SgComma {
-		name, t = p.Name(p.Scan())
-		names = append(names, name)
+		nameAttrib, t = p.NameAttrib(p.Scan())
+		nameAttribs = append(nameAttribs, nameAttrib)
 	}
 	var values []ast.ExpNode
 	if t.Type == token.SgAssign {
 		values, t = p.ExpList(p.Scan())
 	}
-	return ast.NewLocalStat(names, values), t
+	return ast.NewLocalStat(nameAttribs, values), t
 }
 
 // FunctionStat parses a function definition statement. It assumes that t is the
@@ -606,6 +606,16 @@ func (p *Parser) Field(t *token.Token) (ast.TableField, *token.Token) {
 func (p *Parser) Name(t *token.Token) (ast.Name, *token.Token) {
 	expectIdent(t)
 	return ast.NewName(t), p.Scan()
+}
+
+func (p *Parser) NameAttrib(t *token.Token) (ast.NameAttrib, *token.Token) {
+	name, t := p.Name(t)
+	if t.Type != token.SgLess {
+		return ast.NameAttrib{Name: name}, t
+	}
+	attrib, t := p.Name(p.Scan())
+	expectType(t, token.SgGreater, "'>'")
+	return ast.NameAttrib{Name: name, Attrib: &attrib}, p.Scan()
 }
 
 func expectIdent(t *token.Token) {

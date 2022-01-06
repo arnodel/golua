@@ -1,6 +1,8 @@
 package astcomp
 
 import (
+	"fmt"
+
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/ir"
 )
@@ -37,6 +39,12 @@ func (c *assignCompiler) ProcessIndexExpVar(e ast.IndexExp) {
 func (c *assignCompiler) ProcessNameVar(n ast.Name) {
 	reg, ok := c.GetRegister(ir.Name(n.Val))
 	if ok {
+		if c.IsConstantReg(reg) {
+			panic(Error{
+				Where:   n,
+				Message: fmt.Sprintf("attempt to reassign constant variable '%s'", n.Val),
+			})
+		}
 		c.assigns = append(c.assigns, func(src ir.Register) {
 			c.emitMove(n, reg, src)
 		})

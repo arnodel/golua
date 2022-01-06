@@ -9,8 +9,9 @@ import (
 type Name string
 
 type RegData struct {
-	IsCell   bool
-	refCount int
+	IsCell     bool
+	IsConstant bool
+	refCount   int
 }
 
 const regHasUpvalue uint = 1
@@ -181,6 +182,14 @@ func (c *CodeBuilder) EmitJump(lblName Name, line int) bool {
 func (c *CodeBuilder) DeclareLocal(name Name, reg Register) {
 	c.TakeRegister(reg)
 	c.context.addToTop(name, reg)
+}
+
+func (c *CodeBuilder) MarkConstantReg(reg Register) {
+	c.registers[reg].IsConstant = true
+}
+
+func (c *CodeBuilder) IsConstantReg(reg Register) bool {
+	return c.registers[reg].IsConstant
 }
 
 func (c *CodeBuilder) EmitNoLine(instr Instruction) {

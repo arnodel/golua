@@ -57,8 +57,12 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 	loopLbl := c.GetNewLabel()
 	must(c.EmitLabel(loopLbl))
 
+	nameAttribs := make([]ast.NameAttrib, len(s.Vars))
+	for i, name := range s.Vars {
+		nameAttribs[i] = ast.NewNameAttrib(name, nil)
+	}
 	c.CompileStat(ast.LocalStat{
-		Names: s.Vars,
+		NameAttribs: nameAttribs,
 		Values: []ast.ExpNode{ast.FunctionCall{BFunctionCall: &ast.BFunctionCall{
 			Location: s.Params[0].Locate(), // To report the line where the function is if it fails
 			Target:   ast.Name{Location: s.Location, Val: string(loopFRegName)},
@@ -256,11 +260,14 @@ func (c *compiler) ProcessLocalFunctionStat(s ast.LocalFunctionStat) {
 
 // ProcessLocalStat compiles a LocalStat.
 func (c *compiler) ProcessLocalStat(s ast.LocalStat) {
-	localRegs := make([]ir.Register, len(s.Names))
+	localRegs := make([]ir.Register, len(s.NameAttribs))
 	c.compileExpList(s.Values, localRegs)
 	for i, reg := range localRegs {
 		c.ReleaseRegister(reg)
-		c.DeclareLocal(ir.Name(s.Names[i].Val), reg)
+		c.DeclareLocal(ir.Name(s.NameAttribs[i].Name.Val), reg)
+		if s.NameAttribs[i].IsConst() {
+			c.MarkConstantReg(reg)
+		}
 	}
 }
 

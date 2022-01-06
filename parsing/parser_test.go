@@ -37,6 +37,13 @@ func tok(tp token.Type, lit string) *token.Token {
 func name(s string) ast.Name {
 	return ast.Name{Val: s}
 }
+func nameAttrib(s string, attrib ...string) ast.NameAttrib {
+	var attribName *ast.Name
+	if len(attrib) > 0 {
+		attribName = &ast.Name{Val: attrib[0]}
+	}
+	return ast.NameAttrib{Name: name(s), Attrib: attribName}
+}
 
 func str(s string) ast.String {
 	return ast.String{Val: []byte(s)}
@@ -991,21 +998,21 @@ func TestParser_Local(t *testing.T) {
 		{
 			name:  "local single variable declaration with no value",
 			input: "local x z",
-			want:  ast.LocalStat{Names: []ast.Name{name("x")}},
+			want:  ast.LocalStat{NameAttribs: []ast.NameAttrib{nameAttrib("x")}},
 			want1: tok(token.IDENT, "z"),
 		},
 		{
 			name:  "local 3 variables declaration with no value",
 			input: "local x, y, z",
-			want:  ast.LocalStat{Names: []ast.Name{name("x"), name("y"), name("z")}},
+			want:  ast.LocalStat{NameAttribs: []ast.NameAttrib{nameAttrib("x"), nameAttrib("y"), nameAttrib("z")}},
 			want1: tok(token.EOF, ""),
 		},
 		{
 			name:  "local 3 variables declaration with 1 value",
 			input: "local x, y, z = 123",
 			want: ast.LocalStat{
-				Names:  []ast.Name{name("x"), name("y"), name("z")},
-				Values: []ast.ExpNode{ast.NewInt(123)},
+				NameAttribs: []ast.NameAttrib{nameAttrib("x"), nameAttrib("y"), nameAttrib("z")},
+				Values:      []ast.ExpNode{ast.NewInt(123)},
 			},
 			want1: tok(token.EOF, ""),
 		},
@@ -1013,8 +1020,17 @@ func TestParser_Local(t *testing.T) {
 			name:  "local 2 variables declaration with 3 value",
 			input: `local x, y = 123, "a", 'b'`,
 			want: ast.LocalStat{
-				Names:  []ast.Name{name("x"), name("y")},
-				Values: []ast.ExpNode{ast.NewInt(123), str("a"), str("b")},
+				NameAttribs: []ast.NameAttrib{nameAttrib("x"), nameAttrib("y")},
+				Values:      []ast.ExpNode{ast.NewInt(123), str("a"), str("b")},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "local with attrib",
+			input: `local x <const> = 1`,
+			want: ast.LocalStat{
+				NameAttribs: []ast.NameAttrib{nameAttrib("x", "const")},
+				Values:      []ast.ExpNode{ast.NewInt(1)},
 			},
 			want1: tok(token.EOF, ""),
 		},
@@ -1216,7 +1232,7 @@ func TestParser_Stat(t *testing.T) {
 		{
 			name:  "local single variable declaration with no value",
 			input: "local x z",
-			want:  ast.LocalStat{Names: []ast.Name{name("x")}},
+			want:  ast.LocalStat{NameAttribs: []ast.NameAttrib{nameAttrib("x")}},
 			want1: tok(token.IDENT, "z"),
 		},
 		{
