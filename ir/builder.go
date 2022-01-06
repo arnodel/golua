@@ -78,8 +78,7 @@ func (c *CodeBuilder) EmitGotoLabel(name Name) error {
 	if c.labels[label] {
 		return fmt.Errorf("label '%s' used twice", name)
 	}
-	c.EmitLabel(label)
-	return nil
+	return c.EmitLabel(label)
 }
 
 func (c *CodeBuilder) GetNewLabel() Label {
@@ -88,12 +87,13 @@ func (c *CodeBuilder) GetNewLabel() Label {
 	return lbl
 }
 
-func (c *CodeBuilder) EmitLabel(lbl Label) {
+func (c *CodeBuilder) EmitLabel(lbl Label) error {
 	if c.labels[lbl] {
-		panic(fmt.Sprintf("label '%s' emitted twice", lbl))
+		return fmt.Errorf("label '%s' emitted twice", lbl)
 	}
 	c.labels[lbl] = true
 	c.EmitNoLine(DeclareLabel{Label: lbl})
+	return nil
 }
 
 func (c *CodeBuilder) GetRegister(name Name) (Register, bool) {
