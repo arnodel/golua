@@ -69,15 +69,15 @@ func (c *CodeBuilder) getGotoLabel(name Name) (Label, bool) {
 	return c.context.getLabel(name)
 }
 
-func (c *CodeBuilder) EmitGotoLabel(name Name) {
+func (c *CodeBuilder) EmitGotoLabel(name Name) error {
 	label, ok := c.getGotoLabel(name)
 	if !ok {
-		panic(fmt.Errorf("cannot emit undeclared label '%s'", name))
+		return fmt.Errorf("cannot emit undeclared label '%s'", name)
 	}
 	if c.labels[label] {
-		panic(fmt.Errorf("label '%s' used twice", name))
+		return fmt.Errorf("label '%s' used twice", name)
 	}
-	c.EmitLabel(label)
+	return c.EmitLabel(label)
 }
 
 func (c *CodeBuilder) GetNewLabel() Label {
@@ -86,12 +86,13 @@ func (c *CodeBuilder) GetNewLabel() Label {
 	return lbl
 }
 
-func (c *CodeBuilder) EmitLabel(lbl Label) {
+func (c *CodeBuilder) EmitLabel(lbl Label) error {
 	if c.labels[lbl] {
-		panic(fmt.Sprintf("label '%s' emitted twice", lbl))
+		return fmt.Errorf("label '%s' emitted twice", lbl)
 	}
 	c.labels[lbl] = true
 	c.EmitNoLine(DeclareLabel{Label: lbl})
+	return nil
 }
 
 func (c *CodeBuilder) GetRegister(name Name) (Register, bool) {
@@ -124,7 +125,9 @@ func (c *CodeBuilder) GetFreeRegister() Register {
 
 func (c *CodeBuilder) TakeRegister(reg Register) {
 	c.registers[reg].refCount++
-	c.EmitNoLine(TakeRegister{Reg: reg})
+	if c.registers[reg].refCount == 1 {
+		c.EmitNoLine(TakeRegister{Reg: reg})
+	}
 }
 
 func (c *CodeBuilder) ReleaseRegister(reg Register) {
@@ -132,7 +135,9 @@ func (c *CodeBuilder) ReleaseRegister(reg Register) {
 		panic("cannot release register")
 	}
 	c.registers[reg].refCount--
-	c.EmitNoLine(ReleaseRegister{Reg: reg})
+	if c.registers[reg].refCount == 0 {
+		c.EmitNoLine(ReleaseRegister{Reg: reg})
+	}
 }
 
 func (c *CodeBuilder) PushContext() {
@@ -159,18 +164,18 @@ func (c *CodeBuilder) emitClearReg(m lexicalScope) {
 	}
 }
 
-func (c *CodeBuilder) EmitJump(lblName Name, line int) {
+func (c *CodeBuilder) EmitJump(lblName Name, line int) bool {
 	lc := c.context
 	var top lexicalScope
 	for len(lc) > 0 {
 		lc, top = lc.pop()
 		if lbl, ok := top.label[lblName]; ok {
 			c.Emit(Jump{Label: lbl}, line)
-			return
+			return true
 		}
 		c.emitClearReg(top)
 	}
-	panic(fmt.Errorf("undefined label '%s' at line %d", lblName, line))
+	return false
 }
 
 func (c *CodeBuilder) DeclareLocal(name Name, reg Register) {

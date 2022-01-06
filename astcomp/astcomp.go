@@ -1,7 +1,7 @@
 package astcomp
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/ir"
@@ -12,11 +12,11 @@ import (
 func CompileLuaChunk(source string, s ast.BlockStat) (kidx uint, consts []ir.Constant, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			var ok bool
-			err, ok = r.(error)
+			compErr, ok := r.(Error)
 			if !ok {
-				err = errors.New("unknown error")
+				panic(r)
 			}
+			err = compErr
 		}
 	}()
 	kp := ir.NewConstantPool()
@@ -51,3 +51,13 @@ const (
 	loopSRegName    = ir.Name("<s>")
 	loopVarRegName  = ir.Name("<var>")
 )
+
+type Error struct {
+	Where   ast.Locator
+	Message string
+}
+
+func (e Error) Error() string {
+	loc := e.Where.Locate().StartPos()
+	return fmt.Sprintf("%d:%d: %s", loc.Line, loc.Column, e.Message)
+}

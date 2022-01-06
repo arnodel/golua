@@ -239,7 +239,12 @@ func (c *compiler) compileCond(s ast.CondStat, lbl ir.Label) {
 
 // ProcessLabelStat compiles a LabelStat.
 func (c *compiler) ProcessLabelStat(s ast.LabelStat) {
-	c.EmitGotoLabel(ir.Name(s.Name.Val))
+	if err := c.EmitGotoLabel(ir.Name(s.Name.Val)); err != nil {
+		panic(Error{
+			Where:   s,
+			Message: err.Error(),
+		})
+	}
 }
 
 // ProcessLocalFunctionStat compiles a LocalFunctionStat.
