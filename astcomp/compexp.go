@@ -91,7 +91,7 @@ func (c *expCompiler) compileLogicalOp(b ast.BinOp, not bool) {
 			c.emitInstr(r.Operand, ir.JumpIf{Cond: c.dst, Label: doneLbl, Not: not})
 		}
 	}
-	c.EmitLabel(doneLbl)
+	must(c.EmitLabel(doneLbl))
 }
 
 // ProcesBoolExp compiles a oolExp.

@@ -55,7 +55,7 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 	c.DeclareLocal(loopVarRegName, varReg)
 
 	loopLbl := c.GetNewLabel()
-	c.EmitLabel(loopLbl)
+	must(c.EmitLabel(loopLbl))
 
 	c.CompileStat(ast.LocalStat{
 		Names: s.Vars,
@@ -85,7 +85,7 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 
 	c.emitInstr(s, ir.Jump{Label: loopLbl})
 
-	c.EmitGotoLabel(breakLblName)
+	must(c.EmitGotoLabel(breakLblName))
 	c.PopContext()
 
 }
@@ -141,7 +141,7 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	c.PushContext()
 
 	loopLbl := c.GetNewLabel()
-	c.EmitLabel(loopLbl)
+	must(c.EmitLabel(loopLbl))
 	endLbl := c.DeclareGotoLabel(breakLblName)
 
 	condReg := c.GetFreeRegister()
@@ -162,7 +162,7 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 		Label: endLbl,
 	})
 	c.EmitNoLine(ir.Jump{Label: bodyLbl})
-	c.EmitLabel(negStepLbl)
+	must(c.EmitLabel(negStepLbl))
 	c.EmitNoLine(ir.Combine{
 		Op:   ops.OpLt,
 		Dst:  condReg,
@@ -173,7 +173,7 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 		Cond:  condReg,
 		Label: endLbl,
 	})
-	c.EmitLabel(bodyLbl)
+	must(c.EmitLabel(bodyLbl))
 
 	c.PushContext()
 	iterReg := c.GetFreeRegister()
@@ -190,7 +190,7 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	})
 	c.EmitNoLine(ir.Jump{Label: loopLbl})
 
-	c.EmitGotoLabel(breakLblName)
+	must(c.EmitGotoLabel(breakLblName))
 	c.PopContext()
 
 	c.ReleaseRegister(startReg)
@@ -217,18 +217,18 @@ func (c *compiler) ProcessIfStat(s ast.IfStat) {
 	c.compileCond(s.If, lbl)
 	for _, s := range s.ElseIfs {
 		c.emitInstr(s.Cond, ir.Jump{Label: endLbl}) // TODO: better location
-		c.EmitLabel(lbl)
+		must(c.EmitLabel(lbl))
 		lbl = c.GetNewLabel()
 		c.compileCond(s, lbl)
 	}
 	if s.Else != nil {
 		c.emitInstr(s, ir.Jump{Label: endLbl}) // TODO: better location
-		c.EmitLabel(lbl)
+		must(c.EmitLabel(lbl))
 		c.CompileStat(s.Else)
 	} else {
-		c.EmitLabel(lbl)
+		must(c.EmitLabel(lbl))
 	}
-	c.EmitLabel(endLbl)
+	must(c.EmitLabel(endLbl))
 }
 
 func (c *compiler) compileCond(s ast.CondStat, lbl ir.Label) {
@@ -270,7 +270,7 @@ func (c *compiler) ProcessRepeatStat(s ast.RepeatStat) {
 	c.DeclareGotoLabel(breakLblName)
 
 	loopLbl := c.GetNewLabel()
-	c.EmitLabel(loopLbl)
+	must(c.EmitLabel(loopLbl))
 	pop := c.compileBlockNoPop(s.Body, false)
 	condReg := c.compileExpNoDestHint(s.Cond)
 	negReg := c.GetFreeRegister()
@@ -285,7 +285,7 @@ func (c *compiler) ProcessRepeatStat(s ast.RepeatStat) {
 		Label: loopLbl,
 	})
 
-	c.EmitGotoLabel(breakLblName)
+	must(c.EmitGotoLabel(breakLblName))
 	c.PopContext()
 }
 
@@ -295,13 +295,13 @@ func (c *compiler) ProcessWhileStat(s ast.WhileStat) {
 	stopLbl := c.DeclareGotoLabel(breakLblName)
 
 	loopLbl := c.GetNewLabel()
-	c.EmitLabel(loopLbl)
+	must(c.EmitLabel(loopLbl))
 
 	c.compileCond(s.CondStat, stopLbl)
 
 	c.emitInstr(s, ir.Jump{Label: loopLbl}) // TODO: better location
 
-	c.EmitGotoLabel(breakLblName)
+	must(c.EmitGotoLabel(breakLblName))
 	c.PopContext()
 }
 

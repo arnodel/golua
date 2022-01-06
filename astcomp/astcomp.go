@@ -52,6 +52,7 @@ const (
 	loopVarRegName  = ir.Name("<var>")
 )
 
+// Error that results from a valid AST which does not form a valid program.
 type Error struct {
 	Where   ast.Locator
 	Message string
@@ -60,4 +61,21 @@ type Error struct {
 func (e Error) Error() string {
 	loc := e.Where.Locate().StartPos()
 	return fmt.Sprintf("%d:%d: %s", loc.Line, loc.Column, e.Message)
+}
+
+// The compiler uses other packages that may return non nil errors only if there
+// is a bug in the compiler.  Such errors are wrapped in must() so that the bugs
+// are not silently ignored.
+type compilerBug struct {
+	err error
+}
+
+func (b compilerBug) Error() string {
+	return b.err.Error()
+}
+
+func must(err error) {
+	if err != nil {
+		panic(compilerBug{err: err})
+	}
 }
