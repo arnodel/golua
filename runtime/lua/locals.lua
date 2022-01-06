@@ -1,3 +1,6 @@
+--
+-- const tests
+--
 
 local function test(src)
     local res, err = load(src)
@@ -39,6 +42,10 @@ test[[
 ]]
 --> ~false\t.*attempt to reassign constant variable 'bar'
 
+--
+-- to-be-closed tests
+--
+
 test[[
     local x <close> = nil
     x = 3
@@ -78,7 +85,9 @@ end
 --> =bb
 --> =aa
 
-local s = "start"
+
+-- A function to test to-be-closed variables
+local s
 function mk(a)
     t = {}
     s = s .. '+' .. a
@@ -86,7 +95,18 @@ function mk(a)
     return t
 end
 
+-- How it works
 do
+    s = "start"
+    local v <close> = mk("bob")
+    print(s)
+    --> =start+bob
+end
+print(s)
+--> =start+bob-bob
+
+do
+    s = "start"
     local function f()
         local a <close> = mk("a")
         for i = 1, 3 do
