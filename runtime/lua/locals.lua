@@ -102,5 +102,5 @@ do
     end
     f()
     print(s)
-    --> start+a+b1-b1+b2-b2+b3-b3+c+d-d-c-a
+    --> =start+a+b1-b1+b2-b2+b3-b3+c+d-d-c-a
 end
