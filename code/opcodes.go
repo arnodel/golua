@@ -342,6 +342,7 @@ const (
 	OpCall JumpOp = iota
 	OpJump
 	OpJumpIf
+	OpClStack // Operate on the Close Stack
 )
 
 // encodeJ encodes a jump type into and opcode.
@@ -356,6 +357,16 @@ func (d Offset) encodeD() Opcode {
 	return Opcode(uint16(d))
 }
 
+type ClStackOffset uint16
+
+func (d ClStackOffset) encodeD() Opcode {
+	return Opcode(d)
+}
+
+type encoderToD interface {
+	encodeD() Opcode
+}
+
 // GetJ decodes the JumpOp from this opcode.
 func (c Opcode) GetJ() JumpOp {
 	return JumpOp(c.getYorJ())
@@ -366,12 +377,16 @@ func (c Opcode) GetOffset() Offset {
 	return Offset(uint16(c))
 }
 
+func (c Opcode) GetClStackOffset() ClStackOffset {
+	return ClStackOffset(uint16(c))
+}
+
 // SetOffset returns a copy of the opcode with the given offset.
 func (c Opcode) SetOffset(n Offset) Opcode {
 	return c&0xffff0000 | n.encodeD()
 }
 
-func mkType5(f Flag, op JumpOp, rA Reg, k Offset) Opcode {
+func mkType5(f Flag, op JumpOp, rA Reg, k encoderToD) Opcode {
 	return Type5Pfx | f.encodeF() | op.encodeJ() | rA.toA() | k.encodeD()
 }
 
@@ -637,6 +652,12 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 				instr = "tailcall"
 			}
 			return fmt.Sprintf("%s %s", instr, rA)
+		case OpClStack:
+			if c.GetF() {
+				return fmt.Sprintf("clpush %s", rA)
+			} else {
+				return fmt.Sprintf("cltrunc %d", c.GetClStackOffset())
+			}
 		default:
 			return "???"
 		}

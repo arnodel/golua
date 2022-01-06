@@ -130,14 +130,22 @@ func JumpIfNot(j Offset, r Reg) Opcode {
 //
 // r must contain a continuation that is ready to be called.
 func Call(r Reg) Opcode {
-	return mkType5(Off, OpCall, r, 0)
+	return mkType5(Off, OpCall, r, Offset(0))
 }
 
 // TailCall encodes tailcall r
 //
 // r must contain a continuation that is ready to be called.
 func TailCall(r Reg) Opcode {
-	return mkType5(On, OpCall, r, 0)
+	return mkType5(On, OpCall, r, Offset(0))
+}
+
+func ClTrunc(h uint16) Opcode {
+	return mkType5(Off, OpClStack, Reg{}, ClStackOffset(h))
+}
+
+func ClPush(r Reg) Opcode {
+	return mkType5(On, OpClStack, r, ClStackOffset(0))
 }
 
 // Upval encodes upval r1, r2

@@ -41,6 +41,8 @@ type InstrProcessor interface {
 	ProcessReceiveEtcInstr(ReceiveEtc)
 	ProcessEtcLookupInstr(EtcLookup)
 	ProcessFillTableInstr(FillTable)
+	ProcessTruncateCloseStackInstr(TruncateCloseStack)
+	ProcessPushCloseStackInstr(PushCloseStack)
 
 	// These are hints that a register is needed or no longer needed.
 	ProcessTakeRegisterInstr(TakeRegister)
@@ -416,6 +418,30 @@ func (f FillTable) String() string {
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (f FillTable) ProcessInstr(p InstrProcessor) {
 	p.ProcessFillTableInstr(f)
+}
+
+type TruncateCloseStack struct {
+	Height int
+}
+
+func (t TruncateCloseStack) String() string {
+	return fmt.Sprintf("trunc close stack to %d", t.Height)
+}
+
+func (t TruncateCloseStack) ProcessInstr(p InstrProcessor) {
+	p.ProcessTruncateCloseStackInstr(t)
+}
+
+type PushCloseStack struct {
+	Src Register
+}
+
+func (i PushCloseStack) String() string {
+	return fmt.Sprintf("push %s to close stack", i.Src)
+}
+
+func (i PushCloseStack) ProcessInstr(p InstrProcessor) {
+	p.ProcessPushCloseStackInstr(i)
 }
 
 // TakeRegister is not a real instruction.  It is a hint to the next stage that
