@@ -92,6 +92,10 @@ func (c *Termination) DebugInfo() *DebugInfo {
 	return c.parent.DebugInfo()
 }
 
+func (c *Termination) Cleanup(t *Thread, err *Error) *Error {
+	return err
+}
+
 // Get returns the n-th arg pushed to the termination.
 func (c *Termination) Get(n int) Value {
 	if n >= c.pushIndex {

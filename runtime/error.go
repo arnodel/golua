@@ -84,6 +84,9 @@ func (e *Error) AddContext(c Cont, depth int) {
 
 // Value returns the message of the error (which can be any Lua Value).
 func (e *Error) Value() Value {
+	if e == nil {
+		return NilValue
+	}
 	return e.message
 }
 

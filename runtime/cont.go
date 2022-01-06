@@ -17,6 +17,7 @@ type Cont interface {
 	Next() Cont
 	Parent() Cont
 	DebugInfo() *DebugInfo
+	Cleanup(*Thread, *Error) *Error
 }
 
 // Push is a convenience method that pushes a number of values to the

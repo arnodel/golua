@@ -104,3 +104,19 @@ do
     print(s)
     --> =start+a+b1-b1+b2-b2+b3-b3+c+d-d-c-a
 end
+
+do
+    s = "start"
+    local function f(n)
+        local x <close> = mk("x"..n)
+        if n > 0 then
+            f(n - 1)
+        else
+            error("stop")
+        end
+    end
+    print(pcall(f, 3))
+    --> ~false\t.*: stop
+    print(s)
+    --> =start+x3+x2+x1+x0-x0-x1-x2-x3
+end

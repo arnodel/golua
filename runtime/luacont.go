@@ -361,7 +361,7 @@ RunLoop:
 					// It's a tail call.  There is no error, so nothing will
 					// reference c anymore, therefore we are safe to give it to
 					// the pool for reuse.
-					if err := c.truncateCloseStack(t, 0); err != nil {
+					if err := c.truncateCloseStack(t, 0, nil); err != nil {
 						return nil, err
 					}
 					c.release(t.Runtime)
@@ -375,7 +375,7 @@ RunLoop:
 				} else {
 					// Truncate close stack
 					h := int(opcode.GetClStackOffset())
-					if err := c.truncateCloseStack(t, h); err != nil {
+					if err := c.truncateCloseStack(t, h, nil); err != nil {
 						return nil, err
 					}
 				}
@@ -428,6 +428,10 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 	}
 }
 
+func (c *LuaCont) Cleanup(t *Thread, err *Error) *Error {
+	return c.truncateCloseStack(t, 0, err)
+}
+
 func (c *LuaCont) getRegCell(reg code.Reg) Cell {
 	if reg.IsCell() {
 		return c.cells[reg.Idx()]
@@ -443,21 +447,21 @@ func (c *LuaCont) clearReg(reg code.Reg) {
 	}
 }
 
-func (c *LuaCont) truncateCloseStack(t *Thread, h int) *Error {
+func (c *LuaCont) truncateCloseStack(t *Thread, h int, err *Error) *Error {
 	for i := len(c.closeStack) - 1; i >= h; i-- {
 		v := c.closeStack[i]
 		c.closeStack = c.closeStack[:i]
 		if Truth(v) {
-			err, ok := Metacall(t, v, "__close", []Value{v}, NewTerminationWith(c, 0, false))
+			closeErr, ok := Metacall(t, v, "__close", []Value{v, err.Value()}, NewTerminationWith(c, 0, false))
 			if !ok {
 				return NewErrorS("to be closed variable missing a __close metamethod")
 			}
-			if err != nil {
-				return err
+			if closeErr != nil {
+				err = closeErr
 			}
 		}
 	}
-	return nil
+	return err
 }
 
 func setReg(regs []Value, cells []Cell, reg code.Reg, val Value) {

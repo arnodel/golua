@@ -74,6 +74,12 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 		next, err = c.RunInThread(t)
 		if err != nil {
 			if err.Handled() {
+				// Now we can do cleanup, cleanup should always return handled
+				// errors (fingers crossed).
+				for c != nil {
+					err = c.Cleanup(t, err)
+					c = c.Next()
+				}
 				return err
 			}
 			err.AddContext(c, -1)
@@ -85,8 +91,8 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 				next = t.messageHandler.Continuation(t.Runtime, newMessageHandlerCont(c))
 				next.Push(t.Runtime, err.Value())
 			} else {
-				// If there is no message handler, just return the error
-				return err
+				next = newMessageHandlerCont(c)
+				next.Push(t.Runtime, err.Value())
 			}
 		}
 		c = next
@@ -257,4 +263,8 @@ func (c *messageHandlerCont) PushEtc(r *Runtime, etc []Value) {
 
 func (c *messageHandlerCont) RunInThread(t *Thread) (Cont, *Error) {
 	return nil, newHandledError(c.err)
+}
+
+func (c *messageHandlerCont) Cleanup(t *Thread, err *Error) *Error {
+	return err
 }
