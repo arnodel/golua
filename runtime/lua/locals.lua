@@ -57,9 +57,18 @@ test[[
 ]]
 --> ~false\t.*to be closed variable missing a __close metamethod
 
-function make(msg)
+function make(msg, err)
     t = {}
-    setmetatable(t, {__close = function () print(msg) end})
+    setmetatable(t, {__close = function (x, e) 
+        if e ~= nil then
+            print(msg, e)
+        else
+            print(msg)
+        end
+        if err ~= nil then 
+            error(err)
+        end
+    end})
     return t
 end
 
@@ -85,6 +94,19 @@ end
 --> =bb
 --> =aa
 
+-- errors in close metamethods.  If a one produces an error, it looks like the
+-- next one is fed that error.
+pcall(function()
+    local x <close> = make("x")
+    local y <close> = make("y", "YY")
+    local z <close> = make("z")
+    local t <close> = make("t", "TT")
+    error("ERROR")
+end)
+--> ~t\t.*ERROR
+--> ~z\t.*TT
+--> ~y\t.*TT
+--> ~x\t.*YY
 
 -- A function to test to-be-closed variables
 local s
