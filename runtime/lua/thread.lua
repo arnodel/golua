@@ -71,42 +71,42 @@ do
         end
     end
     local co = coroutine.create(f)
-    print(coroutine.resume(co, 3))
+    coroutine.resume(co, 3)
     print(coroutine.status(co))
     --> =suspended
     print(coroutine.close(co))
     -- Output from closing the "x" vars
     --> =x1
-    --> =x1
-    --> =x1
+    --> =x2
+    --> =x3
     -- Outcome of coroutine.close(co)
     --> =true
     print(coroutine.status(co))
     --> =dead
 end
 
--- This would pass if it was not for the error messages...
--- do
---     local function f(n)
---         local x <close> = make("x"..n, "ERR"..n)
---         if n > 1 then
---             f(n - 1)
---         else
---             coroutine.yield()
---         end
---     end
---     local co = coroutine.create(f)
---     print(coroutine.resume(co, 3))
---     print(coroutine.status(co))
---     --> =suspended
---     print(coroutine.close(co))
---     -- Output from closing the "x" vars
---     --> =x1
---     --> =x1
---     --> =x1
---     -- Outcome of coroutine.close(co)
---     --> =true
---     print(coroutine.status(co))
---     --> =dead
--- end
-
+-- Wrapping this in pcall to suppress the default message handler which is
+-- adding traceback to error messages...
+pcall(function()
+    local function f(n)
+        local x <close> = make("x"..n, "ERR"..n)
+        if n > 1 then
+            f(n - 1)
+        else
+            coroutine.yield()
+        end
+    end
+    local co = coroutine.create(f)
+    coroutine.resume(co, 3)
+    print(coroutine.status(co))
+    --> =suspended
+    print(coroutine.close(co))
+    -- Output from closing the "x" vars
+    --> =x1
+    --> ~x2\t.*ERR1
+    --> ~x3\t.*ERR2
+    -- Outcome of coroutine.close(co)
+    --> ~false\t.*ERR3
+    print(coroutine.status(co))
+    --> =dead
+end)
