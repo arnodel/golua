@@ -89,3 +89,36 @@ do
     print(fib(), fib(), fib(), fib(), fib())
     --> =0	1	1	2	3
 end
+
+-- Test coroutine.close() (5.4)
+do
+    print(pcall(coroutine.close))
+    --> ~false\t.*value needed
+
+    print(pcall(coroutine.close, 1))
+    --> ~false\t.*must be a thread
+
+    print(pcall(coroutine.close, coroutine.running()))
+    --> ~true\tfalse\t.*cannot close running thread
+
+    local co = coroutine.create(function()
+        coroutine.yield()
+    end)
+
+    coroutine.resume(co)
+    print(coroutine.close(co))
+    --> =true
+    print(coroutine.status(co))
+    --> =dead
+    local co = coroutine.create(function()
+        local x <close> = {}
+        setmetatable(x, {__close=function() error("ERR") end})
+        coroutine.yield()
+    end)
+    coroutine.resume(co)
+    pcall(function() print(coroutine.close(co)) end)
+    --> ~false\t.*ERR
+
+    print(coroutine.status(co))
+    --> =dead
+end
