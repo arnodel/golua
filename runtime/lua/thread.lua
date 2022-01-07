@@ -29,6 +29,10 @@ do
     --> ~cannot yield from main thread
 end
 
+--
+-- Coroutines and to-be-closed variables
+--
+
 function make(msg, err)
     t = {}
     setmetatable(t, {__close = function (x, e) 
