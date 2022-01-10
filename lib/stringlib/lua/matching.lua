@@ -76,6 +76,9 @@ do
     pm("A *b_o_l_d* and an _under~line_", "([*~_])(.-)%1", 10)
     --> =_	under~line
 
+    pm("abcd", "b", -100)
+    --> =b
+
     local errm = errtest(string.match)
 
     errm("x")
