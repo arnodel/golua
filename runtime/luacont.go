@@ -148,7 +148,10 @@ RunLoop:
 					res, err = BinaryArithFallback(t, "__div", x, y)
 				}
 			case code.OpFloorDiv:
-				res, err = idiv(t, x, y)
+				res, ok, err = Idiv(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__idiv", x, y)
+				}
 			case code.OpMod:
 				res, err = Mod(t, x, y)
 			case code.OpPow:

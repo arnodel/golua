@@ -112,33 +112,28 @@ func floordivFloat(x, y float64) float64 {
 	return math.Floor(x / y)
 }
 
-func idiv(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	ny, fy, ky := ToNumber(y)
-	switch kx {
-	case IsInt:
-		switch ky {
-		case IsInt:
+func Idiv(x Value, y Value) (Value, bool, *Error) {
+	switch x.iface.(type) {
+	case int64:
+		switch y.iface.(type) {
+		case int64:
+			ny := y.AsInt()
 			if ny == 0 {
-				return NilValue, NewErrorS("attempt to divide by zero")
+				return NilValue, true, NewErrorS("attempt to divide by zero")
 			}
-			return IntValue(floordivInt(nx, ny)), nil
-		case IsFloat:
-			return FloatValue(floordivFloat(float64(nx), fy)), nil
+			return IntValue(floordivInt(x.AsInt(), ny)), true, nil
+		case float64:
+			return FloatValue(floordivFloat(float64(x.AsInt()), y.AsFloat())), true, nil
 		}
-	case IsFloat:
-		switch ky {
-		case IsInt:
-			return FloatValue(floordivFloat(fx, float64(ny))), nil
-		case IsFloat:
-			return FloatValue(floordivFloat(fx, fy)), nil
+	case float64:
+		switch y.iface.(type) {
+		case int64:
+			return FloatValue(floordivFloat(x.AsFloat(), float64(y.AsInt()))), true, nil
+		case float64:
+			return FloatValue(floordivFloat(x.AsFloat(), y.AsFloat())), true, nil
 		}
 	}
-	res, err, ok := metabin(t, "__idiv", x, y)
-	if ok {
-		return res, err
-	}
-	return NilValue, BinaryArithmeticError("idiv", x, y)
+	return NilValue, false, nil
 }
 
 func modInt(x, y int64) int64 {

@@ -8,6 +8,12 @@ meta.__add = function(x, y)
     end
     return x
 end
+meta.__idiv = function(x, y)
+    if x == "BOOM" then
+        error(x)
+    end
+    return x
+end
 
 do
     print("1" + "2", 1 + "3", "2.4" + 2)
@@ -38,4 +44,27 @@ do
 
     print("7" / 2, "5" / "10")
     --> =3.5	0.5
+end
+
+do
+    print("1" // "2", 7 // "2", "2.4" // 2)
+    --> =0	3	1
+
+    print(pcall(function() return "a" // "1" end))
+    --> ~false\t.*attempt to perform arithmetic on a string value
+
+    print(pcall(getmetatable("12").__idiv))
+    --> ~false\t.*2 arguments needed
+
+    print(n // 1, 1 // n, n // "a", "a" // n)
+    --> =<n>	1	<n>	a
+
+    print(type("1" // n))
+    --> =string
+
+    print(pcall(function() return "BOOM" // n end))
+    --> ~false\t.*BOOM
+
+    print(pcall(function() return "8" // "0" end))
+    --> ~false\t.*attempt to divide by zero
 end
