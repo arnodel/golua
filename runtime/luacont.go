@@ -265,12 +265,16 @@ RunLoop:
 		case code.Type4Pfx:
 			dst := opcode.GetA()
 			var res Value
+			var ok bool
 			var err *Error
 			if opcode.HasType4a() {
 				val := getReg(regs, cells, opcode.GetB())
 				switch opcode.GetUnOp() {
 				case code.OpNeg:
-					res, err = unm(t, val)
+					res, ok = Unm(val)
+					if !ok {
+						res, err = UnaryArithFallback(t, "__unm", val)
+					}
 				case code.OpBitNot:
 					res, err = bnot(t, val)
 				case code.OpLen:

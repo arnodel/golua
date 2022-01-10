@@ -59,6 +59,17 @@ do
 end
 
 do
+    print(-"2")
+    --> =-2
+
+    print(pcall(getmetatable("12").__unm))
+    --> ~false\t.*value needed
+
+    print(pcall(function() return -"bob" end))
+    --> ~false\t.*attempt to unm a 'string'
+end
+
+do
     print("2" - "2")
     --> =0
 

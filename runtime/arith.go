@@ -4,19 +4,15 @@ import (
 	"math"
 )
 
-func unm(t *Thread, x Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	switch kx {
-	case IsInt:
-		return IntValue(-nx), nil
-	case IsFloat:
-		return FloatValue(-fx), nil
+func Unm(x Value) (Value, bool) {
+	switch x.iface.(type) {
+	case int64:
+		return IntValue(-x.AsInt()), true
+	case float64:
+		return FloatValue(-x.AsFloat()), true
+	default:
+		return NilValue, false
 	}
-	res, err, ok := metaun(t, "__unm", x)
-	if ok {
-		return res, err
-	}
-	return NilValue, NewErrorF("attempt to unm a '%s'", x.CustomTypeName())
 }
 
 func Add(x, y Value) (Value, bool) {
@@ -221,4 +217,16 @@ func BinaryArithmeticError(op string, x, y Value) *Error {
 		return NewErrorF("attempt to %s a '%s' with a '%s'", op, x.CustomTypeName(), y.CustomTypeName())
 	}
 	return NewErrorF("attempt to perform arithmetic on a %s value", wrongVal.CustomTypeName())
+}
+
+func UnaryArithFallback(t *Thread, op string, x Value) (Value, *Error) {
+	res, err, ok := metaun(t, op, x)
+	if ok {
+		return res, err
+	}
+	return NilValue, UnaryArithmeticError(op[2:], x)
+}
+
+func UnaryArithmeticError(op string, x Value) *Error {
+	return NewErrorF("attempt to %s a '%s'", op, x.CustomTypeName())
 }

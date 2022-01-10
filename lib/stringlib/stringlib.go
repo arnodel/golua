@@ -52,6 +52,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(stringMeta, "__idiv", string__idiv, 2, false),
 		r.SetEnvGoFunc(stringMeta, "__mod", string__mod, 2, false),
 		r.SetEnvGoFunc(stringMeta, "__pow", string__pow, 2, false),
+		r.SetEnvGoFunc(stringMeta, "__unm", string__unm, 1, false),
 	)
 	r.SetStringMeta(stringMeta)
 
