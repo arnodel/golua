@@ -138,7 +138,10 @@ RunLoop:
 					res, err = BinaryArithFallback(t, "__sub", x, y)
 				}
 			case code.OpMul:
-				res, err = mul(t, x, y)
+				res, ok = Mul(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__mul", x, y)
+				}
 			case code.OpDiv:
 				res, err = div(t, x, y)
 			case code.OpFloorDiv:

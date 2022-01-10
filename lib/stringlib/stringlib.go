@@ -47,6 +47,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 
 		r.SetEnvGoFunc(stringMeta, "__add", string__add, 2, false),
 		r.SetEnvGoFunc(stringMeta, "__sub", string__sub, 2, false),
+		r.SetEnvGoFunc(stringMeta, "__mul", string__mul, 2, false),
 	)
 	r.SetStringMeta(stringMeta)
 
