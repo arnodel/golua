@@ -11,10 +11,11 @@ func stringBinOp(f func(x, y rt.Value) (rt.Value, bool), op string) func(t *rt.T
 		if err := c.CheckNArgs(2); err != nil {
 			return nil, err
 		}
-		x, kx := rt.ToNumberValue(c.Arg(0))
-		y, ky := rt.ToNumberValue(c.Arg(1))
+		x, y := c.Arg(0), c.Arg(1)
+		nx, kx := rt.ToNumberValue(c.Arg(0))
+		ny, ky := rt.ToNumberValue(c.Arg(1))
 		if kx != rt.NaN && ky != rt.NaN {
-			z, _ := f(x, y)
+			z, _ := f(nx, ny)
 			return c.PushingNext1(t.Runtime, z), nil
 		}
 		if y.Type() != rt.StringType {
@@ -27,6 +28,6 @@ func stringBinOp(f func(x, y rt.Value) (rt.Value, bool), op string) func(t *rt.T
 				return next, nil
 			}
 		}
-		return nil, rt.BinaryArithmeticError(op[2:], x, y)
+		return nil, rt.BinaryArithmeticError(op[2:], nx, ny)
 	}
 }

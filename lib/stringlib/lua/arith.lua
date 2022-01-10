@@ -1,11 +1,12 @@
 local n = {}
 local meta = {}
 setmetatable(n, meta)
+meta.__tostring = function() return "<n>" end
 meta.__add = function(x, y)
     if x == "BOOM" then
         error(x)
     end
-    return "<add>"
+    return x
 end
 
 do
@@ -19,7 +20,10 @@ do
     --> ~false\t.*2 arguments needed
 
     print(n + 1, 1 + n, n + "a", "a" + n)
-    --> =<add>	<add>	<add>	<add>
+    --> =<n>	1	<n>	a
+
+    print(type("1" + n))
+    --> =string
 
     print(pcall(function() return "BOOM" + n end))
     --> ~false\t.*BOOM
