@@ -79,30 +79,24 @@ func Mul(x, y Value) (Value, bool) {
 	return NilValue, false
 }
 
-func div(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	ny, fy, ky := ToNumber(y)
-	switch kx {
-	case IsInt:
-		switch ky {
-		case IsInt:
-			return FloatValue(float64(nx) / float64(ny)), nil
-		case IsFloat:
-			return FloatValue(float64(nx) / fy), nil
+func Div(x, y Value) (Value, bool) {
+	switch x.iface.(type) {
+	case int64:
+		switch y.iface.(type) {
+		case int64:
+			return FloatValue(float64(x.AsInt()) / float64(y.AsInt())), true
+		case float64:
+			return FloatValue(float64(x.AsInt()) / y.AsFloat()), true
 		}
-	case IsFloat:
-		switch ky {
-		case IsInt:
-			return FloatValue(fx / float64(ny)), nil
-		case IsFloat:
-			return FloatValue(fx / fy), nil
+	case float64:
+		switch y.iface.(type) {
+		case int64:
+			return FloatValue(x.AsFloat() / float64(y.AsInt())), true
+		case float64:
+			return FloatValue(x.AsFloat() / y.AsFloat()), true
 		}
 	}
-	res, err, ok := metabin(t, "__div", x, y)
-	if ok {
-		return res, err
-	}
-	return NilValue, BinaryArithmeticError("div", x, y)
+	return NilValue, false
 }
 
 func floordivInt(x, y int64) int64 {

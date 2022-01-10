@@ -6,6 +6,7 @@ var (
 	string__add = stringBinOp(rt.Add, "__add")
 	string__sub = stringBinOp(rt.Sub, "__sub")
 	string__mul = stringBinOp(rt.Mul, "__mul")
+	string__div = stringBinOp(rt.Div, "__div")
 )
 
 func stringBinOp(f func(x, y rt.Value) (rt.Value, bool), op string) func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
