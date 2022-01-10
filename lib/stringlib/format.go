@@ -140,6 +140,26 @@ OuterLoop:
 						return "", rt.NewErrorS("no literal")
 					}
 					break ArgLoop
+				case 'p':
+					// Pointer address, new in Lua 5.4
+					switch v := values[j]; v.Type() {
+					case rt.BoolType, rt.FloatType, rt.IntType:
+						outFormat[i] = 's'
+						arg = "(null)"
+					case rt.StringType:
+						// Here we have a problem.  C Lua has one single start
+						// address per string, whereas in Go a string is a
+						// slice, so we can't make the same guarantee.  Best
+						// effort: find the address of the start of the string
+						// and format it as a pointer.
+						outFormat[i] = 's'
+						s := v.AsString()
+						ptr := *(*uintptr)(unsafe.Pointer(&s))
+						arg = fmt.Sprintf("0x%x", ptr)
+					default:
+						arg = v.Interface()
+					}
+					break ArgLoop
 				case 't':
 					// boolean verb
 					if len(args) <= j {

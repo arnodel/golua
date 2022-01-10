@@ -281,6 +281,59 @@ do
     errf(321)
     --> ~must be a string
 
+    -- New in Lua 5.4: %p formatting
+
+    local function ps(x) return string.format("%p", x) end
+
+    local t = {}
+    pf("=%p=", t)
+    --> ~=0x[0-9a-f]+=
+
+    local tp = ps(t)
+    t.x = "something"
+    print(ps(t) == tp)
+    --> =true
+
+    pf("%p", 1)
+    --> =(null)
+    pf("%p", true)
+    --> =(null)
+    pf("%p", 2.5)
+    --> =(null)
+
+    pf("=%p=", "hello")
+    --> ~=0x[0-9a-f]+=
+
+    pf("=%p=", print)
+    --> ~=0x[0-9a-f]+=
+
+    print(ps(print) == ps(print))
+    --> =true
+
+    pf("=%p=", coroutine.running())
+    --> ~=0x[0-9a-f]+=
+
+    print(ps(coroutine.running()) == ps(coroutine.running()))
+    --> =true
+
+    pf("=%p=", io.stdout)
+    --> ~=0x[0-9a-f]+=
+
+    print(ps(io.stdout) == ps(io.stdout))
+    --> =true
+
+    print(ps(io.stdout) == ps(io.stdin))
+    --> =false
+
+    pf("=%p=", pf)
+    --> ~=0x[0-9a-f]+=
+
+    print(ps(pf) == ps(pf))
+    --> =true
+
+    print(ps(pf) == ps(ps))
+    --> =false
+
 end
 
 do
