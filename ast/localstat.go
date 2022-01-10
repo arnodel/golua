@@ -41,28 +41,29 @@ func (s LocalStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
+type LocalAttrib uint8
+
+const (
+	NoAttrib LocalAttrib = iota
+	ConstAttrib
+	CloseAttrib
+)
+
 type NameAttrib struct {
 	Location
 	Name   Name
-	Attrib *Name
+	Attrib LocalAttrib
 }
 
-func NewNameAttrib(name Name, attrib *Name) NameAttrib {
+func NewNameAttrib(name Name, attribName *Name, attrib LocalAttrib) NameAttrib {
 	loc := name.Location
-	if attrib != nil {
-		loc = MergeLocations(loc, attrib)
+	if attribName != nil {
+		loc = MergeLocations(loc, attribName)
+
 	}
 	return NameAttrib{
 		Location: loc,
 		Name:     name,
 		Attrib:   attrib,
 	}
-}
-
-func (na NameAttrib) IsConst() bool {
-	return na.Attrib != nil && na.Attrib.Val == "const"
-}
-
-func (na NameAttrib) IsClose() bool {
-	return na.Attrib != nil && na.Attrib.Val == "close"
 }

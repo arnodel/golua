@@ -37,12 +37,18 @@ func tok(tp token.Type, lit string) *token.Token {
 func name(s string) ast.Name {
 	return ast.Name{Val: s}
 }
-func nameAttrib(s string, attrib ...string) ast.NameAttrib {
-	var attribName *ast.Name
-	if len(attrib) > 0 {
-		attribName = &ast.Name{Val: attrib[0]}
+
+func nameAttrib(s string, attribs ...string) ast.NameAttrib {
+	var attrib = ast.NoAttrib
+	if len(attribs) > 0 {
+		switch attribs[0] {
+		case "close":
+			attrib = ast.CloseAttrib
+		case "const":
+			attrib = ast.ConstAttrib
+		}
 	}
-	return ast.NameAttrib{Name: name(s), Attrib: attribName}
+	return ast.NameAttrib{Name: name(s), Attrib: attrib}
 }
 
 func str(s string) ast.String {
