@@ -3,9 +3,9 @@ package ir
 import "fmt"
 
 type lexicalScope struct {
-	reg    map[Name]taggedReg
-	label  map[Name]Label
-	height int
+	reg    map[Name]taggedReg // maps variable names to registers
+	label  map[Name]Label     // maps label names to labels
+	height int                // This is the height of the close stack in this scope
 }
 
 type taggedReg struct {

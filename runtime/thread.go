@@ -15,10 +15,16 @@ const (
 	ThreadDead      ThreadStatus = 3 // Thread has finished and cannot be resumed
 )
 
+// Data passed between Threads via their resume channel (Thread.resumeCh).
+//
+// Supported types for exception are ContextTerminationError (which means
+// execution has run out of resources) and threadClose (which means the thread
+// should be closed without resuming execution, new in Lua 5.4 via the
+// coroutine.close() function).  Other types will cause a panic.
 type valuesError struct {
-	args  []Value
-	err   *Error
-	extra interface{}
+	args      []Value     // arguments ot yield or resume
+	err       *Error      // execution error
+	exception interface{} // used when the thread should be closed right away
 }
 
 // A Thread is a lua thread.
@@ -220,7 +226,7 @@ func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 	return t.getResumeValues()
 }
 
-func (t *Thread) end(args []Value, err *Error, extra interface{}) {
+func (t *Thread) end(args []Value, err *Error, exception interface{}) {
 	caller := t.caller
 	t.mux.Lock()
 	caller.mux.Lock()
@@ -238,7 +244,7 @@ func (t *Thread) end(args []Value, err *Error, extra interface{}) {
 	for c := t.CurrentCont(); c != nil; c = c.Next() {
 		err = c.Cleanup(caller, err)
 	}
-	caller.sendResumeValues(args, err, extra)
+	caller.sendResumeValues(args, err, exception)
 	t.ReleaseBytes(2 << 10) // The goroutine will terminate after this
 }
 
@@ -249,14 +255,14 @@ func (t *Thread) call(c Callable, args []Value, next Cont) *Error {
 
 func (t *Thread) getResumeValues() ([]Value, *Error) {
 	res := <-t.resumeCh
-	if res.extra != nil {
-		panic(res.extra)
+	if res.exception != nil {
+		panic(res.exception)
 	}
 	return res.args, res.err
 }
 
-func (t *Thread) sendResumeValues(args []Value, err *Error, extra interface{}) {
-	t.resumeCh <- valuesError{args, err, extra}
+func (t *Thread) sendResumeValues(args []Value, err *Error, exception interface{}) {
+	t.resumeCh <- valuesError{args: args, err: err, exception: exception}
 }
 
 type messageHandlerCont struct {

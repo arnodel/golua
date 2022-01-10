@@ -357,6 +357,7 @@ func (d Offset) encodeD() Opcode {
 	return Opcode(uint16(d))
 }
 
+// ClStackOffset is an offset from the bottom of the close stack
 type ClStackOffset uint16
 
 func (d ClStackOffset) encodeD() Opcode {

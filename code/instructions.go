@@ -140,10 +140,20 @@ func TailCall(r Reg) Opcode {
 	return mkType5(On, OpCall, r, Offset(0))
 }
 
+// ClTrunc encodes cltrunc h
+//
+// It truncates the close stack to the given height.  Each value on the close
+// stack which is removed should either be nil or false, or be a value with a
+// "__close" metamethod, in which case this metamethod is called.  This opcode
+// is introduced to support Lua 5.4's "to-be-closed" variables.
 func ClTrunc(h uint16) Opcode {
 	return mkType5(Off, OpClStack, Reg{}, ClStackOffset(h))
 }
 
+// ClPush encodes clpush r
+//
+// r should contain either nil, false, or a value with a "__close" metamethod.
+// This opcode is introduced to support Lua 5.4's "to-be-closed" variables.
 func ClPush(r Reg) Opcode {
 	return mkType5(On, OpClStack, r, ClStackOffset(0))
 }

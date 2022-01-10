@@ -214,6 +214,7 @@ func (ic instrCompiler) ProcessFillTableInstr(f ir.FillTable) {
 	ic.Emit(code.FillTable(ic.codeReg(f.Dst), ic.codeReg(f.Etc), f.Idx))
 }
 
+// ProcessTruncateCloseStackInstr compiles a TruncateCloseStack instruction.
 func (ic instrCompiler) ProcessTruncateCloseStackInstr(t ir.TruncateCloseStack) {
 	if t.Height < 0 || t.Height >= 65536 {
 		panic("close stack height out of range")
@@ -221,6 +222,7 @@ func (ic instrCompiler) ProcessTruncateCloseStackInstr(t ir.TruncateCloseStack) 
 	ic.Emit(code.ClTrunc(uint16(t.Height)))
 }
 
+// ProcessPushCloseStackInstr compiles a PushCloseStack instruction.
 func (ic instrCompiler) ProcessPushCloseStackInstr(p ir.PushCloseStack) {
 	ic.Emit(code.ClPush(ic.codeReg(p.Src)))
 }

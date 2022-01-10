@@ -17,7 +17,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
-		r.SetEnvGoFunc(pkg, "close", close, 1, false),
+		r.SetEnvGoFunc(pkg, "close", close, 1, false), // Lua 5.4
 		r.SetEnvGoFunc(pkg, "create", create, 1, false),
 		r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 0, false),
 		r.SetEnvGoFunc(pkg, "resume", resume, 1, true),

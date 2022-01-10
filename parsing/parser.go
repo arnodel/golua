@@ -622,7 +622,7 @@ func (p *Parser) NameAttrib(t *token.Token) (ast.NameAttrib, *token.Token) {
 		case "close":
 			attrib = ast.CloseAttrib
 		default:
-			tokenError(attribTok, "'const' or 'close'")
+			tokenError(attribTok, "expected 'const' or 'close'")
 		}
 		expectType(t, token.SgGreater, "'>'")
 		t = p.Scan()

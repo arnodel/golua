@@ -166,6 +166,8 @@ func (c *CodeBuilder) emitClearReg(m lexicalScope) {
 	}
 }
 
+// PushCloseAction emits a PushCloseStack instruction and updates the current
+// lexical context accordingly
 func (c *CodeBuilder) PushCloseAction(reg Register) {
 	c.context.addHeight(1)
 	c.EmitNoLine(PushCloseStack{Src: reg})

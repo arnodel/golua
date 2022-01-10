@@ -16,7 +16,7 @@ type LuaCont struct {
 	acc           []Value
 	running       bool
 	borrowedCells bool
-	closeStack    []Value
+	closeStack    []Value // Pending to-be-closed variables
 }
 
 var _ Cont = (*LuaCont)(nil)

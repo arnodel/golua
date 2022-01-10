@@ -983,6 +983,7 @@ func TestParser_Local(t *testing.T) {
 		input string
 		want  ast.Stat
 		want1 *token.Token
+		err   interface{}
 	}{
 		{
 			name:  "local function definition",
@@ -1032,7 +1033,7 @@ func TestParser_Local(t *testing.T) {
 			want1: tok(token.EOF, ""),
 		},
 		{
-			name:  "local with attrib",
+			name:  "local with const attrib",
 			input: `local x <const> = 1`,
 			want: ast.LocalStat{
 				NameAttribs: []ast.NameAttrib{nameAttrib("x", "const")},
@@ -1040,9 +1041,29 @@ func TestParser_Local(t *testing.T) {
 			},
 			want1: tok(token.EOF, ""),
 		},
+		{
+			name:  "local with close attrib",
+			input: `local x <close> = b`,
+			want: ast.LocalStat{
+				NameAttribs: []ast.NameAttrib{nameAttrib("x", "close")},
+				Values:      []ast.ExpNode{name("b")},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "local with invalid attrib",
+			input: `local x <foobar> = b`,
+			err:   Error{Got: tok(token.IDENT, "foobar"), Expected: "expected 'const' or 'close'"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				r := recover()
+				if !reflect.DeepEqual(r, tt.err) {
+					t.Errorf("Parser.Local() error = %v, want %v", r, tt.err)
+				}
+			}()
 			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.Local(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {

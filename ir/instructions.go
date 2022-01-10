@@ -420,6 +420,9 @@ func (f FillTable) ProcessInstr(p InstrProcessor) {
 	p.ProcessFillTableInstr(f)
 }
 
+// TruncateCloseStack truncates the close stack to Height (which should be >=
+// 0).  This instruction was introduced to support to-be-closed variables which
+// are part of Lua 5.4
 type TruncateCloseStack struct {
 	Height int
 }
@@ -428,10 +431,14 @@ func (t TruncateCloseStack) String() string {
 	return fmt.Sprintf("trunc close stack to %d", t.Height)
 }
 
+// ProcessInstr makes the InstrProcessor process this instruction.
 func (t TruncateCloseStack) ProcessInstr(p InstrProcessor) {
 	p.ProcessTruncateCloseStackInstr(t)
 }
 
+// PushCloseStack truncates pushes the value Src to the close stack.  This
+// instruction was introduced to support to-be-closed variables which are part
+// of Lua 5.4
 type PushCloseStack struct {
 	Src Register
 }
@@ -440,6 +447,7 @@ func (i PushCloseStack) String() string {
 	return fmt.Sprintf("push %s to close stack", i.Src)
 }
 
+// ProcessInstr makes the InstrProcessor process this instruction.
 func (i PushCloseStack) ProcessInstr(p InstrProcessor) {
 	p.ProcessPushCloseStackInstr(i)
 }
