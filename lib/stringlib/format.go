@@ -143,7 +143,7 @@ OuterLoop:
 				case 'p':
 					// Pointer address, new in Lua 5.4
 					switch v := values[j]; v.Type() {
-					case rt.BoolType, rt.FloatType, rt.IntType:
+					case rt.BoolType, rt.FloatType, rt.IntType, rt.NilType:
 						outFormat[i] = 's'
 						arg = "(null)"
 					case rt.StringType:

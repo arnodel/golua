@@ -300,6 +300,8 @@ do
     --> =(null)
     pf("%p", 2.5)
     --> =(null)
+    pf("%p", nil)
+    --> =(null)
 
     pf("=%p=", "hello")
     --> ~=0x[0-9a-f]+=
