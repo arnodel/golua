@@ -181,17 +181,25 @@ func powFloat(x, y float64) float64 {
 	return math.Pow(x, y)
 }
 
-func pow(t *Thread, x Value, y Value) (Value, *Error) {
-	fx, okx := ToFloat(x)
-	fy, oky := ToFloat(y)
-	if okx && oky {
-		return FloatValue(powFloat(fx, fy)), nil
+func Pow(x, y Value) (Value, bool) {
+	var fx, fy float64
+	switch x.iface.(type) {
+	case int64:
+		fx = float64(x.AsInt())
+	case float64:
+		fx = x.AsFloat()
+	default:
+		return NilValue, false
 	}
-	res, err, ok := metabin(t, "__pow", x, y)
-	if ok {
-		return res, err
+	switch y.iface.(type) {
+	case int64:
+		fy = float64(y.AsInt())
+	case float64:
+		fy = y.AsFloat()
+	default:
+		return NilValue, false
 	}
-	return NilValue, BinaryArithmeticError("pow", x, y)
+	return FloatValue(powFloat(fx, fy)), true
 }
 
 func BinaryArithFallback(t *Thread, op string, x, y Value) (Value, *Error) {

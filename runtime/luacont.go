@@ -158,7 +158,10 @@ RunLoop:
 					res, err = BinaryArithFallback(t, "__mod", x, y)
 				}
 			case code.OpPow:
-				res, err = pow(t, x, y)
+				res, ok = Pow(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__pow", x, y)
+				}
 
 			// Bitwise
 
