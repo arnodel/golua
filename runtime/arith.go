@@ -44,11 +44,7 @@ func add(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, nil
 	}
-	res, err, ok := metabin(t, "__add", x, y)
-	if ok {
-		return res, err
-	}
-	return NilValue, BinaryArithmeticError("add", x, y, numberType(x), numberType(y))
+	return BinaryArithFallback(t, "__add", x, y)
 }
 
 func sub(t *Thread, x Value, y Value) (Value, *Error) {
@@ -74,7 +70,7 @@ func sub(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, BinaryArithmeticError("sub", x, y, kx, ky)
+	return NilValue, BinaryArithmeticError("sub", x, y)
 }
 
 func mul(t *Thread, x Value, y Value) (Value, *Error) {
@@ -100,7 +96,7 @@ func mul(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, BinaryArithmeticError("mul", x, y, kx, ky)
+	return NilValue, BinaryArithmeticError("mul", x, y)
 }
 
 func div(t *Thread, x Value, y Value) (Value, *Error) {
@@ -126,7 +122,7 @@ func div(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, BinaryArithmeticError("div", x, y, kx, ky)
+	return NilValue, BinaryArithmeticError("div", x, y)
 }
 
 func floordivInt(x, y int64) int64 {
@@ -168,7 +164,7 @@ func idiv(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, BinaryArithmeticError("idiv", x, y, kx, ky)
+	return NilValue, BinaryArithmeticError("idiv", x, y)
 }
 
 func modInt(x, y int64) int64 {
@@ -214,7 +210,7 @@ func Mod(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, BinaryArithmeticError("mod", x, y, kx, ky)
+	return NilValue, BinaryArithmeticError("mod", x, y)
 }
 
 func powFloat(x, y float64) float64 {
@@ -231,15 +227,23 @@ func pow(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, BinaryArithmeticError("pow", x, y, numberType(x), numberType(y))
+	return NilValue, BinaryArithmeticError("pow", x, y)
 }
 
-func BinaryArithmeticError(op string, x, y Value, kx, ky NumberType) *Error {
+func BinaryArithFallback(t *Thread, op string, x, y Value) (Value, *Error) {
+	res, err, ok := metabin(t, op, x, y)
+	if ok {
+		return res, err
+	}
+	return NilValue, BinaryArithmeticError(op[2:], x, y)
+}
+
+func BinaryArithmeticError(op string, x, y Value) *Error {
 	var wrongVal Value
 	switch {
-	case ky != NaN:
+	case numberType(y) != NaN:
 		wrongVal = x
-	case kx != NaN:
+	case numberType(x) != NaN:
 		wrongVal = y
 	default:
 		return NewErrorF("attempt to %s a '%s' with a '%s'", op, x.CustomTypeName(), y.CustomTypeName())
