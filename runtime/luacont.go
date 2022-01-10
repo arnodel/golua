@@ -122,14 +122,21 @@ RunLoop:
 			y := getReg(regs, cells, opcode.GetC())
 			var res Value
 			var err *Error
+			var ok bool
 			switch opcode.GetX() {
 
 			// Arithmetic
 
 			case code.OpAdd:
-				res, err = add(t, x, y)
+				res, ok = Add(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__add", x, y)
+				}
 			case code.OpSub:
-				res, err = sub(t, x, y)
+				res, ok = Sub(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__sub", x, y)
+				}
 			case code.OpMul:
 				res, err = mul(t, x, y)
 			case code.OpDiv:

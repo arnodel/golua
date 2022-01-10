@@ -28,3 +28,8 @@ do
     print(pcall(function() return "BOOM" + n end))
     --> ~false\t.*BOOM
 end
+
+do
+    print("2" - "2")
+    --> =0
+end

@@ -4,6 +4,7 @@ import rt "github.com/arnodel/golua/runtime"
 
 var (
 	string__add = stringBinOp(rt.Add, "__add")
+	string__sub = stringBinOp(rt.Sub, "__sub")
 )
 
 func stringBinOp(f func(x, y rt.Value) (rt.Value, bool), op string) func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

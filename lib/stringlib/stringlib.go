@@ -46,6 +46,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(stringMeta, "__add", string__add, 2, false),
+		r.SetEnvGoFunc(stringMeta, "__sub", string__sub, 2, false),
 	)
 	r.SetStringMeta(stringMeta)
 

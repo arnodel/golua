@@ -39,38 +39,24 @@ func Add(x, y Value) (Value, bool) {
 	return NilValue, false
 }
 
-func add(t *Thread, x Value, y Value) (Value, *Error) {
-	res, ok := Add(x, y)
-	if ok {
-		return res, nil
-	}
-	return BinaryArithFallback(t, "__add", x, y)
-}
-
-func sub(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	ny, fy, ky := ToNumber(y)
-	switch kx {
-	case IsInt:
-		switch ky {
-		case IsInt:
-			return IntValue(nx - ny), nil
-		case IsFloat:
-			return FloatValue(float64(nx) - fy), nil
+func Sub(x, y Value) (Value, bool) {
+	switch x.iface.(type) {
+	case int64:
+		switch y.iface.(type) {
+		case int64:
+			return IntValue(x.AsInt() - y.AsInt()), true
+		case float64:
+			return FloatValue(float64(x.AsInt()) - y.AsFloat()), true
 		}
-	case IsFloat:
-		switch ky {
-		case IsInt:
-			return FloatValue(fx - float64(ny)), nil
-		case IsFloat:
-			return FloatValue(fx - fy), nil
+	case float64:
+		switch y.iface.(type) {
+		case int64:
+			return FloatValue(x.AsFloat() - float64(y.AsInt())), true
+		case float64:
+			return FloatValue(x.AsFloat() - y.AsFloat()), true
 		}
 	}
-	res, err, ok := metabin(t, "__sub", x, y)
-	if ok {
-		return res, err
-	}
-	return NilValue, BinaryArithmeticError("sub", x, y)
+	return NilValue, false
 }
 
 func mul(t *Thread, x Value, y Value) (Value, *Error) {
