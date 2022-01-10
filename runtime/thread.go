@@ -15,10 +15,16 @@ const (
 	ThreadDead      ThreadStatus = 3 // Thread has finished and cannot be resumed
 )
 
+// Data passed between Threads via their resume channel (Thread.resumeCh).
+//
+// Supported types for exception are ContextTerminationError (which means
+// execution has run out of resources) and threadClose (which means the thread
+// should be closed without resuming execution, new in Lua 5.4 via the
+// coroutine.close() function).  Other types will cause a panic.
 type valuesError struct {
-	args     []Value
-	err      *Error
-	quotaErr *ContextTerminationError
+	args      []Value     // arguments ot yield or resume
+	err       *Error      // execution error
+	exception interface{} // used when the thread should be closed right away
 }
 
 // A Thread is a lua thread.
@@ -74,6 +80,12 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 		next, err = c.RunInThread(t)
 		if err != nil {
 			if err.Handled() {
+				// Now we can do cleanup, cleanup should always return handled
+				// errors (fingers crossed).
+				for c != nil {
+					err = c.Cleanup(t, err)
+					c = c.Next()
+				}
 				return err
 			}
 			err.AddContext(c, -1)
@@ -85,8 +97,8 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 				next = t.messageHandler.Continuation(t.Runtime, newMessageHandlerCont(c))
 				next.Push(t.Runtime, err.Value())
 			} else {
-				// If there is no message handler, just return the error
-				return err
+				next = newMessageHandlerCont(c)
+				next.Push(t.Runtime, err.Value())
 			}
 		}
 		c = next
@@ -94,28 +106,36 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 	return
 }
 
+// This is to be able to close a suspended coroutine without completing it, but
+// still allow cleaning up the to-be-closed variables.  If this is put on the
+// resume channel of a running thread, yield will cause a panic in the goroutine
+// and that will be caught in the defer() clause below.
+type threadClose struct{}
+
 // Start starts the thread in a goroutine, giving it the callable c to run.  the
 // t.Resume() method needs to be called to provide arguments to the callable.
 func (t *Thread) Start(c Callable) {
 	t.RequireBytes(2 << 10) // A goroutine starts off with 2k stack
 	go func() {
 		var (
-			args     []Value
-			err      *Error
-			quotaErr *ContextTerminationError
+			args []Value
+			err  *Error
 		)
 		// If there was a panic due to an exceeded quota, we need to end the
 		// thread and propagate that panic to the calling thread
 		defer func() {
-			if r := recover(); r != nil {
-				quotaErr = new(ContextTerminationError)
-				var ok bool
-				*quotaErr, ok = r.(ContextTerminationError)
-				if !ok {
+			r := recover()
+			if r != nil {
+				switch r.(type) {
+				case ContextTerminationError:
+				case threadClose:
+					// This means we want to close the coroutine, so no panic!
+					r = nil
+				default:
 					panic(r)
 				}
 			}
-			t.end(args, err, quotaErr)
+			t.end(args, err, r)
 		}()
 		args, err = t.getResumeValues()
 		if err == nil {
@@ -156,6 +176,32 @@ func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, *Error) {
 	return caller.getResumeValues()
 }
 
+// Resume execution of a suspended thread.  Its status switches to
+// running while its caller's status switches to suspended.
+func (t *Thread) Close(caller *Thread) *Error {
+	t.mux.Lock()
+	if t.status != ThreadSuspended {
+		t.mux.Unlock()
+		switch t.status {
+		case ThreadDead:
+			return NewErrorS("cannot close dead thread")
+		default:
+			return NewErrorS("cannot close running thread")
+		}
+	}
+	caller.mux.Lock()
+	if caller.status != ThreadOK {
+		panic("Caller of thread to close is not running")
+	}
+	t.caller = caller
+	t.status = ThreadOK
+	t.mux.Unlock()
+	caller.mux.Unlock()
+	t.sendResumeValues(nil, nil, threadClose{})
+	_, err := caller.getResumeValues()
+	return err
+}
+
 // Yield to the caller thread.  The yielding thread's status switches
 // to suspended while the caller's status switches back to running.
 func (t *Thread) Yield(args []Value) ([]Value, *Error) {
@@ -180,7 +226,7 @@ func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 	return t.getResumeValues()
 }
 
-func (t *Thread) end(args []Value, err *Error, quotaErr *ContextTerminationError) {
+func (t *Thread) end(args []Value, err *Error, exception interface{}) {
 	caller := t.caller
 	t.mux.Lock()
 	caller.mux.Lock()
@@ -191,12 +237,14 @@ func (t *Thread) end(args []Value, err *Error, quotaErr *ContextTerminationError
 		panic("Called Thread.end on a non-running thread")
 	case caller.status != ThreadOK:
 		panic("Caller thread of ending thread is not OK")
-	default:
-		close(t.resumeCh)
-		t.status = ThreadDead
-		t.caller = nil
 	}
-	caller.sendResumeValues(args, err, quotaErr)
+	close(t.resumeCh)
+	t.status = ThreadDead
+	t.caller = nil
+	for c := t.CurrentCont(); c != nil; c = c.Next() {
+		err = c.Cleanup(caller, err)
+	}
+	caller.sendResumeValues(args, err, exception)
 	t.ReleaseBytes(2 << 10) // The goroutine will terminate after this
 }
 
@@ -207,14 +255,14 @@ func (t *Thread) call(c Callable, args []Value, next Cont) *Error {
 
 func (t *Thread) getResumeValues() ([]Value, *Error) {
 	res := <-t.resumeCh
-	if res.quotaErr != nil {
-		panic(*res.quotaErr)
+	if res.exception != nil {
+		panic(res.exception)
 	}
 	return res.args, res.err
 }
 
-func (t *Thread) sendResumeValues(args []Value, err *Error, quotaErr *ContextTerminationError) {
-	t.resumeCh <- valuesError{args, err, quotaErr}
+func (t *Thread) sendResumeValues(args []Value, err *Error, exception interface{}) {
+	t.resumeCh <- valuesError{args: args, err: err, exception: exception}
 }
 
 type messageHandlerCont struct {
@@ -257,4 +305,8 @@ func (c *messageHandlerCont) PushEtc(r *Runtime, etc []Value) {
 
 func (c *messageHandlerCont) RunInThread(t *Thread) (Cont, *Error) {
 	return nil, newHandledError(c.err)
+}
+
+func (c *messageHandlerCont) Cleanup(t *Thread, err *Error) *Error {
+	return err
 }

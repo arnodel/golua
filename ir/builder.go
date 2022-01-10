@@ -150,6 +150,7 @@ func (c *CodeBuilder) PopContext() {
 	if top.reg == nil {
 		panic("Cannot pop empty context")
 	}
+	c.emitTruncate(context.top())
 	c.context = context
 	c.emitClearReg(top)
 	for _, tr := range top.reg {
@@ -165,12 +166,28 @@ func (c *CodeBuilder) emitClearReg(m lexicalScope) {
 	}
 }
 
+// PushCloseAction emits a PushCloseStack instruction and updates the current
+// lexical context accordingly
+func (c *CodeBuilder) PushCloseAction(reg Register) {
+	c.context.addHeight(1)
+	c.EmitNoLine(PushCloseStack{Src: reg})
+}
+
+func (c *CodeBuilder) emitTruncate(m lexicalScope) {
+	if m.height < c.context.top().height {
+		c.EmitNoLine(TruncateCloseStack{Height: m.height})
+	}
+}
+
 func (c *CodeBuilder) EmitJump(lblName Name, line int) bool {
-	lc := c.context
-	var top lexicalScope
+	var (
+		lc  = c.context
+		top lexicalScope
+	)
 	for len(lc) > 0 {
 		lc, top = lc.pop()
 		if lbl, ok := top.label[lblName]; ok {
+			c.emitTruncate(top)
 			c.Emit(Jump{Label: lbl}, line)
 			return true
 		}

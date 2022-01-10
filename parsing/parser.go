@@ -610,12 +610,24 @@ func (p *Parser) Name(t *token.Token) (ast.Name, *token.Token) {
 
 func (p *Parser) NameAttrib(t *token.Token) (ast.NameAttrib, *token.Token) {
 	name, t := p.Name(t)
-	if t.Type != token.SgLess {
-		return ast.NameAttrib{Name: name}, t
+	attrib := ast.NoAttrib
+	var attribName *ast.Name
+	if t.Type == token.SgLess {
+		attribTok := p.Scan()
+		attribName = new(ast.Name)
+		*attribName, t = p.Name(attribTok)
+		switch attribName.Val {
+		case "const":
+			attrib = ast.ConstAttrib
+		case "close":
+			attrib = ast.CloseAttrib
+		default:
+			tokenError(attribTok, "expected 'const' or 'close'")
+		}
+		expectType(t, token.SgGreater, "'>'")
+		t = p.Scan()
 	}
-	attrib, t := p.Name(p.Scan())
-	expectType(t, token.SgGreater, "'>'")
-	return ast.NameAttrib{Name: name, Attrib: &attrib}, p.Scan()
+	return ast.NewNameAttrib(name, attribName, attrib), t
 }
 
 func expectIdent(t *token.Token) {

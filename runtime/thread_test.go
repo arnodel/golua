@@ -91,9 +91,9 @@ func TestThread_Yield(t *testing.T) {
 
 func TestThread_end(t *testing.T) {
 	type args struct {
-		args     []Value
-		err      *Error
-		quotaErr *ContextTerminationError
+		args  []Value
+		err   *Error
+		extra interface{}
 	}
 	quotaErr := ContextTerminationError{message: "boo!"}
 	tests := []struct {
@@ -132,7 +132,7 @@ func TestThread_end(t *testing.T) {
 				resumeCh: make(chan valuesError),
 			},
 			args: args{
-				quotaErr: &quotaErr,
+				extra: quotaErr,
 			},
 			wantPanic: quotaErr,
 		},
@@ -144,12 +144,12 @@ func TestThread_end(t *testing.T) {
 			gotPanic := func() (res interface{}) {
 				defer func() { res = recover() }()
 				caller := th.caller // The caller is removed when th is killed
-				th.end(tt.args.args, tt.args.err, tt.args.quotaErr)
+				th.end(tt.args.args, tt.args.err, tt.args.extra)
 				_, _ = caller.getResumeValues()
 				return
 			}()
 			if gotPanic != tt.wantPanic {
-				t.Errorf("Thread.end() panic got %v, want %v", gotPanic, tt.wantPanic)
+				t.Errorf("Thread.end() panic got %#v, want %#v", gotPanic, tt.wantPanic)
 			}
 		})
 	}

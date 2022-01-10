@@ -37,12 +37,18 @@ func tok(tp token.Type, lit string) *token.Token {
 func name(s string) ast.Name {
 	return ast.Name{Val: s}
 }
-func nameAttrib(s string, attrib ...string) ast.NameAttrib {
-	var attribName *ast.Name
-	if len(attrib) > 0 {
-		attribName = &ast.Name{Val: attrib[0]}
+
+func nameAttrib(s string, attribs ...string) ast.NameAttrib {
+	var attrib = ast.NoAttrib
+	if len(attribs) > 0 {
+		switch attribs[0] {
+		case "close":
+			attrib = ast.CloseAttrib
+		case "const":
+			attrib = ast.ConstAttrib
+		}
 	}
-	return ast.NameAttrib{Name: name(s), Attrib: attribName}
+	return ast.NameAttrib{Name: name(s), Attrib: attrib}
 }
 
 func str(s string) ast.String {
@@ -977,6 +983,7 @@ func TestParser_Local(t *testing.T) {
 		input string
 		want  ast.Stat
 		want1 *token.Token
+		err   interface{}
 	}{
 		{
 			name:  "local function definition",
@@ -1026,7 +1033,7 @@ func TestParser_Local(t *testing.T) {
 			want1: tok(token.EOF, ""),
 		},
 		{
-			name:  "local with attrib",
+			name:  "local with const attrib",
 			input: `local x <const> = 1`,
 			want: ast.LocalStat{
 				NameAttribs: []ast.NameAttrib{nameAttrib("x", "const")},
@@ -1034,9 +1041,29 @@ func TestParser_Local(t *testing.T) {
 			},
 			want1: tok(token.EOF, ""),
 		},
+		{
+			name:  "local with close attrib",
+			input: `local x <close> = b`,
+			want: ast.LocalStat{
+				NameAttribs: []ast.NameAttrib{nameAttrib("x", "close")},
+				Values:      []ast.ExpNode{name("b")},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "local with invalid attrib",
+			input: `local x <foobar> = b`,
+			err:   Error{Got: tok(token.IDENT, "foobar"), Expected: "expected 'const' or 'close'"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				r := recover()
+				if !reflect.DeepEqual(r, tt.err) {
+					t.Errorf("Parser.Local() error = %v, want %v", r, tt.err)
+				}
+			}()
 			p := &Parser{scanner: newTestScanner(tt.input)}
 			got, got1 := p.Local(p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {

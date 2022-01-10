@@ -3,8 +3,9 @@ package ir
 import "fmt"
 
 type lexicalScope struct {
-	reg   map[Name]taggedReg
-	label map[Name]Label
+	reg    map[Name]taggedReg // maps variable names to registers
+	label  map[Name]Label     // maps label names to labels
+	height int                // This is the height of the close stack in this scope
 }
 
 type taggedReg struct {
@@ -78,12 +79,22 @@ func (c lexicalContext) addLabel(name Name, label Label) (ok bool) {
 	return
 }
 
+// addHeight increases the height of the topmost lexical scope in this context.
+func (c lexicalContext) addHeight(h int) (ok bool) {
+	ok = len(c) > 0
+	if ok {
+		c[len(c)-1].height += h
+	}
+	return ok
+}
+
 // pushNew returns a new LexicalContext that extends the receive with a new
 // blank lexical scope.
 func (c lexicalContext) pushNew() lexicalContext {
 	return append(c, lexicalScope{
-		reg:   make(map[Name]taggedReg),
-		label: make(map[Name]Label),
+		reg:    make(map[Name]taggedReg),
+		label:  make(map[Name]Label),
+		height: c.top().height,
 	})
 }
 

@@ -41,24 +41,34 @@ func (s LocalStat) HWrite(w HWriter) {
 	w.Dedent()
 }
 
+// LocalAttrib is the type of a local name attrib
+type LocalAttrib uint8
+
+// Valid values for LocalAttrib
+const (
+	NoAttrib    LocalAttrib = iota
+	ConstAttrib             // <const>, introduced in Lua 5.4
+	CloseAttrib             // <close>, introduced in Lua 5.4
+)
+
+// A NameAttrib is a name introduce by a local definition, together with an
+// optional attribute (in Lua 5.4 that is 'close' or 'const').
 type NameAttrib struct {
 	Location
 	Name   Name
-	Attrib *Name
+	Attrib LocalAttrib
 }
 
-func NewNameAttrib(name Name, attrib *Name) NameAttrib {
+// NewNameAttrib returns a new NameAttribe for the given name and attrib.
+func NewNameAttrib(name Name, attribName *Name, attrib LocalAttrib) NameAttrib {
 	loc := name.Location
-	if attrib != nil {
-		loc = MergeLocations(loc, attrib)
+	if attribName != nil {
+		loc = MergeLocations(loc, attribName)
+
 	}
 	return NameAttrib{
 		Location: loc,
 		Name:     name,
 		Attrib:   attrib,
 	}
-}
-
-func (na NameAttrib) IsConst() bool {
-	return na.Attrib != nil && na.Attrib.Val == "const"
 }

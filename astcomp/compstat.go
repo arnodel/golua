@@ -59,7 +59,7 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 
 	nameAttribs := make([]ast.NameAttrib, len(s.Vars))
 	for i, name := range s.Vars {
-		nameAttribs[i] = ast.NewNameAttrib(name, nil)
+		nameAttribs[i] = ast.NewNameAttrib(name, nil, ast.NoAttrib)
 	}
 	c.CompileStat(ast.LocalStat{
 		NameAttribs: nameAttribs,
@@ -265,8 +265,16 @@ func (c *compiler) ProcessLocalStat(s ast.LocalStat) {
 	for i, reg := range localRegs {
 		c.ReleaseRegister(reg)
 		c.DeclareLocal(ir.Name(s.NameAttribs[i].Name.Val), reg)
-		if s.NameAttribs[i].IsConst() {
+		switch s.NameAttribs[i].Attrib {
+		case ast.NoAttrib:
+			// Nothing to do
+		case ast.ConstAttrib:
 			c.MarkConstantReg(reg)
+		case ast.CloseAttrib:
+			c.MarkConstantReg(reg)
+			c.PushCloseAction(reg)
+		default:
+			panic(compilerBug{})
 		}
 	}
 }

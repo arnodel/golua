@@ -17,6 +17,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
+		r.SetEnvGoFunc(pkg, "close", close, 1, false), // Lua 5.4
 		r.SetEnvGoFunc(pkg, "create", create, 1, false),
 		r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 0, false),
 		r.SetEnvGoFunc(pkg, "resume", resume, 1, true),
@@ -27,6 +28,23 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	)
 
 	return rt.TableValue(pkg), nil
+}
+
+func close(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err
+	}
+	co, err := c.ThreadArg(0)
+	if err != nil {
+		return nil, err
+	}
+	err = co.Close(t)
+	next := c.Next()
+	t.Push1(next, rt.BoolValue(err == nil))
+	if err != nil {
+		t.Push1(next, err.Value())
+	}
+	return next, nil
 }
 
 func create(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
