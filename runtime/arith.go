@@ -19,30 +19,36 @@ func unm(t *Thread, x Value) (Value, *Error) {
 	return NilValue, NewErrorF("attempt to unm a '%s'", x.CustomTypeName())
 }
 
+func Add(x, y Value) (Value, bool) {
+	switch x.iface.(type) {
+	case int64:
+		switch y.iface.(type) {
+		case int64:
+			return IntValue(x.AsInt() + y.AsInt()), true
+		case float64:
+			return FloatValue(float64(x.AsInt()) + y.AsFloat()), true
+		}
+	case float64:
+		switch y.iface.(type) {
+		case int64:
+			return FloatValue(x.AsFloat() + float64(y.AsInt())), true
+		case float64:
+			return FloatValue(x.AsFloat() + y.AsFloat()), true
+		}
+	}
+	return NilValue, false
+}
+
 func add(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	ny, fy, ky := ToNumber(y)
-	switch kx {
-	case IsInt:
-		switch ky {
-		case IsInt:
-			return IntValue(nx + ny), nil
-		case IsFloat:
-			return FloatValue(float64(nx) + fy), nil
-		}
-	case IsFloat:
-		switch ky {
-		case IsInt:
-			return FloatValue(fx + float64(ny)), nil
-		case IsFloat:
-			return FloatValue(fx + fy), nil
-		}
+	res, ok := Add(x, y)
+	if ok {
+		return res, nil
 	}
 	res, err, ok := metabin(t, "__add", x, y)
 	if ok {
 		return res, err
 	}
-	return NilValue, binaryArithmeticError("add", x, y, kx, ky)
+	return NilValue, BinaryArithmeticError("add", x, y, numberType(x), numberType(y))
 }
 
 func sub(t *Thread, x Value, y Value) (Value, *Error) {
@@ -68,7 +74,7 @@ func sub(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, binaryArithmeticError("sub", x, y, kx, ky)
+	return NilValue, BinaryArithmeticError("sub", x, y, kx, ky)
 }
 
 func mul(t *Thread, x Value, y Value) (Value, *Error) {
@@ -94,7 +100,7 @@ func mul(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, binaryArithmeticError("mul", x, y, kx, ky)
+	return NilValue, BinaryArithmeticError("mul", x, y, kx, ky)
 }
 
 func div(t *Thread, x Value, y Value) (Value, *Error) {
@@ -120,7 +126,7 @@ func div(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, binaryArithmeticError("div", x, y, kx, ky)
+	return NilValue, BinaryArithmeticError("div", x, y, kx, ky)
 }
 
 func floordivInt(x, y int64) int64 {
@@ -162,7 +168,7 @@ func idiv(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, binaryArithmeticError("idiv", x, y, kx, ky)
+	return NilValue, BinaryArithmeticError("idiv", x, y, kx, ky)
 }
 
 func modInt(x, y int64) int64 {
@@ -208,7 +214,7 @@ func Mod(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, binaryArithmeticError("mod", x, y, kx, ky)
+	return NilValue, BinaryArithmeticError("mod", x, y, kx, ky)
 }
 
 func powFloat(x, y float64) float64 {
@@ -225,10 +231,10 @@ func pow(t *Thread, x Value, y Value) (Value, *Error) {
 	if ok {
 		return res, err
 	}
-	return NilValue, binaryArithmeticError("pow", x, y, numberType(x), numberType(y))
+	return NilValue, BinaryArithmeticError("pow", x, y, numberType(x), numberType(y))
 }
 
-func binaryArithmeticError(op string, x, y Value, kx, ky NumberType) *Error {
+func BinaryArithmeticError(op string, x, y Value, kx, ky NumberType) *Error {
 	var wrongVal Value
 	switch {
 	case ky != NaN:
