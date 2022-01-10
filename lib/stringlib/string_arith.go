@@ -8,6 +8,7 @@ var (
 	string__mul  = stringBinOp(rt.Mul, "__mul")
 	string__div  = stringBinOp(rt.Div, "__div")
 	string__idiv = stringBinOpErr(rt.Idiv, "__idiv")
+	string__mod  = stringBinOpErr(rt.Mod, "__mod")
 )
 
 func stringBinOp(f func(x, y rt.Value) (rt.Value, bool), op string) func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

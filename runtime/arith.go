@@ -153,33 +153,28 @@ func modFloat(x, y float64) float64 {
 }
 
 // Mod returns x % y.
-func Mod(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	ny, fy, ky := ToNumber(y)
-	switch kx {
-	case IsInt:
-		switch ky {
-		case IsInt:
+func Mod(x Value, y Value) (Value, bool, *Error) {
+	switch x.iface.(type) {
+	case int64:
+		switch y.iface.(type) {
+		case int64:
+			ny := y.AsInt()
 			if ny == 0 {
-				return NilValue, NewErrorS("attempt to perform 'n%0'")
+				return NilValue, true, NewErrorS("attempt to perform 'n%0'")
 			}
-			return IntValue(modInt(nx, ny)), nil
-		case IsFloat:
-			return FloatValue(modFloat(float64(nx), fy)), nil
+			return IntValue(modInt(x.AsInt(), ny)), true, nil
+		case float64:
+			return FloatValue(modFloat(float64(x.AsInt()), y.AsFloat())), true, nil
 		}
-	case IsFloat:
-		switch ky {
-		case IsInt:
-			return FloatValue(modFloat(fx, float64(ny))), nil
-		case IsFloat:
-			return FloatValue(modFloat(fx, fy)), nil
+	case float64:
+		switch y.iface.(type) {
+		case int64:
+			return FloatValue(modFloat(x.AsFloat(), float64(y.AsInt()))), true, nil
+		case float64:
+			return FloatValue(modFloat(x.AsFloat(), y.AsFloat())), true, nil
 		}
 	}
-	res, err, ok := metabin(t, "__mod", x, y)
-	if ok {
-		return res, err
-	}
-	return NilValue, BinaryArithmeticError("mod", x, y)
+	return NilValue, false, nil
 }
 
 func powFloat(x, y float64) float64 {

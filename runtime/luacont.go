@@ -153,7 +153,10 @@ RunLoop:
 					res, err = BinaryArithFallback(t, "__idiv", x, y)
 				}
 			case code.OpMod:
-				res, err = Mod(t, x, y)
+				res, ok, err = Mod(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__mod", x, y)
+				}
 			case code.OpPow:
 				res, err = pow(t, x, y)
 

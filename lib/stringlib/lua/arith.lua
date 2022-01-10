@@ -36,17 +36,6 @@ do
 end
 
 do
-    print("2" - "2")
-    --> =0
-
-    print("3" * 5, 0.1 * "10")
-    --> =15	1
-
-    print("7" / 2, "5" / "10")
-    --> =3.5	0.5
-end
-
-do
     print("1" // "2", 7 // "2", "2.4" // 2)
     --> =0	3	1
 
@@ -67,4 +56,18 @@ do
 
     print(pcall(function() return "8" // "0" end))
     --> ~false\t.*attempt to divide by zero
+end
+
+do
+    print("2" - "2")
+    --> =0
+
+    print("3" * 5, 0.1 * "10")
+    --> =15	1
+
+    print("7" / 2, "5" / "10")
+    --> =3.5	0.5
+
+    print("3" % 2)
+    --> =1
 end
