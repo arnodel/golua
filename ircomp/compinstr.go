@@ -227,9 +227,18 @@ func (ic instrCompiler) ProcessPushCloseStackInstr(p ir.PushCloseStack) {
 	ic.Emit(code.ClPush(ic.codeReg(p.Src)))
 }
 
+// ProcessPrepForLoopInstr compiles a PrepForLoop instruction.
+func (ic instrCompiler) ProcessPrepForLoopInstr(i ir.PrepForLoop) {
+	ic.Emit(code.PrepForLoop(ic.codeReg(i.Start), ic.codeReg(i.Stop), ic.codeReg(i.Step)))
+}
+
+// ProcessAdvForLoopInstr compiles an AdvForLoop instruction.
+func (ic instrCompiler) ProcessAdvForLoopInstr(i ir.AdvForLoop) {
+	ic.Emit(code.AdvForLoop(ic.codeReg(i.Start), ic.codeReg(i.Stop), ic.codeReg(i.Step)))
+}
+
 func (ic instrCompiler) ProcessTakeRegisterInstr(t ir.TakeRegister) {
 	ic.takeRegister(t.Reg)
-
 }
 
 func (ic instrCompiler) ProcessReleaseRegisterInstr(r ir.ReleaseRegister) {

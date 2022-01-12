@@ -19,6 +19,68 @@ func RawEqual(x, y Value) (bool, bool) {
 	return false, false
 }
 
+// IsZero returns true if x is a number and is equal to 0
+func IsZero(x Value) bool {
+	switch x.iface.(type) {
+	case int64:
+		return x.AsInt() == 0
+	case float64:
+		return x.AsFloat() == 0
+	}
+	return false
+}
+
+// IsPositive returns true if x is a number and is > 0
+func IsPositive(x Value) bool {
+	switch x.iface.(type) {
+	case int64:
+		return x.AsInt() > 0
+	case float64:
+		return x.AsFloat() > 0
+	}
+	return false
+}
+
+func numIsLessThan(x, y Value) bool {
+	switch x.iface.(type) {
+	case int64:
+		switch y.iface.(type) {
+		case int64:
+			return x.AsInt() < y.AsInt()
+		case float64:
+			return ltIntAndFloat(x.AsInt(), y.AsFloat())
+		}
+	case float64:
+		switch y.iface.(type) {
+		case int64:
+			return ltFloatAndInt(x.AsFloat(), y.AsInt())
+		case float64:
+			return x.AsFloat() < y.AsFloat()
+		}
+	}
+	return false
+}
+
+func IsLessThan(x, y Value) (bool, bool) {
+	switch x.iface.(type) {
+	case int64:
+		switch y.iface.(type) {
+		case int64:
+			return x.AsInt() < y.AsInt(), true
+		case float64:
+			return ltIntAndFloat(x.AsInt(), y.AsFloat()), true
+		}
+	case float64:
+		switch y.iface.(type) {
+		case int64:
+			return ltFloatAndInt(x.AsFloat(), y.AsInt()), true
+		case float64:
+			return x.AsFloat() < y.AsFloat(), true
+		}
+	}
+	return false, false
+}
+
 func equalIntAndFloat(n int64, f float64) bool {
 	nf := int64(f)
 	return float64(nf) == f && nf == n
@@ -46,21 +108,9 @@ func eq(t *Thread, x, y Value) (bool, *Error) {
 // Lt returns whether x < y is true (and an error if it's not possible to
 // compare them).
 func Lt(t *Thread, x, y Value) (bool, *Error) {
-	switch x.NumberType() {
-	case IntType:
-		switch y.NumberType() {
-		case IntType:
-			return x.AsInt() < y.AsInt(), nil
-		case FloatType:
-			return ltIntAndFloat(x.AsInt(), y.AsFloat()), nil
-		}
-	case FloatType:
-		switch y.NumberType() {
-		case IntType:
-			return ltFloatAndInt(x.AsFloat(), y.AsInt()), nil
-		case FloatType:
-			return x.AsFloat() < y.AsFloat(), nil
-		}
+	lt, ok := IsLessThan(x, y)
+	if ok {
+		return lt, nil
 	}
 	if sx, ok := x.TryString(); ok {
 		if sy, ok := y.TryString(); ok {

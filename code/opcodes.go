@@ -21,6 +21,7 @@ const (
 	Type4Pfx Opcode = 5 << 28 // 0101...
 	Type5Pfx Opcode = 4 << 28 // 0100...
 	Type6Pfx Opcode = 3 << 28 // 0011...
+	Type7Pfx Opcode = 2 << 28 // 0010...
 	Type0Pfx Opcode = 0 << 28 // 0000...
 
 	type4aFlag Opcode = 1 << 24
@@ -423,6 +424,15 @@ func mkType6(f Flag, rA, rB Reg, i Index8) Opcode {
 }
 
 // ==================================================================
+// Type7:  0010Fabc AAAAAAAA BBBBBBBB CCCCCCCC
+//
+// For loop opcodes
+
+func mkType7(f Flag, rA, rB, rC Reg) Opcode {
+	return Type7Pfx | f.encodeF() | rA.toA() | rB.toB() | rC.toC()
+}
+
+// ==================================================================
 // Type0:  0000Fabc AAAAAAAA BBBBBBBB CCCCCCCC
 //
 // Receiving args
@@ -671,6 +681,13 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 			return fmt.Sprintf("fill %s, %d, %s", rA, m, rB)
 		}
 		return fmt.Sprintf("%s <- etclookup(%s, %d)", rA, rB, m)
+	case Type7Pfx:
+		rStart, rStop, rStep := c.GetA(), c.GetB(), c.GetC()
+		action := "prep"
+		if c.GetF() {
+			action = "adv"
+		}
+		return fmt.Sprintf("%sfor %s, %s, %s", action, rStart, rStop, rStep)
 	default:
 		return "???"
 	}

@@ -101,97 +101,40 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	startReg := c.GetFreeRegister()
 	r := c.compileExp(s.Start, startReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, startReg, r)
-	if !ast.IsNumber(s.Start) {
-		c.emitInstr(s.Start, ir.Transform{
-			Dst: startReg,
-			Src: startReg,
-			Op:  ops.OpToNumber,
-		})
-	}
 	c.TakeRegister(startReg)
 
 	// Get register for the stop value and initialise it
 	stopReg := c.GetFreeRegister()
 	r = c.compileExp(s.Stop, stopReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, stopReg, r)
-	if !ast.IsNumber(s.Stop) {
-		c.emitInstr(s.Stop, ir.Transform{
-			Dst: stopReg,
-			Src: stopReg,
-			Op:  ops.OpToNumber,
-		})
-	}
 	c.TakeRegister(stopReg)
 
 	// Get register for the step value and initialise it
 	stepReg := c.GetFreeRegister()
 	r = c.compileExp(s.Step, stepReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, stepReg, r)
-	if !ast.IsNumber(s.Step) {
-		c.emitInstr(s.Step, ir.Transform{
-			Dst: stepReg,
-			Src: stepReg,
-			Op:  ops.OpToNumber,
-		})
-	}
 	c.TakeRegister(stepReg)
 
-	// Get the z register, which is true if step < 0
-	zReg := c.GetFreeRegister()
-	c.TakeRegister(zReg)
-	c.emitLoadConst(nil, ir.Int(0), zReg)
-	c.emitInstr(s, ir.Combine{
-		Op:   ops.OpLt,
-		Dst:  zReg,
-		Lsrc: stepReg,
-		Rsrc: zReg,
+	// Prepare the for loop
+	c.emitInstr(s, ir.PrepForLoop{
+		Start: startReg,
+		Stop:  stopReg,
+		Step:  stepReg,
 	})
 
 	c.PushContext()
-
+	endLbl := c.DeclareGotoLabel(breakLblName) // End of loop
 	loopLbl := c.GetNewLabel()
-	must(c.EmitLabel(loopLbl))
-	// loop:
-	endLbl := c.DeclareGotoLabel(breakLblName)
 
-	condReg := c.GetFreeRegister()
-	negStepLbl := c.GetNewLabel()
-	bodyLbl := c.GetNewLabel()
-	// If z goto negStep
+	// If startReg is nil, then there are no iterations in the loop
 	c.EmitNoLine(ir.JumpIf{
-		Cond:  zReg,
-		Label: negStepLbl,
-	})
-	// cond <- stop < start
-	c.EmitNoLine(ir.Combine{
-		Op:   ops.OpLt,
-		Dst:  condReg,
-		Lsrc: stopReg,
-		Rsrc: startReg,
-	})
-	// If cond goto end
-	c.EmitNoLine(ir.JumpIf{
-		Cond:  condReg,
+		Cond:  startReg,
 		Label: endLbl,
+		Not:   true,
 	})
-	// Goto body
-	c.EmitNoLine(ir.Jump{Label: bodyLbl})
-	must(c.EmitLabel(negStepLbl))
-	// negStep:
-	// cond <- start < stop
-	c.EmitNoLine(ir.Combine{
-		Op:   ops.OpLt,
-		Dst:  condReg,
-		Lsrc: startReg,
-		Rsrc: stopReg,
-	})
-	// If cond goto end
-	c.EmitNoLine(ir.JumpIf{
-		Cond:  condReg,
-		Label: endLbl,
-	})
-	must(c.EmitLabel(bodyLbl))
-	// body:
+
+	// loop:
+	must(c.EmitLabel(loopLbl))
 
 	// Here compile the loop body
 	c.PushContext()
@@ -203,23 +146,25 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	c.compileBlock(s.Body)
 	c.PopContext()
 
-	// start <- start + step
-	c.EmitNoLine(ir.Combine{
-		Op:   ops.OpAdd,
-		Dst:  startReg,
-		Lsrc: startReg,
-		Rsrc: stepReg,
+	//Advance the for loop
+	c.emitInstr(s, ir.AdvForLoop{
+		Start: startReg,
+		Stop:  stopReg,
+		Step:  stepReg,
 	})
-	// goto loop
-	c.EmitNoLine(ir.Jump{Label: loopLbl})
+	// If startReg is not nil, it means the loop continues
+	c.EmitNoLine(ir.JumpIf{
+		Cond:  startReg,
+		Label: loopLbl,
+	})
 
+	// break:
 	must(c.EmitGotoLabel(breakLblName))
 	c.PopContext()
 
 	c.ReleaseRegister(startReg)
 	c.ReleaseRegister(stopReg)
 	c.ReleaseRegister(stepReg)
-	c.ReleaseRegister(zReg)
 }
 
 // ProcessFunctionCallStat compiles a FunctionCallStat.
