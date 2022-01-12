@@ -19,8 +19,8 @@ func RawEqual(x, y Value) (bool, bool) {
 	return false, false
 }
 
-// IsZero returns true if x is a number and is equal to 0
-func IsZero(x Value) bool {
+// isZero returns true if x is a number and is equal to 0
+func isZero(x Value) bool {
 	switch x.iface.(type) {
 	case int64:
 		return x.AsInt() == 0
@@ -30,8 +30,8 @@ func IsZero(x Value) bool {
 	return false
 }
 
-// IsPositive returns true if x is a number and is > 0
-func IsPositive(x Value) bool {
+// isPositive returns true if x is a number and is > 0
+func isPositive(x Value) bool {
 	switch x.iface.(type) {
 	case int64:
 		return x.AsInt() > 0
@@ -61,7 +61,7 @@ func numIsLessThan(x, y Value) bool {
 	return false
 }
 
-func IsLessThan(x, y Value) (bool, bool) {
+func isLessThan(x, y Value) (bool, bool) {
 	switch x.iface.(type) {
 	case int64:
 		switch y.iface.(type) {
@@ -108,7 +108,7 @@ func eq(t *Thread, x, y Value) (bool, *Error) {
 // Lt returns whether x < y is true (and an error if it's not possible to
 // compare them).
 func Lt(t *Thread, x, y Value) (bool, *Error) {
-	lt, ok := IsLessThan(x, y)
+	lt, ok := isLessThan(x, y)
 	if ok {
 		return lt, nil
 	}

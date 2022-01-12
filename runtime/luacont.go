@@ -436,7 +436,7 @@ RunLoop:
 				// over the stop value or if there has been overflow /
 				// underflow.
 				var done bool
-				if IsPositive(step) {
+				if isPositive(step) {
 					done = numIsLessThan(stop, nextStart) || numIsLessThan(nextStart, start)
 				} else {
 					done = numIsLessThan(nextStart, stop) || numIsLessThan(start, nextStart)
@@ -464,17 +464,17 @@ RunLoop:
 					}
 				}
 				// A 0 step is an error
-				if IsZero(step) {
+				if isZero(step) {
 					c.pc = pc
 					return nil, NewErrorS("'for' step is zero")
 				}
 				// Check the loop is not already finished. If so, startReg is
 				// set to nil.
 				var done bool
-				if IsPositive(step) {
-					done, _ = IsLessThan(stop, start)
+				if isPositive(step) {
+					done, _ = isLessThan(stop, start)
 				} else {
-					done, _ = IsLessThan(start, stop)
+					done, _ = isLessThan(start, stop)
 				}
 				if done {
 					start = NilValue
