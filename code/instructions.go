@@ -218,3 +218,17 @@ func LoadEtcLookup(r1, r2 Reg, i int) Opcode {
 func FillTable(r1, r2 Reg, i int) Opcode {
 	return mkType6(On, r1, r2, Index8FromInt(i))
 }
+
+// PrepForLoop makes sure rStart, rStep, rStop are all numbers and converts
+// rStart and rStep to the same numeric type. If the for loop should already
+// stop then rStart is set to nil
+func PrepForLoop(rStart, rStop, rStep Reg) Opcode {
+	return mkType7(Off, rStart, rStop, rStep)
+}
+
+// AdvForLoop increments rStart by rStep, making sure that it doesn't wrap
+// around if it is an integer.  If it wraps around then the loop should stop. If
+// the loop should stop, rStart is set to nil
+func AdvForLoop(rStart, rStop, rStep Reg) Opcode {
+	return mkType7(On, rStart, rStop, rStep)
+}
