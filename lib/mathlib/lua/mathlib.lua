@@ -85,6 +85,12 @@ do
 
     print(math.log(1))
     --> =0
+
+    print(math.log(8, 2))
+    --> =3
+
+    print(pcall(math.log, 3, {}))
+    --> ~false\t.*#2 must be a number
 end
 
 do
@@ -313,6 +319,15 @@ do
 
     print(math.fmod(-6, -6) == 0, math.fmod(-6.0, -6) == 0)
     --> =true	true
+
+    print(pcall(math.fmod))
+    --> ~false\t.*2 arguments needed
+
+    print(pcall(math.fmod,"2", "a"))
+    --> ~false\t.*expected numeric arguments
+
+    print(pcall(math.fmod, 3, 0))
+    --> ~false\t.*attempt to perform 'n%0'
 
     -- TODO: fix implementation
     -- print(math.fmod(-5, 2))

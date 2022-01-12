@@ -11,7 +11,7 @@ func BenchmarkValue(b *testing.B) {
 		sv := IntValue(0)
 		for i := 0; i < 1000; i++ {
 			iv := IntValue(int64(i))
-			sv, _ = add(nil, sv, iv)
+			sv, _ = Add(sv, iv)
 		}
 	}
 }

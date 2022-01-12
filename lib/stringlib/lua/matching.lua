@@ -44,7 +44,7 @@ do
     --> =nil
 
     pf("x", "x", -10)
-    --> =nil
+    --> =1	1
 
     pf("x", "y")
     --> =nil
@@ -76,6 +76,9 @@ do
     pm("A *b_o_l_d* and an _under~line_", "([*~_])(.-)%1", 10)
     --> =_	under~line
 
+    pm("abcd", "b", -100)
+    --> =b
+
     local errm = errtest(string.match)
 
     errm("x")
@@ -96,8 +99,8 @@ do
     --> =Lua
 
     local t = {}
-    local s = "from=world, to=Lua"
-    for k, v in string.gmatch(s, "(%w+)=(%w+)") do
+    local s2 = "from=world, to=Lua"
+    for k, v in string.gmatch(s2, "(%w+)=(%w+)") do
         t[k] = v
     end
     print(t.from, t.to)
@@ -120,6 +123,35 @@ do
     --> =
     --> =b
     --> =
+
+    -- Lua 5.4 introduces an optional third argument to string.gmatch,
+    -- specifying where to start the search.
+
+    for w in string.gmatch(s, "%a+", 8) do
+        print(w)
+    end
+    --> =orld
+    --> =from
+    --> =Lua
+
+    for w in string.gmatch(s, "%a+", -1) do
+        print(w)
+    end
+    --> =a
+
+    for w in string.gmatch(s, "%a+", -7) do
+        print(w)
+    end
+    --> =rom
+    --> =Lua
+   
+    for w in string.gmatch(s, "%a+", -100) do
+        print(w)
+    end
+    --> =hello
+    --> =world
+    --> =from
+    --> =Lua
 end
 
 do

@@ -4,123 +4,95 @@ import (
 	"math"
 )
 
-func unm(t *Thread, x Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	switch kx {
-	case IsInt:
-		return IntValue(-nx), nil
-	case IsFloat:
-		return FloatValue(-fx), nil
+func Unm(x Value) (Value, bool) {
+	switch x.iface.(type) {
+	case int64:
+		return IntValue(-x.AsInt()), true
+	case float64:
+		return FloatValue(-x.AsFloat()), true
+	default:
+		return NilValue, false
 	}
-	res, err, ok := metaun(t, "__unm", x)
-	if ok {
-		return res, err
-	}
-	return NilValue, NewErrorF("attempt to unm a '%s'", x.CustomTypeName())
 }
 
-func add(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	ny, fy, ky := ToNumber(y)
-	switch kx {
-	case IsInt:
-		switch ky {
-		case IsInt:
-			return IntValue(nx + ny), nil
-		case IsFloat:
-			return FloatValue(float64(nx) + fy), nil
+func Add(x, y Value) (Value, bool) {
+	switch x.iface.(type) {
+	case int64:
+		switch y.iface.(type) {
+		case int64:
+			return IntValue(x.AsInt() + y.AsInt()), true
+		case float64:
+			return FloatValue(float64(x.AsInt()) + y.AsFloat()), true
 		}
-	case IsFloat:
-		switch ky {
-		case IsInt:
-			return FloatValue(fx + float64(ny)), nil
-		case IsFloat:
-			return FloatValue(fx + fy), nil
+	case float64:
+		switch y.iface.(type) {
+		case int64:
+			return FloatValue(x.AsFloat() + float64(y.AsInt())), true
+		case float64:
+			return FloatValue(x.AsFloat() + y.AsFloat()), true
 		}
 	}
-	res, err, ok := metabin(t, "__add", x, y)
-	if ok {
-		return res, err
-	}
-	return NilValue, binaryArithmeticError("add", x, y, kx, ky)
+	return NilValue, false
 }
 
-func sub(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	ny, fy, ky := ToNumber(y)
-	switch kx {
-	case IsInt:
-		switch ky {
-		case IsInt:
-			return IntValue(nx - ny), nil
-		case IsFloat:
-			return FloatValue(float64(nx) - fy), nil
+func Sub(x, y Value) (Value, bool) {
+	switch x.iface.(type) {
+	case int64:
+		switch y.iface.(type) {
+		case int64:
+			return IntValue(x.AsInt() - y.AsInt()), true
+		case float64:
+			return FloatValue(float64(x.AsInt()) - y.AsFloat()), true
 		}
-	case IsFloat:
-		switch ky {
-		case IsInt:
-			return FloatValue(fx - float64(ny)), nil
-		case IsFloat:
-			return FloatValue(fx - fy), nil
+	case float64:
+		switch y.iface.(type) {
+		case int64:
+			return FloatValue(x.AsFloat() - float64(y.AsInt())), true
+		case float64:
+			return FloatValue(x.AsFloat() - y.AsFloat()), true
 		}
 	}
-	res, err, ok := metabin(t, "__sub", x, y)
-	if ok {
-		return res, err
-	}
-	return NilValue, binaryArithmeticError("sub", x, y, kx, ky)
+	return NilValue, false
 }
 
-func mul(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	ny, fy, ky := ToNumber(y)
-	switch kx {
-	case IsInt:
-		switch ky {
-		case IsInt:
-			return IntValue(nx * ny), nil
-		case IsFloat:
-			return FloatValue(float64(nx) * fy), nil
+func Mul(x, y Value) (Value, bool) {
+	switch x.iface.(type) {
+	case int64:
+		switch y.iface.(type) {
+		case int64:
+			return IntValue(x.AsInt() * y.AsInt()), true
+		case float64:
+			return FloatValue(float64(x.AsInt()) * y.AsFloat()), true
 		}
-	case IsFloat:
-		switch ky {
-		case IsInt:
-			return FloatValue(fx * float64(ny)), nil
-		case IsFloat:
-			return FloatValue(fx * fy), nil
+	case float64:
+		switch y.iface.(type) {
+		case int64:
+			return FloatValue(x.AsFloat() * float64(y.AsInt())), true
+		case float64:
+			return FloatValue(x.AsFloat() * y.AsFloat()), true
 		}
 	}
-	res, err, ok := metabin(t, "__mul", x, y)
-	if ok {
-		return res, err
-	}
-	return NilValue, binaryArithmeticError("mul", x, y, kx, ky)
+	return NilValue, false
 }
 
-func div(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	ny, fy, ky := ToNumber(y)
-	switch kx {
-	case IsInt:
-		switch ky {
-		case IsInt:
-			return FloatValue(float64(nx) / float64(ny)), nil
-		case IsFloat:
-			return FloatValue(float64(nx) / fy), nil
+func Div(x, y Value) (Value, bool) {
+	switch x.iface.(type) {
+	case int64:
+		switch y.iface.(type) {
+		case int64:
+			return FloatValue(float64(x.AsInt()) / float64(y.AsInt())), true
+		case float64:
+			return FloatValue(float64(x.AsInt()) / y.AsFloat()), true
 		}
-	case IsFloat:
-		switch ky {
-		case IsInt:
-			return FloatValue(fx / float64(ny)), nil
-		case IsFloat:
-			return FloatValue(fx / fy), nil
+	case float64:
+		switch y.iface.(type) {
+		case int64:
+			return FloatValue(x.AsFloat() / float64(y.AsInt())), true
+		case float64:
+			return FloatValue(x.AsFloat() / y.AsFloat()), true
 		}
 	}
-	res, err, ok := metabin(t, "__div", x, y)
-	if ok {
-		return res, err
-	}
-	return NilValue, binaryArithmeticError("div", x, y, kx, ky)
+	return NilValue, false
 }
 
 func floordivInt(x, y int64) int64 {
@@ -136,33 +108,28 @@ func floordivFloat(x, y float64) float64 {
 	return math.Floor(x / y)
 }
 
-func idiv(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	ny, fy, ky := ToNumber(y)
-	switch kx {
-	case IsInt:
-		switch ky {
-		case IsInt:
+func Idiv(x Value, y Value) (Value, bool, *Error) {
+	switch x.iface.(type) {
+	case int64:
+		switch y.iface.(type) {
+		case int64:
+			ny := y.AsInt()
 			if ny == 0 {
-				return NilValue, NewErrorS("attempt to divide by zero")
+				return NilValue, true, NewErrorS("attempt to divide by zero")
 			}
-			return IntValue(floordivInt(nx, ny)), nil
-		case IsFloat:
-			return FloatValue(floordivFloat(float64(nx), fy)), nil
+			return IntValue(floordivInt(x.AsInt(), ny)), true, nil
+		case float64:
+			return FloatValue(floordivFloat(float64(x.AsInt()), y.AsFloat())), true, nil
 		}
-	case IsFloat:
-		switch ky {
-		case IsInt:
-			return FloatValue(floordivFloat(fx, float64(ny))), nil
-		case IsFloat:
-			return FloatValue(floordivFloat(fx, fy)), nil
+	case float64:
+		switch y.iface.(type) {
+		case int64:
+			return FloatValue(floordivFloat(x.AsFloat(), float64(y.AsInt()))), true, nil
+		case float64:
+			return FloatValue(floordivFloat(x.AsFloat(), y.AsFloat())), true, nil
 		}
 	}
-	res, err, ok := metabin(t, "__idiv", x, y)
-	if ok {
-		return res, err
-	}
-	return NilValue, binaryArithmeticError("idiv", x, y, kx, ky)
+	return NilValue, false, nil
 }
 
 func modInt(x, y int64) int64 {
@@ -182,61 +149,84 @@ func modFloat(x, y float64) float64 {
 }
 
 // Mod returns x % y.
-func Mod(t *Thread, x Value, y Value) (Value, *Error) {
-	nx, fx, kx := ToNumber(x)
-	ny, fy, ky := ToNumber(y)
-	switch kx {
-	case IsInt:
-		switch ky {
-		case IsInt:
+func Mod(x Value, y Value) (Value, bool, *Error) {
+	switch x.iface.(type) {
+	case int64:
+		switch y.iface.(type) {
+		case int64:
+			ny := y.AsInt()
 			if ny == 0 {
-				return NilValue, NewErrorS("attempt to perform 'n%0'")
+				return NilValue, true, NewErrorS("attempt to perform 'n%0'")
 			}
-			return IntValue(modInt(nx, ny)), nil
-		case IsFloat:
-			return FloatValue(modFloat(float64(nx), fy)), nil
+			return IntValue(modInt(x.AsInt(), ny)), true, nil
+		case float64:
+			return FloatValue(modFloat(float64(x.AsInt()), y.AsFloat())), true, nil
 		}
-	case IsFloat:
-		switch ky {
-		case IsInt:
-			return FloatValue(modFloat(fx, float64(ny))), nil
-		case IsFloat:
-			return FloatValue(modFloat(fx, fy)), nil
+	case float64:
+		switch y.iface.(type) {
+		case int64:
+			return FloatValue(modFloat(x.AsFloat(), float64(y.AsInt()))), true, nil
+		case float64:
+			return FloatValue(modFloat(x.AsFloat(), y.AsFloat())), true, nil
 		}
 	}
-	res, err, ok := metabin(t, "__mod", x, y)
-	if ok {
-		return res, err
-	}
-	return NilValue, binaryArithmeticError("mod", x, y, kx, ky)
+	return NilValue, false, nil
 }
 
 func powFloat(x, y float64) float64 {
 	return math.Pow(x, y)
 }
 
-func pow(t *Thread, x Value, y Value) (Value, *Error) {
-	fx, okx := ToFloat(x)
-	fy, oky := ToFloat(y)
-	if okx && oky {
-		return FloatValue(powFloat(fx, fy)), nil
+func Pow(x, y Value) (Value, bool) {
+	var fx, fy float64
+	switch x.iface.(type) {
+	case int64:
+		fx = float64(x.AsInt())
+	case float64:
+		fx = x.AsFloat()
+	default:
+		return NilValue, false
 	}
-	res, err, ok := metabin(t, "__pow", x, y)
+	switch y.iface.(type) {
+	case int64:
+		fy = float64(y.AsInt())
+	case float64:
+		fy = y.AsFloat()
+	default:
+		return NilValue, false
+	}
+	return FloatValue(powFloat(fx, fy)), true
+}
+
+func BinaryArithFallback(t *Thread, op string, x, y Value) (Value, *Error) {
+	res, err, ok := metabin(t, op, x, y)
 	if ok {
 		return res, err
 	}
-	return NilValue, binaryArithmeticError("pow", x, y, numberType(x), numberType(y))
+	return NilValue, BinaryArithmeticError(op[2:], x, y)
 }
 
-func binaryArithmeticError(op string, x, y Value, kx, ky NumberType) *Error {
+func BinaryArithmeticError(op string, x, y Value) *Error {
 	var wrongVal Value
 	switch {
-	case ky != NaN:
+	case numberType(y) != NaN:
 		wrongVal = x
-	case kx != NaN:
+	case numberType(x) != NaN:
 		wrongVal = y
 	default:
 		return NewErrorF("attempt to %s a '%s' with a '%s'", op, x.CustomTypeName(), y.CustomTypeName())
 	}
 	return NewErrorF("attempt to perform arithmetic on a %s value", wrongVal.CustomTypeName())
+}
+
+func UnaryArithFallback(t *Thread, op string, x Value) (Value, *Error) {
+	res, err, ok := metaun(t, op, x)
+	if ok {
+		return res, err
+	}
+	return NilValue, UnaryArithmeticError(op[2:], x)
+}
+
+func UnaryArithmeticError(op string, x Value) *Error {
+	return NewErrorF("attempt to %s a '%s'", op, x.CustomTypeName())
 }
