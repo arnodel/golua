@@ -43,13 +43,15 @@ func (c *compiler) ProcessEmptyStat(s ast.EmptyStat) {
 
 // ProcessForInStat compiles a ForInStat.
 func (c *compiler) ProcessForInStat(s ast.ForInStat) {
-	initRegs := make([]ir.Register, 3)
+	initRegs := make([]ir.Register, 4)
 	c.compileExpList(s.Params, initRegs)
 	fReg := initRegs[0]
 	sReg := initRegs[1]
 	varReg := initRegs[2]
+	closeReg := initRegs[3]
 
 	c.PushContext()
+	c.PushCloseAction(closeReg) // Now closeReg is no longer needed
 	c.DeclareLocal(loopFRegName, fReg)
 	c.DeclareLocal(loopSRegName, sReg)
 	c.DeclareLocal(loopVarRegName, varReg)
