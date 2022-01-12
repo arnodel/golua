@@ -336,6 +336,9 @@ do
     print(ps(pf) == ps(ps))
     --> =false
 
+    -- In Lua 5.4 infinite floats parse to out of range float literals
+    pf("%q,%q", math.huge, -math.huge)
+    --> =1e9999,-1e9999
 end
 
 do

@@ -2,6 +2,7 @@ package stringlib
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"unsafe"
 
@@ -215,7 +216,17 @@ func quote(v rt.Value) (string, bool) {
 	case rt.IntType:
 		return strconv.Itoa(int(v.AsInt())), true
 	case rt.FloatType:
-		return strconv.FormatFloat(v.AsFloat(), 'g', -1, 64), true
+		x := v.AsFloat()
+		if math.IsInf(x, 0) {
+			// Use an out of range literal to represent infinity.  It works
+			// because that parses to infinity
+			if x > 0 {
+				return "1e9999", true
+			} else {
+				return "-1e9999", true
+			}
+		}
+		return strconv.FormatFloat(x, 'g', -1, 64), true
 	case rt.BoolType:
 		return strconv.FormatBool(v.AsBool()), true
 	case rt.StringType:
