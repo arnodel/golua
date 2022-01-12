@@ -6,3 +6,6 @@ load(d)()
 
 print(load("x == y"))
 --> ~nil\t.*
+
+print(1e999999, -1e9999, 1e-99999)
+--> =+Inf	-Inf	0

@@ -158,7 +158,7 @@ func StringToNumber(s string) (n int64, f float64, tp NumberType) {
 			s = s + "p0"
 		}
 		f, err = strconv.ParseFloat(s, 64)
-		if err != nil {
+		if err != nil && f == 0 {
 			tp = NaN
 			return
 		}
@@ -189,7 +189,7 @@ func StringToNumber(s string) (n int64, f float64, tp NumberType) {
 		if err.(*strconv.NumError).Err == strconv.ErrRange {
 			// Try a float instead
 			f, err = strconv.ParseFloat(s, 64)
-			if err == nil {
+			if err == nil || f != 0 {
 				tp = IsFloat
 				return
 			}
