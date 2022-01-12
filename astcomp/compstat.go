@@ -375,7 +375,13 @@ func getLabels(c *ir.CodeBuilder, statements []ast.Stat) {
 	for _, stat := range statements {
 		switch s := stat.(type) {
 		case ast.LabelStat:
-			c.DeclareGotoLabel(ir.Name(s.Name.Val))
+			_, err := c.DeclareUniqueGotoLabel(ir.Name(s.Name.Val))
+			if err != nil {
+				panic(Error{
+					Where:   s.Name,
+					Message: err.Error(),
+				})
+			}
 		case ast.LocalStat, ast.LocalFunctionStat:
 			return
 		}
@@ -389,7 +395,13 @@ func getBackLabels(c *ir.CodeBuilder, statements []ast.Stat) int {
 		case ast.EmptyStat:
 			// That doesn't count
 		case ast.LabelStat:
-			c.DeclareGotoLabel(ir.Name(s.Name.Val))
+			_, err := c.DeclareUniqueGotoLabel(ir.Name(s.Name.Val))
+			if err != nil {
+				panic(Error{
+					Where:   s.Name,
+					Message: err.Error(),
+				})
+			}
 		default:
 			return count
 		}

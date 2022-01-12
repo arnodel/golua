@@ -60,6 +60,14 @@ func (c *CodeBuilder) Dump() {
 	}
 }
 
+func (c *CodeBuilder) DeclareUniqueGotoLabel(name Name) (Label, error) {
+	_, ok := c.getGotoLabel(name)
+	if ok {
+		return 0, fmt.Errorf("label '%s' already defined", name)
+	}
+	return c.DeclareGotoLabel(name), nil
+}
+
 func (c *CodeBuilder) DeclareGotoLabel(name Name) Label {
 	lbl := c.GetNewLabel()
 	c.context.addLabel(name, lbl)
