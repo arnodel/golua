@@ -9,3 +9,6 @@ print(load("x == y"))
 
 print(1e999999, -1e9999, 1e-99999)
 --> =+Inf	-Inf	0
+
+print("1e99999" + 0)
+--> =+Inf
