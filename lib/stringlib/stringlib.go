@@ -41,6 +41,19 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 
 	stringMeta := rt.NewTable()
 	r.SetEnv(stringMeta, "__index", pkgVal)
+
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
+
+		r.SetEnvGoFunc(stringMeta, "__add", string__add, 2, false),
+		r.SetEnvGoFunc(stringMeta, "__sub", string__sub, 2, false),
+		r.SetEnvGoFunc(stringMeta, "__mul", string__mul, 2, false),
+		r.SetEnvGoFunc(stringMeta, "__div", string__div, 2, false),
+		r.SetEnvGoFunc(stringMeta, "__idiv", string__idiv, 2, false),
+		r.SetEnvGoFunc(stringMeta, "__mod", string__mod, 2, false),
+		r.SetEnvGoFunc(stringMeta, "__pow", string__pow, 2, false),
+		r.SetEnvGoFunc(stringMeta, "__unm", string__unm, 1, false),
+	)
 	r.SetStringMeta(stringMeta)
 
 	return pkgVal, nil
