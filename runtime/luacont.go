@@ -297,12 +297,6 @@ RunLoop:
 					continue RunLoop
 				case code.OpTruth:
 					res = BoolValue(Truth(val))
-				case code.OpToNumber:
-					var tp NumberType
-					res, tp = ToNumberValue(val)
-					if tp == NaN {
-						err = NewErrorS("expected numeric value")
-					}
 				case code.OpNot:
 					res = BoolValue(!Truth(val))
 				case code.OpUpvalue:

@@ -240,7 +240,6 @@ const (
 	OpNot                  // Added afterwards - why did I not have it in the first place?
 	OpUpvalue              // get an upvalue
 	OpEtcId                // etc identity
-	OpToNumber             // convert to number
 )
 
 // encodeZ enocodes an UnOp into an opcode.
@@ -581,8 +580,6 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 				tpl = "bool(%s)"
 			case OpNot:
 				tpl = "not %s"
-			case OpToNumber:
-				tpl = "tonumber(%s)"
 			case OpUpvalue:
 				// Special case
 				return fmt.Sprintf("upval %s, %s", rA, rB)
