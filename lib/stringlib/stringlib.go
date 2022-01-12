@@ -24,7 +24,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(pkg, "char", char, 0, true),
 		r.SetEnvGoFunc(pkg, "dump", dump, 2, false),
 		r.SetEnvGoFunc(pkg, "find", find, 4, false),
-		r.SetEnvGoFunc(pkg, "gmatch", gmatch, 2, false),
+		r.SetEnvGoFunc(pkg, "gmatch", gmatch, 3, false),
 		r.SetEnvGoFunc(pkg, "gsub", gsub, 4, false),
 		r.SetEnvGoFunc(pkg, "len", lenf, 1, false),
 		r.SetEnvGoFunc(pkg, "lower", lower, 1, false),
