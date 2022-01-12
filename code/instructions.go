@@ -220,8 +220,8 @@ func FillTable(r1, r2 Reg, i int) Opcode {
 }
 
 // PrepForLoop makes sure rStart, rStep, rStop are all numbers and converts
-// rStart and rStep to the same numeric type. If rStep is nil, then it is set to
-// 1. If the for loop should already stop then rStart is set to nil
+// rStart and rStep to the same numeric type. If the for loop should already
+// stop then rStart is set to nil
 func PrepForLoop(rStart, rStop, rStep Reg) Opcode {
 	return mkType7(Off, rStart, rStop, rStep)
 }
