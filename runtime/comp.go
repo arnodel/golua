@@ -132,10 +132,6 @@ func le(t *Thread, x, y Value) (bool, *Error) {
 	if ok {
 		return Truth(res), err
 	}
-	res, err, ok = metabin(t, "__lt", y, x)
-	if ok {
-		return !Truth(res), err
-	}
 	return false, compareError(x, y)
 }
 
