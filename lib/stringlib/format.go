@@ -226,6 +226,9 @@ func quote(v rt.Value) (string, bool) {
 				return "-1e9999", true
 			}
 		}
+		if math.IsNaN(x) {
+			return "(0/0)", true
+		}
 		return strconv.FormatFloat(x, 'g', -1, 64), true
 	case rt.BoolType:
 		return strconv.FormatBool(v.AsBool()), true
