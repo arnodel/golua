@@ -365,7 +365,7 @@ func randomseed(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		seed ^= seed2
 	}
 	rand.Seed(seed)
-	return c.Next(), nil
+	return c.PushingNext(t.Runtime, rt.IntValue(seed), rt.IntValue(0)), nil
 }
 
 func sin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

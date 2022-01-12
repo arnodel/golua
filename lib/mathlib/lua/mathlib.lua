@@ -141,6 +141,13 @@ do
     print(r1 == r2)
     --> =false
 
+    local s1, s2 = math.randomseed()
+    r1 = math.random()
+    math.randomseed(s1, s2)
+    r2 = math.random()
+    print(r1 == r2)
+    --> =true
+
     print(not pcall(math.randomseed, "hi"))
     --> =true
 
