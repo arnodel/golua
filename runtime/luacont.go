@@ -297,12 +297,6 @@ RunLoop:
 					continue RunLoop
 				case code.OpTruth:
 					res = BoolValue(Truth(val))
-				case code.OpToNumber:
-					var tp NumberType
-					res, tp = ToNumberValue(val)
-					if tp == NaN {
-						err = NewErrorS("expected numeric value")
-					}
 				case code.OpNot:
 					res = BoolValue(!Truth(val))
 				case code.OpUpvalue:
@@ -425,6 +419,69 @@ RunLoop:
 				}
 			} else {
 				setReg(regs, cells, dst, val)
+			}
+			pc++
+			continue RunLoop
+		case code.Type7Pfx:
+			startReg, stopReg, stepReg := opcode.GetA(), opcode.GetB(), opcode.GetC()
+			start := getReg(regs, cells, startReg)
+			stop := getReg(regs, cells, stopReg)
+			step := getReg(regs, cells, stepReg)
+			if opcode.GetF() {
+				// Advance for loop.  All registers are assumed to contain
+				// numeric values because they have been prepared previously.
+				nextStart, _ := Add(start, step)
+
+				// Check if the loop is done.  It can be done if we have gone
+				// over the stop value or if there has been overflow /
+				// underflow.
+				var done bool
+				if isPositive(step) {
+					done = numIsLessThan(stop, nextStart) || numIsLessThan(nextStart, start)
+				} else {
+					done = numIsLessThan(nextStart, stop) || numIsLessThan(start, nextStart)
+				}
+				if done {
+					nextStart = NilValue
+				}
+				setReg(regs, cells, startReg, nextStart)
+			} else {
+				// Prepare for loop
+				start, tstart := ToNumberValue(start)
+				stop, tstop := ToNumberValue(stop)
+				step, tstep := ToNumberValue(step)
+				if tstart == NaN || tstop == NaN || tstep == NaN {
+					c.pc = pc
+					return nil, NewErrorS("expected numeric value")
+				}
+				// Make sure start and step have the same numeric type
+				if tstart != tstep {
+					// One is a float, one is an int, turn them both to floats
+					if tstart == IsInt {
+						start = FloatValue(float64(start.AsInt()))
+					} else {
+						step = FloatValue(float64(step.AsInt()))
+					}
+				}
+				// A 0 step is an error
+				if isZero(step) {
+					c.pc = pc
+					return nil, NewErrorS("'for' step is zero")
+				}
+				// Check the loop is not already finished. If so, startReg is
+				// set to nil.
+				var done bool
+				if isPositive(step) {
+					done, _ = isLessThan(stop, start)
+				} else {
+					done, _ = isLessThan(start, stop)
+				}
+				if done {
+					start = NilValue
+				}
+				setReg(regs, cells, startReg, start)
+				setReg(regs, cells, stopReg, stop)
+				setReg(regs, cells, stepReg, step)
 			}
 			pc++
 			continue RunLoop
