@@ -11,6 +11,21 @@ type AssignStat struct {
 
 // NewAssignStat makes a new AssignStat.
 func NewAssignStat(dst []Var, src []ExpNode) AssignStat {
+
+	// Give a name to functions defined here if possible
+	for i, v := range src {
+		if i >= len(dst) {
+			break
+		}
+		f, ok := v.(Function)
+		if ok && f.Name == "" {
+			fName := dst[i].FunctionName()
+			if fName != "" {
+				f.Name = fName
+				src[i] = f
+			}
+		}
+	}
 	return AssignStat{
 		Location: MergeLocations(dst[0], src[len(src)-1]),
 		Dest:     dst,
