@@ -259,6 +259,9 @@ do
     pf("%q %q %q", false, 1, 1.5)
     --> =false 1 1.5
 
+    print(pcall(pf, "%10q", 2))
+    --> ~false\t.*cannot have modifiers
+
     errf("%t")
     --> ~not enough values
 
