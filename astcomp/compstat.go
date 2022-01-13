@@ -315,7 +315,7 @@ func (c *compiler) compileBlockNoPop(s ast.BlockStat, complete bool) func() {
 		c.CompileStat(stat)
 	}
 	if s.Return != nil {
-		if fc, ok := tailCall(s.Return); ok {
+		if fc, ok := c.getTailCall(s.Return); ok {
 			c.compileCall(*fc.BFunctionCall, true)
 		} else {
 			contReg := c.getCallerReg()
@@ -376,8 +376,8 @@ func getBackLabels(c *ir.CodeBuilder, statements []ast.Stat) int {
 	return count
 }
 
-func tailCall(rtn []ast.ExpNode) (ast.FunctionCall, bool) {
-	if len(rtn) != 1 {
+func (c *compiler) getTailCall(rtn []ast.ExpNode) (ast.FunctionCall, bool) {
+	if len(rtn) != 1 || c.HasPendingCloseActions() {
 		return ast.FunctionCall{}, false
 	}
 	fc, ok := rtn[0].(ast.FunctionCall)
