@@ -162,3 +162,18 @@ do
     print(s)
     --> =start+x3+x2+x1+x0-x0-x1-x2-x3
 end
+
+-- Tail calls are disabled when there are pending to-be-closed variables.
+do
+    s = "start"
+    local function g()
+        local y <close> = mk("y")
+    end
+    local function f()
+        local x <close> = mk("x")
+        return g() -- This isn't a tail call
+    end
+    f()
+    print(s)
+    --> =start+x+y-y-x
+end

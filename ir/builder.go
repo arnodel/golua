@@ -173,6 +173,13 @@ func (c *CodeBuilder) PushCloseAction(reg Register) {
 	c.EmitNoLine(PushCloseStack{Src: reg})
 }
 
+// HasPendingCloseActions returns true if there are close actions in the current
+// context.  In this case tail calls are disabled in order to allow the close
+// actions to take place after the call.
+func (c *CodeBuilder) HasPendingCloseActions() bool {
+	return c.context.getHeight() > 0
+}
+
 func (c *CodeBuilder) emitTruncate(m lexicalScope) {
 	if m.height < c.context.top().height {
 		c.EmitNoLine(TruncateCloseStack{Height: m.height})
