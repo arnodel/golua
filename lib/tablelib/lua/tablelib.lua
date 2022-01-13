@@ -47,6 +47,9 @@ do
 
     print(pcall(table.concat, t, "", 2, 5))
     --> ~^false\t.*
+
+    print(pcall(table.concat, {}, " ", 10, 10))
+    --> ~false\t.*at index 10
 end
 
 do
