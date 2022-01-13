@@ -16,7 +16,7 @@ end})
 
 print(t)
 --> =TOSTRING
---> =in function <lua function> (file luatest:13)
+--> =in function __tostring (file luatest:13)
 --> =in function tostring (file [Go])
 --> =in function print (file [Go])
 --> =in function <main chunk> (file luatest:17)
