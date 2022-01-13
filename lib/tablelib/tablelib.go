@@ -82,7 +82,7 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		var sb strings.Builder
 		s, ok := item.ToString()
 		if !ok {
-			return nil, rt.NewErrorS("concat needs strings or numbers")
+			return nil, errInvalidConcatValue(item, i)
 		}
 		t.RequireBytes(len(s))
 		sb.WriteString(s)
@@ -103,7 +103,7 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			}
 			s, ok = item.ToString()
 			if !ok {
-				return nil, rt.NewErrorS("concat needs strings or numbers")
+				return nil, errInvalidConcatValue(item, i)
 			}
 			t.RequireBytes(len(s))
 			sb.WriteString(s)
@@ -111,6 +111,11 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return c.PushingNext1(t.Runtime, rt.StringValue(sb.String())), nil
 	}
 	return nil, err
+}
+
+func errInvalidConcatValue(v rt.Value, i int64) *rt.Error {
+	s, _ := v.ToString()
+	return rt.NewErrorF("invalid value (%s) at index %d in table for 'concat'", s, i)
 }
 
 func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
