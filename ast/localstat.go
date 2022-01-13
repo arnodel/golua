@@ -17,6 +17,17 @@ func NewLocalStat(nameAttribs []NameAttrib, values []ExpNode) LocalStat {
 	if len(values) > 0 {
 		loc = MergeLocations(loc, values[len(values)-1])
 	}
+	// Give a name to functions defined here if possible
+	for i, v := range values {
+		if i >= len(nameAttribs) {
+			break
+		}
+		f, ok := v.(Function)
+		if ok && f.Name == "" {
+			f.Name = nameAttribs[i].Name.Val
+			values[i] = f
+		}
+	}
 	return LocalStat{Location: loc, NameAttribs: nameAttribs, Values: values}
 }
 
