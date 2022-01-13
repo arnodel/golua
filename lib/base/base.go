@@ -18,7 +18,7 @@ var LibLoader = packagelib.Loader{
 func Load(r *rt.Runtime) (rt.Value, func()) {
 	env := r.GlobalEnv()
 	r.SetEnv(env, "_G", rt.TableValue(env))
-	r.SetEnv(env, "_VERSION", rt.StringValue("Golua 5.3"))
+	r.SetEnv(env, "_VERSION", rt.StringValue("Golua 5.4"))
 	r.SetEnv(env, "next", rt.FunctionValue(nextGoFunc))
 
 	rt.SolemnlyDeclareCompliance(
