@@ -134,8 +134,31 @@ do
 end
 
 do
-    checknumarg(math.randomseed)
-    --> =ok
+    math.randomseed()
+    local r1 = math.random()
+    math.randomseed()
+    local r2 = math.random()
+    print(r1 == r2)
+    --> =false
+
+    local s1, s2 = math.randomseed()
+    r1 = math.random()
+    math.randomseed(s1, s2)
+    r2 = math.random()
+    print(r1 == r2)
+    --> =true
+
+    print(not pcall(math.randomseed, "hi"))
+    --> =true
+
+    print(not pcall(math.randomseed, 1, {}))
+    --> =true
+
+    print(not pcall(math.randomseed, 1.1, 2))
+    --> =true
+
+    print(not pcall(rand))
+    --> =true
 
     local r = math.random()
     print(r >= 0 and r <= 1)
