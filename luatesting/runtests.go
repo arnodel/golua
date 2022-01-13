@@ -33,6 +33,7 @@ func RunSource(r *runtime.Runtime, source []byte) {
 func RunLuaTest(source []byte, setup func(*runtime.Runtime) func()) error {
 	outputBuf := new(bytes.Buffer)
 	r := runtime.New(outputBuf)
+	r.SetWarner(runtime.NewLogWarner(outputBuf, "Test warning: "))
 	if setup != nil {
 		cleanup := setup(r)
 		defer cleanup()
