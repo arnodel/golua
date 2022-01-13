@@ -53,6 +53,7 @@ OuterLoop:
 	for i := 0; i < len(format); i++ {
 		if format[i] == '%' {
 			var (
+				start        = i + 1
 				arg          interface{}
 				length, prec int
 				foundDot     bool
@@ -128,6 +129,9 @@ OuterLoop:
 					break ArgLoop
 				case 'q':
 					// quote, only for literals I think
+					if start < i {
+						return "", rt.NewErrorS("specifier '%q' cannot have modifiers")
+					}
 					if len(args) <= j {
 						return "", errNotEnoughValues
 					}
