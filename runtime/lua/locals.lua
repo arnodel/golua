@@ -176,4 +176,5 @@ do
     f()
     print(s)
     --> =start+x+y-y-x
+    -- x is closed after y, showing that g() wasn't a tail-call.
 end
