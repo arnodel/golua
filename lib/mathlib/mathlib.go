@@ -200,7 +200,12 @@ func fmod(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
-	res, err := rt.Mod(t, c.Arg(0), c.Arg(1))
+	x, _ := rt.ToNumberValue(c.Arg(0))
+	y, _ := rt.ToNumberValue(c.Arg(1))
+	res, ok, err := rt.Mod(x, y)
+	if !ok {
+		err = rt.NewErrorS("expected numeric arguments")
+	}
 	if err != nil {
 		return nil, err
 	}

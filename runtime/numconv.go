@@ -44,7 +44,8 @@ func ToNumber(v Value) (int64, float64, NumberType) {
 	return 0, 0, NaN
 }
 
-// ToNumberValue returns x as a Float or Int, and if it is a number.
+// ToNumberValue returns the Value v as a Float or Int, and if it is a number.
+// If it is not a number, it returns v unchanged and NaN.
 func ToNumberValue(v Value) (Value, NumberType) {
 	switch v.NumberType() {
 	case IntType:
@@ -61,7 +62,7 @@ func ToNumberValue(v Value) (Value, NumberType) {
 			return FloatValue(f), IsFloat
 		}
 	}
-	return NilValue, NaN
+	return v, NaN
 }
 
 // ToInt returns v as an Int and true if v is actually a valid integer.
@@ -158,7 +159,7 @@ func StringToNumber(s string) (n int64, f float64, tp NumberType) {
 			s = s + "p0"
 		}
 		f, err = strconv.ParseFloat(s, 64)
-		if err != nil {
+		if err != nil && f == 0 {
 			tp = NaN
 			return
 		}
@@ -189,7 +190,7 @@ func StringToNumber(s string) (n int64, f float64, tp NumberType) {
 		if err.(*strconv.NumError).Err == strconv.ErrRange {
 			// Try a float instead
 			f, err = strconv.ParseFloat(s, 64)
-			if err == nil {
+			if err == nil || f != 0 {
 				tp = IsFloat
 				return
 			}

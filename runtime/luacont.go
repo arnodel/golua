@@ -122,24 +122,46 @@ RunLoop:
 			y := getReg(regs, cells, opcode.GetC())
 			var res Value
 			var err *Error
+			var ok bool
 			switch opcode.GetX() {
 
 			// Arithmetic
 
 			case code.OpAdd:
-				res, err = add(t, x, y)
+				res, ok = Add(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__add", x, y)
+				}
 			case code.OpSub:
-				res, err = sub(t, x, y)
+				res, ok = Sub(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__sub", x, y)
+				}
 			case code.OpMul:
-				res, err = mul(t, x, y)
+				res, ok = Mul(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__mul", x, y)
+				}
 			case code.OpDiv:
-				res, err = div(t, x, y)
+				res, ok = Div(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__div", x, y)
+				}
 			case code.OpFloorDiv:
-				res, err = idiv(t, x, y)
+				res, ok, err = Idiv(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__idiv", x, y)
+				}
 			case code.OpMod:
-				res, err = Mod(t, x, y)
+				res, ok, err = Mod(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__mod", x, y)
+				}
 			case code.OpPow:
-				res, err = pow(t, x, y)
+				res, ok = Pow(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__pow", x, y)
+				}
 
 			// Bitwise
 
@@ -243,12 +265,16 @@ RunLoop:
 		case code.Type4Pfx:
 			dst := opcode.GetA()
 			var res Value
+			var ok bool
 			var err *Error
 			if opcode.HasType4a() {
 				val := getReg(regs, cells, opcode.GetB())
 				switch opcode.GetUnOp() {
 				case code.OpNeg:
-					res, err = unm(t, val)
+					res, ok = Unm(val)
+					if !ok {
+						res, err = UnaryArithFallback(t, "__unm", val)
+					}
 				case code.OpBitNot:
 					res, err = bnot(t, val)
 				case code.OpLen:

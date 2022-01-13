@@ -109,21 +109,25 @@ func TestToNumberValue(t *testing.T) {
 		{
 			name: "non numeric string",
 			v:    StringValue("hello"),
+			want: StringValue("hello"),
 			tp:   NaN,
 		},
 		{
 			name: "string with numeric prefix",
 			v:    StringValue("49ers"),
+			want: StringValue("49ers"),
 			tp:   NaN,
 		},
 		{
 			name: "boolean",
 			v:    BoolValue(false),
+			want: BoolValue(false),
 			tp:   NaN,
 		},
 		{
 			name: "nil",
 			v:    NilValue,
+			want: NilValue,
 			tp:   NaN,
 		},
 	}
