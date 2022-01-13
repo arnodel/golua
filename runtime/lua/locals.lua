@@ -42,6 +42,16 @@ test[[
 ]]
 --> ~false\t.*attempt to reassign constant variable 'bar'
 
+test[[
+    local x <const> = 2
+    local function foo()
+        x = 3
+        return x
+    end
+    return foo()
+]]
+--> ~false\t.*attempt to reassign constant variable 'x'
+
 --
 -- to-be-closed tests
 --

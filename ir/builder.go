@@ -107,12 +107,14 @@ func (c *CodeBuilder) getRegister(name Name, tags uint) (reg Register, ok bool) 
 	}
 	reg, ok = c.parent.getRegister(name, regHasUpvalue)
 	if ok {
+		isConstant := c.parent.IsConstantReg(reg)
 		c.parent.registers[reg].IsCell = true
 		c.upvalues = append(c.upvalues, reg)
 		c.upnames = append(c.upnames, string(name))
 		reg = c.GetFreeRegister()
 		c.upvalueDests = append(c.upvalueDests, reg)
 		c.registers[reg].IsCell = true
+		c.registers[reg].IsConstant = isConstant
 		c.context.addToRoot(name, reg)
 	}
 	return
