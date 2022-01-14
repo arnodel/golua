@@ -1053,7 +1053,7 @@ func TestParser_Local(t *testing.T) {
 		{
 			name:  "local with invalid attrib",
 			input: `local x <foobar> = b`,
-			err:   Error{Got: tok(token.IDENT, "foobar"), Expected: "expected 'const' or 'close'"},
+			err:   Error{Got: tok(token.IDENT, "foobar"), Expected: "'const' or 'close'"},
 		},
 	}
 	for _, tt := range tests {
