@@ -176,6 +176,7 @@ end
 do
     print(pcall(function()
         local x <close> = {}
+        print"we don't get to here"
     end))
     --> ~false\t.*missing a __close metamethod
 end
