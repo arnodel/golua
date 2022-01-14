@@ -111,8 +111,9 @@ do
     print(coroutine.status(co))
     --> =dead
     local co = coroutine.create(function()
-        local x <close> = {}
-        setmetatable(x, {__close=function() error("ERR") end})
+        local t = {}
+        setmetatable(t, {__close=function() error("ERR") end})
+        local x <close> = t
         coroutine.yield()
     end)
     coroutine.resume(co)
