@@ -308,7 +308,7 @@ func (r *Runtime) CompileLuaChunk(name string, source []byte, scannerOptions ...
 	r.ReleaseMem(statSize)
 
 	if err != nil {
-		return nil, 0, fmt.Errorf("%s: %s", name, err)
+		return nil, 0, fmt.Errorf("%s:%s", name, err)
 	}
 
 	statSize = 0 // So that the deferred function above doesn't release the memory again.
