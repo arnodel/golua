@@ -65,7 +65,7 @@ test[[
 test[[
     local x <close> = 1
 ]]
---> ~false\t.*to be closed variable missing a __close metamethod
+--> ~false\t.*to be closed value missing a __close metamethod
 
 function make(msg, err)
     t = {}
@@ -187,4 +187,11 @@ do
     print(s)
     --> =start+x+y-y-x
     -- x is closed after y, showing that g() wasn't a tail-call.
+end
+
+do
+    print(pcall(function()
+        local x <close> = {}
+    end))
+    --> ~false\t.*missing a __close metamethod
 end

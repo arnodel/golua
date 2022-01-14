@@ -4,7 +4,7 @@
 
 # GoLua
 
-Implementation of Lua **5.3** in Go with **no third party dependencies**. The
+Implementation of Lua **5.4** in Go with **no third party dependencies**. The
 compiler and runtime are complete (including coroutines), the standard Lua
 library is mostly implemented.
 
