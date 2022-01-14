@@ -196,3 +196,23 @@ do
     end))
     --> ~false\t.*missing a __close metamethod
 end
+
+-- close actions are run before return debug hooks.  The test below shows that
+-- because 'myfunction' is output.
+do
+    local function myfunction()
+        local function close()
+            debug.sethook(function()
+                print(debug.getinfo(2).name)
+            end, "r")
+        end
+        local t = {}
+        setmetatable(t, {__close=close})
+        local x <close> = t
+    end
+    myfunction()
+    --> =sethook
+    --> =close
+    --> =myfunction
+    debug.sethook()
+end
