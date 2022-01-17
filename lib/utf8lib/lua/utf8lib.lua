@@ -117,6 +117,12 @@ do
 
     err("ABC", 2, {})
     --> ~must be an integer
+
+    err("abc", 0, 2)
+    --> ~out of range
+
+    err("abc", 1, 4)
+    --> ~out of range
 end
 
 do
