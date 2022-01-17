@@ -26,7 +26,12 @@ do
     print(pcall(utf8.char, -1, "hello", 100))
     --> ~false	.*out of range
 
-    print(pcall(utf8.char, 0x110000, "hello", 100))
+    -- Encoding is lax since Lua 5.4
+
+    print(pcall(utf8.char, 0x7fffffff, "hello", 100))
+    --> ~false	.*should be an integer
+
+    print(pcall(utf8.char, 0x80000000, "hello", 100))
     --> ~false	.*out of range
     
 end

@@ -3,6 +3,8 @@ package luastrings
 import "unicode/utf8"
 
 const (
+	UTFMax = 6
+
 	t1 = 0b00000000
 	tx = 0b10000000
 	t2 = 0b11000000
