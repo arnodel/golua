@@ -2,6 +2,7 @@ package stringlib
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"unsafe"
 
@@ -53,6 +54,7 @@ OuterLoop:
 	for i := 0; i < len(format); i++ {
 		if format[i] == '%' {
 			var (
+				start        = i + 1
 				arg          interface{}
 				length, prec int
 				foundDot     bool
@@ -128,6 +130,9 @@ OuterLoop:
 					break ArgLoop
 				case 'q':
 					// quote, only for literals I think
+					if start < i {
+						return "", rt.NewErrorS("specifier '%q' cannot have modifiers")
+					}
 					if len(args) <= j {
 						return "", errNotEnoughValues
 					}
@@ -215,7 +220,20 @@ func quote(v rt.Value) (string, bool) {
 	case rt.IntType:
 		return strconv.Itoa(int(v.AsInt())), true
 	case rt.FloatType:
-		return strconv.FormatFloat(v.AsFloat(), 'g', -1, 64), true
+		x := v.AsFloat()
+		if math.IsInf(x, 0) {
+			// Use an out of range literal to represent infinity.  It works
+			// because that parses to infinity
+			if x > 0 {
+				return "1e9999", true
+			} else {
+				return "-1e9999", true
+			}
+		}
+		if math.IsNaN(x) {
+			return "(0/0)", true
+		}
+		return strconv.FormatFloat(x, 'g', -1, 64), true
 	case rt.BoolType:
 		return strconv.FormatBool(v.AsBool()), true
 	case rt.StringType:

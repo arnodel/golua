@@ -88,6 +88,13 @@ func (c lexicalContext) addHeight(h int) (ok bool) {
 	return ok
 }
 
+func (c lexicalContext) getHeight() int {
+	if len(c) > 0 {
+		return c[len(c)-1].height
+	}
+	return 0
+}
+
 // pushNew returns a new LexicalContext that extends the receive with a new
 // blank lexical scope.
 func (c lexicalContext) pushNew() lexicalContext {

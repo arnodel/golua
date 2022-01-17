@@ -98,111 +98,75 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 
 // ProcessForStat compiles a ForStat.
 func (c *compiler) ProcessForStat(s ast.ForStat) {
+
+	// Get register for current value of i and initialise it
 	startReg := c.GetFreeRegister()
 	r := c.compileExp(s.Start, startReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, startReg, r)
-	if !ast.IsNumber(s.Start) {
-		c.emitInstr(s.Start, ir.Transform{
-			Dst: startReg,
-			Src: startReg,
-			Op:  ops.OpToNumber,
-		})
-	}
 	c.TakeRegister(startReg)
 
+	// Get register for the stop value and initialise it
 	stopReg := c.GetFreeRegister()
 	r = c.compileExp(s.Stop, stopReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, stopReg, r)
-	if !ast.IsNumber(s.Stop) {
-		c.emitInstr(s.Stop, ir.Transform{
-			Dst: stopReg,
-			Src: stopReg,
-			Op:  ops.OpToNumber,
-		})
-	}
 	c.TakeRegister(stopReg)
 
+	// Get register for the step value and initialise it
 	stepReg := c.GetFreeRegister()
 	r = c.compileExp(s.Step, stepReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, stepReg, r)
-	if !ast.IsNumber(s.Step) {
-		c.emitInstr(s.Step, ir.Transform{
-			Dst: stepReg,
-			Src: stepReg,
-			Op:  ops.OpToNumber,
-		})
-	}
 	c.TakeRegister(stepReg)
 
-	zReg := c.GetFreeRegister()
-	c.TakeRegister(zReg)
-	c.emitLoadConst(nil, ir.Int(0), zReg)
-	c.emitInstr(s, ir.Combine{
-		Op:   ops.OpLt,
-		Dst:  zReg,
-		Lsrc: stepReg,
-		Rsrc: zReg,
+	// Prepare the for loop
+	c.emitInstr(s, ir.PrepForLoop{
+		Start: startReg,
+		Stop:  stopReg,
+		Step:  stepReg,
 	})
 
 	c.PushContext()
-
+	endLbl := c.DeclareGotoLabel(breakLblName) // End of loop
 	loopLbl := c.GetNewLabel()
+
+	// If startReg is nil, then there are no iterations in the loop
+	c.EmitNoLine(ir.JumpIf{
+		Cond:  startReg,
+		Label: endLbl,
+		Not:   true,
+	})
+
+	// loop:
 	must(c.EmitLabel(loopLbl))
-	endLbl := c.DeclareGotoLabel(breakLblName)
 
-	condReg := c.GetFreeRegister()
-	negStepLbl := c.GetNewLabel()
-	bodyLbl := c.GetNewLabel()
-	c.EmitNoLine(ir.JumpIf{
-		Cond:  zReg,
-		Label: negStepLbl,
-	})
-	c.EmitNoLine(ir.Combine{
-		Op:   ops.OpLt,
-		Dst:  condReg,
-		Lsrc: stopReg,
-		Rsrc: startReg,
-	})
-	c.EmitNoLine(ir.JumpIf{
-		Cond:  condReg,
-		Label: endLbl,
-	})
-	c.EmitNoLine(ir.Jump{Label: bodyLbl})
-	must(c.EmitLabel(negStepLbl))
-	c.EmitNoLine(ir.Combine{
-		Op:   ops.OpLt,
-		Dst:  condReg,
-		Lsrc: startReg,
-		Rsrc: stopReg,
-	})
-	c.EmitNoLine(ir.JumpIf{
-		Cond:  condReg,
-		Label: endLbl,
-	})
-	must(c.EmitLabel(bodyLbl))
-
+	// Here compile the loop body
 	c.PushContext()
 	iterReg := c.GetFreeRegister()
+	// We copy the loop variable because the body may change it
+	// iter <- start
 	ir.EmitMoveNoLine(c.CodeBuilder, iterReg, startReg)
 	c.DeclareLocal(ir.Name(s.Var.Val), iterReg)
 	c.compileBlock(s.Body)
 	c.PopContext()
 
-	c.EmitNoLine(ir.Combine{
-		Op:   ops.OpAdd,
-		Dst:  startReg,
-		Lsrc: startReg,
-		Rsrc: stepReg,
+	//Advance the for loop
+	c.emitInstr(s, ir.AdvForLoop{
+		Start: startReg,
+		Stop:  stopReg,
+		Step:  stepReg,
 	})
-	c.EmitNoLine(ir.Jump{Label: loopLbl})
+	// If startReg is not nil, it means the loop continues
+	c.EmitNoLine(ir.JumpIf{
+		Cond:  startReg,
+		Label: loopLbl,
+	})
 
+	// break:
 	must(c.EmitGotoLabel(breakLblName))
 	c.PopContext()
 
 	c.ReleaseRegister(startReg)
 	c.ReleaseRegister(stopReg)
 	c.ReleaseRegister(stepReg)
-	c.ReleaseRegister(zReg)
 }
 
 // ProcessFunctionCallStat compiles a FunctionCallStat.
@@ -351,7 +315,7 @@ func (c *compiler) compileBlockNoPop(s ast.BlockStat, complete bool) func() {
 		c.CompileStat(stat)
 	}
 	if s.Return != nil {
-		if fc, ok := tailCall(s.Return); ok {
+		if fc, ok := c.getTailCall(s.Return); ok {
 			c.compileCall(*fc.BFunctionCall, true)
 		} else {
 			contReg := c.getCallerReg()
@@ -400,8 +364,8 @@ func getBackLabels(c *ir.CodeBuilder, statements []ast.Stat) int {
 	return count
 }
 
-func tailCall(rtn []ast.ExpNode) (ast.FunctionCall, bool) {
-	if len(rtn) != 1 {
+func (c *compiler) getTailCall(rtn []ast.ExpNode) (ast.FunctionCall, bool) {
+	if len(rtn) != 1 || c.HasPendingCloseActions() {
 		return ast.FunctionCall{}, false
 	}
 	fc, ok := rtn[0].(ast.FunctionCall)

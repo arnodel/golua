@@ -259,6 +259,9 @@ do
     pf("%q %q %q", false, 1, 1.5)
     --> =false 1 1.5
 
+    print(pcall(pf, "%10q", 2))
+    --> ~false\t.*cannot have modifiers
+
     errf("%t")
     --> ~not enough values
 
@@ -336,6 +339,12 @@ do
     print(ps(pf) == ps(ps))
     --> =false
 
+    -- In Lua 5.4 infinite floats parse to out of range float literals
+    pf("%q,%q", math.huge, -math.huge)
+    --> =1e9999,-1e9999
+
+    pf("%q", 0/0)
+    --> =(0/0)
 end
 
 do
