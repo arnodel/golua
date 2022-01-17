@@ -173,6 +173,26 @@ do
     --> =start+x3+x2+x1+x0-x0-x1-x2-x3
 end
 
+-- close actions are run before return debug hooks.  The test below shows that
+-- because 'myfunction' is output.
+do
+    local function myfunction()
+        local function close()
+            debug.sethook(function()
+                print(debug.getinfo(2).name)
+            end, "r")
+        end
+        local t = {}
+        setmetatable(t, {__close=close})
+        local x <close> = t
+    end
+    myfunction()
+    --> =sethook
+    --> =close
+    --> =myfunction
+    debug.sethook()
+end
+
 -- Tail calls are disabled when there are pending to-be-closed variables.
 do
     s = "start"
@@ -195,24 +215,4 @@ do
         print"we don't get to here"
     end))
     --> ~false\t.*missing a __close metamethod
-end
-
--- close actions are run before return debug hooks.  The test below shows that
--- because 'myfunction' is output.
-do
-    local function myfunction()
-        local function close()
-            debug.sethook(function()
-                print(debug.getinfo(2).name)
-            end, "r")
-        end
-        local t = {}
-        setmetatable(t, {__close=close})
-        local x <close> = t
-    end
-    myfunction()
-    --> =sethook
-    --> =close
-    --> =myfunction
-    debug.sethook()
 end
