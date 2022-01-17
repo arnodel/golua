@@ -192,3 +192,19 @@ do
     --> =myfunction
     debug.sethook()
 end
+
+-- Tail calls are disabled when there are pending to-be-closed variables.
+do
+    s = "start"
+    local function g()
+        local y <close> = mk("y")
+    end
+    local function f()
+        local x <close> = mk("x")
+        return g() -- This isn't a tail call
+    end
+    f()
+    print(s)
+    --> =start+x+y-y-x
+    -- x is closed after y, showing that g() wasn't a tail-call.
+end
