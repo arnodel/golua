@@ -52,6 +52,18 @@ do
 
     print(pcall(iter))
     --> ~false	.*invalid UTF-8 code
+
+    -- lax mode (Lua 5.4)
+    for p, c in utf8.codes("\u{200000}\u{3FFFFFF}\u{4000000}\u{7FFFFFFF}", true) do
+        print(p, string.format("%x", c))
+    end
+    --> =1	200000
+    --> =6	3ffffff
+    --> =11	4000000
+    --> =17	7fffffff
+
+    print(pcall(utf8.codes, "abc", "123"))
+    --> ~false\t.*must be a boolean
 end
 
 do
@@ -86,6 +98,13 @@ do
 
     err("ab\xff", 3)
     --> ~invalid UTF-8 code
+
+    -- Check "non-strict" unicode (Lua 5.4)
+    print(pcall(utf8.codepoint, "\u{7FFFFFFF}"))
+    --> ~false\t.*invalid UTF-8 code
+
+    print(utf8.codepoint("\u{7FFFFFFF}", 1, 1, true) == 0x7FFFFFFF)
+    --> =true
 end
 
 do
@@ -117,6 +136,14 @@ do
 
     err("ABC", 2, {})
     --> ~must be an integer
+
+    -- lax mode (Lua 5.4)
+
+    err("sdfjl", 2, 4, "true")
+    --> ~must be a boolean
+
+    print(utf8.len("\u{200000}\u{3FFFFFF}\u{4000000}\u{7FFFFFFF}", 1, -1, true))
+    --> =4
 end
 
 do
