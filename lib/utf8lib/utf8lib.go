@@ -169,6 +169,9 @@ func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		j      = rt.StringNormPos(s, int(jj))
 		slen   int64
 	)
+	if i <= 0 || i > len(s)+1 || j > len(s) {
+		return nil, rt.NewErrorE(errPosOutOfRange)
+	}
 	for k := i - 1; k < j; {
 		t.RequireCPU(1)
 		r, sz := decode(s[k:])
@@ -206,7 +209,7 @@ func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	i := rt.StringNormPos(ss, int(ii)) - 1
 	s := string(ss)
 	if i < 0 || i > len(s) {
-		return nil, rt.NewErrorS("position out of range")
+		return nil, rt.NewErrorE(errPosOutOfRange)
 	}
 	if nn == 0 {
 		// Special case: locate the starting position of the current
