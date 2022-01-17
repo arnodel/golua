@@ -2,6 +2,7 @@ package utf8lib
 
 import (
 	"errors"
+	"math"
 	"unicode/utf8"
 
 	"github.com/arnodel/golua/lib/packagelib"
@@ -34,7 +35,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 
 func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	runes := c.Etc()
-	maxLen := len(runes) * utf8.UTFMax
+	maxLen := len(runes) * luastrings.UTFMax
 	t.RequireBytes(maxLen)
 	buf := make([]byte, maxLen)
 	cur := buf
@@ -45,10 +46,10 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if !ok {
 			return nil, rt.NewErrorF("#%d should be an integer", i+1)
 		}
-		if n < 0 || n > 0x10FFFF {
+		if n < 0 || n > math.MaxInt32 {
 			return nil, rt.NewErrorF("#%d value out of range", i+1)
 		}
-		sz := utf8.EncodeRune(cur, rune(n))
+		sz := luastrings.UTF8EncodeInt32(cur, int32(n))
 		cur = cur[sz:]
 		bufLen += sz
 	}

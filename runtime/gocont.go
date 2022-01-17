@@ -195,7 +195,11 @@ func (c *GoCont) StringArg(n int) (string, *Error) {
 // BoolArg returns the n-th argument as a string if possible, otherwise a
 // non-nil *Error.  No range check!
 func (c *GoCont) BoolArg(n int) (bool, *Error) {
-	b, ok := c.Arg(n).TryBool()
+	arg := c.Arg(n)
+	if arg.IsNil() {
+		return false, nil
+	}
+	b, ok := arg.TryBool()
 	if !ok {
 		return false, NewErrorF("#%d must be a boolean", n+1)
 	}
