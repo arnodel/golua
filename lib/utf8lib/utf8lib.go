@@ -18,7 +18,7 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
-	r.SetEnv(pkg, "charpattern", rt.StringValue("[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"))
+	r.SetEnv(pkg, "charpattern", rt.StringValue("[\x00-\x7F\xC2-\xFD][\x80-\xBF]*"))
 
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
