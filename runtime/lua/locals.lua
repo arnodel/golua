@@ -65,7 +65,7 @@ test[[
 test[[
     local x <close> = 1
 ]]
---> ~false\t.*to be closed variable missing a __close metamethod
+--> ~false\t.*to be closed value missing a __close metamethod
 
 function make(msg, err)
     t = {}
@@ -171,6 +171,14 @@ do
     --> ~false\t.*: stop
     print(s)
     --> =start+x3+x2+x1+x0-x0-x1-x2-x3
+end
+
+do
+    print(pcall(function()
+        local x <close> = {}
+        print"we don't get to here"
+    end))
+    --> ~false\t.*missing a __close metamethod
 end
 
 -- close actions are run before return debug hooks.  The test below shows that
