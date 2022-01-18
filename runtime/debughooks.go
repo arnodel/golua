@@ -51,6 +51,7 @@ var (
 	callHookString     = StringValue("call")
 	tailCallHookString = StringValue("tail call")
 	returnHookString   = StringValue("return")
+	lineHookString     = StringValue("line")
 )
 
 // Important for this function to inline
@@ -75,6 +76,14 @@ func (h *DebugHooks) triggerReturn(t *Thread, c Cont) *Error {
 		return nil
 	}
 	return h.callHook(t, c, returnHookString)
+}
+
+// Important for this function to inline
+func (h *DebugHooks) triggerLine(t *Thread, c Cont, l int32) *Error {
+	if h.DebugHookFlags&HookFlagLine == 0 || l <= 0 {
+		return nil
+	}
+	return h.callHook(t, c, lineHookString, IntValue(int64(l)))
 }
 
 // Important for this function to inline
