@@ -40,9 +40,10 @@ type Thread struct {
 	*Runtime
 	mux         sync.Mutex
 	status      ThreadStatus
-	currentCont Cont
+	closeErr    *Error // Error that caused the thread to stop
+	currentCont Cont   // Currently running continuation
 	resumeCh    chan valuesError
-	caller      *Thread
+	caller      *Thread // Who resumed this thread
 
 	// Depth of GoFunction calls in the thread.  This should not exceed
 	// maxGoFunctionCallDepth.  The aim is to avoid Go stack overflows that
@@ -187,17 +188,20 @@ func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, *Error) {
 	return caller.getResumeValues()
 }
 
-// Resume execution of a suspended thread.  Its status switches to
-// running while its caller's status switches to suspended.
-func (t *Thread) Close(caller *Thread) *Error {
+// Close a suspended thread.  Its status switches to dead while its caller's
+// status switches to suspended.  The boolean returned is true if it was
+// possible to close the thread (i.e. it was suspended or already dead).  The
+// error is non-nil if there was an error in the cleanup process, or if the
+// thread had already stopped with an error previously.
+func (t *Thread) Close(caller *Thread) (bool, *Error) {
 	t.mux.Lock()
 	if t.status != ThreadSuspended {
 		t.mux.Unlock()
 		switch t.status {
 		case ThreadDead:
-			return NewErrorS("cannot close dead thread")
+			return true, t.closeErr
 		default:
-			return NewErrorS("cannot close running thread")
+			return false, nil
 		}
 	}
 	caller.mux.Lock()
@@ -210,7 +214,7 @@ func (t *Thread) Close(caller *Thread) *Error {
 	caller.mux.Unlock()
 	t.sendResumeValues(nil, nil, threadClose{})
 	_, err := caller.getResumeValues()
-	return err
+	return true, err
 }
 
 // Yield to the caller thread.  The yielding thread's status switches
@@ -255,6 +259,7 @@ func (t *Thread) end(args []Value, err *Error, exception interface{}) {
 	for c := t.CurrentCont(); c != nil; c = c.Next() {
 		err = c.Cleanup(caller, err)
 	}
+	t.closeErr = err
 	caller.sendResumeValues(args, err, exception)
 	t.ReleaseBytes(2 << 10) // The goroutine will terminate after this
 }

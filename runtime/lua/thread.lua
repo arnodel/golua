@@ -29,6 +29,42 @@ do
     --> ~cannot yield from main thread
 end
 
+-- Closing a coroutine
+do
+    local co = coroutine.create(function() end)
+
+    print(coroutine.close(co))
+    --> =true
+
+    -- A closed thread is dead
+    print(coroutine.status(co))
+    --> =dead
+
+    -- It can be done again
+    print(coroutine.close(co))
+    --> =true
+
+    -- Can't close the runnnig coroutine
+    local main = coroutine.running()
+    print(pcall(coroutine.close, main))
+    --> ~false\t.*cannot close running thread
+
+    local co = coroutine.create(function()
+        print(pcall(coroutine.close, main))
+        --> ~false\t.*cannot close normal thread
+    end)
+    coroutine.resume(co)
+
+    -- Closing an errored thread returns the error
+    local co = coroutine.create(error)
+
+    print(coroutine.resume(co, 42))
+    --> =false	42
+
+    print(coroutine.close(co))
+    --> =false	42
+end
+
 --
 -- Coroutines and to-be-closed variables
 --
