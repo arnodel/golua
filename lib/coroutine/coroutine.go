@@ -19,7 +19,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 
 		r.SetEnvGoFunc(pkg, "close", close, 1, false), // Lua 5.4
 		r.SetEnvGoFunc(pkg, "create", create, 1, false),
-		r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 0, false),
+		r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 1, false),
 		r.SetEnvGoFunc(pkg, "resume", resume, 1, true),
 		r.SetEnvGoFunc(pkg, "running", running, 0, false),
 		r.SetEnvGoFunc(pkg, "status", status, 1, false),
@@ -91,9 +91,17 @@ func yield(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func isyieldable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	next := c.Next()
-	t.Push1(next, rt.BoolValue(!t.IsMain()))
-	return next, nil
+	var (
+		co  = t
+		err *rt.Error
+	)
+	if c.NArgs() >= 1 {
+		co, err = c.ThreadArg(0)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return c.PushingNext1(t.Runtime, rt.BoolValue(!co.IsMain())), nil
 }
 
 func status(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
