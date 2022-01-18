@@ -55,7 +55,7 @@ func (t *Thread) CurrentCont() Cont {
 
 // IsMain returns true if the thread is the runtime's main thread.
 func (t *Thread) IsMain() bool {
-	return t.caller == nil
+	return t == t.mainThread
 }
 
 const maxErrorsInMessageHandler = 10
