@@ -20,10 +20,15 @@ end
 print(coroutine.running())
 --> ~^thread:.*\ttrue$
 
--- Check the main coroutine is not yieldable
-print(coroutine.isyieldable())
---> =false
+do
+    -- Check the main coroutine is not yieldable
+    print(coroutine.isyieldable())
+    --> =false
 
+    print(pcall(coroutine.isyieldable, 1))
+    --> ~false\t.*must be a thread
+end
+ 
 -- Check that coroutine.running() returns true as second argument when
 -- called from a non-main coroutine and that a non main coroutine is
 -- yieldable.
@@ -33,6 +38,9 @@ do
         return coroutine.running()
     end
     local co = coroutine.create(cof)
+
+    print(coroutine.isyieldable(co))
+    --> =true
 
     print(coroutine.resume(co))
     --> =yieldable	true
