@@ -402,11 +402,16 @@ RunLoop:
 				if opcode.GetF() {
 					// Push to close stack
 					v := getReg(regs, cells, opcode.GetA())
+					if Truth(v) && t.metaGetS(v, "__close").IsNil() {
+						c.pc = pc
+						return nil, NewErrorS("to be closed value missing a __close metamethod")
+					}
 					c.closeStack = append(c.closeStack, v)
 				} else {
 					// Truncate close stack
 					h := int(opcode.GetClStackOffset())
 					if err := c.truncateCloseStack(t, h, nil); err != nil {
+						c.pc = pc
 						return nil, err
 					}
 				}
@@ -548,7 +553,7 @@ func (c *LuaCont) truncateCloseStack(t *Thread, h int, err *Error) *Error {
 		if Truth(v) {
 			closeErr, ok := Metacall(t, v, "__close", []Value{v, err.Value()}, NewTerminationWith(c, 0, false))
 			if !ok {
-				return NewErrorS("to be closed variable missing a __close metamethod")
+				return NewErrorS("to be closed value missing a __close metamethod")
 			}
 			if closeErr != nil {
 				err = closeErr
