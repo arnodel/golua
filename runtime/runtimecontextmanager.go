@@ -133,24 +133,6 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 	return &mCopy
 }
 
-func (m *runtimeContextManager) CallContext(def RuntimeContextDef, f func() *Error) (ctx RuntimeContext, err *Error) {
-	m.PushContext(def)
-	defer func() {
-		ctx = m.PopContext()
-		if r := recover(); r != nil {
-			_, ok := r.(ContextTerminationError)
-			if !ok {
-				panic(r)
-			}
-		}
-	}()
-	err = f()
-	if err != nil {
-		m.status = StatusError
-	}
-	return
-}
-
 func (m *runtimeContextManager) RequireCPU(cpuAmount uint64) {
 	if m.trackCpu {
 		// The path with limit is "outlined" so RequireCPU can be inlined,

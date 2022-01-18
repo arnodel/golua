@@ -107,7 +107,7 @@ do
     --> ~false\t.*must be a thread
 
     print(pcall(coroutine.close, coroutine.running()))
-    --> ~true\tfalse\t.*cannot close running thread
+    --> ~false\t.*cannot close running thread
 
     local co = coroutine.create(function()
         coroutine.yield()
