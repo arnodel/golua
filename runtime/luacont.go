@@ -362,28 +362,39 @@ RunLoop:
 				c.acc = nil
 				c.running = false
 				contReg := opcode.GetA()
+				isTail := opcode.GetF() // Can mean tail call or simple return
 				next := getReg(regs, cells, contReg).AsCont()
+
 				// We clear the register containing the continuation to allow
 				// garbage collection.  A continuation can only be called once
 				// anyway, so that's ok semantically.
 				c.clearReg(contReg)
+
+				if isTail {
+					// As we're leaving this continuation for good, perform all
+					// the pending close actions.  It must be done before debug
+					// hooks are called.
+					if err := c.truncateCloseStack(t, 0, nil); err != nil {
+						return nil, err
+					}
+				}
+
 				if t.areFlagsEnabled(HookFlagCall | HookFlagReturn) {
 					switch {
 					case contReg == code.ValueReg(0):
 						_ = t.triggerReturn(t, c)
-					case opcode.GetF():
+					case isTail:
 						_ = t.triggerTailCall(t, next)
 					default:
 						_ = t.triggerCall(t, next)
 					}
 				}
-				if opcode.GetF() {
+
+				if isTail {
 					// It's a tail call.  There is no error, so nothing will
 					// reference c anymore, therefore we are safe to give it to
-					// the pool for reuse.
-					if err := c.truncateCloseStack(t, 0, nil); err != nil {
-						return nil, err
-					}
+					// the pool for reuse.  It must be done after debug hooks
+					// are called because they may use c.
 					c.release(t.Runtime)
 				}
 				return next, nil
