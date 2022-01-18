@@ -294,7 +294,7 @@ func (t *Thread) CallContext(def RuntimeContextDef, f func() *Error) (ctx Runtim
 	}()
 	err = t.cleanupCloseStack(c, h, f())
 	if err != nil {
-		t.Runtime.status = StatusError
+		t.Runtime.setStatus(StatusError)
 	}
 	return
 }

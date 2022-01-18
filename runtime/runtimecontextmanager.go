@@ -57,6 +57,10 @@ func (m *runtimeContextManager) Status() RuntimeContextStatus {
 	return m.status
 }
 
+func (m *runtimeContextManager) setStatus(st RuntimeContextStatus) {
+	m.status = st
+}
+
 func (m *runtimeContextManager) RequiredFlags() ComplianceFlags {
 	return m.requiredFlags
 }
