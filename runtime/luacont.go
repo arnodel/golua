@@ -477,7 +477,19 @@ RunLoop:
 				step, tstep := ToNumberValue(step)
 				if tstart == NaN || tstop == NaN || tstep == NaN {
 					c.pc = pc
-					return nil, NewErrorS("expected numeric value")
+					var (
+						role string
+						val  Value
+					)
+					switch {
+					case tstart == NaN:
+						role, val = "initial value", start
+					case tstop == NaN:
+						role, val = "limit", stop
+					default:
+						role, val = "step", step
+					}
+					return nil, NewErrorF("'for' %s: expected number, got %s", role, val.CustomTypeName())
 				}
 				// Make sure start and step have the same numeric type
 				if tstart != tstep {

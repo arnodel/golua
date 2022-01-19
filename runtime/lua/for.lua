@@ -37,3 +37,24 @@ end
 
 print(pcall(function() for i = 1, 1, 0 do end end))
 --> ~false\t.*'for' step is zero
+
+-- Errors
+do
+    local function err(init)
+        local f = load('for i = ' .. init .. ' do end')
+        ok, msg = pcall(f)
+        print(msg)
+    end
+
+    err[['a', 2, 3]]
+    --> ~'for' initial value: expected number, got string
+
+    err[[1, {}]]
+    --> ~'for' limit: expected number, got table
+
+    err[[1, 2, false]]
+    --> ~'for' step: expected number, got boolean
+
+    err[[1, 2, 0]]
+    --> ~'for' step is zero
+end
