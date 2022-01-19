@@ -129,10 +129,6 @@ func (c *GoCont) DebugInfo() *DebugInfo {
 	}
 }
 
-func (c *GoCont) Cleanup(t *Thread, err *Error) *Error {
-	return err
-}
-
 // NArgs returns the number of args pushed to the continuation.
 func (c *GoCont) NArgs() int {
 	return c.nArgs

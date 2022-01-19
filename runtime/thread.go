@@ -83,13 +83,6 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 		next, err = c.RunInThread(t)
 		if err != nil {
 			if err.Handled() {
-				// Now we can do cleanup, cleanup should always return handled
-				// errors (fingers crossed).
-				// for c != nil {
-				// 	log.Printf("RC Cleanup %s, %s", c.DebugInfo(), err)
-				// 	err = c.Cleanup(t, err)
-				// 	c = c.Next()
-				// }
 				return err
 			}
 			err.AddContext(c, -1)
@@ -400,8 +393,4 @@ func (c *messageHandlerCont) PushEtc(r *Runtime, etc []Value) {
 
 func (c *messageHandlerCont) RunInThread(t *Thread) (Cont, *Error) {
 	return nil, newHandledError(c.err)
-}
-
-func (c *messageHandlerCont) Cleanup(t *Thread, err *Error) *Error {
-	return err
 }
