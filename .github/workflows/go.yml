@@ -39,7 +39,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: arnodel/golua-tests
-        ref: golua
+        ref: golua-5.4
         path: ./lua-test-suite
 
     - name: Run Lua Test Suite
