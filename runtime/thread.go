@@ -184,11 +184,11 @@ func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, *Error) {
 	return caller.getResumeValues()
 }
 
-// Close a suspended thread.  Its status switches to dead while its caller's
-// status switches to suspended.  The boolean returned is true if it was
-// possible to close the thread (i.e. it was suspended or already dead).  The
-// error is non-nil if there was an error in the cleanup process, or if the
-// thread had already stopped with an error previously.
+// Close a suspended thread.  If successful, its status switches to dead.  The
+// boolean returned is true if it was possible to close the thread (i.e. it was
+// suspended or already dead).  The error is non-nil if there was an error in
+// the cleanup process, or if the thread had already stopped with an error
+// previously.
 func (t *Thread) Close(caller *Thread) (bool, *Error) {
 	t.mux.Lock()
 	if t.status != ThreadSuspended {
@@ -204,6 +204,8 @@ func (t *Thread) Close(caller *Thread) (bool, *Error) {
 	if caller.status != ThreadOK {
 		panic("Caller of thread to close is not running")
 	}
+	// The thread needs to go back to running to empty its close stack, before
+	// becoming dead.
 	t.caller = caller
 	t.status = ThreadOK
 	t.mux.Unlock()
@@ -213,8 +215,8 @@ func (t *Thread) Close(caller *Thread) (bool, *Error) {
 	return true, err
 }
 
-// Yield to the caller thread.  The yielding thread's status switches
-// to suspended while the caller's status switches back to running.
+// Yield to the caller thread.  The yielding thread's status switches to
+// suspended.  The caller's status must be OK.
 func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 	t.mux.Lock()
 	if t.status != ThreadOK {
@@ -237,6 +239,8 @@ func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 	return t.getResumeValues()
 }
 
+// This turns off the thread, cleaning up its close stack.  The thread must be
+// running.
 func (t *Thread) end(args []Value, err *Error, exception interface{}) {
 	caller := t.caller
 	t.mux.Lock()
