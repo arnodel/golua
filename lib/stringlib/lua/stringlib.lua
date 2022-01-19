@@ -259,6 +259,9 @@ do
     pf("%q %q %q", false, 1, 1.5)
     --> =false 1 1.5
 
+    print(pcall(pf, "%10q", 2))
+    --> ~false\t.*cannot have modifiers
+
     errf("%t")
     --> ~not enough values
 
@@ -281,6 +284,67 @@ do
     errf(321)
     --> ~must be a string
 
+    -- New in Lua 5.4: %p formatting
+
+    local function ps(x) return string.format("%p", x) end
+
+    local t = {}
+    pf("=%p=", t)
+    --> ~=0x[0-9a-f]+=
+
+    local tp = ps(t)
+    t.x = "something"
+    print(ps(t) == tp)
+    --> =true
+
+    pf("%p", 1)
+    --> =(null)
+    pf("%p", true)
+    --> =(null)
+    pf("%p", 2.5)
+    --> =(null)
+    pf("%p", nil)
+    --> =(null)
+
+    pf("=%p=", "hello")
+    --> ~=0x[0-9a-f]+=
+
+    pf("=%p=", print)
+    --> ~=0x[0-9a-f]+=
+
+    print(ps(print) == ps(print))
+    --> =true
+
+    pf("=%p=", coroutine.running())
+    --> ~=0x[0-9a-f]+=
+
+    print(ps(coroutine.running()) == ps(coroutine.running()))
+    --> =true
+
+    pf("=%p=", io.stdout)
+    --> ~=0x[0-9a-f]+=
+
+    print(ps(io.stdout) == ps(io.stdout))
+    --> =true
+
+    print(ps(io.stdout) == ps(io.stdin))
+    --> =false
+
+    pf("=%p=", pf)
+    --> ~=0x[0-9a-f]+=
+
+    print(ps(pf) == ps(pf))
+    --> =true
+
+    print(ps(pf) == ps(ps))
+    --> =false
+
+    -- In Lua 5.4 infinite floats parse to out of range float literals
+    pf("%q,%q", math.huge, -math.huge)
+    --> =1e9999,-1e9999
+
+    pf("%q", 0/0)
+    --> =(0/0)
 end
 
 do

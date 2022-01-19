@@ -122,12 +122,14 @@ func (c *CodeBuilder) getRegister(name Name, tags uint) (reg Register, ok bool) 
 	}
 	reg, ok = c.parent.getRegister(name, regHasUpvalue)
 	if ok {
+		isConstant := c.parent.IsConstantReg(reg)
 		c.parent.registers[reg].IsCell = true
 		c.upvalues = append(c.upvalues, reg)
 		c.upnames = append(c.upnames, string(name))
 		reg = c.GetFreeRegister()
 		c.upvalueDests = append(c.upvalueDests, reg)
 		c.registers[reg].IsCell = true
+		c.registers[reg].IsConstant = isConstant
 		c.context.addToRoot(name, reg)
 	}
 	return
@@ -186,6 +188,13 @@ func (c *CodeBuilder) emitClearReg(m lexicalScope) {
 func (c *CodeBuilder) PushCloseAction(reg Register) {
 	c.context.addHeight(1)
 	c.EmitNoLine(PushCloseStack{Src: reg})
+}
+
+// HasPendingCloseActions returns true if there are close actions in the current
+// context.  In this case tail calls are disabled in order to allow the close
+// actions to take place after the call.
+func (c *CodeBuilder) HasPendingCloseActions() bool {
+	return c.context.getHeight() > 0
 }
 
 func (c *CodeBuilder) emitTruncate(m lexicalScope) {

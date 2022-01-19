@@ -42,6 +42,16 @@ test[[
 ]]
 --> ~false\t.*attempt to reassign constant variable 'bar'
 
+test[[
+    local x <const> = 2
+    local function foo()
+        x = 3
+        return x
+    end
+    return foo()
+]]
+--> ~false\t.*attempt to reassign constant variable 'x'
+
 --
 -- to-be-closed tests
 --
@@ -55,7 +65,7 @@ test[[
 test[[
     local x <close> = 1
 ]]
---> ~false\t.*to be closed variable missing a __close metamethod
+--> ~false\t.*to be closed value missing a __close metamethod
 
 function make(msg, err)
     t = {}
@@ -161,4 +171,48 @@ do
     --> ~false\t.*: stop
     print(s)
     --> =start+x3+x2+x1+x0-x0-x1-x2-x3
+end
+
+do
+    print(pcall(function()
+        local x <close> = {}
+        print"we don't get to here"
+    end))
+    --> ~false\t.*missing a __close metamethod
+end
+
+-- close actions are run before return debug hooks.  The test below shows that
+-- because 'myfunction' is output.
+do
+    local function myfunction()
+        local function close()
+            debug.sethook(function()
+                print(debug.getinfo(2).name)
+            end, "r")
+        end
+        local t = {}
+        setmetatable(t, {__close=close})
+        local x <close> = t
+    end
+    myfunction()
+    --> =sethook
+    --> =close
+    --> =myfunction
+    debug.sethook()
+end
+
+-- Tail calls are disabled when there are pending to-be-closed variables.
+do
+    s = "start"
+    local function g()
+        local y <close> = mk("y")
+    end
+    local function f()
+        local x <close> = mk("x")
+        return g() -- This isn't a tail call
+    end
+    f()
+    print(s)
+    --> =start+x+y-y-x
+    -- x is closed after y, showing that g() wasn't a tail-call.
 end

@@ -43,6 +43,8 @@ type InstrProcessor interface {
 	ProcessFillTableInstr(FillTable)
 	ProcessTruncateCloseStackInstr(TruncateCloseStack)
 	ProcessPushCloseStackInstr(PushCloseStack)
+	ProcessPrepForLoopInstr(PrepForLoop)
+	ProcessAdvForLoopInstr(AdvForLoop)
 
 	// These are hints that a register is needed or no longer needed.
 	ProcessTakeRegisterInstr(TakeRegister)
@@ -498,4 +500,31 @@ func (l DeclareLabel) String() string {
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (l DeclareLabel) ProcessInstr(p InstrProcessor) {
 	p.ProcessDeclareLabelInstr(l)
+}
+
+// PrepForLoop prepares a for loop
+type PrepForLoop struct {
+	Start, Stop, Step Register
+}
+
+func (i PrepForLoop) String() string {
+	return fmt.Sprintf("prepfor %s, %s, %s", i.Start, i.Stop, i.Step)
+}
+
+func (i PrepForLoop) ProcessInstr(p InstrProcessor) {
+	p.ProcessPrepForLoopInstr(i)
+}
+
+// AdvForLoop advances a for loop
+
+type AdvForLoop struct {
+	Start, Stop, Step Register
+}
+
+func (i AdvForLoop) String() string {
+	return fmt.Sprintf("advfor %s, %s, %s", i.Start, i.Stop, i.Step)
+}
+
+func (i AdvForLoop) ProcessInstr(p InstrProcessor) {
+	p.ProcessAdvForLoopInstr(i)
 }

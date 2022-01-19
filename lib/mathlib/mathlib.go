@@ -3,6 +3,7 @@ package mathlib
 import (
 	"math"
 	"math/rand"
+	"time"
 
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
@@ -39,7 +40,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(pkg, "modf", modf, 1, false),
 		r.SetEnvGoFunc(pkg, "rad", rad, 1, false),
 		r.SetEnvGoFunc(pkg, "random", random, 2, false),
-		r.SetEnvGoFunc(pkg, "randomseed", randomseed, 1, false),
+		r.SetEnvGoFunc(pkg, "randomseed", randomseed, 2, false),
 		r.SetEnvGoFunc(pkg, "sin", sin, 1, false),
 		r.SetEnvGoFunc(pkg, "sqrt", sqrt, 1, false),
 		r.SetEnvGoFunc(pkg, "tan", tan, 1, false),
@@ -200,7 +201,12 @@ func fmod(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
-	res, err := rt.Mod(t, c.Arg(0), c.Arg(1))
+	x, _ := rt.ToNumberValue(c.Arg(0))
+	y, _ := rt.ToNumberValue(c.Arg(1))
+	res, ok, err := rt.Mod(x, y)
+	if !ok {
+		err = rt.NewErrorS("expected numeric arguments")
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -335,15 +341,31 @@ func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func randomseed(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	if err := c.Check1Arg(); err != nil {
-		return nil, err
+	var seed int64
+	var err *rt.Error
+	switch c.NArgs() {
+	case 0:
+		// Something "random"
+		seed = time.Now().UnixNano()
+	case 1:
+		seed, err = c.IntArg(0)
+		if err != nil {
+			return nil, err
+		}
+	case 2:
+		seed, err = c.IntArg(0)
+		if err != nil {
+			return nil, err
+		}
+		seed2, err := c.IntArg(1)
+		if err != nil {
+			return nil, err
+		}
+		// In Go the seed is only 64 bits so we mangle the seeds
+		seed ^= seed2
 	}
-	seed, err := c.IntArg(0)
-	if err != nil {
-		return nil, err
-	}
-	rand.Seed(int64(seed))
-	return c.Next(), nil
+	rand.Seed(seed)
+	return c.PushingNext(t.Runtime, rt.IntValue(seed), rt.IntValue(0)), nil
 }
 
 func sin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {

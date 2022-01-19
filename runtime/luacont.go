@@ -104,17 +104,25 @@ func (c *LuaCont) Parent() Cont {
 func (c *LuaCont) RunInThread(t *Thread) (Cont, *Error) {
 	pc := c.pc
 	consts := c.consts
+	lines := c.lines
+	var lastLine int32
 	c.running = true
 	opcodes := c.code
 	regs := c.registers
 	cells := c.cells
-	// fmt.Println("START", c)
 RunLoop:
 	for {
 		t.RequireCPU(1)
-		// fmt.Println("PC", pc)
-		// fmt.Println(c.DebugInfo().String())
 
+		if t.DebugHooks.areFlagsEnabled(HookFlagLine) {
+			line := lines[pc]
+			if line > 0 && line != lastLine {
+				lastLine = line
+				if err := t.triggerLine(t, c, line); err != nil {
+					return nil, err
+				}
+			}
+		}
 		opcode := opcodes[pc]
 		if opcode.HasType1() {
 			dst := opcode.GetA()
@@ -122,24 +130,46 @@ RunLoop:
 			y := getReg(regs, cells, opcode.GetC())
 			var res Value
 			var err *Error
+			var ok bool
 			switch opcode.GetX() {
 
 			// Arithmetic
 
 			case code.OpAdd:
-				res, err = add(t, x, y)
+				res, ok = Add(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__add", x, y)
+				}
 			case code.OpSub:
-				res, err = sub(t, x, y)
+				res, ok = Sub(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__sub", x, y)
+				}
 			case code.OpMul:
-				res, err = mul(t, x, y)
+				res, ok = Mul(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__mul", x, y)
+				}
 			case code.OpDiv:
-				res, err = div(t, x, y)
+				res, ok = Div(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__div", x, y)
+				}
 			case code.OpFloorDiv:
-				res, err = idiv(t, x, y)
+				res, ok, err = Idiv(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__idiv", x, y)
+				}
 			case code.OpMod:
-				res, err = Mod(t, x, y)
+				res, ok, err = Mod(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__mod", x, y)
+				}
 			case code.OpPow:
-				res, err = pow(t, x, y)
+				res, ok = Pow(x, y)
+				if !ok {
+					res, err = BinaryArithFallback(t, "__pow", x, y)
+				}
 
 			// Bitwise
 
@@ -243,12 +273,16 @@ RunLoop:
 		case code.Type4Pfx:
 			dst := opcode.GetA()
 			var res Value
+			var ok bool
 			var err *Error
 			if opcode.HasType4a() {
 				val := getReg(regs, cells, opcode.GetB())
 				switch opcode.GetUnOp() {
 				case code.OpNeg:
-					res, err = unm(t, val)
+					res, ok = Unm(val)
+					if !ok {
+						res, err = UnaryArithFallback(t, "__unm", val)
+					}
 				case code.OpBitNot:
 					res, err = bnot(t, val)
 				case code.OpLen:
@@ -271,12 +305,6 @@ RunLoop:
 					continue RunLoop
 				case code.OpTruth:
 					res = BoolValue(Truth(val))
-				case code.OpToNumber:
-					var tp NumberType
-					res, tp = ToNumberValue(val)
-					if tp == NaN {
-						err = NewErrorS("expected numeric value")
-					}
 				case code.OpNot:
 					res = BoolValue(!Truth(val))
 				case code.OpUpvalue:
@@ -342,28 +370,39 @@ RunLoop:
 				c.acc = nil
 				c.running = false
 				contReg := opcode.GetA()
+				isTail := opcode.GetF() // Can mean tail call or simple return
 				next := getReg(regs, cells, contReg).AsCont()
+
 				// We clear the register containing the continuation to allow
 				// garbage collection.  A continuation can only be called once
 				// anyway, so that's ok semantically.
 				c.clearReg(contReg)
+
+				if isTail {
+					// As we're leaving this continuation for good, perform all
+					// the pending close actions.  It must be done before debug
+					// hooks are called.
+					if err := c.truncateCloseStack(t, 0, nil); err != nil {
+						return nil, err
+					}
+				}
+
 				if t.areFlagsEnabled(HookFlagCall | HookFlagReturn) {
 					switch {
 					case contReg == code.ValueReg(0):
 						_ = t.triggerReturn(t, c)
-					case opcode.GetF():
+					case isTail:
 						_ = t.triggerTailCall(t, next)
 					default:
 						_ = t.triggerCall(t, next)
 					}
 				}
-				if opcode.GetF() {
+
+				if isTail {
 					// It's a tail call.  There is no error, so nothing will
 					// reference c anymore, therefore we are safe to give it to
-					// the pool for reuse.
-					if err := c.truncateCloseStack(t, 0, nil); err != nil {
-						return nil, err
-					}
+					// the pool for reuse.  It must be done after debug hooks
+					// are called because they may use c.
 					c.release(t.Runtime)
 				}
 				return next, nil
@@ -371,11 +410,16 @@ RunLoop:
 				if opcode.GetF() {
 					// Push to close stack
 					v := getReg(regs, cells, opcode.GetA())
+					if Truth(v) && t.metaGetS(v, "__close").IsNil() {
+						c.pc = pc
+						return nil, NewErrorS("to be closed value missing a __close metamethod")
+					}
 					c.closeStack = append(c.closeStack, v)
 				} else {
 					// Truncate close stack
 					h := int(opcode.GetClStackOffset())
 					if err := c.truncateCloseStack(t, h, nil); err != nil {
+						c.pc = pc
 						return nil, err
 					}
 				}
@@ -399,6 +443,69 @@ RunLoop:
 				}
 			} else {
 				setReg(regs, cells, dst, val)
+			}
+			pc++
+			continue RunLoop
+		case code.Type7Pfx:
+			startReg, stopReg, stepReg := opcode.GetA(), opcode.GetB(), opcode.GetC()
+			start := getReg(regs, cells, startReg)
+			stop := getReg(regs, cells, stopReg)
+			step := getReg(regs, cells, stepReg)
+			if opcode.GetF() {
+				// Advance for loop.  All registers are assumed to contain
+				// numeric values because they have been prepared previously.
+				nextStart, _ := Add(start, step)
+
+				// Check if the loop is done.  It can be done if we have gone
+				// over the stop value or if there has been overflow /
+				// underflow.
+				var done bool
+				if isPositive(step) {
+					done = numIsLessThan(stop, nextStart) || numIsLessThan(nextStart, start)
+				} else {
+					done = numIsLessThan(nextStart, stop) || numIsLessThan(start, nextStart)
+				}
+				if done {
+					nextStart = NilValue
+				}
+				setReg(regs, cells, startReg, nextStart)
+			} else {
+				// Prepare for loop
+				start, tstart := ToNumberValue(start)
+				stop, tstop := ToNumberValue(stop)
+				step, tstep := ToNumberValue(step)
+				if tstart == NaN || tstop == NaN || tstep == NaN {
+					c.pc = pc
+					return nil, NewErrorS("expected numeric value")
+				}
+				// Make sure start and step have the same numeric type
+				if tstart != tstep {
+					// One is a float, one is an int, turn them both to floats
+					if tstart == IsInt {
+						start = FloatValue(float64(start.AsInt()))
+					} else {
+						step = FloatValue(float64(step.AsInt()))
+					}
+				}
+				// A 0 step is an error
+				if isZero(step) {
+					c.pc = pc
+					return nil, NewErrorS("'for' step is zero")
+				}
+				// Check the loop is not already finished. If so, startReg is
+				// set to nil.
+				var done bool
+				if isPositive(step) {
+					done, _ = isLessThan(stop, start)
+				} else {
+					done, _ = isLessThan(start, stop)
+				}
+				if done {
+					start = NilValue
+				}
+				setReg(regs, cells, startReg, start)
+				setReg(regs, cells, stopReg, stop)
+				setReg(regs, cells, stepReg, step)
 			}
 			pc++
 			continue RunLoop
@@ -454,7 +561,7 @@ func (c *LuaCont) truncateCloseStack(t *Thread, h int, err *Error) *Error {
 		if Truth(v) {
 			closeErr, ok := Metacall(t, v, "__close", []Value{v, err.Value()}, NewTerminationWith(c, 0, false))
 			if !ok {
-				return NewErrorS("to be closed variable missing a __close metamethod")
+				return NewErrorS("to be closed value missing a __close metamethod")
 			}
 			if closeErr != nil {
 				err = closeErr

@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const maxPatternSize = 100000
+const maxPatternSize = 10000
 
 type patternBuilder struct {
 	items                   []patternItem

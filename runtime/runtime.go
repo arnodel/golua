@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"io"
+	"os"
 )
 
 // A Runtime is a Lua runtime.  It contains all the global state of the runtime
@@ -16,6 +17,7 @@ type Runtime struct {
 	Stdout     io.Writer
 	mainThread *Thread
 	registry   *Table
+	warner     Warner
 
 	// This has an almost empty implementation when the noquotas build tag is
 	// set.  It should allow the compiler to compile away almost all runtime
@@ -23,7 +25,6 @@ type Runtime struct {
 	runtimeContextManager
 
 	// Object pools used to minimise the overhead of Go memory management.
-	// These are not currently compatible with the quotas implementation.
 
 	// Register pools, disabled with the noregpool build tag.
 	regPool  valuePool
@@ -73,6 +74,7 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 		globalEnv: NewTable(),
 		Stdout:    stdout,
 		registry:  NewTable(),
+		warner:    NewLogWarner(os.Stderr, "Lua warning: "),
 		regPool:   mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
 		argsPool:  mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
 		cellPool:  mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
@@ -107,6 +109,20 @@ func (r *Runtime) MainThread() *Thread {
 // have the same metatable).
 func (r *Runtime) SetStringMeta(meta *Table) {
 	r.stringMeta = meta
+}
+
+// SetWarner replaces the current warner (Lua 5.4)
+func (r *Runtime) SetWarner(warner Warner) {
+	r.warner = warner
+}
+
+// Warn emits a warning with the given message (Lua 5.4).  The default warner is
+// off to start with.  It can be switch on / off by sending it a message "@on" /
+// "@off".
+func (r *Runtime) Warn(msgs ...string) {
+	if r.warner != nil {
+		r.warner.Warn(msgs...)
+	}
 }
 
 // RawMetatable returns the raw metatable for a value (that is, not looking at

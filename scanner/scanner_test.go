@@ -92,7 +92,7 @@ func TestScanner(t *testing.T) {
 				{token.IDENT, "abc", 0, 1, 1},
 				{token.INVALID, "?", 3, 1, 4},
 			},
-			"Illegal character",
+			"illegal character",
 		},
 		// Number errors
 		{
@@ -101,12 +101,12 @@ func TestScanner(t *testing.T) {
 				{token.NUMDEC, "123", 0, 1, 1},
 				{token.INVALID, "z", 3, 1, 4},
 			},
-			"Illegal character following number",
+			"illegal character following number",
 		},
 		{
 			"0x10abP(",
 			[]tok{{token.INVALID, "0x10abP", 0, 1, 1}},
-			"Digit required after exponent",
+			"digit required after exponent",
 		},
 		//
 		// Long brackets
@@ -139,7 +139,7 @@ func TestScanner(t *testing.T) {
 		{
 			`[==!!!`,
 			[]tok{{token.INVALID, `[==!`, 0, 1, 1}},
-			"Expected opening long bracket",
+			"expected opening long bracket",
 		},
 		{
 			`   [===[foo]==]`,
@@ -179,17 +179,17 @@ func TestScanner(t *testing.T) {
 		{
 			`'  \u{l}''`,
 			[]tok{{token.INVALID, `'  \u{`, 0, 1, 1}},
-			"At least 1 hex digit required",
+			"at least 1 hex digit required",
 		},
 		{
 			`"\u{1ef.}"`,
 			[]tok{{token.INVALID, `"\u{1ef.`, 0, 1, 1}},
-			`Missing '}'`,
+			`missing '}'`,
 		},
 		{
 			"'hello\nthere'",
 			[]tok{{token.INVALID, "'hello\n", 0, 1, 1}},
-			"Illegal new line in string literal",
+			"illegal new line in string literal",
 		},
 		{
 			`"foo\"`,
@@ -199,7 +199,7 @@ func TestScanner(t *testing.T) {
 		{
 			`"\o"`,
 			[]tok{{token.INVALID, `"\o`, 0, 1, 1}},
-			"Illegal escaped character",
+			"illegal escaped character",
 		},
 	}
 	for i, test := range tests {

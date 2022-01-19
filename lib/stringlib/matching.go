@@ -32,6 +32,9 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err
 	}
 	si := rt.StringNormPos(s, int(init)) - 1
+	if si < 0 {
+		si = 0
+	}
 	next := c.Next()
 	switch {
 	case si < 0 || si > len(s):
@@ -84,6 +87,9 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err
 	}
 	si := rt.StringNormPos(s, int(init)) - 1
+	if si < 0 {
+		si = 0
+	}
 	next := c.Next()
 	pat, ptnErr := pattern.New(string(ptn))
 	if ptnErr != nil {
@@ -126,13 +132,19 @@ func captureValue(r *rt.Runtime, c pattern.Capture, s string) rt.Value {
 }
 
 func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var s, ptn string
-	err := c.CheckNArgs(2)
+	var (
+		s, ptn string
+		err          = c.CheckNArgs(2)
+		init   int64 = 1
+	)
 	if err == nil {
 		s, err = c.StringArg(0)
 	}
 	if err == nil {
 		ptn, err = c.StringArg(1)
+	}
+	if err == nil && c.NArgs() >= 3 {
+		init, err = c.IntArg(2)
 	}
 	if err != nil {
 		return nil, err
@@ -141,7 +153,10 @@ func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if ptnErr != nil {
 		return nil, rt.NewErrorE(ptnErr)
 	}
-	si := 0
+	si := rt.StringNormPos(s, int(init)) - 1
+	if si < 0 {
+		si = 0
+	}
 	allowEmpty := true
 	var iterator = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		next := c.Next()
@@ -150,7 +165,7 @@ func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			usedCPU  uint64
 		)
 		for {
-			captures, usedCPU = pat.Match(string(s), si, t.UnusedCPU())
+			captures, usedCPU = pat.Match(s, si, t.UnusedCPU())
 			t.RequireCPU(usedCPU)
 			if len(captures) == 0 {
 				break

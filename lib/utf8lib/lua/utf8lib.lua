@@ -104,6 +104,9 @@ do
     print(utf8.len("日本誒", 2))
     --> =nil	2
 
+    print(utf8.len("abcd", 5))
+    --> =0
+
     local err = errtest(utf8.len)
 
     err()
@@ -117,6 +120,12 @@ do
 
     err("ABC", 2, {})
     --> ~must be an integer
+
+    err("abc", 0, 2)
+    --> ~out of range
+
+    err("abc", 1, 4)
+    --> ~out of range
 end
 
 do

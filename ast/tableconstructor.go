@@ -60,6 +60,15 @@ type TableField struct {
 }
 
 func NewTableField(key ExpNode, value ExpNode) TableField {
+	// If value is a function try to give it a name
+	f, ok := value.(Function)
+	if ok && f.Name == "" {
+		name, ok := key.(String)
+		if ok {
+			f.Name = string(name.Val)
+			value = f
+		}
+	}
 	return TableField{
 		Location: MergeLocations(key, value),
 		Key:      key,

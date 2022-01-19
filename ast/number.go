@@ -15,7 +15,7 @@ func NewNumber(id *token.Token) (ExpNode, error) {
 	loc := LocFromToken(id)
 	if ft := toFloatToken(id); ft != "" {
 		f, err := strconv.ParseFloat(ft, 64)
-		if err != nil {
+		if err != nil && f == 0 {
 			return nil, err
 		}
 		return Float{Location: loc, Val: f}, nil
@@ -37,7 +37,7 @@ func NewNumber(id *token.Token) (ExpNode, error) {
 		// If an integer is too big let's make it a float
 		if err != nil {
 			f, err := strconv.ParseFloat(nstring, 64)
-			if err == nil {
+			if err == nil || f != 0 {
 				return Float{Location: loc, Val: f}, nil
 			}
 		}

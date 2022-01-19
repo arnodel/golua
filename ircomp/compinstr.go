@@ -66,12 +66,11 @@ func (ic instrCompiler) ProcessTransformInstr(t ir.Transform) {
 }
 
 var codeUnOp = map[ops.Op]code.UnOp{
-	ops.OpNeg:      code.OpNeg,
-	ops.OpNot:      code.OpNot,
-	ops.OpLen:      code.OpLen,
-	ops.OpBitNot:   code.OpBitNot,
-	ops.OpId:       code.OpId,
-	ops.OpToNumber: code.OpToNumber,
+	ops.OpNeg:    code.OpNeg,
+	ops.OpNot:    code.OpNot,
+	ops.OpLen:    code.OpLen,
+	ops.OpBitNot: code.OpBitNot,
+	ops.OpId:     code.OpId,
 }
 
 // ProcessLoadConstInstr compiles a LoadConst instruction.
@@ -227,9 +226,18 @@ func (ic instrCompiler) ProcessPushCloseStackInstr(p ir.PushCloseStack) {
 	ic.Emit(code.ClPush(ic.codeReg(p.Src)))
 }
 
+// ProcessPrepForLoopInstr compiles a PrepForLoop instruction.
+func (ic instrCompiler) ProcessPrepForLoopInstr(i ir.PrepForLoop) {
+	ic.Emit(code.PrepForLoop(ic.codeReg(i.Start), ic.codeReg(i.Stop), ic.codeReg(i.Step)))
+}
+
+// ProcessAdvForLoopInstr compiles an AdvForLoop instruction.
+func (ic instrCompiler) ProcessAdvForLoopInstr(i ir.AdvForLoop) {
+	ic.Emit(code.AdvForLoop(ic.codeReg(i.Start), ic.codeReg(i.Stop), ic.codeReg(i.Step)))
+}
+
 func (ic instrCompiler) ProcessTakeRegisterInstr(t ir.TakeRegister) {
 	ic.takeRegister(t.Reg)
-
 }
 
 func (ic instrCompiler) ProcessReleaseRegisterInstr(r ir.ReleaseRegister) {
