@@ -105,17 +105,25 @@ func (c *LuaCont) Parent() Cont {
 func (c *LuaCont) RunInThread(t *Thread) (Cont, *Error) {
 	pc := c.pc
 	consts := c.consts
+	lines := c.lines
+	var lastLine int32
 	c.running = true
 	opcodes := c.code
 	regs := c.registers
 	cells := c.cells
-	// fmt.Println("START", c)
 RunLoop:
 	for {
 		t.RequireCPU(1)
-		// fmt.Println("PC", pc)
-		// fmt.Println(c.DebugInfo().String())
 
+		if t.DebugHooks.areFlagsEnabled(HookFlagLine) {
+			line := lines[pc]
+			if line > 0 && line != lastLine {
+				lastLine = line
+				if err := t.triggerLine(t, c, line); err != nil {
+					return nil, err
+				}
+			}
+		}
 		opcode := opcodes[pc]
 		if opcode.HasType1() {
 			dst := opcode.GetA()
