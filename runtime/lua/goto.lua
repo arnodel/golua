@@ -19,6 +19,14 @@ print(load([[
 ]]))
 --> ~nil\t.*undefined label 'cont'
 
+-- (bugfix) A return statement prevents back labels
+print(load[[
+  goto L
+  local a = 1
+  ::L:: return a
+]])
+--> ~nil\t.*undefined label 'L'
+
 -- Lua 5.4 forbids shadowing labels
 
 print(load[[
