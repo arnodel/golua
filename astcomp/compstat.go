@@ -84,7 +84,7 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 		Lsrc: var1,
 		Rsrc: testReg,
 	})
-	endLbl := c.DeclareGotoLabel(breakLblName, -1)
+	endLbl := c.DeclareGotoLabelNoLine(breakLblName)
 	c.emitInstr(s, ir.JumpIf{Cond: testReg, Label: endLbl})
 	c.emitInstr(s, ir.Transform{Dst: varReg, Op: ops.OpId, Src: var1})
 	c.compileBlock(s.Body)
@@ -127,7 +127,7 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	c.PushContext()
 	loopLbl := c.GetNewLabel()
 	must(c.EmitLabelNoLine(loopLbl))
-	endLbl := c.DeclareGotoLabel(breakLblName, 0)
+	endLbl := c.DeclareGotoLabelNoLine(breakLblName)
 
 	// If startReg is nil, then there are no iterations in the loop
 	c.EmitNoLine(ir.JumpIf{
@@ -246,7 +246,7 @@ func (c *compiler) ProcessLocalStat(s ast.LocalStat) {
 // ProcessRepeatStat compiles a RepeatStat.
 func (c *compiler) ProcessRepeatStat(s ast.RepeatStat) {
 	c.PushContext()
-	c.DeclareGotoLabel(breakLblName, -1)
+	c.DeclareGotoLabelNoLine(breakLblName)
 
 	loopLbl := c.GetNewLabel()
 	must(c.EmitLabelNoLine(loopLbl))
@@ -271,7 +271,7 @@ func (c *compiler) ProcessRepeatStat(s ast.RepeatStat) {
 // ProcessWhileStat compiles a WhileStat.
 func (c *compiler) ProcessWhileStat(s ast.WhileStat) {
 	c.PushContext()
-	stopLbl := c.DeclareGotoLabel(breakLblName, -1)
+	stopLbl := c.DeclareGotoLabelNoLine(breakLblName)
 
 	loopLbl := c.GetNewLabel()
 	must(c.EmitLabelNoLine(loopLbl))

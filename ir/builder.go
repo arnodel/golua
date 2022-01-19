@@ -71,6 +71,10 @@ func (c *CodeBuilder) DeclareUniqueGotoLabel(name Name, line int) (Label, error)
 	return c.DeclareGotoLabel(name, line), nil
 }
 
+func (c *CodeBuilder) DeclareGotoLabelNoLine(name Name) Label {
+	return c.DeclareGotoLabel(name, 0)
+}
+
 func (c *CodeBuilder) DeclareGotoLabel(name Name, line int) Label {
 	lbl := c.GetNewLabel()
 	c.context.addLabel(name, lbl, line)
