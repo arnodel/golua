@@ -95,7 +95,7 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
 	defer func() { t.goFunctionCallDepth-- }()
 
 	if t.goFunctionCallDepth > maxGoFunctionCallDepth {
-		return nil, NewErrorS("Go stack overflow")
+		return nil, NewErrorS("stack overflow")
 	}
 	next, err = c.f(t, c)
 	_ = t.triggerReturn(t, c)
