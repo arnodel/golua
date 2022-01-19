@@ -173,6 +173,25 @@ do
     --> =start+x3+x2+x1+x0-x0-x1-x2-x3
 end
 
+do
+    print(pcall(function()
+        local x <close> = {}
+        print"we don't get to here"
+    end))
+    --> ~false\t.*missing a __close metamethod
+
+    print(pcall(function()
+        local x <close> = mk("x")
+        getmetatable(x).__close = nil
+        local x <close> = make("haha")
+        print"we get here"
+    end))
+    --> =we get here
+    --> =haha
+    --> ~false\t.*missing a __close metamethod
+
+end
+
 -- close actions are run before return debug hooks.  The test below shows that
 -- because 'myfunction' is output.
 do
