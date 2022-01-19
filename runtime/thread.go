@@ -15,6 +15,10 @@ const (
 	ThreadDead      ThreadStatus = 3 // Thread has finished and cannot be resumed
 )
 
+// The depth of GoFunction calls in one thread is limited by this number in
+// order to avoid irrecoverable Go stack overflows.
+const maxGoFunctionCallDepth = 1000
+
 type valuesError struct {
 	args     []Value
 	err      *Error
@@ -33,6 +37,13 @@ type Thread struct {
 	currentCont Cont
 	resumeCh    chan valuesError
 	caller      *Thread
+
+	// Depth of GoFunction calls in the thread.  This should not exceed
+	// maxGoFunctionCallDepth.  The aim is to avoid Go stack overflows that
+	// cannot be recovered from (note that this does not limit recursion for Lua
+	// functions).
+	goFunctionCallDepth int
+
 	DebugHooks
 }
 
