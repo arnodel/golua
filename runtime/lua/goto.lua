@@ -25,7 +25,7 @@ print(load[[
   local a = 1
   ::L:: return a
 ]])
---> ~nil\t.*undefined label 'L'
+--> ~nil\t.*no visible label 'L'
 
 -- Lua 5.4 forbids shadowing labels
 
