@@ -18,7 +18,7 @@ func (c *compiler) emitJump(l ast.Locator, lbl ir.Name) {
 	if !c.CodeBuilder.EmitJump(lbl, getLine(l)) {
 		panic(Error{
 			Where:   l,
-			Message: fmt.Sprintf("undefined label '%s'", lbl),
+			Message: fmt.Sprintf("no visible label '%s'", lbl),
 		})
 	}
 }

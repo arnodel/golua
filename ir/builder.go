@@ -60,33 +60,40 @@ func (c *CodeBuilder) Dump() {
 	}
 }
 
-func (c *CodeBuilder) DeclareUniqueGotoLabel(name Name) (Label, error) {
-	_, ok := c.getGotoLabel(name)
+func (c *CodeBuilder) DeclareUniqueGotoLabel(name Name, line int) (Label, error) {
+	_, prevLine, ok := c.getGotoLabel(name)
 	if ok {
+		if prevLine > 0 {
+			return 0, fmt.Errorf("label '%s' already defined at line %d", name, prevLine)
+		}
 		return 0, fmt.Errorf("label '%s' already defined", name)
 	}
-	return c.DeclareGotoLabel(name), nil
+	return c.DeclareGotoLabel(name, line), nil
 }
 
-func (c *CodeBuilder) DeclareGotoLabel(name Name) Label {
+func (c *CodeBuilder) DeclareGotoLabelNoLine(name Name) Label {
+	return c.DeclareGotoLabel(name, 0)
+}
+
+func (c *CodeBuilder) DeclareGotoLabel(name Name, line int) Label {
 	lbl := c.GetNewLabel()
-	c.context.addLabel(name, lbl)
+	c.context.addLabel(name, lbl, line)
 	return lbl
 }
 
-func (c *CodeBuilder) getGotoLabel(name Name) (Label, bool) {
+func (c *CodeBuilder) getGotoLabel(name Name) (Label, int, bool) {
 	return c.context.getLabel(name)
 }
 
 func (c *CodeBuilder) EmitGotoLabel(name Name) error {
-	label, ok := c.getGotoLabel(name)
+	label, line, ok := c.getGotoLabel(name)
 	if !ok {
 		return fmt.Errorf("cannot emit undeclared label '%s'", name)
 	}
 	if c.labels[label] {
 		return fmt.Errorf("label '%s' used twice", name)
 	}
-	return c.EmitLabel(label)
+	return c.EmitLabel(label, line)
 }
 
 func (c *CodeBuilder) GetNewLabel() Label {
@@ -95,13 +102,17 @@ func (c *CodeBuilder) GetNewLabel() Label {
 	return lbl
 }
 
-func (c *CodeBuilder) EmitLabel(lbl Label) error {
+func (c *CodeBuilder) EmitLabel(lbl Label, line int) error {
 	if c.labels[lbl] {
 		return fmt.Errorf("label '%s' emitted twice", lbl)
 	}
 	c.labels[lbl] = true
-	c.EmitNoLine(DeclareLabel{Label: lbl})
+	c.Emit(DeclareLabel{Label: lbl}, line)
 	return nil
+}
+
+func (c *CodeBuilder) EmitLabelNoLine(lbl Label) error {
+	return c.EmitLabel(lbl, 0)
 }
 
 func (c *CodeBuilder) GetRegister(name Name) (Register, bool) {
@@ -203,7 +214,7 @@ func (c *CodeBuilder) EmitJump(lblName Name, line int) bool {
 	)
 	for len(lc) > 0 {
 		lc, top = lc.pop()
-		if lbl, ok := top.label[lblName]; ok {
+		if lbl, line, ok := top.getLabel(lblName); ok {
 			c.emitTruncate(top)
 			c.Emit(Jump{Label: lbl}, line)
 			return true

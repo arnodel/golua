@@ -57,7 +57,7 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 	c.DeclareLocal(loopVarRegName, varReg)
 
 	loopLbl := c.GetNewLabel()
-	must(c.EmitLabel(loopLbl))
+	must(c.EmitLabelNoLine(loopLbl))
 
 	nameAttribs := make([]ast.NameAttrib, len(s.Vars))
 	for i, name := range s.Vars {
@@ -84,7 +84,7 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 		Lsrc: var1,
 		Rsrc: testReg,
 	})
-	endLbl := c.DeclareGotoLabel(breakLblName)
+	endLbl := c.DeclareGotoLabelNoLine(breakLblName)
 	c.emitInstr(s, ir.JumpIf{Cond: testReg, Label: endLbl})
 	c.emitInstr(s, ir.Transform{Dst: varReg, Op: ops.OpId, Src: var1})
 	c.compileBlock(s.Body)
@@ -125,8 +125,9 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	})
 
 	c.PushContext()
-	endLbl := c.DeclareGotoLabel(breakLblName) // End of loop
 	loopLbl := c.GetNewLabel()
+	must(c.EmitLabelNoLine(loopLbl))
+	endLbl := c.DeclareGotoLabelNoLine(breakLblName)
 
 	// If startReg is nil, then there are no iterations in the loop
 	c.EmitNoLine(ir.JumpIf{
@@ -134,9 +135,6 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 		Label: endLbl,
 		Not:   true,
 	})
-
-	// loop:
-	must(c.EmitLabel(loopLbl))
 
 	// Here compile the loop body
 	c.PushContext()
@@ -187,18 +185,18 @@ func (c *compiler) ProcessIfStat(s ast.IfStat) {
 	c.compileCond(s.If, lbl)
 	for _, s := range s.ElseIfs {
 		c.emitInstr(s.Cond, ir.Jump{Label: endLbl}) // TODO: better location
-		must(c.EmitLabel(lbl))
+		must(c.EmitLabelNoLine(lbl))
 		lbl = c.GetNewLabel()
 		c.compileCond(s, lbl)
 	}
 	if s.Else != nil {
 		c.emitInstr(s, ir.Jump{Label: endLbl}) // TODO: better location
-		must(c.EmitLabel(lbl))
+		must(c.EmitLabelNoLine(lbl))
 		c.CompileStat(s.Else)
 	} else {
-		must(c.EmitLabel(lbl))
+		must(c.EmitLabelNoLine(lbl))
 	}
-	must(c.EmitLabel(endLbl))
+	must(c.EmitLabelNoLine(endLbl))
 }
 
 func (c *compiler) compileCond(s ast.CondStat, lbl ir.Label) {
@@ -248,10 +246,10 @@ func (c *compiler) ProcessLocalStat(s ast.LocalStat) {
 // ProcessRepeatStat compiles a RepeatStat.
 func (c *compiler) ProcessRepeatStat(s ast.RepeatStat) {
 	c.PushContext()
-	c.DeclareGotoLabel(breakLblName)
+	c.DeclareGotoLabelNoLine(breakLblName)
 
 	loopLbl := c.GetNewLabel()
-	must(c.EmitLabel(loopLbl))
+	must(c.EmitLabelNoLine(loopLbl))
 	pop := c.compileBlockNoPop(s.Body, false)
 	condReg := c.compileExpNoDestHint(s.Cond)
 	negReg := c.GetFreeRegister()
@@ -273,10 +271,10 @@ func (c *compiler) ProcessRepeatStat(s ast.RepeatStat) {
 // ProcessWhileStat compiles a WhileStat.
 func (c *compiler) ProcessWhileStat(s ast.WhileStat) {
 	c.PushContext()
-	stopLbl := c.DeclareGotoLabel(breakLblName)
+	stopLbl := c.DeclareGotoLabelNoLine(breakLblName)
 
 	loopLbl := c.GetNewLabel()
-	must(c.EmitLabel(loopLbl))
+	must(c.EmitLabelNoLine(loopLbl))
 
 	c.compileCond(s.CondStat, stopLbl)
 
@@ -344,7 +342,7 @@ func getLabels(c *ir.CodeBuilder, statements []ast.Stat) bool {
 	for _, stat := range statements {
 		switch s := stat.(type) {
 		case ast.LabelStat:
-			_, err := c.DeclareUniqueGotoLabel(ir.Name(s.Name.Val))
+			_, err := c.DeclareUniqueGotoLabel(ir.Name(s.Name.Val), s.Name.StartPos().Line)
 			if err != nil {
 				panic(Error{
 					Where:   s.Name,
@@ -367,7 +365,7 @@ func getBackLabels(c *ir.CodeBuilder, statements []ast.Stat) int {
 		case ast.EmptyStat:
 			// That doesn't count
 		case ast.LabelStat:
-			_, err := c.DeclareUniqueGotoLabel(ir.Name(s.Name.Val))
+			_, err := c.DeclareUniqueGotoLabel(ir.Name(s.Name.Val), s.Name.StartPos().Line)
 			if err != nil {
 				panic(Error{
 					Where:   s.Name,
