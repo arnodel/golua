@@ -3,14 +3,28 @@ package ir
 import "fmt"
 
 type lexicalScope struct {
-	reg    map[Name]taggedReg // maps variable names to registers
-	label  map[Name]Label     // maps label names to labels
-	height int                // This is the height of the close stack in this scope
+	reg    map[Name]taggedReg     // maps variable names to registers
+	label  map[Name]labelWithLine // maps label names to labels
+	height int                    // This is the height of the close stack in this scope
+}
+
+func (s lexicalScope) getLabel(name Name) (label Label, line int, ok bool) {
+	ll, ok := s.label[name]
+	if ok {
+		label = ll.Label
+		line = ll.line
+	}
+	return
 }
 
 type taggedReg struct {
 	reg  Register
 	tags uint
+}
+
+type labelWithLine struct {
+	Label
+	line int
 }
 
 // A lexicalContext maintains nested mappings of names to registers and jump
@@ -40,11 +54,11 @@ func (c lexicalContext) getRegister(name Name, tags uint) (reg Register, ok bool
 // getLabel returns the label associated with the given name if it has been
 // defined in one of the accessible scopes, in which case ok is true, otherwise
 // ok is false.
-func (c lexicalContext) getLabel(name Name) (label Label, ok bool) {
+func (c lexicalContext) getLabel(name Name) (label Label, line int, ok bool) {
 	for i := len(c) - 1; i >= 0; i-- {
-		label, ok = c[i].label[name]
+		label, line, ok = c[i].getLabel(name)
 		if ok {
-			break
+			return
 		}
 	}
 	return
@@ -71,10 +85,13 @@ func (c lexicalContext) addToTop(name Name, reg Register) (ok bool) {
 
 // addLabel adds a name => label mapping to the topmost lexical scope in this
 // context.
-func (c lexicalContext) addLabel(name Name, label Label) (ok bool) {
+func (c lexicalContext) addLabel(name Name, label Label, line int) (ok bool) {
 	ok = len(c) > 0
 	if ok {
-		c[len(c)-1].label[name] = label
+		c[len(c)-1].label[name] = labelWithLine{
+			Label: label,
+			line:  line,
+		}
 	}
 	return
 }
@@ -93,7 +110,7 @@ func (c lexicalContext) addHeight(h int) (ok bool) {
 func (c lexicalContext) pushNew() lexicalContext {
 	return append(c, lexicalScope{
 		reg:    make(map[Name]taggedReg),
-		label:  make(map[Name]Label),
+		label:  make(map[Name]labelWithLine),
 		height: c.top().height,
 	})
 }

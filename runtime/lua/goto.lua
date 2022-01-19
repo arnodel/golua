@@ -17,7 +17,7 @@ print(load([[
     ::cont::
   until xuxu < x
 ]]))
---> ~nil\t.*undefined label 'cont'
+--> ~nil\t.*no visible label 'cont'
 
 -- Lua 5.4 forbids shadowing labels
 
@@ -27,7 +27,7 @@ print(load[[
   ::label::
   print"bye"
 ]])
---> ~nil\t.*label 'label' already defined
+--> ~nil\t.*label 'label' already defined at line 1
 
 print(load[[
   ::foo::
@@ -36,7 +36,7 @@ print(load[[
     goto foo
   end
 ]])
---> ~nil\t.*label 'foo' already defined
+--> ~nil\t.*label 'foo' already defined at line 1
 
 -- It's OK to reuse a label name that was defined outside the current function
 -- scope.
