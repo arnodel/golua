@@ -15,6 +15,10 @@ const (
 	ThreadDead      ThreadStatus = 3 // Thread has finished and cannot be resumed
 )
 
+// The depth of GoFunction calls in one thread is limited by this number in
+// order to avoid irrecoverable Go stack overflows.
+const maxGoFunctionCallDepth = 1000
+
 // Data passed between Threads via their resume channel (Thread.resumeCh).
 //
 // Supported types for exception are ContextTerminationError (which means
@@ -39,6 +43,13 @@ type Thread struct {
 	currentCont Cont
 	resumeCh    chan valuesError
 	caller      *Thread
+
+	// Depth of GoFunction calls in the thread.  This should not exceed
+	// maxGoFunctionCallDepth.  The aim is to avoid Go stack overflows that
+	// cannot be recovered from (note that this does not limit recursion for Lua
+	// functions).
+	goFunctionCallDepth int
+
 	DebugHooks
 }
 
@@ -61,7 +72,7 @@ func (t *Thread) CurrentCont() Cont {
 
 // IsMain returns true if the thread is the runtime's main thread.
 func (t *Thread) IsMain() bool {
-	return t.caller == nil
+	return t == t.mainThread
 }
 
 const maxErrorsInMessageHandler = 10

@@ -128,6 +128,9 @@ do
     print(utf8.len("日本誒", 2))
     --> =nil	2
 
+    print(utf8.len("abcd", 5))
+    --> =0
+
     local err = errtest(utf8.len)
 
     err()
@@ -142,6 +145,12 @@ do
     err("ABC", 2, {})
     --> ~must be an integer
 
+    err("abc", 0, 2)
+    --> ~out of range
+
+    err("abc", 1, 4)
+    --> ~out of range
+
     -- lax mode (Lua 5.4)
 
     err("sdfjl", 2, 4, "true")
@@ -149,6 +158,7 @@ do
 
     print(utf8.len("\u{200000}\u{3FFFFFF}\u{4000000}\u{7FFFFFFF}", 1, -1, true))
     --> =4
+
 end
 
 do

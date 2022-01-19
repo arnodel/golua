@@ -104,17 +104,25 @@ func (c *LuaCont) Parent() Cont {
 func (c *LuaCont) RunInThread(t *Thread) (Cont, *Error) {
 	pc := c.pc
 	consts := c.consts
+	lines := c.lines
+	var lastLine int32
 	c.running = true
 	opcodes := c.code
 	regs := c.registers
 	cells := c.cells
-	// fmt.Println("START", c)
 RunLoop:
 	for {
 		t.RequireCPU(1)
-		// fmt.Println("PC", pc)
-		// fmt.Println(c.DebugInfo().String())
 
+		if t.DebugHooks.areFlagsEnabled(HookFlagLine) {
+			line := lines[pc]
+			if line > 0 && line != lastLine {
+				lastLine = line
+				if err := t.triggerLine(t, c, line); err != nil {
+					return nil, err
+				}
+			}
+		}
 		opcode := opcodes[pc]
 		if opcode.HasType1() {
 			dst := opcode.GetA()
@@ -402,11 +410,16 @@ RunLoop:
 				if opcode.GetF() {
 					// Push to close stack
 					v := getReg(regs, cells, opcode.GetA())
+					if Truth(v) && t.metaGetS(v, "__close").IsNil() {
+						c.pc = pc
+						return nil, NewErrorS("to be closed value missing a __close metamethod")
+					}
 					c.closeStack = append(c.closeStack, v)
 				} else {
 					// Truncate close stack
 					h := int(opcode.GetClStackOffset())
 					if err := c.truncateCloseStack(t, h, nil); err != nil {
+						c.pc = pc
 						return nil, err
 					}
 				}
@@ -548,7 +561,7 @@ func (c *LuaCont) truncateCloseStack(t *Thread, h int, err *Error) *Error {
 		if Truth(v) {
 			closeErr, ok := Metacall(t, v, "__close", []Value{v, err.Value()}, NewTerminationWith(c, 0, false))
 			if !ok {
-				return NewErrorS("to be closed variable missing a __close metamethod")
+				return NewErrorS("to be closed value missing a __close metamethod")
 			}
 			if closeErr != nil {
 				err = closeErr
