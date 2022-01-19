@@ -275,8 +275,10 @@ do
     --> ~nil\t.*cannot close standard file
 end
 
+local ff
 do
-    local f = io.open("files/writetest3.txt", "w")
+    local f <close> = io.open("files/writetest3.txt", "w")
+    ff = f
     -- hard to test what it does, at least make sure the correct modes are accepted
     f:setvbuf("no")
     f:setvbuf("full")
@@ -306,4 +308,14 @@ do
 
     perr("full", {})
     --> ~false\t.*#3 must be an integer
+
+    -- ff is still open at this point
+    print(io.type(ff))
+    --> =file
 end
+
+-- New in Lua 5.4:
+-- the __close metamethod was called, so ff should be closed now.
+print(io.type(ff))
+--> =closed file
+
