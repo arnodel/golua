@@ -275,7 +275,7 @@ do
     --> ~nil\t.*cannot close standard file
 end
 
-local ff
+local ff -- this is to remember the file f below refers to after f goes out of scope.
 do
     local f <close> = io.open("files/writetest3.txt", "w")
     ff = f
@@ -319,3 +319,12 @@ end
 print(io.type(ff))
 --> =closed file
 
+do
+    local close = getmetatable(ff).__close
+
+    print(pcall(close))
+    --> ~false\t.*value needed
+
+    print(pcall(close, {}))
+    --> ~false\t.*#1 must be a file
+end
