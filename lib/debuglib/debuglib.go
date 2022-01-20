@@ -178,7 +178,7 @@ func upvalueid(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	up := int(upv) - 1
 	if up < 0 || up >= int(f.Code.UpvalueCount) {
-		return nil, rt.NewErrorS("Invalid upvalue index")
+		return c.PushingNext1(t.Runtime, rt.NilValue), nil
 	}
 	return c.PushingNext1(t.Runtime, rt.LightUserDataValue(rt.LightUserData{Data: f.Upvalues[up]})), nil
 }
