@@ -4,6 +4,8 @@ import (
 	"math"
 )
 
+// Unm returns (z, true) where z is the value representing -x if x is a number,
+// else (NilValue, false).
 func Unm(x Value) (Value, bool) {
 	switch x.iface.(type) {
 	case int64:
@@ -15,6 +17,8 @@ func Unm(x Value) (Value, bool) {
 	}
 }
 
+// Add returns (z, true) where z is the value representing x+y if x and y are
+// numbers, else (NilValue, false).
 func Add(x, y Value) (Value, bool) {
 	switch x.iface.(type) {
 	case int64:
@@ -35,6 +39,8 @@ func Add(x, y Value) (Value, bool) {
 	return NilValue, false
 }
 
+// Sub returns (z, true) where z is the value representing x-y if x and y are
+// numbers, else (NilValue, false).
 func Sub(x, y Value) (Value, bool) {
 	switch x.iface.(type) {
 	case int64:

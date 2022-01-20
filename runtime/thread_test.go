@@ -28,7 +28,6 @@ func TestThread_Resume(t *testing.T) {
 			},
 			wantPanic: "Caller of thread to resume is not running",
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -72,7 +71,6 @@ func TestThread_Yield(t *testing.T) {
 			},
 			wantPanic: "Caller of thread to yield is not OK",
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

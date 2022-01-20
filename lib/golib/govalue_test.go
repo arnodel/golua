@@ -82,7 +82,6 @@ func Test_reflectToValue(t *testing.T) {
 			arg:  testStruct,
 			want: rt.UserDataValue(rt.NewUserData(testStruct, meta)),
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -222,7 +221,6 @@ func Test_valueToType(t *testing.T) {
 			v:    "foo",
 			want: []byte("foo"),
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -282,7 +280,6 @@ func Test_fillStruct(t *testing.T) {
 			v:       tabledef{"Bar": 1}.table(),
 			wantErr: true,
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -383,7 +380,6 @@ func Test_goIndex(t *testing.T) {
 			key:     int64(1),
 			wantErr: true,
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -516,7 +512,6 @@ func Test_goSetIndex(t *testing.T) {
 			val:     int64(2),
 			wantErr: true,
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
