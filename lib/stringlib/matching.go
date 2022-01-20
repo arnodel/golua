@@ -340,11 +340,6 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		allowEmpty = start >= end
 		if allowEmpty {
-			// if start < len(s) {
-			// 	t.RequireBytes(1)
-			// 	_ = sb.WriteByte(s[start])
-			// 	sj += 1
-			// }
 			si = start + 1
 		} else {
 			si = end

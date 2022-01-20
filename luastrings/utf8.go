@@ -2,14 +2,20 @@ package luastrings
 
 import "unicode/utf8"
 
+// Most of this code is copied from Go's own "unicode/utf8" package, with some
+// modifications to allow "utf-8" encoding of any positive int32 and the reverse
+// operation.
+
 const (
-	UTFMax = 6
+	UTFMax = 6 // Originally 4 in unicode/utf8
 
 	t1 = 0b00000000
 	tx = 0b10000000
 	t2 = 0b11000000
 	t3 = 0b11100000
 	t4 = 0b11110000
+
+	// Added for Lua
 	t5 = 0b11111000
 	t6 = 0b11111100
 
@@ -17,6 +23,8 @@ const (
 	mask2 = 0b00011111
 	mask3 = 0b00001111
 	mask4 = 0b00000111
+
+	// Added for Lua
 	mask5 = 0b00000011
 	mask6 = 0b00000001
 
@@ -25,6 +33,7 @@ const (
 	rune3Max = 1<<16 - 1
 	rune4Max = 1<<21 - 1
 	rune5Max = 1<<26 - 1
+	// Commented because unused as rune6Max is the biggest int32
 	// rune6Max = 1<<31 - 1
 
 	// The default lowest and highest continuation byte.
@@ -35,6 +44,11 @@ const (
 	// table below. The first nibble is an index into acceptRanges or F for
 	// special one-byte cases. The second nibble is the Rune length or the
 	// Status for the special one-byte case.
+	//
+	// Note: the first nibble is not used because in this implementation
+	// acceptRanges is not needed as any byte sequence is valid.  It is however
+	// kept to keep the similarity with the code it's copied from as high as
+	// possible.
 	xx = 0xF1 // invalid: size 1
 	as = 0xF0 // ASCII: size 1
 	s1 = 0x02 // accept 0, size 2
@@ -165,7 +179,7 @@ func DecodeRuneInString(s string) (r rune, size int) {
 		mask := rune(x) << 31 >> 31 // Create 0x0000 or 0xFFFF.
 		return rune(s[0])&^mask | RuneError&mask, 1
 	}
-	sz := int(x & 7)
+	sz := int(x & 7) // Throw away the acceptRange nibble
 	if n < sz {
 		return RuneError, 1
 	}
@@ -190,6 +204,8 @@ func DecodeRuneInString(s string) (r rune, size int) {
 	if sz <= 4 {
 		return rune(s0&mask4)<<18 | rune(s1&maskx)<<12 | rune(s2&maskx)<<6 | rune(s3&maskx), 4
 	}
+
+	// Non-standard encodings supported by Lua
 	s4 := s[4]
 	if s4 < locb || hicb < s4 {
 		return RuneError, 1
