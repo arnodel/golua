@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/arnodel/golua/luastrings"
 	"github.com/arnodel/golua/token"
 )
 
@@ -98,12 +99,11 @@ func replaceEscapeSeq(e []byte) []byte {
 	case 'u', 'U':
 		i, err := strconv.ParseInt(string(e[3:len(e)-1]), 16, 32)
 		if err != nil {
-			panic(err)
-		}
-		if i >= 0x110000 {
 			panic(fmt.Errorf("unicode escape sequence out of range near '%s'", e))
 		}
-		return []byte(string(rune(i)))
+		var p [6]byte
+		n := luastrings.UTF8EncodeInt32(p[:], int32(i))
+		return p[:n]
 	default:
 		return e[1:]
 	}

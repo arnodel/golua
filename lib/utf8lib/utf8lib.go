@@ -2,9 +2,11 @@ package utf8lib
 
 import (
 	"errors"
+	"math"
 	"unicode/utf8"
 
 	"github.com/arnodel/golua/lib/packagelib"
+	"github.com/arnodel/golua/luastrings"
 	rt "github.com/arnodel/golua/runtime"
 )
 
@@ -16,15 +18,15 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
-	r.SetEnv(pkg, "charpattern", rt.StringValue("[\x00-\x7F\xC2-\xF4][\x80-\xBF]*"))
+	r.SetEnv(pkg, "charpattern", rt.StringValue("[\x00-\x7F\xC2-\xFD][\x80-\xBF]*"))
 
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "char", char, 0, true),
-		r.SetEnvGoFunc(pkg, "codes", codes, 1, false),
-		r.SetEnvGoFunc(pkg, "codepoint", codepoint, 3, false),
-		r.SetEnvGoFunc(pkg, "len", lenf, 3, false),
+		r.SetEnvGoFunc(pkg, "codes", codes, 2, false),
+		r.SetEnvGoFunc(pkg, "codepoint", codepoint, 4, false),
+		r.SetEnvGoFunc(pkg, "len", lenf, 4, false),
 		r.SetEnvGoFunc(pkg, "offset", offset, 3, false),
 	)
 
@@ -33,7 +35,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 
 func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	runes := c.Etc()
-	maxLen := len(runes) * utf8.UTFMax
+	maxLen := len(runes) * luastrings.UTFMax
 	t.RequireBytes(maxLen)
 	buf := make([]byte, maxLen)
 	cur := buf
@@ -44,10 +46,10 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if !ok {
 			return nil, rt.NewErrorF("#%d should be an integer", i+1)
 		}
-		if n < 0 || n > 0x10FFFF {
+		if n < 0 || n > math.MaxInt32 {
 			return nil, rt.NewErrorF("#%d value out of range", i+1)
 		}
-		sz := utf8.EncodeRune(cur, rune(n))
+		sz := luastrings.UTF8EncodeInt32(cur, int32(n))
 		cur = cur[sz:]
 		bufLen += sz
 	}
@@ -56,18 +58,30 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	var (
+		s   string
+		lax bool
+		err *rt.Error
+	)
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
-	s, err := c.StringArg(0)
+	s, err = c.StringArg(0)
 	if err != nil {
 		return nil, err
 	}
+	if c.NArgs() >= 2 {
+		lax, err = c.BoolArg(1)
+		if err != nil {
+			return nil, err
+		}
+	}
+	decode := luastrings.GetDecodeRuneInString(lax)
 	var p int64
 	var iterF = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		t.RequireCPU(1)
 		next := c.Next()
-		r, n := utf8.DecodeRuneInString(s[p:])
+		r, n := decode(s[p:])
 		if r == utf8.RuneError {
 			switch n {
 			case 0:
@@ -75,6 +89,7 @@ func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			case 1:
 				return nil, rt.NewErrorE(errInvalidCode)
 			}
+			// If n > 1, then it is a successful decode in lax mode.
 		}
 		t.Push1(next, rt.IntValue(p+1))
 		t.Push1(next, rt.IntValue(int64(r)))
@@ -99,9 +114,14 @@ func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err == nil && c.NArgs() >= 3 {
 		jj, err = c.IntArg(2)
 	}
+	lax := false
+	if err == nil && c.NArgs() >= 4 {
+		lax, err = c.BoolArg(3)
+	}
 	if err != nil {
 		return nil, err
 	}
+	decode := luastrings.GetDecodeRuneInString(lax)
 	next := c.Next()
 	i := rt.StringNormPos(s, int(ii))
 	if i < 1 {
@@ -113,8 +133,8 @@ func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	for k := i - 1; k < j; {
 		t.RequireCPU(1)
-		r, sz := utf8.DecodeRuneInString(s[k:])
-		if r == utf8.RuneError {
+		r, sz := decode(s[k:])
+		if r == utf8.RuneError && sz <= 1 {
 			return nil, rt.NewErrorE(errInvalidCode)
 		}
 		t.Push1(next, rt.IntValue(int64(r)))
@@ -136,22 +156,27 @@ func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err == nil && c.NArgs() >= 3 {
 		jj, err = c.IntArg(2)
 	}
+	var lax = false
+	if err == nil && c.NArgs() >= 4 {
+		lax, err = c.BoolArg(3)
+	}
 	if err != nil {
 		return nil, err
 	}
 	var (
-		next = c.Next()
-		i    = rt.StringNormPos(s, int(ii))
-		j    = rt.StringNormPos(s, int(jj))
-		slen int64
+		decode = luastrings.GetDecodeRuneInString(lax)
+		next   = c.Next()
+		i      = rt.StringNormPos(s, int(ii))
+		j      = rt.StringNormPos(s, int(jj))
+		slen   int64
 	)
 	if i <= 0 || i > len(s)+1 || j > len(s) {
 		return nil, rt.NewErrorE(errPosOutOfRange)
 	}
 	for k := i - 1; k < j; {
 		t.RequireCPU(1)
-		r, sz := utf8.DecodeRuneInString(s[k:])
-		if r == utf8.RuneError {
+		r, sz := decode(s[k:])
+		if r == utf8.RuneError && sz <= 1 {
 			t.Push1(next, rt.NilValue)
 			t.Push1(next, rt.IntValue(int64(k+1)))
 			return next, nil

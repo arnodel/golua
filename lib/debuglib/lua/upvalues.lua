@@ -125,7 +125,7 @@ do
     --> ~.*: Invalid upvalue index
 end
 
--- upvalueid teests
+-- upvalueid tests
 do
     local f1, f2
     local function outer(x, y, z)
@@ -159,9 +159,9 @@ do
     perr(id, f1, nil)
     --> ~.*: #2 must be an integer
 
-    perr(id, f1, 0)
-    --> ~.*: Invalid upvalue index
+    print(id(f1, 0))
+    --> =nil
 
-    perr(id, f1, 4)
-    --> ~.*: Invalid upvalue index
+    print(id(f1, 4))
+    --> =nil
 end
