@@ -319,9 +319,9 @@ func (c *compiler) compileBlock(s ast.BlockStat) {
 
 func (c *compiler) compileBlockNoPop(s ast.BlockStat, complete bool) func() {
 	totalDepth := 0
-	getLabels(c.CodeBuilder, s.Stats)
+	noBackLabels := getLabels(c.CodeBuilder, s.Stats)
 	truncLen := len(s.Stats)
-	if complete {
+	if complete && !noBackLabels && s.Return == nil {
 		truncLen -= getBackLabels(c.CodeBuilder, s.Stats)
 	}
 	for i, stat := range s.Stats {
@@ -356,17 +356,23 @@ func (c *compiler) compileBlockNoPop(s ast.BlockStat, complete bool) func() {
 	}
 }
 
-func getLabels(c *ir.CodeBuilder, statements []ast.Stat) {
+// Declares goto labels for the statements in order, stopping when encountering
+// a local variable declaration.  Return true if the whole slice was processed
+// (so no need to get back labels)
+func getLabels(c *ir.CodeBuilder, statements []ast.Stat) bool {
 	for _, stat := range statements {
 		switch s := stat.(type) {
 		case ast.LabelStat:
 			c.DeclareGotoLabel(ir.Name(s.Name.Val))
 		case ast.LocalStat, ast.LocalFunctionStat:
-			return
+			return false
 		}
 	}
+	return true
 }
 
+// Process the statements in reverse order to declare "back labels".  Return the
+// number of statements processed.
 func getBackLabels(c *ir.CodeBuilder, statements []ast.Stat) int {
 	count := 0
 	for i := len(statements) - 1; i >= 0; i-- {
