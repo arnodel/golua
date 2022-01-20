@@ -8,27 +8,26 @@ import (
 
 var names = []byte("abtnvf")
 
-func Quote(s string, quote rune) string {
+// Quote a string so that it is a valid Lua string literal
+func Quote(s string, quote byte) string {
 	var b strings.Builder
-	b.WriteRune(quote)
-	for _, r := range s {
+	b.WriteByte(quote)
+	for _, c := range []byte(s) {
 		switch {
-		case r == quote:
+		case c == quote:
 			b.WriteByte('\\')
-			b.WriteRune(r)
-		case unicode.IsGraphic(r):
-			b.WriteRune(r)
-		case r < 256:
-			b.WriteByte('\\')
-			if r >= 7 && r <= 13 {
-				b.WriteByte(names[r-7])
-			}
-			b.WriteString(strconv.FormatInt(int64(r), 10))
+			b.WriteByte(c)
+		case unicode.IsGraphic(rune(c)):
+			b.WriteByte(c)
 		default:
-			b.Write([]byte("\\x"))
-			b.WriteRune(r)
+			b.WriteByte('\\')
+			if c >= 7 && c <= 13 {
+				b.WriteByte(names[c-7])
+			} else {
+				b.WriteString(strconv.FormatInt(int64(c), 10))
+			}
 		}
 	}
-	b.WriteRune(quote)
+	b.WriteByte(quote)
 	return b.String()
 }

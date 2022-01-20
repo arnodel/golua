@@ -192,6 +192,20 @@ func (c *GoCont) StringArg(n int) (string, *Error) {
 	return s, nil
 }
 
+// BoolArg returns the n-th argument as a string if possible, otherwise a
+// non-nil *Error.  No range check!
+func (c *GoCont) BoolArg(n int) (bool, *Error) {
+	arg := c.Arg(n)
+	if arg.IsNil() {
+		return false, nil
+	}
+	b, ok := arg.TryBool()
+	if !ok {
+		return false, NewErrorF("#%d must be a boolean", n+1)
+	}
+	return b, nil
+}
+
 // CallableArg returns the n-th argument as a callable if possible, otherwise a
 // non-nil *Error.  No range check!
 func (c *GoCont) CallableArg(n int) (Callable, *Error) {
