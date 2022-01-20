@@ -39,17 +39,17 @@ func (c *Closure) AddUpvalue(cell Cell) {
 	c.upvalueIndex++
 }
 
-// Continuation implements Callable.Continuation
+// Continuation implements Callable.Continuation.
 func (c *Closure) Continuation(r *Runtime, next Cont) Cont {
 	return NewLuaCont(r, c, next)
 }
 
 // GetUpvalue returns the upvalue for c at index n.
 func (c *Closure) GetUpvalue(n int) Value {
-	return c.Upvalues[n].Get()
+	return c.Upvalues[n].get()
 }
 
 // SetUpvalue sets the upvalue for c at index n to v.
 func (c *Closure) SetUpvalue(n int, val Value) {
-	c.Upvalues[n].Set(val)
+	c.Upvalues[n].set(val)
 }

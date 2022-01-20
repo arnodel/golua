@@ -36,7 +36,7 @@ func NewLuaCont(r *Runtime, clos *Closure, next Cont) *LuaCont {
 		copy(cells, clos.Upvalues)
 		r.RequireArrSize(unsafe.Sizeof(Cell{}), int(clos.CellCount))
 		for i := clos.UpvalueCount; i < clos.CellCount; i++ {
-			cells[i] = NewCell(NilValue)
+			cells[i] = newCell(NilValue)
 		}
 	}
 	r.RequireArrSize(unsafe.Sizeof(Value{}), int(clos.RegCount))
@@ -138,37 +138,37 @@ RunLoop:
 			case code.OpAdd:
 				res, ok = Add(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__add", x, y)
+					res, err = binaryArithFallback(t, "__add", x, y)
 				}
 			case code.OpSub:
 				res, ok = Sub(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__sub", x, y)
+					res, err = binaryArithFallback(t, "__sub", x, y)
 				}
 			case code.OpMul:
 				res, ok = Mul(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__mul", x, y)
+					res, err = binaryArithFallback(t, "__mul", x, y)
 				}
 			case code.OpDiv:
 				res, ok = Div(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__div", x, y)
+					res, err = binaryArithFallback(t, "__div", x, y)
 				}
 			case code.OpFloorDiv:
 				res, ok, err = Idiv(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__idiv", x, y)
+					res, err = binaryArithFallback(t, "__idiv", x, y)
 				}
 			case code.OpMod:
 				res, ok, err = Mod(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__mod", x, y)
+					res, err = binaryArithFallback(t, "__mod", x, y)
 				}
 			case code.OpPow:
 				res, ok = Pow(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__pow", x, y)
+					res, err = binaryArithFallback(t, "__pow", x, y)
 				}
 
 			// Bitwise
@@ -281,7 +281,7 @@ RunLoop:
 				case code.OpNeg:
 					res, ok = Unm(val)
 					if !ok {
-						res, err = UnaryArithFallback(t, "__unm", val)
+						res, err = unaryArithFallback(t, "__unm", val)
 					}
 				case code.OpBitNot:
 					res, err = bnot(t, val)
@@ -560,7 +560,7 @@ func (c *LuaCont) getRegCell(reg code.Reg) Cell {
 
 func (c *LuaCont) clearReg(reg code.Reg) {
 	if reg.IsCell() {
-		c.cells[reg.Idx()] = NewCell(NilValue)
+		c.cells[reg.Idx()] = newCell(NilValue)
 	} else {
 		c.registers[reg.Idx()] = NilValue
 	}
@@ -586,7 +586,7 @@ func (c *LuaCont) truncateCloseStack(t *Thread, h int, err *Error) *Error {
 func setReg(regs []Value, cells []Cell, reg code.Reg, val Value) {
 	idx := reg.Idx()
 	if reg.IsCell() {
-		cells[idx].Set(val)
+		cells[idx].set(val)
 	} else {
 		regs[idx] = val
 	}

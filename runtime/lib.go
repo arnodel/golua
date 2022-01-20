@@ -373,10 +373,10 @@ func (r *Runtime) LoadFromSourceOrCode(name string, source []byte, mode string, 
 		}
 		clos := NewClosure(r, code)
 		if code.UpvalueCount > 0 {
-			clos.AddUpvalue(NewCell(env))
+			clos.AddUpvalue(newCell(env))
 			r.RequireCPU(uint64(code.UpvalueCount))
 			for i := int16(1); i < code.UpvalueCount; i++ {
-				clos.AddUpvalue(NewCell(NilValue))
+				clos.AddUpvalue(newCell(NilValue))
 			}
 		}
 		return clos, nil

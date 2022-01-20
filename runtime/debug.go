@@ -3,7 +3,7 @@ package runtime
 import "fmt"
 
 // DebugInfo contains info about a continuation that can be looked at for
-// debuggin purposes (and tracebacks)
+// debuggin purposes (and tracebacks).
 type DebugInfo struct {
 	Source      string
 	Name        string
