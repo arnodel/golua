@@ -1,8 +1,8 @@
 package runtime
 
 func band(t *Thread, x, y Value) (Value, *Error) {
-	ix, okx := ToInt(x)
-	iy, oky := ToInt(y)
+	ix, okx := ToIntNoString(x)
+	iy, oky := ToIntNoString(y)
 	if okx && oky {
 		return IntValue(ix & iy), nil
 	}
@@ -14,8 +14,8 @@ func band(t *Thread, x, y Value) (Value, *Error) {
 }
 
 func bor(t *Thread, x, y Value) (Value, *Error) {
-	ix, okx := ToInt(x)
-	iy, oky := ToInt(y)
+	ix, okx := ToIntNoString(x)
+	iy, oky := ToIntNoString(y)
 	if okx && oky {
 		return IntValue(ix | iy), nil
 	}
@@ -27,8 +27,8 @@ func bor(t *Thread, x, y Value) (Value, *Error) {
 }
 
 func bxor(t *Thread, x, y Value) (Value, *Error) {
-	ix, okx := ToInt(x)
-	iy, oky := ToInt(y)
+	ix, okx := ToIntNoString(x)
+	iy, oky := ToIntNoString(y)
 	if okx && oky {
 		return IntValue(ix ^ iy), nil
 	}
@@ -40,8 +40,8 @@ func bxor(t *Thread, x, y Value) (Value, *Error) {
 }
 
 func shl(t *Thread, x, y Value) (Value, *Error) {
-	ix, okx := ToInt(x)
-	iy, oky := ToInt(y)
+	ix, okx := ToIntNoString(x)
+	iy, oky := ToIntNoString(y)
 
 	// We turn the value into an uint64 before shifting so that it's a logical
 	// shift, not arithmetic.
@@ -59,8 +59,8 @@ func shl(t *Thread, x, y Value) (Value, *Error) {
 }
 
 func shr(t *Thread, x, y Value) (Value, *Error) {
-	ix, okx := ToInt(x)
-	iy, oky := ToInt(y)
+	ix, okx := ToIntNoString(x)
+	iy, oky := ToIntNoString(y)
 
 	// We turn the value into an uint64 before shifting so that it's a logical
 	// shift, not arithmetic.
@@ -78,7 +78,7 @@ func shr(t *Thread, x, y Value) (Value, *Error) {
 }
 
 func bnot(t *Thread, x Value) (Value, *Error) {
-	ix, okx := ToInt(x)
+	ix, okx := ToIntNoString(x)
 	if okx {
 		return IntValue(^ix), nil
 	}
