@@ -25,6 +25,10 @@ var LibLoader = packagelib.Loader{
 func load(r *rt.Runtime) (rt.Value, func()) {
 	methods := rt.NewTable()
 
+	meta := rt.NewTable()
+	r.SetEnv(meta, "__name", rt.StringValue("file"))
+	r.SetEnv(meta, "__index", rt.TableValue(methods))
+
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
@@ -36,11 +40,9 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(methods, "setvbuf", filesetvbuf, 3, false),
 		// TODO: setvbuf,
 		r.SetEnvGoFunc(methods, "write", filewrite, 1, true),
-	)
 
-	meta := rt.NewTable()
-	r.SetEnv(meta, "__name", rt.StringValue("file"))
-	r.SetEnv(meta, "__index", rt.TableValue(methods))
+		r.SetEnvGoFunc(meta, "__close", file__close, 1, false),
+	)
 
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
@@ -155,6 +157,19 @@ func fileclose(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err
 	}
 	return ioclose(t, c)
+}
+
+func file__close(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err
+	}
+	f, err := FileArg(c, 0)
+	if err != nil {
+		return nil, err
+	}
+	closeErr := f.Close()
+	_ = closeErr // TODO: something with the error
+	return c.Next(), nil
 }
 
 func ioflush(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
