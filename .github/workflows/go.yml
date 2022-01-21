@@ -35,11 +35,11 @@ jobs:
     - name: Build CLI
       run: go build -tags '${{ matrix.build_tags }}'
 
-    - name: Check out Lua Test Suite 5.3.4
+    - name: Check out Lua Test Suite 5.4.3
       uses: actions/checkout@v2
       with:
         repository: arnodel/golua-tests
-        ref: golua
+        ref: golua-5.4
         path: ./lua-test-suite
 
     - name: Run Lua Test Suite
