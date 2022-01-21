@@ -317,6 +317,10 @@ func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return c.PushingNext1(t.Runtime, rt.FloatValue(rand.Float64())), nil
 	case 1:
 		n, err = c.IntArg(0)
+		// Special case, new in Lua 5.4: math.random(0) returns a uniform integer.
+		if n == 0 {
+			return c.PushingNext1(t.Runtime, rt.IntValue(int64(rand.Uint64()))), nil
+		}
 	case 2:
 		m, err = c.IntArg(0)
 		if err == nil {
@@ -331,7 +335,13 @@ func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	var r int64
 	if m <= 0 && m+math.MaxInt64 < n {
-		return nil, rt.NewErrorS("interval too large")
+		// There's >= 50% chance the loop stops at each iteration so we're OK!
+		for {
+			r = int64(rand.Uint64())
+			if r >= m && r <= n {
+				break
+			}
+		}
 	} else if m+math.MaxInt64 == n {
 		r = rand.Int63()
 	} else {

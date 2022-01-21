@@ -197,10 +197,15 @@ do
     print((pcall(math.random, 2, 1)))
     --> =false
 
-    print(pcall(math.random, -1, math.maxinteger))
-    --> ~false\t.*: interval too large
-
     print(math.random(0, math.maxinteger) >= 0)
+    --> =true
+
+    -- New in Lua 5.4
+    print(math.random(0) == math.random(0))
+    --> =false
+
+    -- Any interval works
+    print(math.random(-1, math.maxinteger) >= -1)
     --> =true
 end
 
