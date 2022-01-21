@@ -10,20 +10,20 @@ import (
 // some state.
 type LuaCont struct {
 	*Closure
-	registers     []Value
-	cells         []Cell
-	pc            int16
-	acc           []Value
-	running       bool
-	borrowedCells bool
-	closeStack    []Value // Pending to-be-closed variables
+	registers      []Value
+	cells          []Cell
+	pc             int16
+	acc            []Value
+	running        bool
+	borrowedCells  bool
+	closeStackBase int
 }
 
 var _ Cont = (*LuaCont)(nil)
 
 // NewLuaCont returns a new LuaCont from a closure and next, a continuation to
 // push results into.
-func NewLuaCont(r *Runtime, clos *Closure, next Cont) *LuaCont {
+func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 	if clos.upvalueIndex < len(clos.Upvalues) {
 		panic("Closure not ready")
 	}
@@ -32,23 +32,24 @@ func NewLuaCont(r *Runtime, clos *Closure, next Cont) *LuaCont {
 	if borrowCells {
 		cells = clos.Upvalues
 	} else {
-		cells = r.cellPool.get(int(clos.CellCount))
+		cells = t.cellPool.get(int(clos.CellCount))
 		copy(cells, clos.Upvalues)
-		r.RequireArrSize(unsafe.Sizeof(Cell{}), int(clos.CellCount))
+		t.RequireArrSize(unsafe.Sizeof(Cell{}), int(clos.CellCount))
 		for i := clos.UpvalueCount; i < clos.CellCount; i++ {
 			cells[i] = NewCell(NilValue)
 		}
 	}
-	r.RequireArrSize(unsafe.Sizeof(Value{}), int(clos.RegCount))
-	registers := r.regPool.get(int(clos.RegCount))
+	t.RequireArrSize(unsafe.Sizeof(Value{}), int(clos.RegCount))
+	registers := t.regPool.get(int(clos.RegCount))
 	registers[0] = ContValue(next)
-	cont := r.luaContPool.get()
-	r.RequireSize(unsafe.Sizeof(LuaCont{}))
+	cont := t.luaContPool.get()
+	t.RequireSize(unsafe.Sizeof(LuaCont{}))
 	*cont = LuaCont{
-		Closure:       clos,
-		registers:     registers,
-		cells:         cells,
-		borrowedCells: borrowCells,
+		Closure:        clos,
+		registers:      registers,
+		cells:          cells,
+		borrowedCells:  borrowCells,
+		closeStackBase: t.closeStack.size(),
 	}
 	return cont
 }
@@ -382,7 +383,7 @@ RunLoop:
 					// As we're leaving this continuation for good, perform all
 					// the pending close actions.  It must be done before debug
 					// hooks are called.
-					if err := c.truncateCloseStack(t, 0, nil); err != nil {
+					if err := t.cleanupCloseStack(c, c.closeStackBase, nil); err != nil {
 						return nil, err
 					}
 				}
@@ -414,11 +415,11 @@ RunLoop:
 						c.pc = pc
 						return nil, NewErrorS("to be closed value missing a __close metamethod")
 					}
-					c.closeStack = append(c.closeStack, v)
+					t.closeStack.push(v)
 				} else {
 					// Truncate close stack
-					h := int(opcode.GetClStackOffset())
-					if err := c.truncateCloseStack(t, h, nil); err != nil {
+					h := c.closeStackBase + int(opcode.GetClStackOffset())
+					if err := t.cleanupCloseStack(c, h, nil); err != nil {
 						c.pc = pc
 						return nil, err
 					}
@@ -547,10 +548,6 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 	}
 }
 
-func (c *LuaCont) Cleanup(t *Thread, err *Error) *Error {
-	return c.truncateCloseStack(t, 0, err)
-}
-
 func (c *LuaCont) getRegCell(reg code.Reg) Cell {
 	if reg.IsCell() {
 		return c.cells[reg.Idx()]
@@ -564,23 +561,6 @@ func (c *LuaCont) clearReg(reg code.Reg) {
 	} else {
 		c.registers[reg.Idx()] = NilValue
 	}
-}
-
-func (c *LuaCont) truncateCloseStack(t *Thread, h int, err *Error) *Error {
-	for i := len(c.closeStack) - 1; i >= h; i-- {
-		v := c.closeStack[i]
-		c.closeStack = c.closeStack[:i]
-		if Truth(v) {
-			closeErr, ok := Metacall(t, v, "__close", []Value{v, err.Value()}, NewTerminationWith(c, 0, false))
-			if !ok {
-				return NewErrorS("to be closed value missing a __close metamethod")
-			}
-			if closeErr != nil {
-				err = closeErr
-			}
-		}
-	}
-	return err
 }
 
 func setReg(regs []Value, cells []Cell, reg code.Reg, val Value) {

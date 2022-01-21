@@ -179,6 +179,17 @@ do
         print"we don't get to here"
     end))
     --> ~false\t.*missing a __close metamethod
+
+    print(pcall(function()
+        local x <close> = mk("x")
+        getmetatable(x).__close = nil
+        local x <close> = make("haha")
+        print"we get here"
+    end))
+    --> =we get here
+    --> =haha
+    --> ~false\t.*missing a __close metamethod
+
 end
 
 -- close actions are run before return debug hooks.  The test below shows that

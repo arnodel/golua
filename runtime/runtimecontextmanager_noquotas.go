@@ -28,6 +28,9 @@ func (m *runtimeContextManager) UsedResources() (r RuntimeResources) {
 	return
 }
 
+func (m *runtimeContextManager) setStatus(RuntimeContextStatus) {
+}
+
 func (m *runtimeContextManager) Status() RuntimeContextStatus {
 	return StatusLive
 }

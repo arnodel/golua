@@ -19,7 +19,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 
 		r.SetEnvGoFunc(pkg, "close", close, 1, false), // Lua 5.4
 		r.SetEnvGoFunc(pkg, "create", create, 1, false),
-		r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 0, false),
+		r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 1, false),
 		r.SetEnvGoFunc(pkg, "resume", resume, 1, true),
 		r.SetEnvGoFunc(pkg, "running", running, 0, false),
 		r.SetEnvGoFunc(pkg, "status", status, 1, false),
@@ -38,7 +38,10 @@ func close(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err
 	}
-	err = co.Close(t)
+	ok, err := co.Close(t)
+	if !ok {
+		return nil, rt.NewErrorF("cannot close %s thread", statusString(t, co))
+	}
 	next := c.Next()
 	t.Push1(next, rt.BoolValue(err == nil))
 	if err != nil {
@@ -91,9 +94,17 @@ func yield(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 func isyieldable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	next := c.Next()
-	t.Push1(next, rt.BoolValue(!t.IsMain()))
-	return next, nil
+	var (
+		co  = t
+		err *rt.Error
+	)
+	if c.NArgs() >= 1 {
+		co, err = c.ThreadArg(0)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return c.PushingNext1(t.Runtime, rt.BoolValue(!co.IsMain())), nil
 }
 
 func status(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -105,22 +116,7 @@ func status(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err
 	}
-	var status string
-	if co == t {
-		status = "running"
-	} else {
-		switch co.Status() {
-		case rt.ThreadDead:
-			status = "dead"
-		case rt.ThreadSuspended:
-			status = "suspended"
-		case rt.ThreadOK:
-			status = "normal"
-		}
-	}
-	next := c.Next()
-	t.Push1(next, rt.StringValue(status))
-	return next, nil
+	return c.PushingNext1(t.Runtime, rt.StringValue(statusString(t, co))), nil
 }
 
 func running(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -152,4 +148,22 @@ func wrap(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
 	t.Push1(next, rt.FunctionValue(w))
 	return next, nil
+}
+
+func statusString(running, co *rt.Thread) (status string) {
+	if co == running {
+		status = "running"
+	} else {
+		switch co.Status() {
+		case rt.ThreadDead:
+			status = "dead"
+		case rt.ThreadSuspended:
+			status = "suspended"
+		case rt.ThreadOK:
+			status = "normal"
+		default:
+			status = "unknown"
+		}
+	}
+	return
 }

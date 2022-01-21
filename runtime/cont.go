@@ -17,15 +17,6 @@ type Cont interface {
 	Next() Cont
 	Parent() Cont
 	DebugInfo() *DebugInfo
-
-	// This will be called on pending continuations when the previous
-	// continuation returned with an error.  If there is nothing to do it should
-	// return the error unchanged, otherwise if it encounters another error
-	// during execution it may return the new error.
-	//
-	// This was intruduced to implement to-be-closed variables, a feature of Lua
-	// 5.4.
-	Cleanup(*Thread, *Error) *Error
 }
 
 // Push is a convenience method that pushes a number of values to the

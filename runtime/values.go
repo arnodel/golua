@@ -2,15 +2,15 @@ package runtime
 
 // Callable is the interface for callable values.
 type Callable interface {
-	Continuation(*Runtime, Cont) Cont
+	Continuation(*Thread, Cont) Cont
 }
 
 // ContWithArgs is a convenience function that returns a new
 // continuation from a callable, some arguments and a next
 // continuation.
-func (r *Runtime) ContWithArgs(c Callable, args []Value, next Cont) Cont {
-	cont := c.Continuation(r, next)
-	r.Push(cont, args...)
+func (t *Thread) ContWithArgs(c Callable, args []Value, next Cont) Cont {
+	cont := c.Continuation(t, next)
+	t.Push(cont, args...)
 	return cont
 }
 
@@ -55,8 +55,8 @@ func NewGoFunction(f func(*Thread, *GoCont) (Cont, *Error), name string, nArgs i
 }
 
 // Continuation implements Callable.Continuation.
-func (f *GoFunction) Continuation(r *Runtime, next Cont) Cont {
-	return NewGoCont(r, f, next)
+func (f *GoFunction) Continuation(t *Thread, next Cont) Cont {
+	return NewGoCont(t, f, next)
 }
 
 func (f *GoFunction) SolemnlyDeclareCompliance(flags ComplianceFlags) {

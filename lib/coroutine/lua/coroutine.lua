@@ -7,6 +7,10 @@ do
     end
 
     local co = coroutine.create(cof)
+
+    print(pcall(coroutine.resume, {}))
+    --> ~false\t.*#1 must be a thread
+
     print("out", coroutine.resume(co, 1))
     print("out", coroutine.resume(co, "two"))
     
@@ -14,16 +18,33 @@ do
     --> =out	true	3
     --> =in cof	two
     --> =out	true	from cof
+
+    print(coroutine.status(co))
+    --> =dead
+
+    print(pcall(coroutine.status, cof))
+    --> ~false\t.*#1 must be a thread
+
+    print(pcall(coroutine.create, 1))
+    --> ~false\t.*#1 must be a callable
 end
 
 -- Check the main coroutine is correctly identified
 print(coroutine.running())
 --> ~^thread:.*\ttrue$
 
--- Check the main coroutine is not yieldable
-print(coroutine.isyieldable())
---> =false
+do
+    -- Check the main coroutine is not yieldable
+    print(coroutine.isyieldable())
+    --> =false
 
+    print(pcall(coroutine.yield, 1))
+    --> ~false\t.*cannot yield from main thread
+
+    print(pcall(coroutine.isyieldable, 1))
+    --> ~false\t.*must be a thread
+end
+ 
 -- Check that coroutine.running() returns true as second argument when
 -- called from a non-main coroutine and that a non main coroutine is
 -- yieldable.
@@ -33,6 +54,9 @@ do
         return coroutine.running()
     end
     local co = coroutine.create(cof)
+
+    print(coroutine.isyieldable(co))
+    --> =true
 
     print(coroutine.resume(co))
     --> =yieldable	true
@@ -88,6 +112,25 @@ do
     local fib = coroutine.wrap(cofib)
     print(fib(), fib(), fib(), fib(), fib())
     --> =0	1	1	2	3
+
+    print(pcall(coroutine.wrap))
+    --> ~false\t.*value needed
+
+    print(pcall(coroutine.wrap, "not a function"))
+    --> ~false\t.*must be a callable
+
+    local werr = coroutine.wrap(function(x, y)
+        coroutine.yield(x)
+        error(y)
+    end)
+    print(werr("abc", "def"))
+    --> =abc
+
+    print(pcall(werr))
+    --> ~false\t.*def
+
+    print(pcall(werr))
+    --> ~false\t.*cannot resume dead thread
 end
 
 -- Test coroutine.close() (5.4)
@@ -99,7 +142,7 @@ do
     --> ~false\t.*must be a thread
 
     print(pcall(coroutine.close, coroutine.running()))
-    --> ~true\tfalse\t.*cannot close running thread
+    --> ~false\t.*cannot close running thread
 
     local co = coroutine.create(function()
         coroutine.yield()
