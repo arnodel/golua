@@ -40,7 +40,7 @@ func NewLuaBuffer() *LuaBuffer {
 	b := &LuaBuffer{}
 	b.r = runtime.New(&b.stdout)
 	lib.LoadAll(b.r)
-	b.buf.AppendLine(edit.NewLineFromString("Welcome to Golua REPL! Press [Enter] twice to run code.", luaLineData{tp: luaComment}))
+	b.buf.AppendLine(edit.NewLineFromString("Welcome to Golua REPL! Press [Enter] twice to run code, [Ctrl-C] to quit.", luaLineData{tp: luaComment}))
 	b.buf.AppendLine(edit.NewLineFromString(inputName(0), luaLineData{tp: luaComment}))
 	b.buf.AppendLine(edit.NewLineFromString("> ", luaLineData{tp: luaInput}))
 	return b
