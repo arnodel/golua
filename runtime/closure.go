@@ -40,8 +40,8 @@ func (c *Closure) AddUpvalue(cell Cell) {
 }
 
 // Continuation implements Callable.Continuation.
-func (c *Closure) Continuation(r *Runtime, next Cont) Cont {
-	return NewLuaCont(r, c, next)
+func (c *Closure) Continuation(t *Thread, next Cont) Cont {
+	return NewLuaCont(t, c, next)
 }
 
 // GetUpvalue returns the upvalue for c at index n.

@@ -125,7 +125,7 @@ func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (*Er
 func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
 	callable, ok := f.TryCallable()
 	if ok {
-		return callable.Continuation(t.Runtime, next), nil
+		return callable.Continuation(t, next), nil
 	}
 	cont, err, ok := metacont(t, f, "__call", next)
 	if !ok {

@@ -22,7 +22,7 @@ library is mostly implemented.
 		- [IR → Code Compilation](#ir--code-compilation)
 		- [Runtime](#runtime)
 		- [Test Suite](#test-suite)
-		- [The "official" Lua 5.3.4 Test Suite](#the-official-lua-534-test-suite)
+		- [The "official" Lua 5.4.3 Test Suite](#the-official-lua-543-test-suite)
 		- [Standard Library](#standard-library)
 
 ## Quick start: running golua
@@ -333,11 +333,11 @@ print("ababab")
 Most of the code is covered with such Lua tests. Specific packages or functions
 are covered with Go tests.
 
-### The "official" Lua 5.3.4 Test Suite
+### The "official" Lua 5.4.3 Test Suite
 
 Lua provides a test suites for each version (https://www.lua.org/tests/).  There
-is an adapted version of the 5.3.4 tests
-[here](https://github.com/arnodel/golua-tests/pull/1) which is supposed to be
+is an adapted version of the 5.4.3 tests
+[here](https://github.com/arnodel/golua-tests/pull/3) which is supposed to be
 passed by the latest version of Golua.  It is the form of a PR so that the
 difference with the original test suite can be seen easily.
 
@@ -349,7 +349,8 @@ golua -u -e "_U=true" all.lua
 ```
 
 For the moment `db.lua` is disabled (the file testing the debug module).  All
-other "soft" tests are run.
+other "soft" tests are run, some with adaptations.  The most significant
+differences are in error messages.
 
 ### Standard Library
 
@@ -373,7 +374,6 @@ lua library.
   functions are implemented fully. The `getinfo` function is partially
   implemented.  The `traceback` function is implemented but its output is
   different from the C Lua implementation.  The `sethook` and `gethook` values
-  are implemented but only the call and return masks are implemented (line and
-  count yet to be implemented).
+  are implemented - line hooks may not be as accurate as for C Lua.
 - `os` package is almost complete - `exit` doesn't support "closing" the Lua
   state (need to figure out what it means.)

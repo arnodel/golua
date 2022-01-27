@@ -57,6 +57,10 @@ func (m *runtimeContextManager) Status() RuntimeContextStatus {
 	return m.status
 }
 
+func (m *runtimeContextManager) setStatus(st RuntimeContextStatus) {
+	m.status = st
+}
+
 func (m *runtimeContextManager) RequiredFlags() ComplianceFlags {
 	return m.requiredFlags
 }
@@ -131,24 +135,6 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 		m.updateTimeUsed()
 	}
 	return &mCopy
-}
-
-func (m *runtimeContextManager) CallContext(def RuntimeContextDef, f func() *Error) (ctx RuntimeContext, err *Error) {
-	m.PushContext(def)
-	defer func() {
-		ctx = m.PopContext()
-		if r := recover(); r != nil {
-			_, ok := r.(ContextTerminationError)
-			if !ok {
-				panic(r)
-			}
-		}
-	}()
-	err = f()
-	if err != nil {
-		m.status = StatusError
-	}
-	return
 }
 
 func (m *runtimeContextManager) RequireCPU(cpuAmount uint64) {

@@ -14,18 +14,18 @@ type GoCont struct {
 var _ Cont = (*GoCont)(nil)
 
 // NewGoCont returns a new pointer to GoCont for the given GoFunction and Cont.
-func NewGoCont(r *Runtime, f *GoFunction, next Cont) *GoCont {
+func NewGoCont(t *Thread, f *GoFunction, next Cont) *GoCont {
 	var args []Value
 	var etc *[]Value
 	if f.nArgs > 0 {
-		r.RequireArrSize(unsafe.Sizeof(Value{}), f.nArgs)
-		args = r.argsPool.get(f.nArgs)
+		t.RequireArrSize(unsafe.Sizeof(Value{}), f.nArgs)
+		args = t.argsPool.get(f.nArgs)
 	}
 	if f.hasEtc {
 		etc = new([]Value)
 	}
-	r.RequireSize(unsafe.Sizeof(GoCont{}))
-	cont := r.goContPool.get()
+	t.RequireSize(unsafe.Sizeof(GoCont{}))
+	cont := t.goContPool.get()
 	*cont = GoCont{
 		GoFunction: f,
 		args:       args,
@@ -135,10 +135,6 @@ func (c *GoCont) DebugInfo() *DebugInfo {
 		CurrentLine: 0,
 		Name:        name,
 	}
-}
-
-func (c *GoCont) Cleanup(t *Thread, err *Error) *Error {
-	return err
 }
 
 // NArgs returns the number of args pushed to the continuation.

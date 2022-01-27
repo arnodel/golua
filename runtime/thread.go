@@ -40,9 +40,10 @@ type Thread struct {
 	*Runtime
 	mux         sync.Mutex
 	status      ThreadStatus
-	currentCont Cont
+	closeErr    *Error // Error that caused the thread to stop
+	currentCont Cont   // Currently running continuation
 	resumeCh    chan valuesError
-	caller      *Thread
+	caller      *Thread // Who resumed this thread
 
 	// Depth of GoFunction calls in the thread.  This should not exceed
 	// maxGoFunctionCallDepth.  The aim is to avoid Go stack overflows that
@@ -51,6 +52,8 @@ type Thread struct {
 	goFunctionCallDepth int
 
 	DebugHooks
+
+	closeStack // Stack of pending to-be-closed values
 }
 
 // NewThread creates a new thread out of a Runtime.  Its initial
@@ -91,12 +94,6 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 		next, err = c.RunInThread(t)
 		if err != nil {
 			if err.Handled() {
-				// Now we can do cleanup, cleanup should always return handled
-				// errors (fingers crossed).
-				for c != nil {
-					err = c.Cleanup(t, err)
-					c = c.Next()
-				}
 				return err
 			}
 			err.AddContext(c, -1)
@@ -105,7 +102,7 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 				if errContCount > maxErrorsInMessageHandler {
 					return newHandledError(errErrorInMessageHandler)
 				}
-				next = t.messageHandler.Continuation(t.Runtime, newMessageHandlerCont(c))
+				next = t.messageHandler.Continuation(t, newMessageHandlerCont(c))
 				next.Push(t.Runtime, err.Value())
 			} else {
 				next = newMessageHandlerCont(c)
@@ -122,6 +119,10 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 // resume channel of a running thread, yield will cause a panic in the goroutine
 // and that will be caught in the defer() clause below.
 type threadClose struct{}
+
+//
+// Coroutine management
+//
 
 // Start starts the thread in a goroutine, giving it the callable c to run.  the
 // t.Resume() method needs to be called to provide arguments to the callable.
@@ -187,34 +188,39 @@ func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, *Error) {
 	return caller.getResumeValues()
 }
 
-// Resume execution of a suspended thread.  Its status switches to
-// running while its caller's status switches to suspended.
-func (t *Thread) Close(caller *Thread) *Error {
+// Close a suspended thread.  If successful, its status switches to dead.  The
+// boolean returned is true if it was possible to close the thread (i.e. it was
+// suspended or already dead).  The error is non-nil if there was an error in
+// the cleanup process, or if the thread had already stopped with an error
+// previously.
+func (t *Thread) Close(caller *Thread) (bool, *Error) {
 	t.mux.Lock()
 	if t.status != ThreadSuspended {
 		t.mux.Unlock()
 		switch t.status {
 		case ThreadDead:
-			return NewErrorS("cannot close dead thread")
+			return true, t.closeErr
 		default:
-			return NewErrorS("cannot close running thread")
+			return false, nil
 		}
 	}
 	caller.mux.Lock()
 	if caller.status != ThreadOK {
 		panic("Caller of thread to close is not running")
 	}
+	// The thread needs to go back to running to empty its close stack, before
+	// becoming dead.
 	t.caller = caller
 	t.status = ThreadOK
 	t.mux.Unlock()
 	caller.mux.Unlock()
 	t.sendResumeValues(nil, nil, threadClose{})
 	_, err := caller.getResumeValues()
-	return err
+	return true, err
 }
 
-// Yield to the caller thread.  The yielding thread's status switches
-// to suspended while the caller's status switches back to running.
+// Yield to the caller thread.  The yielding thread's status switches to
+// suspended.  The caller's status must be OK.
 func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 	t.mux.Lock()
 	if t.status != ThreadOK {
@@ -237,6 +243,8 @@ func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 	return t.getResumeValues()
 }
 
+// This turns off the thread, cleaning up its close stack.  The thread must be
+// running.
 func (t *Thread) end(args []Value, err *Error, exception interface{}) {
 	caller := t.caller
 	t.mux.Lock()
@@ -252,9 +260,8 @@ func (t *Thread) end(args []Value, err *Error, exception interface{}) {
 	close(t.resumeCh)
 	t.status = ThreadDead
 	t.caller = nil
-	for c := t.CurrentCont(); c != nil; c = c.Next() {
-		err = c.Cleanup(caller, err)
-	}
+	err = t.cleanupCloseStack(nil, 0, err) // TODO: not nil
+	t.closeErr = err
 	caller.sendResumeValues(args, err, exception)
 	t.ReleaseBytes(2 << 10) // The goroutine will terminate after this
 }
@@ -276,6 +283,87 @@ func (t *Thread) sendResumeValues(args []Value, err *Error, exception interface{
 	t.resumeCh <- valuesError{args: args, err: err, exception: exception}
 }
 
+//
+// Calling
+//
+
+func (t *Thread) CallContext(def RuntimeContextDef, f func() *Error) (ctx RuntimeContext, err *Error) {
+	t.PushContext(def)
+	c, h := t.CurrentCont(), t.closeStack.size()
+	defer func() {
+		ctx = t.PopContext()
+		t.closeStack.truncate(h) // No resources to run that, so just discard it.
+		if r := recover(); r != nil {
+			_, ok := r.(ContextTerminationError)
+			if !ok {
+				panic(r)
+			}
+		}
+	}()
+	err = t.cleanupCloseStack(c, h, f())
+	if err != nil {
+		t.Runtime.setStatus(StatusError)
+	}
+	return
+}
+
+//
+// close stack operations
+//
+
+type closeStack struct {
+	stack []Value
+}
+
+func (s closeStack) size() int {
+	return len(s.stack)
+}
+
+func (s *closeStack) push(v Value) {
+	s.stack = append(s.stack, v)
+}
+
+func (s *closeStack) pop() (Value, bool) {
+	sz := len(s.stack)
+	if sz == 0 {
+		return NilValue, false
+	}
+	sz--
+	v := s.stack[sz]
+	s.stack = s.stack[:sz]
+	return v, true
+}
+
+func (s *closeStack) truncate(h int) {
+	sz := len(s.stack)
+	if sz > h {
+		s.stack = s.stack[:h]
+	}
+}
+
+// Truncate the close stack to size h, calling the __close metamethods in the
+// context of the given continuation c and feeding them with the given error.
+func (t *Thread) cleanupCloseStack(c Cont, h int, err *Error) *Error {
+	closeStack := &t.closeStack
+	for closeStack.size() > h {
+		v, _ := closeStack.pop()
+		if Truth(v) {
+			closeErr, ok := Metacall(t, v, "__close", []Value{v, err.Value()}, NewTerminationWith(c, 0, false))
+			if !ok {
+				return NewErrorS("to be closed value missing a __close metamethod")
+			}
+			if closeErr != nil {
+				err = closeErr
+			}
+		}
+	}
+	return err
+}
+
+//
+// messageHandlerCont is a continuation that handles an error message (i.e.
+// turns it to handled).
+//
 type messageHandlerCont struct {
 	c    Cont
 	err  Value
@@ -316,8 +404,4 @@ func (c *messageHandlerCont) PushEtc(r *Runtime, etc []Value) {
 
 func (c *messageHandlerCont) RunInThread(t *Thread) (Cont, *Error) {
 	return nil, newHandledError(c.err)
-}
-
-func (c *messageHandlerCont) Cleanup(t *Thread, err *Error) *Error {
-	return err
 }
