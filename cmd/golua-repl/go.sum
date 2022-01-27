@@ -1,5 +1,7 @@
 github.com/arnodel/edit v0.0.0-20220126170633-6f7c0b90ac20 h1:oxAbCaJP1NyWurXwe4EEdZ53NfazhflOXOPiXxdknMw=
 github.com/arnodel/edit v0.0.0-20220126170633-6f7c0b90ac20/go.mod h1:kCx1u+dBBAMQnocx1rZ8m1s3RNFU7aAjISOrzeoq/PA=
+github.com/arnodel/edit v0.0.0-20220127140554-4dfa4bd4dfe6 h1:7eGNjpgTq7nbml8N3I8C7pitdJ2WinzftE7gg+Xf1G8=
+github.com/arnodel/edit v0.0.0-20220127140554-4dfa4bd4dfe6/go.mod h1:kCx1u+dBBAMQnocx1rZ8m1s3RNFU7aAjISOrzeoq/PA=
 github.com/arnodel/golua v0.0.0-20220121091306-866962c51982 h1:CqyZN3FEPv9yaR4BJatq0aXqxA+Txqt3cdE05hjzvYg=
 github.com/arnodel/golua v0.0.0-20220121091306-866962c51982/go.mod h1:d8hJbh/X80uQdSGMu5HZ64LrIgPh1jQxcNhnAqggpWE=
 github.com/arnodel/golua v0.0.0-20220126145557-fd47fa4044f6 h1:kT6buzQkOWjJSGx3I7EEJqxBDSjS8zxuui3kOrKW404=

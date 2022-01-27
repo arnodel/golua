@@ -2,13 +2,13 @@ module github.com/arnodel/golua/cmd/golua-repl
 
 go 1.17
 
-// replace (
+replace (
 // 	github.com/arnodel/edit => /Users/arno/Projects/edit
-// 	github.com/arnodel/golua => ../../
-// )
+ 	github.com/arnodel/golua => ../../
+)
 
 require (
-	github.com/arnodel/edit v0.0.0-20220126170633-6f7c0b90ac20
+	github.com/arnodel/edit v0.0.0-20220127140554-4dfa4bd4dfe6
 	github.com/arnodel/golua v0.0.0-20220126145557-fd47fa4044f6
 )
 
