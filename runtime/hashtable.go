@@ -5,7 +5,7 @@ import (
 	"unsafe"
 )
 
-// Number of bits in an uintptr
+// Number of bits in an uintptr.
 const uintptrLen = 8 * unsafe.Sizeof(uintptr(0))
 
 //
@@ -35,7 +35,7 @@ func (t *mixedTable) get(k Value) Value {
 	return t.hashTable.find(k)
 }
 
-// Set k => v
+// Set k => v.
 func (t *mixedTable) insert(k, v Value) {
 	i, ok := ToIntNoString(k)
 	if ok && t.array.setValue(i, v) {
