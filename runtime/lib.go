@@ -15,14 +15,6 @@ import (
 	"github.com/arnodel/golua/scanner"
 )
 
-const maxIndexChainLength = 100
-
-// IsNil returns true if v is a nil value.
-// TODO: remove
-func IsNil(v Value) bool {
-	return v.IsNil()
-}
-
 // RawGet returns the item in a table for the given key, or nil if t is nil.  It
 // doesn't check the metatable of t.
 func RawGet(t *Table, k Value) Value {
@@ -31,6 +23,8 @@ func RawGet(t *Table, k Value) Value {
 	}
 	return t.Get(k)
 }
+
+const maxIndexChainLength = 100
 
 // Index returns the item in a collection for the given key k, using the
 // '__index' metamethod if appropriate.
@@ -411,7 +405,7 @@ func stripFirstLineComment(chunk []byte) ([]byte, bool) {
 
 func metacont(t *Thread, obj Value, method string, next Cont) (Cont, *Error, bool) {
 	f := t.metaGetS(obj, method)
-	if IsNil(f) {
+	if f.IsNil() {
 		return nil, nil, false
 	}
 	cont, err := Continue(t, f, next)

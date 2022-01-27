@@ -13,7 +13,7 @@ func rawset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err
 	}
 	key := c.Arg(1)
-	if rt.IsNil(key) {
+	if key.IsNil() {
 		return nil, rt.NewErrorS("#2 must not be nil")
 	}
 	if err := t.SetTableCheck(tbl, key, c.Arg(2)); err != nil {

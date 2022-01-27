@@ -69,7 +69,7 @@ func (c *LuaCont) release(r *Runtime) {
 func (c *LuaCont) Push(r *Runtime, val Value) {
 	opcode := c.code[c.pc]
 	if opcode.HasType0() {
-		r.requireCPU(1)
+		r.RequireCPU(1)
 		dst := opcode.GetA()
 		if opcode.GetF() {
 			// It's an etc
