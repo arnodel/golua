@@ -1,9 +1,10 @@
 package mathlib
 
 import (
+	crypto "crypto/rand"
+	"encoding/binary"
 	"math"
 	"math/rand"
-	"time"
 
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
@@ -355,8 +356,11 @@ func randomseed(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	var err *rt.Error
 	switch c.NArgs() {
 	case 0:
-		// Something "random"
-		seed = time.Now().UnixNano()
+		// We need something as random as possible to make a seed.
+		readErr := binary.Read(crypto.Reader, binary.LittleEndian, &seed)
+		if readErr != nil {
+			return nil, rt.NewErrorS("unable to get random seed")
+		}
 	case 1:
 		seed, err = c.IntArg(0)
 		if err != nil {
