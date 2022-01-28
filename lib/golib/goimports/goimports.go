@@ -1,3 +1,6 @@
+//go:build !windows
+// +build !windows
+
 package goimports
 
 import (
@@ -16,6 +19,8 @@ import (
 	"strings"
 	"text/template"
 )
+
+const Supported = true
 
 // LoadGoPackage builds a plugin for a package if necessary, compiles it and loads
 // it.  The value of the "Exports" symbol is returned if successful.
