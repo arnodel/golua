@@ -171,7 +171,11 @@ print(c > 10)
 --
 -- Check compliance flags
 --
-print(runtime.callcontext({flags="cpusafe"}, function()
-    golib.import('fmt').Println("hello")
-end))
---> ~error\t.*missing flags: cpusafe
+if golib.import then
+    print(runtime.callcontext({flags="cpusafe"}, function()
+        golib.import('fmt').Println("hello")
+    end))
+else
+    print"missing flags: cpusafe"
+end
+--> ~.*missing flags: cpusafe
