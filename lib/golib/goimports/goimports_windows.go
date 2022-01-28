@@ -3,6 +3,8 @@
 
 package goimports
 
+import "errors"
+
 const Supported = false
 
 func LoadGoPackage(pkg string, pluginRoot string, forceBuild bool) (map[string]interface{}, error) {
