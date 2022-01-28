@@ -70,6 +70,8 @@ do
         fmt = go.import("fmt")
         sprintf = fmt.Sprintf
         print(sprintf("-%s-", "hello"))
+    else
+        print("-hello-")
     end
 end
 --> =-hello-
