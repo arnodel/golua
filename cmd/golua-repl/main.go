@@ -2,8 +2,11 @@ package main
 
 import (
 	_ "embed"
+	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 
 	"github.com/arnodel/edit"
 )
@@ -12,6 +15,10 @@ import (
 var defaultInitLua []byte
 
 func main() {
+	flag.Usage = usage
+	dumpAtEnd := false
+	flag.BoolVar(&dumpAtEnd, "d", false, "Dump session to terminal when quitting")
+	flag.Parse()
 
 	// Log to a file because the terminal is used
 	// f, err := os.OpenFile("testlogfile", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
@@ -26,6 +33,9 @@ func main() {
 	// Initialise the app
 	buf := NewLuaBuffer()
 	win := edit.NewWindow(buf)
+	if dumpAtEnd {
+		defer buf.WriteTo(os.Stdout)
+	}
 
 	app := edit.NewApp(win)
 	if err := app.InitLuaCode("[builtin init]", defaultInitLua); err != nil {
@@ -45,3 +55,21 @@ func main() {
 		app.HandleEvent(screen.PollEvent())
 	}
 }
+
+func usage() {
+	fmt.Fprintf(flag.CommandLine.Output(), "Help for %s:\n%s\nUsage:\n", os.Args[0], helpMessage)
+	flag.PrintDefaults()
+}
+
+const helpMessage = `
+golua-repl is a REPL for golua.  It lets you run lua statements interactively.
+
+Highlights:
+  - Type a Lua chunk, press [Enter] twice to execute it.
+  - Quit with [Ctrl-D]
+  - You can also type an expression and it will be evaluated
+  - The last result is available via _ (_2, _3 fi there are multiple values)
+  - Use the mouse / scrollwheel to navigate
+  - Select a region with the mouse, use system clipboard to paste
+  - Press [Enter] when on a previously executed statement to edit a copy of it
+`

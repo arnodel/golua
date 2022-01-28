@@ -1,6 +1,7 @@
 return function(app)
     app.Log("Starting init.lua")
-    app.BindEvents("app", "Ctrl-C", app.Quit)
+    app.BindEvents("app", "Ctrl-D", app.Quit)
+    app.UnbindEvents("app", "Ctrl-C") -- This is the default key to quit
     app.BindEvents("app", "Resize.Size", function(win, size) app.Resize(size.W, size.H) end)
 
     app.BindEvents("app", "Ctrl-X Ctrl-N", function() app.SwitchWindow() end)

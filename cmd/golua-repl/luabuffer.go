@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"regexp"
 	"strings"
 
 	"github.com/arnodel/edit"
@@ -40,7 +42,7 @@ func NewLuaBuffer() *LuaBuffer {
 	b := &LuaBuffer{}
 	b.r = runtime.New(&b.stdout)
 	lib.LoadAll(b.r)
-	b.buf.AppendLine(edit.NewLineFromString("Welcome to Golua REPL! Press [Enter] twice to run code, [Ctrl-C] to quit.", luaLineData{tp: luaComment}))
+	b.buf.AppendLine(edit.NewLineFromString("Welcome to Golua REPL! Press [Enter] twice to run code, [Ctrl-D] to quit.", luaLineData{tp: luaComment}))
 	b.buf.AppendLine(edit.NewLineFromString(inputName(0), luaLineData{tp: luaComment}))
 	b.buf.AppendLine(edit.NewLineFromString("> ", luaLineData{tp: luaInput}))
 	return b
@@ -59,8 +61,15 @@ func (b *LuaBuffer) InsertRune(r rune, l, c int) error {
 	if err != nil {
 		return err
 	}
-
 	return b.buf.InsertRune(r, l, c)
+}
+
+// When pasting code, remove "> " at the start of lines.
+var promptPtn = regexp.MustCompile(`(?m)^> `)
+
+func (b *LuaBuffer) InsertString(s string, l, c int) (int, int, error) {
+	// s = promptPtn.ReplaceAllLiteralString(s, "")
+	return b.buf.InsertString(s, l, c)
 }
 
 func (b *LuaBuffer) InsertLine(l int, line edit.Line) error {
@@ -146,7 +155,26 @@ func (b *LuaBuffer) MergeLineWithPrevious(l int) error {
 }
 
 func (b *LuaBuffer) Save() error {
+
 	return fmt.Errorf("unimplemented")
+}
+
+func (b *LuaBuffer) WriteTo(w io.Writer) (int64, error) {
+	n := 0
+	end := b.LineCount()
+	start := 0
+	if end >= 1000 {
+		start = end - 1000
+	}
+	for i := start; i < end; i++ {
+		l := b.buf.Line(i)
+		ln, err := fmt.Fprintf(w, "%s\n", l.String())
+		n += ln
+		if err != nil {
+			return int64(n), err
+		}
+	}
+	return int64(n), nil
 }
 
 func (b *LuaBuffer) StyledLineIter(l, c int) edit.StyledLineIter {
@@ -171,6 +199,10 @@ func (b *LuaBuffer) StyledLineIter(l, c int) edit.StyledLineIter {
 
 func (b *LuaBuffer) Kind() string {
 	return "luarepl"
+}
+
+func (b *LuaBuffer) StringFromRegion(l0, c0, l1, c1 int) (string, error) {
+	return b.buf.StringFromRegion(l0, c0, l1, c1)
 }
 
 func (b *LuaBuffer) getEditableLine(l, c int) (edit.Line, error) {

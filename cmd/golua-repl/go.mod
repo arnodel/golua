@@ -2,18 +2,17 @@ module github.com/arnodel/golua/cmd/golua-repl
 
 go 1.17
 
-replace (
-// 	github.com/arnodel/edit => /Users/arno/Projects/edit
- 	github.com/arnodel/golua => ../../
-)
+// replace github.com/arnodel/edit => /Users/arno/Projects/edit
+replace github.com/arnodel/golua => ../../
 
 require (
-	github.com/arnodel/edit v0.0.0-20220127140554-4dfa4bd4dfe6
+	github.com/arnodel/edit v0.0.0-20220128151129-b53b09f4ab8d
 	github.com/arnodel/golua v0.0.0-20220126145557-fd47fa4044f6
 )
 
 require (
 	github.com/arnodel/strftime v0.1.6 // indirect
+	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/gdamore/tcell/v2 v2.4.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
