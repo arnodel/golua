@@ -14,10 +14,17 @@ func scanFirstLine(l *Scanner) stateFn {
 	if c == '#' {
 		for {
 			switch l.next() {
-			case '\n', '\r', -1:
-				l.ignore()
-				return scanToken
+			case '\n':
+				l.acceptRune('\r')
+			case '\r':
+				l.acceptRune('\n')
+			case -1:
+				// Nothing to do
+			default:
+				continue
 			}
+			l.ignore()
+			return scanToken
 		}
 	}
 
@@ -97,7 +104,12 @@ func scanComment(l *Scanner) stateFn {
 func scanShortComment(l *Scanner) stateFn {
 	for {
 		switch c := l.next(); c {
-		case '\n', '\r':
+		case '\n':
+			l.acceptRune('\r')
+			l.ignore()
+			return scanToken
+		case '\r':
+			l.acceptRune('\n')
 			l.ignore()
 			return scanToken
 		case -1:
@@ -189,16 +201,9 @@ func scanShortString(q rune) stateFn {
 				default:
 					switch c {
 					case '\n':
-						// we accept "\r\n" as one newline
-						if l.next() != '\r' {
-							l.backup()
-						}
-					// This case doesn't happen because newlines were normalized.
-					// case '\r':
-					// 	// we accept "\n\r" as one newline
-					// 	if l.next() != '\n' {
-					// 		l.backup()
-					// 	}
+						l.acceptRune('\r')
+					case '\r':
+						l.acceptRune('\n')
 					case 'a', 'b', 'f', 'n', 'r', 't', 'v', 'z', '"', '\'', '\\':
 						break
 					default:

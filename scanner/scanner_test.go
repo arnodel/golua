@@ -160,7 +160,7 @@ func TestScanner(t *testing.T) {
 		{
 			"'abc\\z\n  \r\\65x'",
 			[]tok{
-				{token.STRING, "'abc\\z\n  \n\\65x'", 0, 1, 1},
+				{token.STRING, "'abc\\z\n  \r\\65x'", 0, 1, 1},
 				{token.EOF, "", 15, 3, 6},
 			},
 			"",
