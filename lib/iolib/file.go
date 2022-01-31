@@ -141,9 +141,13 @@ func (f *File) IsTemp() bool {
 	return f.status&statusTemp != 0
 }
 
+func (f *File) IsClosable() bool {
+	return f.status&statusNotClosable == 0
+}
+
 // Close attempts to close the file, returns an error if not successful.
 func (f *File) Close() error {
-	if f.file.Fd() <= 2 {
+	if !f.IsClosable() {
 		// Lua doesn't return a Lua error, so wrap this in a PathError
 		return &fs.PathError{
 			Op:   "close",
