@@ -25,7 +25,7 @@ do
     --> ~^false\t.*must be a string
 
     testf(io.open)("files/doesnotexist")
-    --> ~OK\tnil\t.*no such file or directory
+    --> ~OK\tnil\t
 
     local f = io.open("files/iotest.txt")
     print(f)
