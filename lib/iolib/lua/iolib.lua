@@ -85,7 +85,7 @@ do
     --> ~ERR	.*must be a string
 
     testf(io.lines)("nonexistent")
-    --> ~ERR	.*no such file
+    --> ~ERR	.*
 
     testf(io.lines)("files/iotest.txt", "z")
     --> ~ERR	.*invalid format
