@@ -10,6 +10,8 @@ type Closure struct {
 	upvalueIndex int
 }
 
+var _ Callable = (*Closure)(nil)
+
 // NewClosure returns a pointer to a new Closure instance for the given code.
 func NewClosure(r *Runtime, c *Code) *Closure {
 	if c.UpvalueCount > 0 {
@@ -21,6 +23,8 @@ func NewClosure(r *Runtime, c *Code) *Closure {
 	}
 }
 
+// Equals returns a true if it can assert that c and c1 implement the same
+// function.
 func (c *Closure) Equals(c1 *Closure) bool {
 	if c.Code != c1.Code || len(c.Upvalues) != len(c1.Upvalues) {
 		return false
