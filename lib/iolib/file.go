@@ -188,7 +188,11 @@ func (f *File) ReadLine(withEnd bool) (rt.Value, error) {
 		return rt.NilValue, err
 	}
 	if !withEnd && l > 0 && s[l-1] == '\n' {
-		s = s[:l-1]
+		l--
+		if l > 1 && s[l-1] == '\r' {
+			l--
+		}
+		s = s[:l]
 	}
 	return rt.StringValue(s), nil
 }
