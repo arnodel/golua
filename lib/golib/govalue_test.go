@@ -82,6 +82,21 @@ func Test_reflectToValue(t *testing.T) {
 			arg:  testStruct,
 			want: rt.UserDataValue(rt.NewUserData(testStruct, meta)),
 		},
+		{
+			name: "nil slice",
+			arg:  ([]int)(nil),
+			want: rt.NilValue,
+		},
+		{
+			name: "nil pointer",
+			arg:  (*int)(nil),
+			want: rt.NilValue,
+		},
+		{
+			name: "nil interface",
+			arg:  (interface{ Foo() })(nil),
+			want: rt.NilValue,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -220,6 +235,11 @@ func Test_valueToType(t *testing.T) {
 			name: "rt.String to []byte",
 			v:    "foo",
 			want: []byte("foo"),
+		},
+		{
+			name: "runtime.Value to runtime.Value",
+			v:    rt.IntValue(10),
+			want: rt.IntValue(10),
 		},
 	}
 	for _, tt := range tests {

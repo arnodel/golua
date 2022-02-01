@@ -71,3 +71,13 @@ do
     print(sprintf("-%s-", "hello"))
 end
 --> =-hello-
+
+print(pcall(ben))
+--> ~false\t.*not a function
+
+print(pcall(double, {}))
+--> ~false\t.*cannot be converted to int
+
+-- No argument defaults to the zero value
+print(double())
+--> =0

@@ -231,7 +231,12 @@ func valueToFunc(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, erro
 	return reflect.MakeFunc(tp, fn), nil
 }
 
+var runtimeValueType = reflect.TypeOf(rt.Value{})
+
 func valueToType(t *rt.Thread, v rt.Value, tp reflect.Type) (reflect.Value, error) {
+	if tp == runtimeValueType {
+		return reflect.ValueOf(v), nil
+	}
 	// Fist we deal with UserData
 	if u, ok := v.TryUserData(); ok {
 		gv := reflect.ValueOf(u.Value())
@@ -310,15 +315,25 @@ func reflectToValue(v reflect.Value, meta *rt.Table) rt.Value {
 	case reflect.Bool:
 		return rt.BoolValue(v.Bool())
 	case reflect.Slice:
+		if v.IsNil() {
+			return rt.NilValue
+		}
 		if v.Type().Elem().Kind() == reflect.Uint8 {
 			return rt.StringValue(string(v.Interface().([]byte)))
 		}
 	case reflect.Ptr:
+		if v.IsNil() {
+			return rt.NilValue
+		}
 		switch x := v.Interface().(type) {
 		case *rt.Table:
 			return rt.TableValue(x)
 		case *rt.UserData:
 			return rt.UserDataValue(x)
+		}
+	case reflect.Interface:
+		if v.IsNil() {
+			return rt.NilValue
 		}
 	}
 	return rt.UserDataValue(rt.NewUserData(v.Interface(), meta))

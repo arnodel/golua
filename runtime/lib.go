@@ -276,14 +276,30 @@ func (r *Runtime) ParseLuaChunk(name string, source []byte, scannerOptions ...sc
 	return
 }
 
-// CompileLuaChunk parses and compiles the source as a Lua Chunk and returns the
-// compile code Unit.
-func (r *Runtime) CompileLuaChunk(name string, source []byte, scannerOptions ...scanner.Option) (*code.Unit, uint64, error) {
-	stat, statSize, err := r.ParseLuaChunk(name, source, scannerOptions...)
-	if err != nil {
-		return nil, 0, err
-	}
+// ParseLuaExp parses a string as a Lua expression and returns the AST.
+func (r *Runtime) ParseLuaExp(name string, source []byte, scannerOptions ...scanner.Option) (stat *ast.BlockStat, statSize uint64, err error) {
+	s := scanner.New(name, source, scannerOptions...)
 
+	// Account for CPU and memory used to make the AST.  This is an estimate,
+	// but statSize is proportional to the size of the source.
+	statSize = uint64(len(source))
+	r.LinearRequire(4, uint64(len(source))) // 4 is a factor pulled out of thin air
+
+	exp, err := parsing.ParseExp(s)
+	if err != nil {
+		r.ReleaseMem(statSize)
+		parseErr, ok := err.(parsing.Error)
+		if !ok {
+			return nil, 0, err
+		}
+		return nil, 0, NewSyntaxError(name, parseErr)
+	}
+	stat = new(ast.BlockStat)
+	*stat = ast.NewBlockStat(nil, []ast.ExpNode{exp})
+	return
+}
+
+func (r *Runtime) compileLuaStat(name string, stat *ast.BlockStat, statSize uint64) (*code.Unit, uint64, error) {
 	// In any event the AST goes out of scope when leaving this function
 	defer func() { r.ReleaseMem(statSize) }()
 
@@ -327,6 +343,52 @@ func (r *Runtime) CompileLuaChunk(name string, source []byte, scannerOptions ...
 
 	// We no longer need the constants
 	return unit, unitSize, nil
+}
+
+func (r *Runtime) CompileLuaChunkOrExp(name string, source []byte, scannerOptions ...scanner.Option) (unit *code.Unit, sz uint64, err error) {
+	var statErr error
+	stat, statSize, expErr := r.ParseLuaExp(name, source, scannerOptions...)
+	if expErr != nil {
+		stat, statSize, statErr = r.ParseLuaChunk(name, source, scannerOptions...)
+	}
+	if expErr != nil && statErr != nil {
+		// If parsing as expression or chunk failed, then try to return the error that showed the most parsing
+		expSyntaxErr, okExp := expErr.(*SyntaxError)
+		statSyntaxErr, okStat := statErr.(*SyntaxError)
+		switch {
+		case !okStat:
+			err = expErr
+		case !okExp:
+			err = statErr
+		case expSyntaxErr.Err.Got.Pos.Offset >= statSyntaxErr.Err.Got.Offset:
+			err = expErr
+		default:
+			err = statErr
+		}
+		return
+	}
+	return r.compileLuaStat(name, stat, statSize)
+}
+
+// CompileLuaChunk parses and compiles the source as a Lua Chunk and returns the
+// compile code Unit.
+func (r *Runtime) CompileLuaChunk(name string, source []byte, scannerOptions ...scanner.Option) (*code.Unit, uint64, error) {
+	stat, statSize, err := r.ParseLuaChunk(name, source, scannerOptions...)
+	if err != nil {
+		return nil, 0, err
+	}
+	return r.compileLuaStat(name, stat, statSize)
+}
+
+// CompileAndLoadLuaChunk parses, compiles and loads a Lua chunk from source and
+// returns the closure that runs the chunk in the given global environment.
+func (r *Runtime) CompileAndLoadLuaChunkOrExp(name string, source []byte, env Value, scannerOptions ...scanner.Option) (*Closure, error) {
+	unit, unitSize, err := r.CompileLuaChunkOrExp(name, source, scannerOptions...)
+	defer r.ReleaseMem(unitSize)
+	if err != nil {
+		return nil, err
+	}
+	return r.LoadLuaUnit(unit, env), nil
 }
 
 // CompileAndLoadLuaChunk parses, compiles and loads a Lua chunk from source and
