@@ -57,11 +57,10 @@ runtime.callcontext({kill={millis=1000}, stop={millis=5000}}, function()
     --> =true
 end)
 
--- soft limits can increase from the parent's soft limit.
+-- soft limits cannot increase from the parent's soft limit.
 runtime.callcontext({stop={cpu=1000}, kill={cpu=2000}}, function()
     runtime.callcontext({stop={cpu=3000}}, function()
-        local l = runtime.context().stop.cpu
-        print( l >= 1500, l <= 2000)
-        --> =true	true
+        print(runtime.context().stop.cpu)
+        --> =1000
     end)
 end)
