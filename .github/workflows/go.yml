@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         build_tags:
-          - ''
+          - 'dummytagforwindows' # Non existent tag because windows shell drops empty arguments
           - 'noquotas'
           - 'nocontpool noregpool'
           - 'noquotas nocontpool noregpool'
