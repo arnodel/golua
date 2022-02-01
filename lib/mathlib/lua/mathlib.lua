@@ -94,16 +94,32 @@ do
 end
 
 do
+    print(pcall(math.min))
+    --> ~false
+
+    print(pcall(math.max))
+    --> ~false
+
     print(math.max(3, 5, 2, 1))
     --> =5
 
     print(math.min(3, 5, 2, 1))
     --> =1
+
+    print(pcall(math.min, 1, true))
+    --> ~false
+
+    print(pcall(math.max, 1, "true"))
+    --> ~false
+
 end
 
 do
     checknumarg(math.modf)
     --> =ok
+
+    print(math.modf(23))
+    --> =23	0
 
     print(math.modf(1.5))
     --> =1	0.5
