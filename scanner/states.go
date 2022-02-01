@@ -4,34 +4,6 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
-func scanFirstLine(l *Scanner) stateFn {
-	c := l.next()
-	// BOM
-	if c == rune(0xFEFF) {
-		l.ignore()
-		c = l.next()
-	}
-	if c == '#' {
-		for {
-			switch l.next() {
-			case '\n':
-				l.acceptRune('\r')
-			case '\r':
-				l.acceptRune('\n')
-			case -1:
-				// Nothing to do
-			default:
-				continue
-			}
-			l.ignore()
-			return scanToken
-		}
-	}
-
-	l.backup()
-	return scanToken
-}
-
 func scanToken(l *Scanner) stateFn {
 	for {
 		switch c := l.next(); {

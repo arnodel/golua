@@ -29,12 +29,6 @@ func ForNumber() Option {
 	}
 }
 
-func WithSpecialComment() Option {
-	return func(s *Scanner) {
-		s.state = scanFirstLine
-	}
-}
-
 func WithStartLine(l int) Option {
 	return func(s *Scanner) {
 		pos := token.Pos{Line: l, Column: 1}
