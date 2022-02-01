@@ -47,5 +47,5 @@ jobs:
         path: ./lua-test-suite
 
     - name: Run Lua Test Suite
-      run: ../golua -u -e "_U=true" all.lua
+      run: ../golua -u -e "_U=true" -e "_OS='${{ matrix.os }}'" all.lua
       working-directory: ./lua-test-suite
