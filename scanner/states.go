@@ -108,10 +108,6 @@ func scanShortComment(l *Scanner) stateFn {
 			l.acceptRune('\r')
 			l.ignore()
 			return scanToken
-		case '\r':
-			l.acceptRune('\n')
-			l.ignore()
-			return scanToken
 		case -1:
 			l.ignore()
 			l.emit(token.EOF)
@@ -201,9 +197,7 @@ func scanShortString(q rune) stateFn {
 				default:
 					switch c {
 					case '\n':
-						l.acceptRune('\r')
-					case '\r':
-						l.acceptRune('\n')
+						// Nothing to do
 					case 'a', 'b', 'f', 'n', 'r', 't', 'v', 'z', '"', '\'', '\\':
 						break
 					default:
