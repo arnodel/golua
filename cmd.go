@@ -231,11 +231,7 @@ func (c *luaCmd) runChunk(r *rt.Runtime, source []byte) (more bool, err error) {
 	}()
 	clos, err := r.CompileAndLoadLuaChunkOrExp("<stdin>", source, rt.TableValue(r.GlobalEnv()))
 	if err != nil {
-		snErr, ok := err.(*rt.SyntaxError)
-		if !ok {
-			return false, err
-		}
-		return snErr.IsUnexpectedEOF(), err
+		return rt.ErrorIsUnexpectedEOF(err), err
 	}
 	t := r.MainThread()
 	term := rt.NewTerminationWith(nil, 0, true)
