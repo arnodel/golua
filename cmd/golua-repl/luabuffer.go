@@ -42,7 +42,7 @@ func NewLuaBuffer() *LuaBuffer {
 	b := &LuaBuffer{}
 	b.r = runtime.New(&b.stdout)
 	lib.LoadAll(b.r)
-	b.buf.AppendLine(edit.NewLineFromString("Welcome to Golua REPL! Press [Enter] twice to run code, [Ctrl-D] to quit.", luaLineData{tp: luaComment}))
+	b.buf.AppendLine(edit.NewLineFromString("Welcome to Golua REPL! Press [Ctrl-D] to quit.", luaLineData{tp: luaComment}))
 	b.buf.AppendLine(edit.NewLineFromString(inputName(0), luaLineData{tp: luaComment}))
 	b.buf.AppendLine(edit.NewLineFromString("> ", luaLineData{tp: luaInput}))
 	return b
@@ -108,6 +108,7 @@ func (b *LuaBuffer) SplitLine(l, c int) error {
 	if err := b.buf.SetLine(l, l1); err != nil {
 		return err
 	}
+
 	return b.InsertLine(l+1, l2)
 }
 
@@ -192,7 +193,7 @@ func (b *LuaBuffer) StyledLineIter(l, c int) edit.StyledLineIter {
 	case luaRuntimeError:
 		style = style.Foreground(edit.ColorRed).Bold(true)
 	case luaComment:
-		style = style.Bold(true)
+		style = style.Foreground(edit.ColorAqua)
 	}
 	return edit.NewConstStyleLineIter(line.Iter(c), style)
 }
@@ -242,7 +243,7 @@ func (b *LuaBuffer) getChunk(l int) (string, error) {
 	return builder.String(), nil
 }
 
-func (b *LuaBuffer) RunCurrent() error {
+func (b *LuaBuffer) RunCurrent() (bool, error) {
 	b.stdout.Reset()
 	l := b.buf.LineCount()
 	for ; l > 0; l-- {
@@ -253,15 +254,18 @@ func (b *LuaBuffer) RunCurrent() error {
 	b.buf.Truncate(l)
 	chunk, err := b.getChunk(b.LineCount() - 1)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if strings.TrimSpace(chunk) == "" {
-		return nil
+		return false, nil
 	}
 	clos, err := b.r.CompileAndLoadLuaChunkOrExp(inputName(b.currentIndex), []byte(chunk), runtime.TableValue(b.r.GlobalEnv()))
 	if err != nil {
+		if runtime.ErrorIsUnexpectedEOF(err) {
+			return true, nil
+		}
 		b.buf.AppendLine(edit.NewLineFromString(err.Error(), luaLineData{index: b.currentIndex, tp: luaParseError}))
-		return err
+		return false, err
 	}
 
 	term := runtime.NewTerminationWith(nil, 0, true)
@@ -298,12 +302,21 @@ func (b *LuaBuffer) RunCurrent() error {
 	b.currentIndex++
 	b.buf.AppendLine(edit.NewLineFromString(inputName(b.currentIndex), luaLineData{index: b.currentIndex, tp: luaComment}))
 	b.buf.AppendLine(edit.NewLineFromString("> ", luaLineData{index: b.currentIndex, tp: luaInput}))
-	return nil
+	return false, nil
 }
 
 func (b *LuaBuffer) IsCurrentLast(l int) bool {
 	line, err := b.getEditableLine(l, -1)
 	if err != nil || line.Len() > 2 {
+		return false
+	}
+	_, err = b.getEditableLine(l+1, -1)
+	return err != nil
+}
+
+func (b *LuaBuffer) IsEndOfCurrentInput(l, c int) bool {
+	line, err := b.getEditableLine(l, c)
+	if err != nil || c < line.Len() {
 		return false
 	}
 	_, err = b.getEditableLine(l+1, -1)
