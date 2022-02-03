@@ -42,6 +42,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(methods, "write", filewrite, 1, true),
 
 		r.SetEnvGoFunc(meta, "__close", file__close, 1, false),
+		r.SetEnvGoFunc(meta, "__gc", file__close, 1, false),
 	)
 
 	rt.SolemnlyDeclareCompliance(
@@ -66,19 +67,19 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	if r.Stdout == nil {
 		r.Stdout = stdoutFile.writer
 	}
-	stdin := newFileUserData(NewFile(os.Stdin, stdinOpts), meta)
-	stdout := newFileUserData(stdoutFile, meta)
-	stderr := newFileUserData(stderrFile, meta) // I''m guessing, don't buffer stderr?
+	stdin := r.NewUserDataValue(NewFile(os.Stdin, stdinOpts), meta)
+	stdout := r.NewUserDataValue(stdoutFile, meta)
+	stderr := r.NewUserDataValue(stderrFile, meta) // I''m guessing, don't buffer stderr?
 
 	r.SetRegistry(ioKey, rt.AsValue(&ioData{
-		defaultOutput: stdout,
-		defaultInput:  stdin,
+		defaultOutput: stdout.AsUserData(),
+		defaultInput:  stdin.AsUserData(),
 		metatable:     meta,
 	}))
 	pkg := rt.NewTable()
-	r.SetEnv(pkg, "stdin", rt.UserDataValue(stdin))
-	r.SetEnv(pkg, "stdout", rt.UserDataValue(stdout))
-	r.SetEnv(pkg, "stderr", rt.UserDataValue(stderr))
+	r.SetEnv(pkg, "stdin", stdin)
+	r.SetEnv(pkg, "stdout", stdout)
+	r.SetEnv(pkg, "stderr", stderr)
 
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
@@ -167,8 +168,7 @@ func file__close(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err
 	}
-	closeErr := f.Close()
-	_ = closeErr // TODO: something with the error
+	f.cleanup()
 	return c.Next(), nil
 }
 
@@ -203,7 +203,7 @@ func input(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return c.PushingNext1(t.Runtime, rt.UserDataValue(ioData.defaultInput)), nil
 	}
 	var (
-		fv  *rt.UserData
+		fv  rt.Value
 		arg = c.Arg(0)
 	)
 	switch arg.Type() {
@@ -212,18 +212,18 @@ func input(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if ioErr != nil {
 			return nil, rt.NewErrorE(ioErr)
 		}
-		fv = newFileUserData(f, ioData.metatable)
+		fv = t.NewUserDataValue(f, ioData.metatable)
 	case rt.UserDataType:
 		_, err := FileArg(c, 0)
 		if err != nil {
 			return nil, errFileOrFilename()
 		}
-		fv = arg.AsUserData()
+		fv = arg
 	default:
 		return nil, errFileOrFilename()
 	}
-	ioData.defaultInput = fv
-	return c.PushingNext1(t.Runtime, rt.UserDataValue(fv)), nil
+	ioData.defaultInput = fv.AsUserData()
+	return c.PushingNext1(t.Runtime, fv), nil
 }
 
 func output(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -232,7 +232,7 @@ func output(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return c.PushingNext1(t.Runtime, rt.UserDataValue(ioData.defaultOutput)), nil
 	}
 	var (
-		fv  *rt.UserData
+		fv  rt.Value
 		arg = c.Arg(0)
 	)
 	switch arg.Type() {
@@ -241,20 +241,20 @@ func output(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if ioErr != nil {
 			return nil, rt.NewErrorE(ioErr)
 		}
-		fv = newFileUserData(f, ioData.metatable)
+		fv = t.NewUserDataValue(f, ioData.metatable)
 	case rt.UserDataType:
 		_, err := FileArg(c, 0)
 		if err != nil {
 			return nil, errFileOrFilename()
 		}
-		fv = arg.AsUserData()
+		fv = arg
 	default:
 		return nil, errFileOrFilename()
 	}
 	// Make sure the current output is flushed
 	ioData.defaultOutput.Value().(*File).Flush()
-	ioData.defaultOutput = fv
-	return c.PushingNext1(t.Runtime, rt.UserDataValue(fv)), nil
+	ioData.defaultOutput = fv.AsUserData()
+	return c.PushingNext1(t.Runtime, fv), nil
 }
 
 func iolines(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -353,8 +353,8 @@ func open(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if ioErr != nil {
 		return pushingNextIoResult(t.Runtime, c, ioErr)
 	}
-	u := newFileUserData(f, getIoData(t.Runtime).metatable)
-	return c.PushingNext(t.Runtime, rt.UserDataValue(u)), nil
+	fv := t.NewUserDataValue(f, getIoData(t.Runtime).metatable)
+	return c.PushingNext(t.Runtime, fv), nil
 }
 
 func typef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -491,8 +491,8 @@ func tmpfile(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, rt.NewErrorE(err)
 	}
-	fv := newFileUserData(f, getIoData(t.Runtime).metatable)
-	return c.PushingNext(t.Runtime, rt.UserDataValue(fv)), nil
+	fv := t.NewUserDataValue(f, getIoData(t.Runtime).metatable)
+	return c.PushingNext(t.Runtime, fv), nil
 }
 
 func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
@@ -511,8 +511,4 @@ func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	t.RequireBytes(len(s))
 	return c.PushingNext(t.Runtime, rt.StringValue(s)), nil
-}
-
-func newFileUserData(f *File, meta *rt.Table) *rt.UserData {
-	return rt.NewUserData(f, meta)
 }

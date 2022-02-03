@@ -8,7 +8,8 @@ type UserData struct {
 }
 
 // NewUserData returns a new UserData pointer for the value v, giving it meta as
-// a metatable.
+// a metatable.  This does not register a GC finalizer because access to a
+// runtime is needed for that.
 func NewUserData(v interface{}, meta *Table) *UserData {
 	return &UserData{value: v, meta: meta}
 }
@@ -26,4 +27,15 @@ func (d *UserData) Metatable() *Table {
 // SetMetatable sets d's metatable to m.
 func (d *UserData) SetMetatable(m *Table) {
 	d.meta = m
+}
+
+// NewUserDataValue creates a Value containing the user data with the given Go
+// value and metatable.  It also registers a GC finalizer if the metadata has a
+// __gc field.
+func (r *Runtime) NewUserDataValue(iface interface{}, meta *Table) Value {
+	v := UserDataValue(NewUserData(iface, meta))
+	if !RawGet(meta, MetaFieldGcValue).IsNil() {
+		r.addFinalizer(v)
+	}
+	return v
 }

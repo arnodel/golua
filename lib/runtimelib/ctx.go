@@ -41,12 +41,8 @@ func getRegistry(r *rt.Runtime) *contextRegistry {
 	return r.Registry(contextRegistryKey).Interface().(*contextRegistry)
 }
 
-func newContextUserData(r *rt.Runtime, ctx rt.RuntimeContext) *rt.UserData {
-	return rt.NewUserData(ctx, getRegistry(r).contextMeta)
-}
-
 func newContextValue(r *rt.Runtime, ctx rt.RuntimeContext) rt.Value {
-	return rt.UserDataValue(newContextUserData(r, ctx))
+	return r.NewUserDataValue(ctx, getRegistry(r).contextMeta)
 }
 
 func valueToContext(v rt.Value) (rt.RuntimeContext, bool) {
@@ -61,12 +57,8 @@ func valueToContext(v rt.Value) (rt.RuntimeContext, bool) {
 	return ctx, true
 }
 
-func newResourcesUserData(r *rt.Runtime, res rt.RuntimeResources) *rt.UserData {
-	return rt.NewUserData(res, getRegistry(r).resourcesMeta)
-}
-
 func newResourcesValue(r *rt.Runtime, res rt.RuntimeResources) rt.Value {
-	return rt.UserDataValue(newResourcesUserData(r, res))
+	return r.NewUserDataValue(res, getRegistry(r).resourcesMeta)
 }
 
 func valueToResources(v rt.Value) (res rt.RuntimeResources, ok bool) {

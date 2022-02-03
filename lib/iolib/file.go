@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
-	"runtime"
 	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
@@ -51,7 +50,6 @@ func NewFile(file *os.File, options int) *File {
 	} else {
 		f.writer = &nobufWriter{file}
 	}
-	runtime.SetFinalizer(f, (*File).cleanup)
 	return f
 }
 

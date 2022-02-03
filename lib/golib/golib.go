@@ -43,7 +43,7 @@ func getMeta(r *rt.Runtime) *rt.Table {
 
 // NewGoValue will return a UserData representing the go value.
 func NewGoValue(r *rt.Runtime, x interface{}) rt.Value {
-	return rt.UserDataValue(rt.NewUserData(x, getMeta(r)))
+	return r.NewUserDataValue(x, getMeta(r))
 }
 
 func goValueToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
