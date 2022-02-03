@@ -90,6 +90,9 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 	var errContCount = 0
 	_ = t.triggerCall(t, c)
 	for c != nil {
+		if t != t.gcThread {
+			t.runPendingFinalizers()
+		}
 		t.currentCont = c
 		next, err = c.RunInThread(t)
 		if err != nil {

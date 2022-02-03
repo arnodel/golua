@@ -2,8 +2,10 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"runtime"
 )
 
 // A Runtime is a Lua runtime.  It contains all the global state of the runtime
@@ -16,6 +18,7 @@ type Runtime struct {
 	nilMeta    *Table
 	Stdout     io.Writer
 	mainThread *Thread
+	gcThread   *Thread
 	registry   *Table
 	warner     Warner
 
@@ -34,6 +37,8 @@ type Runtime struct {
 	// Continuation pools, disable witht the nocontpool build tag.
 	luaContPool luaContPool
 	goContPool  goContPool
+
+	weakRefPool WeakRefPool
 }
 
 type runtimeOptions struct {
@@ -71,17 +76,24 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 		opt(&rtOpts)
 	}
 	r := &Runtime{
-		globalEnv: NewTable(),
-		Stdout:    stdout,
-		registry:  NewTable(),
-		warner:    NewLogWarner(os.Stderr, "Lua warning: "),
-		regPool:   mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
-		argsPool:  mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
-		cellPool:  mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		globalEnv:   NewTable(),
+		Stdout:      stdout,
+		registry:    NewTable(),
+		warner:      NewLogWarner(os.Stderr, "Lua warning: "),
+		regPool:     mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		argsPool:    mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		cellPool:    mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		weakRefPool: *newWeakRefPool(),
 	}
+
 	mainThread := NewThread(r)
 	mainThread.status = ThreadOK
 	r.mainThread = mainThread
+
+	gcThread := NewThread(r)
+	gcThread.status = ThreadOK
+	r.gcThread = gcThread
+
 	return r
 }
 
@@ -160,12 +172,59 @@ func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
 	case BoolType:
 		r.boolMeta = meta
 	case TableType:
-		v.AsTable().SetMetatable(meta)
+		tbl := v.AsTable()
+		tbl.SetMetatable(meta)
+		if !RawGet(meta, MetaFieldGcValue).IsNil() {
+			r.addFinalizer(v)
+		}
 	case UserDataType:
-		v.AsUserData().SetMetatable(meta)
+		udata := v.AsUserData()
+		udata.SetMetatable(meta)
+		if !RawGet(meta, MetaFieldGcValue).IsNil() {
+			r.addFinalizer(v)
+		}
 	default:
 		// Shoul there be an error here?
 	}
+}
+
+func (r *Runtime) addFinalizer(v Value) {
+	// If running in a restricted environment, finalizers are just ignored
+	// because there is no control over when they will be run.
+	if r.RequiredFlags() != 0 {
+		return
+	}
+	r.weakRefPool.SetGC(v)
+}
+
+func (r *Runtime) runPendingFinalizers() {
+	pending := r.weakRefPool.ExtractPendingGC()
+	if len(pending) > 0 {
+		r.runFinalizers(pending)
+	}
+}
+
+func (r *Runtime) runFinalizers(values []Value) {
+	// log.Printf("running %d finalizers", len(values))
+	for _, v := range values {
+		term := NewTerminationWith(nil, 0, false)
+		err, _ := Metacall(r.gcThread, v, MetaFieldGcString, []Value{v}, term)
+		if err != nil {
+			r.Warn(fmt.Sprintf("error in finalizer: %s", err))
+		}
+	}
+}
+
+func (t *Thread) CollectGarbage() {
+	if t != t.gcThread {
+		runtime.GC()
+		t.runPendingFinalizers()
+	}
+}
+
+func (r *Runtime) Close() {
+	r.mainThread.CollectGarbage()
+	r.runFinalizers(r.weakRefPool.GetAllGC())
 }
 
 // Metatable returns the metatalbe of v (looking for '__metatable' in the raw

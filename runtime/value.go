@@ -73,6 +73,10 @@ func ifaceType(iface interface{}) uintptr {
 	return *(*uintptr)(unsafe.Pointer(&iface))
 }
 
+func ifacePtr(iface interface{}) uintptr {
+	return (*[2]uintptr)(unsafe.Pointer(&iface))[1]
+}
+
 var float64IfaceType = ifaceType(float64(1))
 
 // Equals returns true if v is equal to v2.  Provided that v and v2 have been
