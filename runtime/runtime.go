@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"runtime"
+
+	"github.com/arnodel/golua/runtime/internal/weakref"
 )
 
 // A Runtime is a Lua runtime.  It contains all the global state of the runtime
@@ -38,7 +40,7 @@ type Runtime struct {
 	luaContPool luaContPool
 	goContPool  goContPool
 
-	weakRefPool WeakRefPool
+	weakRefPool weakref.Pool
 }
 
 type runtimeOptions struct {
@@ -83,7 +85,7 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 		regPool:     mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
 		argsPool:    mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
 		cellPool:    mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
-		weakRefPool: *newWeakRefPool(),
+		weakRefPool: weakref.NewPool(),
 	}
 
 	mainThread := NewThread(r)
@@ -175,39 +177,41 @@ func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
 		tbl := v.AsTable()
 		tbl.SetMetatable(meta)
 		if !RawGet(meta, MetaFieldGcValue).IsNil() {
-			r.addFinalizer(v)
+			r.addFinalizer(tbl)
 		}
 	case UserDataType:
 		udata := v.AsUserData()
 		udata.SetMetatable(meta)
 		if !RawGet(meta, MetaFieldGcValue).IsNil() {
-			r.addFinalizer(v)
+			r.addFinalizer(udata)
 		}
 	default:
-		// Shoul there be an error here?
+		// Should there be an error here?
 	}
 }
 
-func (r *Runtime) addFinalizer(v Value) {
+//
+func (r *Runtime) addFinalizer(iface interface{}) {
 	// If running in a restricted environment, finalizers are just ignored
 	// because there is no control over when they will be run.
 	if r.RequiredFlags() != 0 {
 		return
 	}
-	r.weakRefPool.SetGC(v)
+	r.weakRefPool.Mark(iface)
 }
 
 func (r *Runtime) runPendingFinalizers() {
-	pending := r.weakRefPool.ExtractPendingGC()
+	pending := r.weakRefPool.ExtractDeadMarked()
 	if len(pending) > 0 {
 		r.runFinalizers(pending)
 	}
 }
 
-func (r *Runtime) runFinalizers(values []Value) {
+func (r *Runtime) runFinalizers(ifaces []interface{}) {
 	// log.Printf("running %d finalizers", len(values))
-	for _, v := range values {
+	for _, iface := range ifaces {
 		term := NewTerminationWith(nil, 0, false)
+		v := AsValue(iface)
 		err, _ := Metacall(r.gcThread, v, MetaFieldGcString, []Value{v}, term)
 		if err != nil {
 			r.Warn(fmt.Sprintf("error in finalizer: %s", err))
@@ -224,7 +228,7 @@ func (t *Thread) CollectGarbage() {
 
 func (r *Runtime) Close() {
 	r.mainThread.CollectGarbage()
-	r.runFinalizers(r.weakRefPool.GetAllGC())
+	r.runFinalizers(r.weakRefPool.ExtractAllMarked())
 }
 
 // Metatable returns the metatalbe of v (looking for '__metatable' in the raw

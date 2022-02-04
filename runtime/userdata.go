@@ -33,9 +33,9 @@ func (d *UserData) SetMetatable(m *Table) {
 // value and metatable.  It also registers a GC finalizer if the metadata has a
 // __gc field.
 func (r *Runtime) NewUserDataValue(iface interface{}, meta *Table) Value {
-	v := UserDataValue(NewUserData(iface, meta))
+	udata := NewUserData(iface, meta)
 	if !RawGet(meta, MetaFieldGcValue).IsNil() {
-		r.addFinalizer(v)
+		r.addFinalizer(udata)
 	}
-	return v
+	return UserDataValue(udata)
 }
