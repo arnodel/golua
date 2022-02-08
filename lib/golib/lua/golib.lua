@@ -66,9 +66,13 @@ print(tostring(polly))
 
 do
     go = require("golib")
-    fmt = go.import("fmt")
-    sprintf = fmt.Sprintf
-    print(sprintf("-%s-", "hello"))
+    if go.import then
+        fmt = go.import("fmt")
+        sprintf = fmt.Sprintf
+        print(sprintf("-%s-", "hello"))
+    else
+        print("-hello-")
+    end
 end
 --> =-hello-
 

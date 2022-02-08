@@ -70,6 +70,8 @@ func ExtractLineCheckers(source []byte) []LineChecker {
 }
 
 func CheckLines(output []byte, checkers []LineChecker) error {
+	// On windows we may get \r\n instead of \n
+	output = normalizeNewLines(output)
 	if len(output) > 0 && output[len(output)-1] == '\n' {
 		output = output[:len(output)-1]
 	}
@@ -86,4 +88,13 @@ func CheckLines(output []byte, checkers []LineChecker) error {
 		return fmt.Errorf("Expected %d output lines, got %d", len(checkers), len(lines))
 	}
 	return nil
+}
+
+var newLines = regexp.MustCompile(`(?s)\r\n|\n\r|\r`)
+
+func normalizeNewLines(b []byte) []byte {
+	if bytes.IndexByte(b, '\r') == -1 {
+		return b
+	}
+	return newLines.ReplaceAllLiteral(b, []byte{'\n'})
 }

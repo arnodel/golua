@@ -2,7 +2,6 @@ package oslib
 
 import (
 	"os"
-	"syscall"
 	"time"
 
 	"github.com/arnodel/golua/lib/packagelib"
@@ -37,13 +36,6 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	r.SetEnvGoFunc(pkg, "setlocale", setlocale, 2, false)
 	r.SetEnvGoFunc(pkg, "exit", exit, 2, false)
 	return rt.TableValue(pkg), nil
-}
-
-func clock(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var rusage syscall.Rusage
-	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &rusage) // ignore errors
-	time := float64(rusage.Utime.Sec+rusage.Stime.Sec) + float64(rusage.Utime.Usec+rusage.Stime.Usec)/1000000.0
-	return c.PushingNext1(t.Runtime, rt.FloatValue(time)), nil
 }
 
 func date(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
