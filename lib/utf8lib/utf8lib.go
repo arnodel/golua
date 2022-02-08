@@ -123,11 +123,11 @@ func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	decode := luastrings.GetDecodeRuneInString(lax)
 	next := c.Next()
-	i := rt.StringNormPos(s, int(ii))
+	i := luastrings.StringNormPos(s, int(ii))
 	if i < 1 {
 		return nil, rt.NewErrorE(errPosOutOfRange)
 	}
-	j := rt.StringNormPos(s, int(jj))
+	j := luastrings.StringNormPos(s, int(jj))
 	if j > len(s) {
 		return nil, rt.NewErrorE(errPosOutOfRange)
 	}
@@ -166,8 +166,8 @@ func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	var (
 		decode = luastrings.GetDecodeRuneInString(lax)
 		next   = c.Next()
-		i      = rt.StringNormPos(s, int(ii))
-		j      = rt.StringNormPos(s, int(jj))
+		i      = luastrings.StringNormPos(s, int(ii))
+		j      = luastrings.StringNormPos(s, int(jj))
 		slen   int64
 	)
 	if i <= 0 || i > len(s)+1 || j > len(s) {
@@ -207,7 +207,7 @@ func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err
 	}
-	i := rt.StringNormPos(ss, int(ii)) - 1
+	i := luastrings.StringNormPos(ss, int(ii)) - 1
 	s := string(ss)
 	if i < 0 || i > len(s) {
 		return nil, rt.NewErrorE(errPosOutOfRange)

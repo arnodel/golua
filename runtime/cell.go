@@ -17,17 +17,17 @@ type Cell struct {
 	ref *Value
 }
 
-// NewCell returns a new Cell instance containing the given value.
-func NewCell(v Value) Cell {
+// newCell returns a new Cell instance containing the given value.
+func newCell(v Value) Cell {
 	return Cell{&v}
 }
 
-// Get returns the value that the cell c contains
-func (c Cell) Get() Value {
+// get returns the value that the cell c contains.
+func (c Cell) get() Value {
 	return *c.ref
 }
 
-// Set sets the the value contained by c to v.
-func (c Cell) Set(v Value) {
+// set sets the the value contained by c to v.
+func (c Cell) set(v Value) {
 	*c.ref = v
 }

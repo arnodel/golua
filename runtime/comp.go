@@ -19,7 +19,7 @@ func RawEqual(x, y Value) (bool, bool) {
 	return false, false
 }
 
-// isZero returns true if x is a number and is equal to 0
+// isZero returns true if x is a number and is equal to 0.
 func isZero(x Value) bool {
 	switch x.iface.(type) {
 	case int64:
@@ -30,7 +30,7 @@ func isZero(x Value) bool {
 	return false
 }
 
-// isPositive returns true if x is a number and is > 0
+// isPositive returns true if x is a number and is > 0.
 func isPositive(x Value) bool {
 	switch x.iface.(type) {
 	case int64:

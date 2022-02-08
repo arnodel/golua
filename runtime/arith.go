@@ -4,6 +4,8 @@ import (
 	"math"
 )
 
+// Unm returns (z, true) where z is the value representing -x if x is a number,
+// else (NilValue, false).
 func Unm(x Value) (Value, bool) {
 	switch x.iface.(type) {
 	case int64:
@@ -15,6 +17,8 @@ func Unm(x Value) (Value, bool) {
 	}
 }
 
+// Add returns (z, true) where z is the value representing x+y if x and y are
+// numbers, else (NilValue, false).
 func Add(x, y Value) (Value, bool) {
 	switch x.iface.(type) {
 	case int64:
@@ -35,6 +39,8 @@ func Add(x, y Value) (Value, bool) {
 	return NilValue, false
 }
 
+// Sub returns (z, true) where z is the value representing x-y if x and y are
+// numbers, else (NilValue, false).
 func Sub(x, y Value) (Value, bool) {
 	switch x.iface.(type) {
 	case int64:
@@ -55,6 +61,8 @@ func Sub(x, y Value) (Value, bool) {
 	return NilValue, false
 }
 
+// Mul returns (z, true) where z is the value representing x*y if x and y are
+// numbers, else (NilValue, false).
 func Mul(x, y Value) (Value, bool) {
 	switch x.iface.(type) {
 	case int64:
@@ -75,6 +83,8 @@ func Mul(x, y Value) (Value, bool) {
 	return NilValue, false
 }
 
+// Div returns (z, true) where z is the (float) value representing x/y if x and
+// y are numbers, else (NilValue, false).
 func Div(x, y Value) (Value, bool) {
 	switch x.iface.(type) {
 	case int64:
@@ -108,6 +118,9 @@ func floordivFloat(x, y float64) float64 {
 	return math.Floor(x / y)
 }
 
+// Div returns (z, true, nil) where z is the (integer) value representing x//y
+// if x and y are numbers and y != 0, if y == 0 it returns (NilValue, true,
+// div_by_zero_error), else (NilValue, false, nil) if x or y is not a number.
 func Idiv(x Value, y Value) (Value, bool, *Error) {
 	switch x.iface.(type) {
 	case int64:
@@ -148,7 +161,10 @@ func modFloat(x, y float64) float64 {
 	return r
 }
 
-// Mod returns x % y.
+// Mod returns (z, true, nil) where z is the (integer or float) value
+// representing x%y if x and y are numbers and y != 0, if y == 0 it returns
+// (NilValue, true, mod_by_zero_error), else (NilValue, false, nil) if x or y is
+// not a number.
 func Mod(x Value, y Value) (Value, bool, *Error) {
 	switch x.iface.(type) {
 	case int64:
@@ -177,6 +193,8 @@ func powFloat(x, y float64) float64 {
 	return math.Pow(x, y)
 }
 
+// Pow returns (z, true) where z is the (float) value representing x^y if x and
+// y are numbers, else (NilValue, false).
 func Pow(x, y Value) (Value, bool) {
 	var fx, fy float64
 	switch x.iface.(type) {
@@ -198,7 +216,7 @@ func Pow(x, y Value) (Value, bool) {
 	return FloatValue(powFloat(fx, fy)), true
 }
 
-func BinaryArithFallback(t *Thread, op string, x, y Value) (Value, *Error) {
+func binaryArithFallback(t *Thread, op string, x, y Value) (Value, *Error) {
 	res, err, ok := metabin(t, op, x, y)
 	if ok {
 		return res, err
@@ -206,6 +224,8 @@ func BinaryArithFallback(t *Thread, op string, x, y Value) (Value, *Error) {
 	return NilValue, BinaryArithmeticError(op[2:], x, y)
 }
 
+// BinaryArithmeticError returns an error describing the problem with trying to
+// perform x op y.
 func BinaryArithmeticError(op string, x, y Value) *Error {
 	var wrongVal Value
 	switch {
@@ -219,7 +239,7 @@ func BinaryArithmeticError(op string, x, y Value) *Error {
 	return NewErrorF("attempt to perform arithmetic on a %s value", wrongVal.CustomTypeName())
 }
 
-func UnaryArithFallback(t *Thread, op string, x Value) (Value, *Error) {
+func unaryArithFallback(t *Thread, op string, x Value) (Value, *Error) {
 	res, err, ok := metaun(t, op, x)
 	if ok {
 		return res, err
@@ -227,6 +247,8 @@ func UnaryArithFallback(t *Thread, op string, x Value) (Value, *Error) {
 	return NilValue, UnaryArithmeticError(op[2:], x)
 }
 
+// UnaryArithmeticError returns an error describing the problem with trying to
+// perform the unary operation op(x).
 func UnaryArithmeticError(op string, x Value) *Error {
 	return NewErrorF("attempt to %s a '%s'", op, x.CustomTypeName())
 }

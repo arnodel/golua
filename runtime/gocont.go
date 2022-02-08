@@ -62,8 +62,7 @@ func (c *GoCont) PushingNext1(r *Runtime, val Value) Cont {
 	return next
 }
 
-// PushEtc pushes a slice of values to the continutation. TODO: find why this is
-// not used.
+// PushEtc pushes a slice of values to the continutation.
 func (c *GoCont) PushEtc(r *Runtime, etc []Value) {
 	if c.nArgs < len(c.args) {
 		for i, v := range etc {
@@ -84,12 +83,12 @@ FillEtc:
 	*c.etc = append(*c.etc, etc...)
 }
 
-// RunInThread implements Cont.RunInThread
+// RunInThread implements Cont.RunInThread.
 func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
 	if err := t.CheckRequiredFlags(c.safetyFlags); err != nil {
 		return nil, err
 	}
-	t.RequireCPU(1) // TODO: an appropriate amount
+	t.RequireCPU(1)
 
 	t.goFunctionCallDepth++
 	defer func() { t.goFunctionCallDepth-- }()
@@ -115,16 +114,17 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
 	return
 }
 
-// Next implements Cont.Next.
+// Next returns the next continuation.
 func (c *GoCont) Next() Cont {
 	return c.next
 }
 
+// Parent returns the continuation's parent.
 func (c *GoCont) Parent() Cont {
 	return c.next
 }
 
-// DebugInfo implements Cont.DebugInfo.
+// DebugInfo returns c's debug info.
 func (c *GoCont) DebugInfo() *DebugInfo {
 	name := c.name
 	if name == "" {

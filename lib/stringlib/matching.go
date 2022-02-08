@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/arnodel/golua/lib/stringlib/pattern"
+	"github.com/arnodel/golua/luastrings"
 	rt "github.com/arnodel/golua/runtime"
 )
 
@@ -31,7 +32,7 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err
 	}
-	si := rt.StringNormPos(s, int(init)) - 1
+	si := luastrings.StringNormPos(s, int(init)) - 1
 	if si < 0 {
 		si = 0
 	}
@@ -86,7 +87,7 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err
 	}
-	si := rt.StringNormPos(s, int(init)) - 1
+	si := luastrings.StringNormPos(s, int(init)) - 1
 	if si < 0 {
 		si = 0
 	}
@@ -153,7 +154,7 @@ func gmatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if ptnErr != nil {
 		return nil, rt.NewErrorE(ptnErr)
 	}
-	si := rt.StringNormPos(s, int(init)) - 1
+	si := luastrings.StringNormPos(s, int(init)) - 1
 	if si < 0 {
 		si = 0
 	}

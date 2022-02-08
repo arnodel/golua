@@ -1,38 +1,5 @@
 package runtime
 
-// Callable is the interface for callable values.
-type Callable interface {
-	Continuation(*Thread, Cont) Cont
-}
-
-// ContWithArgs is a convenience function that returns a new
-// continuation from a callable, some arguments and a next
-// continuation.
-func (t *Thread) ContWithArgs(c Callable, args []Value, next Cont) Cont {
-	cont := c.Continuation(t, next)
-	t.Push(cont, args...)
-	return cont
-}
-
-//
-// Float
-//
-
-// StringNormPos returns a normalised position in the string
-// i.e. -1 -> len(s)
-//      -2 -> len(s) - 1
-// etc
-func StringNormPos(s string, p int) int {
-	if p < 0 {
-		p = len(s) + 1 + p
-	}
-	return p
-}
-
-//
-// GoFunction
-//
-
 // A GoFunction is a callable value implemented by a native Go function.
 type GoFunction struct {
 	f           func(*Thread, *GoCont) (Cont, *Error)
@@ -59,6 +26,8 @@ func (f *GoFunction) Continuation(t *Thread, next Cont) Cont {
 	return NewGoCont(t, f, next)
 }
 
+// SolemnlyDeclareCompliance adds compliance flags to f.  See quotas.md for
+// details about compliance flags.
 func (f *GoFunction) SolemnlyDeclareCompliance(flags ComplianceFlags) {
 	if flags >= complyflagsLimit {
 		// User is trying to register a safety flag that is not (yet) defined.
@@ -68,18 +37,11 @@ func (f *GoFunction) SolemnlyDeclareCompliance(flags ComplianceFlags) {
 	f.safetyFlags |= flags
 }
 
+// SolemnlyDeclareCompliance is a convenience function that adds the same set of
+// compliance flags to a number of functions.  See quotas.md for details about
+// compliance flags.
 func SolemnlyDeclareCompliance(flags ComplianceFlags, fs ...*GoFunction) {
 	for _, f := range fs {
 		f.SolemnlyDeclareCompliance(flags)
 	}
-}
-
-//
-// LightUserData
-//
-
-// A LightUserData is some Go value of unspecified type wrapped to be used as a
-// lua Value.
-type LightUserData struct {
-	Data interface{}
 }

@@ -10,6 +10,8 @@ type Closure struct {
 	upvalueIndex int
 }
 
+var _ Callable = (*Closure)(nil)
+
 // NewClosure returns a pointer to a new Closure instance for the given code.
 func NewClosure(r *Runtime, c *Code) *Closure {
 	if c.UpvalueCount > 0 {
@@ -21,6 +23,8 @@ func NewClosure(r *Runtime, c *Code) *Closure {
 	}
 }
 
+// Equals returns a true if it can assert that c and c1 implement the same
+// function.
 func (c *Closure) Equals(c1 *Closure) bool {
 	if c.Code != c1.Code || len(c.Upvalues) != len(c1.Upvalues) {
 		return false
@@ -39,17 +43,17 @@ func (c *Closure) AddUpvalue(cell Cell) {
 	c.upvalueIndex++
 }
 
-// Continuation implements Callable.Continuation
+// Continuation implements Callable.Continuation.
 func (c *Closure) Continuation(t *Thread, next Cont) Cont {
 	return NewLuaCont(t, c, next)
 }
 
 // GetUpvalue returns the upvalue for c at index n.
 func (c *Closure) GetUpvalue(n int) Value {
-	return c.Upvalues[n].Get()
+	return c.Upvalues[n].get()
 }
 
 // SetUpvalue sets the upvalue for c at index n to v.
 func (c *Closure) SetUpvalue(n int, val Value) {
-	c.Upvalues[n].Set(val)
+	c.Upvalues[n].set(val)
 }

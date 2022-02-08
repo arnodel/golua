@@ -3,8 +3,12 @@
 
 package runtime
 
-const goContPoolSize = 10 // Should that be configurable?
+// Size of the GoCont pool. The value of 10 was reached by trial-and-error but
+// is probably not optimal.
+const goContPoolSize = 10
 
+// Pool for reusing Go continuations. It is modelled exactly on luacontpool.go,
+// which has some documentation :)
 type goContPool struct {
 	conts [goContPoolSize]*GoCont
 	next  int
