@@ -5,6 +5,8 @@ package runtime
 
 import (
 	"fmt"
+
+	"github.com/arnodel/golua/runtime/internal/weakref"
 )
 
 const QuotasAvailable = false
@@ -12,9 +14,14 @@ const QuotasAvailable = false
 type runtimeContextManager struct {
 	messageHandler Callable
 	parent         *runtimeContextManager
+	weakRefPool    weakref.Pool
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
+
+func (m *runtimeContextManager) initRoot() {
+	m.weakRefPool = weakref.NewPool()
+}
 
 func (m *runtimeContextManager) HardLimits() (r RuntimeResources) {
 	return
@@ -52,6 +59,10 @@ func (m *runtimeContextManager) Due() bool {
 }
 
 func (m *runtimeContextManager) SetStopLevel(StopLevel) {
+}
+
+func (m *runtimeContextManager) GCPolicy() GCPolicy {
+	return ShareGCPolicy
 }
 
 func (m *runtimeContextManager) RuntimeContext() RuntimeContext {
