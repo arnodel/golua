@@ -128,7 +128,7 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	m.status = StatusLive
 	m.messageHandler = ctx.MessageHandler
 	m.parent = &parent
-	if ctx.GCPolicy == IsolateGCPolicy || m.hardLimits.Millis > 0 || m.hardLimits.Cpu > 0 || m.hardLimits.Memory > 0 {
+	if ctx.GCPolicy == IsolateGCPolicy || ctx.HardLimits.Millis > 0 || ctx.HardLimits.Cpu > 0 || ctx.HardLimits.Memory > 0 {
 		m.weakRefPool = weakref.NewPool()
 		m.gcPolicy = IsolateGCPolicy
 	} else {
