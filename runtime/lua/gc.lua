@@ -8,20 +8,22 @@ a = ""
 meta = {__gc = function(t) print(t.gc) end}
 
 do
-    local x = {gc = "x"}
+    local x = {gc = "local x"}
     setmetatable(x, meta)
-    local y = {gc = "y"}
+    local y = {gc = "local y"}
     setmetatable(y, meta)
-    local z = {gc = "z"}
+    local z = {gc = "local z"}
     setmetatable(z, meta)
     -- local t = {x, y}
 end
 
+collectgarbage()
+collectgarbage()
 
 -- When the runtime is closed, __gc metamethods should be called in reverse
 -- order.
---> =z
---> =y
---> =x
+--> ~local
+--> ~local
+--> ~local
 --> =gone 2
 --> =gone
