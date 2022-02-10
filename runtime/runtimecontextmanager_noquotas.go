@@ -76,8 +76,12 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 }
 
 func (m *runtimeContextManager) PopContext() RuntimeContext {
+	if m == nil || m.parent == nil {
+		return nil
+	}
+	mCopy := *m
 	*m = *m.parent
-	return nil
+	return &mCopy
 }
 
 func (m *runtimeContextManager) CallContext(def RuntimeContextDef, f func() *Error) (ctx RuntimeContext, err *Error) {
