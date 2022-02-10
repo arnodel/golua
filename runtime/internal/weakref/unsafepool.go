@@ -96,9 +96,15 @@ func (p *UnsafePool) ExtractAllMarked() []interface{} {
 	orders = p.pendingOrders
 	for _, r := range p.weakrefs {
 		if r.markOrder > 0 {
-			vals = append(vals, r.w.iface())
+			iface := r.w.iface()
+			vals = append(vals, iface)
 			orders = append(orders, r.markOrder)
 			r.markOrder = 0
+
+			// We don't want the finalizer to be triggered anymore, but more
+			// important the finalizer is holding a reference to the pool
+			// (although that may not affect its reachability?)
+			runtime.SetFinalizer(iface, nil)
 		}
 	}
 	p.pendingMarked = nil

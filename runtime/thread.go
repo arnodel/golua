@@ -318,7 +318,7 @@ func (t *Thread) CallContext(def RuntimeContextDef, f func() *Error) (ctx Runtim
 		t.runFinalizers(t.weakRefPool.ExtractAllMarked())
 	}
 	if err != nil {
-		t.Runtime.setStatus(StatusError)
+		t.setStatus(StatusError)
 	}
 	return
 }

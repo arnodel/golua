@@ -97,6 +97,7 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 
 	r.runtimeContextManager.initRoot()
 
+	runtime.SetFinalizer(r, (*Runtime).Close)
 	return r
 }
 
@@ -222,8 +223,19 @@ func (t *Thread) CollectGarbage() {
 }
 
 func (r *Runtime) Close() {
-	r.mainThread.CollectGarbage()
+	runtime.SetFinalizer(r, nil)
+	defer func() {
+		if r := recover(); r != nil {
+			_, ok := r.(ContextTerminationError)
+			if !ok {
+				panic(r)
+			}
+		}
+	}()
 	r.runFinalizers(r.weakRefPool.ExtractAllMarked())
+	if r.PopContext() != nil {
+		r.Close()
+	}
 }
 
 // Metatable returns the metatalbe of v (looking for '__metatable' in the raw
