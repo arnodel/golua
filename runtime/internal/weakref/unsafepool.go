@@ -1,7 +1,6 @@
 package weakref
 
 import (
-	"fmt"
 	"log"
 	"runtime"
 	"sort"
@@ -62,7 +61,6 @@ func (p *UnsafePool) Mark(iface interface{}) {
 	defer p.mx.Unlock()
 	p.lastMarkOrder++
 	p.get(iface).markOrder = p.lastMarkOrder
-	fmt.Printf("Marking %d\n", p.lastMarkOrder)
 }
 
 // ExtractDeadMarked returns the set of values which are being garbage collected
@@ -100,7 +98,6 @@ func (p *UnsafePool) ExtractAllMarked() []interface{} {
 				order: r.markOrder,
 			})
 
-			fmt.Printf("adding %d\n", r.markOrder)
 			r.markOrder = 0
 			// We don't want the finalizer to be triggered anymore, but more
 			// important the finalizer is holding a reference to the pool
@@ -112,7 +109,6 @@ func (p *UnsafePool) ExtractAllMarked() []interface{} {
 	p.mx.Unlock()
 	// Sort in reverse order
 	sort.Sort(marked)
-	fmt.Printf("Extract All %d\n", len(marked))
 	return runPrefinalizers(marked.vals())
 }
 
