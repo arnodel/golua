@@ -24,7 +24,10 @@ var govalueKey = rt.AsValue(govalueKeyType{})
 
 func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
-	r.SetEnvGoFunc(pkg, "import", goimport, 1, false)
+
+	if goimports.Supported {
+		r.SetEnvGoFunc(pkg, "import", goimport, 1, false)
+	}
 
 	meta := rt.NewTable()
 	r.SetEnvGoFunc(meta, "__index", goValueIndex, 2, false)

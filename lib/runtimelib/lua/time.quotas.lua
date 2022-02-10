@@ -46,7 +46,7 @@ local ctx = runtime.callcontext({kill={millis=10}}, function()
             --> =10
         end)
         runtime.callcontext({kill={seconds=1}}, function()
-            print(runtime.context().kill.millis)
-            --> =10
+            print(runtime.context().kill.millis <= 10)
+            --> =true
         end)
 end)

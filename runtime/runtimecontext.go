@@ -43,6 +43,7 @@ type ContextTerminationError struct {
 
 var _ error = ContextTerminationError{}
 
+// Error string for a ContextTerminationError
 func (e ContextTerminationError) Error() string {
 	return e.message
 }

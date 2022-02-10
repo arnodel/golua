@@ -288,10 +288,12 @@ func (m *runtimeContextManager) LinearRequire(cpuFactor uint64, amt uint64) {
 	m.RequireCPU(amt / cpuFactor)
 }
 
+// KillContext forcefully terminates the context with the message "force kill".
 func (m *runtimeContextManager) KillContext() {
 	m.TerminateContext("force kill")
 }
 
+// TerminateContext forcefully terminates the context with the given message.
 func (m *runtimeContextManager) TerminateContext(format string, args ...interface{}) {
 	if m.status != StatusLive {
 		return

@@ -15,7 +15,7 @@ func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if !rt.RawGet(tbl.Metatable(), rt.StringValue("__metatable")).IsNil() {
 		return nil, rt.NewErrorS("cannot set metatable")
 	}
-	if rt.IsNil(c.Arg(1)) {
+	if c.Arg(1).IsNil() {
 		tbl.SetMetatable(nil)
 	} else if meta, err := c.TableArg(1); err == nil {
 		t.SetRawMetatable(c.Arg(0), meta)

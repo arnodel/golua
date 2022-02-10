@@ -270,7 +270,8 @@ func (t *Thread) end(args []Value, err *Error, exception interface{}) {
 }
 
 func (t *Thread) call(c Callable, args []Value, next Cont) *Error {
-	cont := t.ContWithArgs(c, args, next)
+	cont := c.Continuation(t, next)
+	t.Push(cont, args...)
 	return t.RunContinuation(cont)
 }
 
@@ -290,6 +291,15 @@ func (t *Thread) sendResumeValues(args []Value, err *Error, exception interface{
 // Calling
 //
 
+// CallContext pushes a new runtime context on the thread's runtime and attempts
+// to run f() in the thread.  If the context runs out of resources while f() is
+// running, all operations should abort and the CallContext should return
+// immediately and not finalizing pending to-be-closed values.
+//
+// Otherwise (even if f() returns an error), pending to-be-closed values should
+// be finalized.
+//
+// See quotas.md for details about this API.
 func (t *Thread) CallContext(def RuntimeContextDef, f func() *Error) (ctx RuntimeContext, err *Error) {
 	t.PushContext(def)
 	c, h := t.CurrentCont(), t.closeStack.size()

@@ -68,7 +68,6 @@ func TestRuntimeResources_Dominates(t *testing.T) {
 			},
 			want: false,
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -137,8 +136,6 @@ func TestRuntimeResources_Merge(t *testing.T) {
 				Millis: 30,
 			},
 		},
-
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -186,7 +183,6 @@ func TestRuntimeResources_Remove(t *testing.T) {
 				Memory: 10,
 			},
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

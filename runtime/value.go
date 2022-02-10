@@ -16,10 +16,13 @@ type Value struct {
 	iface  interface{}
 }
 
+// In order to minimize memory allocations, the values of scalars Valuess are
+// not stored in the iface field, but their type is, using a single interface{}
+// value for each scalar type.
 var (
-	dummyInt64   interface{} = int64(0)
-	dummyFloat64 interface{} = float64(0)
-	dummyBool    interface{} = false
+	dummyInt64   interface{} = int64(0)   // All IntValue instances share this iface
+	dummyFloat64 interface{} = float64(0) // All FloatValue instances share this iface
+	dummyBool    interface{} = false      // All BoolVale instances share this iface
 )
 
 // AsValue returns a Value for the passed interface.  Use carefully, as it may
@@ -291,6 +294,9 @@ func (v Value) CustomTypeName() string {
 	}
 }
 
+// ToString returns a simple string representation of a Value.  The boolean
+// returned specifies whether this is a good string value or not ("good" should
+// be defined).
 func (v Value) ToString() (string, bool) {
 	if v.iface == nil {
 		return "nil", false
@@ -527,6 +533,8 @@ func (v Value) IsNil() bool {
 	return v.iface == nil
 }
 
+// IsNaN returns true if v is a FloatValue which has a NaN value.  It is trying
+// to do this as efficiently as possible.
 func (v Value) IsNaN() bool {
 	if ifaceType(v.iface) != float64IfaceType {
 		return false

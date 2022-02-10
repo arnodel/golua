@@ -61,3 +61,13 @@ func (r *Runtime) NewUserDataValue(iface interface{}, meta *Table) Value {
 type UserDataPrefinalizer interface {
 	Prefinalize(*UserData)
 }
+
+//
+// LightUserData
+//
+
+// A LightUserData is some Go value of unspecified type wrapped to be used as a
+// lua Value.
+type LightUserData struct {
+	Data interface{}
+}

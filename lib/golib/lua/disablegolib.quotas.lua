@@ -1,43 +1,52 @@
-
+local function checkflag(flag, f, ...)
+    if f then
+        local st, err = pcall(f, ...)
+        if st or not string.match(err, flag, 1, true) then
+            print(flag, "not found:", err)
+            return
+        end
+    end
+    print("ok")
+end
 
 -- golib not cpu safe
 runtime.callcontext({kill={cpu=10000}}, function()
     local ctx = runtime.context()
 
-    print(pcall(double, 2))
-    --> ~false\t.*: missing flags: cpusafe
+    checkflag("cpusafe", double, 2)
+    --> =ok
 
-    print(pcall(function() return polly.Age end))
-    --> ~false\t.*: missing flags: cpusafe
+    checkflag("cpusafe", function() return polly.Age end)
+    --> =ok
 
-    print(pcall(golib.import, "fmt"))
-    --> ~false\t.*: missing flags: cpusafe
+    checkflag("cpusafe", golib.import, "fmt")
+    --> =ok
 end)
 
 -- golib not memory safe
 runtime.callcontext({kill={memory=10000}}, function()
     local ctx = runtime.context()
 
-    print(pcall(double, 2))
-    --> ~false\t.*: missing flags: memsafe
+    checkflag("memsafe", double, 2)
+    --> =ok
 
-    print(pcall(function() return polly.Age end))
-    --> ~false\t.*: missing flags: memsafe
+    checkflag("memsafe", function() return polly.Age end)
+    --> =ok
 
-    print(pcall(golib.import, "fmt"))
-    --> ~false\t.*: missing flags: memsafe
+    checkflag("memsafe", golib.import, "fmt")
+    --> =ok
 end)
 
 -- golib not io safe
 runtime.callcontext({flags="iosafe"}, function()
     local ctx = runtime.context()
 
-    print(pcall(double, 2))
-    --> ~false\t.*: missing flags: iosafe
+    checkflag("iosafe", double, 2)
+    --> =ok
 
-    print(pcall(function() return polly.Age end))
-    --> ~false\t.*: missing flags: iosafe
+    checkflag("iosafe", function() return polly.Age end)
+    --> =ok
 
-    print(pcall(golib.import, "fmt"))
-    --> ~false\t.*: missing flags: iosafe
+    checkflag("iosafe", golib.import, "fmt")
+    --> =ok
 end)

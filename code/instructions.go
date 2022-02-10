@@ -50,8 +50,8 @@ func LoadStr2(r Reg, b []byte) Opcode {
 	return mkType3(Off, OpStr2, r, Lit16FromStr2(b))
 }
 
-// LoadShortString attempts to encode loading a short string.  Currently succees
-// when len(b) <= 2.
+// LoadShortString attempts to encode loading a short string.  Returns the
+// opcode and true if it did.
 func LoadShortString(r Reg, b []byte) (Opcode, bool) {
 	// This code is commented out because it turns out that it causes many
 	// allocations, slowing down the runtime considerably in some cases.

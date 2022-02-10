@@ -1,6 +1,10 @@
 package runtime
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/arnodel/golua/luastrings"
+)
 
 func TestStringNormPos(t *testing.T) {
 	type args struct {
@@ -47,7 +51,7 @@ func TestStringNormPos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := StringNormPos(tt.args.s, tt.args.p); got != tt.want {
+			if got := luastrings.StringNormPos(tt.args.s, tt.args.p); got != tt.want {
 				t.Errorf("StringNormPos() = %v, want %v", got, tt.want)
 			}
 		})

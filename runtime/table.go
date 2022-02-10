@@ -2,6 +2,7 @@ package runtime
 
 // Table implements a Lua table.
 type Table struct {
+	// This is where the implementation details are.
 	mixedTable
 
 	meta *Table
