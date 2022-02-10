@@ -1,6 +1,8 @@
 package weakref
 
 import (
+	"fmt"
+	"log"
 	"runtime"
 	"sort"
 	"sync"
@@ -18,8 +20,7 @@ import (
 type UnsafePool struct {
 	mx            sync.Mutex           // Used to synchronize access to weakrefs, pendingVals, pendingOrders.
 	weakrefs      map[uintptr]*weakRef //
-	pendingMarked []interface{}        // Values pending Lua finalization
-	pendingOrders []int                // finalize orders for the pending valuesß
+	pending       orderedVals          // Values pending Lua finalization
 	lastMarkOrder int                  // this is to sort values by reverse order of mark for finalize
 }
 
@@ -61,6 +62,7 @@ func (p *UnsafePool) Mark(iface interface{}) {
 	defer p.mx.Unlock()
 	p.lastMarkOrder++
 	p.get(iface).markOrder = p.lastMarkOrder
+	fmt.Printf("Marking %d\n", p.lastMarkOrder)
 }
 
 // ExtractDeadMarked returns the set of values which are being garbage collected
@@ -70,49 +72,48 @@ func (p *UnsafePool) Mark(iface interface{}) {
 // invalidated.
 func (p *UnsafePool) ExtractDeadMarked() []interface{} {
 	p.mx.Lock()
-	vals := p.pendingMarked
-	if vals == nil {
+	pending := p.pending
+	if pending == nil {
 		// This is the common case, so it's worth exiting early
 		p.mx.Unlock()
 		return nil
 	}
-	orders := p.pendingOrders
-	p.pendingMarked = nil
-	p.pendingOrders = nil
+	p.pending = nil
 	p.mx.Unlock()
 	// Lua wants to run finalizers in reverse order
-	sort.Slice(vals, func(i, j int) bool { return orders[i] > orders[j] })
-	return runPrefinalizers(vals)
+	sort.Sort(pending)
+	log.Printf("Extract Dead %d\n", len(pending))
+	return runPrefinalizers(pending.vals())
 }
 
 // ExtractAllMarked returns all the values that have been marked for finalizing,
 // whether they are dead or not.  This is useful e.g. when closing a runtime, to
 // run all pending finalizers.
 func (p *UnsafePool) ExtractAllMarked() []interface{} {
-	var vals []interface{}
-	var orders []int
 	p.mx.Lock()
-	vals = p.pendingMarked
-	orders = p.pendingOrders
+	marked := p.pending
 	for _, r := range p.weakrefs {
 		if r.markOrder > 0 {
 			iface := r.w.iface()
-			vals = append(vals, iface)
-			orders = append(orders, r.markOrder)
-			r.markOrder = 0
+			marked = append(marked, orderedVal{
+				val:   iface,
+				order: r.markOrder,
+			})
 
+			fmt.Printf("adding %d\n", r.markOrder)
+			r.markOrder = 0
 			// We don't want the finalizer to be triggered anymore, but more
 			// important the finalizer is holding a reference to the pool
 			// (although that may not affect its reachability?)
 			runtime.SetFinalizer(iface, nil)
 		}
 	}
-	p.pendingMarked = nil
-	p.pendingOrders = nil
+	p.pending = nil
 	p.mx.Unlock()
 	// Sort in reverse order
-	sort.Slice(vals, func(i, j int) bool { return orders[i] > orders[j] })
-	return runPrefinalizers(vals)
+	sort.Sort(marked)
+	fmt.Printf("Extract All %d\n", len(marked))
+	return runPrefinalizers(marked.vals())
 }
 
 // This is the finalizer that Go runs on values added to the pool when they
@@ -132,8 +133,10 @@ func (p *UnsafePool) addPendingGC(iface interface{}) {
 	}
 	r.status = wrDead
 	if r.markOrder > 0 {
-		p.pendingMarked = append(p.pendingMarked, iface)
-		p.pendingOrders = append(p.pendingOrders, r.markOrder)
+		p.pending = append(p.pending, orderedVal{
+			val:   iface,
+			order: r.markOrder,
+		})
 	}
 	delete(p.weakrefs, id)
 }
@@ -210,4 +213,36 @@ func (w wiface) id() uintptr {
 
 func (w wiface) iface() interface{} {
 	return *(*interface{})(unsafe.Pointer(&w))
+}
+
+//
+// Values need to be sorted by reverse mark order.  The data structures below help with that.
+//
+type orderedVal struct {
+	val   interface{}
+	order int
+}
+
+type orderedVals []orderedVal
+
+var _ sort.Interface = orderedVals(nil)
+
+func (vs orderedVals) Len() int {
+	return len(vs)
+}
+
+func (vs orderedVals) Less(i, j int) bool {
+	return vs[i].order > vs[j].order
+}
+
+func (vs orderedVals) Swap(i, j int) {
+	vs[i], vs[j] = vs[j], vs[i]
+}
+
+func (vs orderedVals) vals() []interface{} {
+	vals := make([]interface{}, len(vs))
+	for i, v := range vs {
+		vals[i] = v.val
+	}
+	return vals
 }

@@ -17,13 +17,10 @@ do
     -- local t = {x, y}
 end
 
-collectgarbage()
-collectgarbage()
-
 -- When the runtime is closed, __gc metamethods should be called in reverse
 -- order.
---> ~local
---> ~local
---> ~local
+--> =local z
+--> =local y
+--> =local x
 --> =gone 2
 --> =gone
