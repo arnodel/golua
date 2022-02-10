@@ -112,7 +112,6 @@ func (r *Runtime) Traceback(pfx string, c Cont) string {
 		needNewline = true
 	}
 	for c != nil {
-		// log.Printf("XXX %T", c)
 		info := c.DebugInfo()
 		if info != nil {
 			if needNewline {

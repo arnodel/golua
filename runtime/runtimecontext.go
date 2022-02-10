@@ -6,6 +6,7 @@ type RuntimeContextDef struct {
 	SoftLimits     RuntimeResources
 	RequiredFlags  ComplianceFlags
 	MessageHandler Callable
+	GCPolicy
 }
 
 // RuntimeContext is an interface implemented by Runtime.RuntimeContext().  It
@@ -23,6 +24,8 @@ type RuntimeContext interface {
 
 	SetStopLevel(StopLevel)
 	Due() bool
+
+	GCPolicy() GCPolicy
 }
 
 type StopLevel uint8
@@ -195,3 +198,12 @@ func smallerLimit(n, m uint64) bool {
 func atLimit(v, l uint64) bool {
 	return l > 0 && v >= l
 }
+
+type GCPolicy int16
+
+const (
+	DefaultGCPolicy GCPolicy = iota
+	ShareGCPolicy
+	IsolateGCPolicy
+	UnknownGCPolicy
+)

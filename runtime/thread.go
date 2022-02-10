@@ -295,8 +295,8 @@ func (t *Thread) CallContext(def RuntimeContextDef, f func() *Error) (ctx Runtim
 	c, h := t.CurrentCont(), t.closeStack.size()
 	defer func() {
 		ctx = t.PopContext()
-		t.closeStack.truncate(h) // No resources to run that, so just discard it.
 		if r := recover(); r != nil {
+			t.closeStack.truncate(h) // No resources to run that, so just discard it.
 			_, ok := r.(ContextTerminationError)
 			if !ok {
 				panic(r)
@@ -304,6 +304,9 @@ func (t *Thread) CallContext(def RuntimeContextDef, f func() *Error) (ctx Runtim
 		}
 	}()
 	err = t.cleanupCloseStack(c, h, f())
+	if t.GCPolicy() == IsolateGCPolicy {
+		t.runFinalizers(t.weakRefPool.ExtractAllMarked())
+	}
 	if err != nil {
 		t.Runtime.setStatus(StatusError)
 	}

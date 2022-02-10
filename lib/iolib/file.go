@@ -36,6 +36,8 @@ type File struct {
 	temp   bool
 }
 
+var _ rt.UserDataPrefinalizer = (*File)(nil)
+
 // NewFile returns a new *File from an *os.File.
 func NewFile(file *os.File, options int) *File {
 	f := &File{file: file}
@@ -286,6 +288,11 @@ func (f *File) SetWriteBuffer(mode string, size int) error {
 // Name returns the file name.
 func (f *File) Name() string {
 	return f.file.Name()
+}
+
+// Prefinalize cleans up the file
+func (f *File) Prefinalize(d *rt.UserData) {
+	f.cleanup()
 }
 
 // Best effort to flush and close files when they are no longer accessible.

@@ -82,7 +82,7 @@ func (p *UnsafePool) ExtractDeadMarked() []interface{} {
 	p.mx.Unlock()
 	// Lua wants to run finalizers in reverse order
 	sort.Slice(vals, func(i, j int) bool { return orders[i] > orders[j] })
-	return vals
+	return runPrefinalizers(vals)
 }
 
 // ExtractAllMarked returns all the values that have been marked for finalizing,
@@ -106,7 +106,7 @@ func (p *UnsafePool) ExtractAllMarked() []interface{} {
 	p.mx.Unlock()
 	// Sort in reverse order
 	sort.Slice(vals, func(i, j int) bool { return orders[i] > orders[j] })
-	return vals
+	return runPrefinalizers(vals)
 }
 
 // This is the finalizer that Go runs on values added to the pool when they

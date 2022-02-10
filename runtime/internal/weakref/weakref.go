@@ -47,7 +47,9 @@ type Pool interface {
 	// haven't been returned yet, so that some finalizing code can be run with
 	// them.  The returned values are ordered in reverse order of marking (i.e.
 	// if v1 was marked before v2, then v2 comes before v1 in the returned
-	// list).  Further calls should not return the same values again.
+	// list).  Any value implementing Prefinalizer has its Prefinalize() method
+	// called before it is returned.  Further calls should not return the same
+	// values again.
 	//
 	// This is called periodically by the Golua Runtime to run Lua finalizers on
 	// GCed values.
@@ -56,12 +58,21 @@ type Pool interface {
 	// ExtractAllMarked returns all marked values (live or dead), following the
 	// same order as ExtractDeadMarked.  All marked values are cleared in the
 	// pool so that they will no longer be returned by this method or
-	// ExtractDeadMarked.
+	// ExtractDeadMarked.  Any value implementing Prefinalizer has its
+	// Prefinalize() method called before it is returned.
 	//
 	// Typically this method will be called when the associated Golua Runtime is
 	// being closed so that all outstanding Lua finalizers can be called (even
 	// if their values might get GCed later).
 	ExtractAllMarked() []interface{}
+}
+
+// A Prefinalizer has a Prefinalize method which should be run when the value is
+// extracted from the weakref pool.  Prefinalize() does not need to be
+// thread-safe, it will only run while an Extract* method is called on the Pool.
+// This behaviour cannot be overridden.
+type Prefinalizer interface {
+	Prefinalize()
 }
 
 // NewPool returns a new WeakRefPool with an appropriate implementation.

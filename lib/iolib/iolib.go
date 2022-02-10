@@ -42,7 +42,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(methods, "write", filewrite, 1, true),
 
 		r.SetEnvGoFunc(meta, "__close", file__close, 1, false),
-		r.SetEnvGoFunc(meta, "__gc", file__close, 1, false),
+		// r.SetEnvGoFunc(meta, "__gc", file__close, 1, false),
 	)
 
 	rt.SolemnlyDeclareCompliance(

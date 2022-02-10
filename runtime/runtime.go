@@ -6,8 +6,6 @@ import (
 	"io"
 	"os"
 	"runtime"
-
-	"github.com/arnodel/golua/runtime/internal/weakref"
 )
 
 // A Runtime is a Lua runtime.  It contains all the global state of the runtime
@@ -39,8 +37,6 @@ type Runtime struct {
 	// Continuation pools, disable witht the nocontpool build tag.
 	luaContPool luaContPool
 	goContPool  goContPool
-
-	weakRefPool weakref.Pool
 }
 
 type runtimeOptions struct {
@@ -78,14 +74,13 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 		opt(&rtOpts)
 	}
 	r := &Runtime{
-		globalEnv:   NewTable(),
-		Stdout:      stdout,
-		registry:    NewTable(),
-		warner:      NewLogWarner(os.Stderr, "Lua warning: "),
-		regPool:     mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
-		argsPool:    mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
-		cellPool:    mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
-		weakRefPool: weakref.NewPool(),
+		globalEnv: NewTable(),
+		Stdout:    stdout,
+		registry:  NewTable(),
+		warner:    NewLogWarner(os.Stderr, "Lua warning: "),
+		regPool:   mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		argsPool:  mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		cellPool:  mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
 	}
 
 	mainThread := NewThread(r)
@@ -95,6 +90,8 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 	gcThread := NewThread(r)
 	gcThread.status = ThreadOK
 	r.gcThread = gcThread
+
+	r.runtimeContextManager.initRoot()
 
 	return r
 }
@@ -182,7 +179,7 @@ func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
 	case UserDataType:
 		udata := v.AsUserData()
 		udata.SetMetatable(meta)
-		if !RawGet(meta, MetaFieldGcValue).IsNil() {
+		if udata.HasFinalizer() {
 			r.addFinalizer(udata)
 		}
 	default:
@@ -192,11 +189,6 @@ func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
 
 //
 func (r *Runtime) addFinalizer(iface interface{}) {
-	// If running in a restricted environment, finalizers are just ignored
-	// because there is no control over when they will be run.
-	if r.RequiredFlags() != 0 {
-		return
-	}
 	r.weakRefPool.Mark(iface)
 }
 
@@ -208,7 +200,6 @@ func (r *Runtime) runPendingFinalizers() {
 }
 
 func (r *Runtime) runFinalizers(ifaces []interface{}) {
-	// log.Printf("running %d finalizers", len(values))
 	for _, iface := range ifaces {
 		term := NewTerminationWith(nil, 0, false)
 		v := AsValue(iface)

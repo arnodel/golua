@@ -38,7 +38,7 @@ func (p *SafePool) ExtractAllMarked() []interface{} {
 	marked := p.marked
 	p.marked = nil
 	reverse(marked)
-	return marked
+	return runPrefinalizers(marked)
 }
 
 //

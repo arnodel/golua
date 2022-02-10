@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/arnodel/golua/runtime/internal/weakref"
 )
 
 const QuotasAvailable = true
@@ -37,9 +39,17 @@ type runtimeContextManager struct {
 	stopLevel        StopLevel
 	startTime        uint64
 	nextCpuThreshold uint64
+
+	weakRefPool weakref.Pool
+	gcPolicy    GCPolicy
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
+
+func (m *runtimeContextManager) initRoot() {
+	m.gcPolicy = IsolateGCPolicy
+	m.weakRefPool = weakref.NewPool()
+}
 
 func (m *runtimeContextManager) HardLimits() RuntimeResources {
 	return m.hardLimits
@@ -118,11 +128,25 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	m.status = StatusLive
 	m.messageHandler = ctx.MessageHandler
 	m.parent = &parent
+	if ctx.GCPolicy == IsolateGCPolicy || m.hardLimits.Millis > 0 || m.hardLimits.Cpu > 0 || m.hardLimits.Memory > 0 {
+		m.weakRefPool = weakref.NewPool()
+		m.gcPolicy = IsolateGCPolicy
+	} else {
+		m.weakRefPool = parent.weakRefPool
+		m.gcPolicy = ShareGCPolicy
+	}
+}
+
+func (m *runtimeContextManager) GCPolicy() GCPolicy {
+	return m.gcPolicy
 }
 
 func (m *runtimeContextManager) PopContext() RuntimeContext {
 	if m == nil || m.parent == nil {
 		return nil
+	}
+	if m.gcPolicy == IsolateGCPolicy {
+		m.weakRefPool.ExtractAllMarked()
 	}
 	mCopy := *m
 	if mCopy.status == StatusLive {
