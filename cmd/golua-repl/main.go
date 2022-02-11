@@ -65,7 +65,7 @@ const helpMessage = `
 golua-repl is a REPL for golua.  It lets you run lua statements interactively.
 
 Highlights:
-  - Type a Lua chunk, press [Enter] twice to execute it.
+  - Type a Lua chunk, press [Enter] to execute it.
   - Quit with [Ctrl-D]
   - You can also type an expression and it will be evaluated
   - The last result is available via _ (_2, _3 fi there are multiple values)
