@@ -143,7 +143,7 @@ func TestScanner(t *testing.T) {
 		},
 		{
 			`   [===[foo]==]`,
-			[]tok{{token.INVALID, `[===[foo]==]`, 3, 1, 4}},
+			[]tok{{token.UNFINISHED, `[===[foo]==]`, 3, 1, 4}},
 			"illegal <eof> in long bracket of level 3",
 		},
 		//

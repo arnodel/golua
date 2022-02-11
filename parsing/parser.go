@@ -28,7 +28,7 @@ type Error struct {
 
 func (e Error) Error() string {
 	expected := e.Expected
-	if e.Got.Type == token.INVALID {
+	if e.Got.Type == token.INVALID || e.Got.Type == token.UNFINISHED {
 		expected = "invalid token: " + expected
 	} else if expected == "" {
 		expected = "unexpected symbol"

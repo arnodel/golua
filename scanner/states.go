@@ -77,7 +77,7 @@ func scanToken(l *Scanner) stateFn {
 				l.emit(token.EOF)
 				return nil
 			default:
-				return l.errorf("illegal character")
+				return l.errorf(token.INVALID, "illegal character")
 			}
 			l.emit(sgType[string(l.lit())])
 		}
@@ -127,7 +127,7 @@ func scanLong(comment bool) stateFn {
 					l.ignore()
 					return scanShortComment
 				}
-				return l.errorf("expected opening long bracket")
+				return l.errorf(token.INVALID, "expected opening long bracket")
 			}
 		}
 		closeLevel := -1
@@ -151,7 +151,7 @@ func scanLong(comment bool) stateFn {
 					closeLevel++
 				}
 			case -1:
-				return l.errorf("illegal <eof> in long bracket of level %d", level)
+				return l.errorf(token.UNFINISHED, "illegal <eof> in long bracket of level %d", level)
 			default:
 				closeLevel = -1
 			}
@@ -170,19 +170,19 @@ func scanShortString(q rune) stateFn {
 				switch c := l.next(); {
 				case c == 'x':
 					if accept(l, isHex, 2) != 2 {
-						return l.errorf(`\x must be followed by 2 hex digits`)
+						return l.errorf(token.INVALID, `\x must be followed by 2 hex digits`)
 					}
 				case isDec(c):
 					accept(l, isDec, 2)
 				case c == 'u':
 					if l.next() != '{' {
-						return l.errorf(`\u must be followed by '{'`)
+						return l.errorf(token.INVALID, `\u must be followed by '{'`)
 					}
 					if accept(l, isHex, -1) == 0 {
-						return l.errorf("at least 1 hex digit required")
+						return l.errorf(token.INVALID, "at least 1 hex digit required")
 					}
 					if l.next() != '}' {
-						return l.errorf("missing '}'")
+						return l.errorf(token.INVALID, "missing '}'")
 					}
 				case c == 'z':
 					accept(l, isSpace, -1)
@@ -202,13 +202,13 @@ func scanShortString(q rune) stateFn {
 					case 'a', 'b', 'f', 'n', 'r', 't', 'v', 'z', '"', '\'', '\\':
 						break
 					default:
-						return l.errorf("illegal escaped character")
+						return l.errorf(token.INVALID, "illegal escaped character")
 					}
 				}
 			case '\n', '\r':
-				return l.errorf("illegal new line in string literal")
+				return l.errorf(token.INVALID, "illegal new line in string literal")
 			case -1:
-				return l.errorf("illegal <eof> in string literal")
+				return l.errorf(token.INVALID, "illegal <eof> in string literal")
 			}
 		}
 	}
@@ -239,7 +239,7 @@ func scanNumber(l *Scanner) stateFn {
 		dcount += accept(l, isDigit, -1)
 	}
 	if dcount == 0 {
-		return l.errorf("no digits in mantissa")
+		return l.errorf(token.INVALID, "no digits in mantissa")
 	}
 	return scanExp(l, isDigit, exp, tp)
 }
@@ -248,13 +248,13 @@ func scanExp(l *Scanner, isDigit func(rune) bool, exp string, tp token.Type) sta
 	if l.accept(exp) {
 		l.accept("+-")
 		if accept(l, isDec, -1) == 0 {
-			return l.errorf("digit required after exponent")
+			return l.errorf(token.INVALID, "digit required after exponent")
 		}
 	}
 	l.emit(tp)
 	if isAlpha(l.peek()) {
 		l.next()
-		return l.errorf("illegal character following number")
+		return l.errorf(token.INVALID, "illegal character following number")
 	}
 	return scanToken
 }

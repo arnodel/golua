@@ -29,7 +29,12 @@ func (e *SyntaxError) Error() string {
 // IsUnexpectedEOF returns true if the error signals that EOF was encountered
 // when further tokens were required.
 func (e *SyntaxError) IsUnexpectedEOF() bool {
-	return e.Err.Got.Type == token.EOF
+	switch e.Err.Got.Type {
+	case token.EOF, token.UNFINISHED:
+		return true
+	default:
+		return false
+	}
 }
 
 func ErrorIsUnexpectedEOF(err error) bool {
