@@ -18,6 +18,7 @@
       - [`(*Runtime).PopContext() RuntimeContext`](#runtimepopcontext-runtimecontext)
       - [`(*Runtime).CallContext(def RuntimeContextDef, f func() *Error) (RuntimeContext, *Error)`](#runtimecallcontextdef-runtimecontextdef-f-func-error-runtimecontext-error)
       - [`(*Runtime).TerminateContext(format string, args ...interface{})`](#runtimeterminatecontextformat-string-args-interface)
+  - [Finalizers and runtime contexts](#finalizers-and-runtime-contexts)
   - [How to implement the safe execution environment](#how-to-implement-the-safe-execution-environment)
     - [CPU limits](#cpu-limits)
       - [`(*Runtime).RequireCPU(n uint64)`](#runtimerequirecpun-uint64)
@@ -332,6 +333,56 @@ func main() {
 #### `(*Runtime).TerminateContext(format string, args ...interface{})`
 
 Terminate the context immediately if it is live.
+
+## Finalizers and runtime contexts
+
+In Lua it is possible to add finalizers to two types of values: tables and
+userdata.  Finalizers are run once the garbage collector knows the values are no
+longer reachable.  This is used in the standard library to make sure open files
+which are no longer used are closed.
+
+The Golua runtime makes sure that when a value is created within a runtime
+context with restricted resources, running its finalizer will not use another
+context's resources.  However, only in the case of userdata,  it is sometimes
+the case the value contains a resource that should be released (e.g. a file
+descriptor).  Golua provides a general mechanism to support that, simply by
+defining a `Prefinalize` method on the underlying type.  For example in the
+standard library, the underlying type of file userdata is as follows.
+
+```golang
+type File struct {
+	file   *os.File
+	status fileStatus
+	reader bufReader
+	writer bufWriter
+}
+```
+
+When file userdata becomes unreachable, the underlying `File` instance should
+close the `os.File` instance it owns.  This is done as follows.
+
+```golang
+
+// The *File type implements the Prefinalizer interface.
+func (f *File) Prefinalize(d *rt.UserData) {
+	f.cleanup()
+}
+
+// Included to show what happens in Prefinalize
+func (f *File) cleanup() {
+	if !f.IsClosed() {
+		f.Close()
+	}
+	if f.IsTemp() {
+		_ = os.Remove(f.Name())
+	}
+}
+```
+
+The runtime makes sure that any userdata that implements `runtime.Prefinalizer`
+interface will have its `Prefinalize` method called unconditionally.  Of course
+it is important that the code in those methods consumes as little resources as
+possible.
 
 ## How to implement the safe execution environment
 
