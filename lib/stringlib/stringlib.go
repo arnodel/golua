@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/arnodel/golua/lib/packagelib"
+	"github.com/arnodel/golua/luastrings"
 	rt "github.com/arnodel/golua/runtime"
 )
 
@@ -87,7 +88,7 @@ func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil {
 			return nil, err
 		}
-		i = rt.StringNormPos(s, int(ii))
+		i = luastrings.StringNormPos(s, int(ii))
 		j = i
 	}
 	if c.NArgs() >= 3 {
@@ -95,7 +96,7 @@ func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		if err != nil {
 			return nil, err
 		}
-		j = rt.StringNormPos(s, int(jj))
+		j = luastrings.StringNormPos(s, int(jj))
 	}
 	next := c.Next()
 	i = maxpos(1, i)
@@ -250,14 +251,14 @@ func sub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err
 	}
-	i := rt.StringNormPos(s, int(ii))
+	i := luastrings.StringNormPos(s, int(ii))
 	j := len(s)
 	if c.NArgs() >= 3 {
 		jj, err := c.IntArg(2)
 		if err != nil {
 			return nil, err
 		}
-		j = rt.StringNormPos(s, int(jj))
+		j = luastrings.StringNormPos(s, int(jj))
 	}
 	var slice string
 	i = maxpos(1, i)

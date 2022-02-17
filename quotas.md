@@ -133,9 +133,11 @@ cannot be mutated but gives useful information about the execution context.
   any of these limits are reached then the context will be terminated
   immediately, returning execution to the parent context.  Hard limits cannot
   exceed their parent's hard limits.
-- `ctx.stop` returns an object giving the resource soft limits of `ctx`.
-  Soft limits cannot exceed hard limits, but can be increased from the parent's
-  context (TODO: check this behaviour).
+- `ctx.stop` returns an object giving the resource soft limits of `ctx`. Soft
+  limits cannot exceed hard limits, and by default cannot be increased from the
+  parent's soft limits.  In future if there is are clear use-cases for
+  increasing the soft limits from the parent's, another API endpoint can be
+  provided.
 - `ctx.used` returns an object giving the used resources of `ctx`
 - `ctx.flags` returns a string describing the flags that any code running in
   this context has to comply with.  Those flags are `"memsafe"`, `"cpusafe"`,

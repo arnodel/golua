@@ -146,7 +146,7 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 	for i := int64(1); ; i++ {
 		searcher := searchers.Get(rt.IntValue(i))
-		if rt.IsNil(searcher) {
+		if searcher.IsNil() {
 			err = rt.NewErrorF("could not find package '%s'", name)
 			break
 		}

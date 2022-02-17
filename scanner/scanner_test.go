@@ -85,6 +85,15 @@ func TestScanner(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"a\r\nb\n\rc",
+			[]tok{
+				{token.IDENT, "a", 0, 1, 1},
+				{token.IDENT, "b", 3, 2, 1},
+				{token.IDENT, "c", 6, 3, 1},
+			},
+			"",
+		},
 		// Token errors
 		{
 			`abc?xyz`,
@@ -160,7 +169,7 @@ func TestScanner(t *testing.T) {
 		{
 			"'abc\\z\n  \r\\65x'",
 			[]tok{
-				{token.STRING, "'abc\\z\n  \n\\65x'", 0, 1, 1},
+				{token.STRING, "'abc\\z\n  \r\\65x'", 0, 1, 1},
 				{token.EOF, "", 15, 3, 6},
 			},
 			"",

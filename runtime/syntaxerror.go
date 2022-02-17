@@ -31,3 +31,8 @@ func (e *SyntaxError) Error() string {
 func (e *SyntaxError) IsUnexpectedEOF() bool {
 	return e.Err.Got.Type == token.EOF
 }
+
+func ErrorIsUnexpectedEOF(err error) bool {
+	snErr, ok := err.(*SyntaxError)
+	return ok && snErr.IsUnexpectedEOF()
+}

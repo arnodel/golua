@@ -53,21 +53,21 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
 		fArgs       = c.Etc()
 		flags       rt.ComplianceFlags
 	)
-	if !rt.IsNil(limitsV) {
+	if !limitsV.IsNil() {
 		var err *rt.Error
 		hardLimits, err = getResources(t, limitsV)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if !rt.IsNil(softLimitsV) {
+	if !softLimitsV.IsNil() {
 		var err *rt.Error
 		softLimits, err = getResources(t, softLimitsV)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if !rt.IsNil(flagsV) {
+	if !flagsV.IsNil() {
 		flagsStr, ok := flagsV.TryString()
 		if !ok {
 			return nil, rt.NewErrorS("flags must be a string")
@@ -125,7 +125,7 @@ func getResVal(t *rt.Thread, resources rt.Value, key rt.Value) (uint64, *rt.Erro
 }
 
 func validateResVal(key rt.Value, val rt.Value) (uint64, *rt.Error) {
-	if rt.IsNil(val) {
+	if val.IsNil() {
 		return 0, nil
 	}
 	n, ok := rt.ToIntNoString(val)
@@ -145,7 +145,7 @@ func getTimeVal(t *rt.Thread, resources rt.Value) (uint64, *rt.Error) {
 	if err != nil {
 		return 0, err
 	}
-	if !rt.IsNil(val) {
+	if !val.IsNil() {
 		return validateTimeVal(val, 1000, secondsName)
 	}
 	val, err = rt.Index(t, resources, millisString)
@@ -156,7 +156,7 @@ func getTimeVal(t *rt.Thread, resources rt.Value) (uint64, *rt.Error) {
 }
 
 func validateTimeVal(val rt.Value, factor float64, name string) (uint64, *rt.Error) {
-	if rt.IsNil(val) {
+	if val.IsNil() {
 		return 0, nil
 	}
 	s, ok := rt.ToFloat(val)

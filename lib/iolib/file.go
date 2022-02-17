@@ -19,6 +19,8 @@ import (
 const (
 	bufferedRead int = 1 << iota
 	bufferedWrite
+	notClosable
+	tempFile
 )
 
 var (
@@ -31,11 +33,18 @@ var (
 // A File wraps an os.File for manipulation by iolib.
 type File struct {
 	file   *os.File
-	closed bool
+	status fileStatus
 	reader bufReader
 	writer bufWriter
-	temp   bool
 }
+
+type fileStatus int
+
+const (
+	statusClosed = 1 << iota
+	statusTemp
+	statusNotClosable
+)
 
 // NewFile returns a new *File from an *os.File.
 func NewFile(file *os.File, options int) *File {
@@ -50,6 +59,12 @@ func NewFile(file *os.File, options int) *File {
 		f.writer = bufio.NewWriterSize(file, 65536)
 	} else {
 		f.writer = &nobufWriter{file}
+	}
+	if options&tempFile != 0 {
+		f.status |= statusTemp
+	}
+	if options&notClosable != 0 {
+		f.status |= statusNotClosable
 	}
 	runtime.SetFinalizer(f, (*File).cleanup)
 	return f
@@ -94,8 +109,7 @@ func TempFile(r *rt.Runtime) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	ff := NewFile(f, bufferedRead|bufferedWrite)
-	ff.temp = true
+	ff := NewFile(f, bufferedRead|bufferedWrite|tempFile)
 	return ff, nil
 }
 
@@ -117,14 +131,23 @@ func ValueToFile(v rt.Value) (*File, bool) {
 	return nil, false
 }
 
-// IsClosed returns true if the file is close.
+// IsClosed returns true if the file is closed.
 func (f *File) IsClosed() bool {
-	return f.closed
+	return f.status&statusClosed != 0
+}
+
+// IsTemp returns true if the file is temporary.
+func (f *File) IsTemp() bool {
+	return f.status&statusTemp != 0
+}
+
+func (f *File) IsClosable() bool {
+	return f.status&statusNotClosable == 0
 }
 
 // Close attempts to close the file, returns an error if not successful.
 func (f *File) Close() error {
-	if f.file.Fd() <= 2 {
+	if !f.IsClosable() {
 		// Lua doesn't return a Lua error, so wrap this in a PathError
 		return &fs.PathError{
 			Op:   "close",
@@ -132,11 +155,11 @@ func (f *File) Close() error {
 			Err:  errCloseStandardFile,
 		}
 	}
-	if f.closed {
+	if f.IsClosed() {
 		// Also this is undocumented, in this case an error is returned
 		return errFileAlreadyClosed
 	}
-	f.closed = true
+	f.status |= statusClosed
 	errFlush := f.writer.Flush()
 	err := f.file.Close()
 	if err == nil {
@@ -165,7 +188,11 @@ func (f *File) ReadLine(withEnd bool) (rt.Value, error) {
 		return rt.NilValue, err
 	}
 	if !withEnd && l > 0 && s[l-1] == '\n' {
-		s = s[:l-1]
+		l--
+		if l > 1 && s[l-1] == '\r' {
+			l--
+		}
+		s = s[:l]
 	}
 	return rt.StringValue(s), nil
 }
@@ -292,10 +319,10 @@ func (f *File) Name() string {
 
 // Best effort to flush and close files when they are no longer accessible.
 func (f *File) cleanup() {
-	if !f.closed {
+	if !f.IsClosed() {
 		f.Close()
 	}
-	if f.temp {
+	if f.IsTemp() {
 		_ = os.Remove(f.Name())
 	}
 }

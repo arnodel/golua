@@ -199,11 +199,7 @@ func (c *luaCmd) repl(r *rt.Runtime) int {
 		if err != nil {
 			return fatal("error: %s", err)
 		}
-		// This is a trick to be able to evaluate lua expressions in the repl
-		more, err := c.runChunk(r, append([]byte("return "), w.Bytes()...))
-		if err != nil {
-			more, err = c.runChunk(r, w.Bytes())
-		}
+		more, err := c.runChunk(r, w.Bytes())
 		if !more {
 			w = new(bytes.Buffer)
 			if err != nil {
@@ -233,13 +229,9 @@ func (c *luaCmd) runChunk(r *rt.Runtime, source []byte) (more bool, err error) {
 			more = false
 		}
 	}()
-	clos, err := r.CompileAndLoadLuaChunk("<stdin>", source, rt.TableValue(r.GlobalEnv()))
+	clos, err := r.CompileAndLoadLuaChunkOrExp("<stdin>", source, rt.TableValue(r.GlobalEnv()))
 	if err != nil {
-		snErr, ok := err.(*rt.SyntaxError)
-		if !ok {
-			return false, err
-		}
-		return snErr.IsUnexpectedEOF(), err
+		return rt.ErrorIsUnexpectedEOF(err), err
 	}
 	t := r.MainThread()
 	term := rt.NewTerminationWith(nil, 0, true)

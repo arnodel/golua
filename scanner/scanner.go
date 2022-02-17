@@ -3,9 +3,7 @@
 package scanner
 
 import (
-	"bytes"
 	"fmt"
-	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -31,12 +29,6 @@ func ForNumber() Option {
 	}
 }
 
-func WithSpecialComment() Option {
-	return func(s *Scanner) {
-		s.state = scanFirstLine
-	}
-}
-
 func WithStartLine(l int) Option {
 	return func(s *Scanner) {
 		pos := token.Pos{Line: l, Column: 1}
@@ -49,7 +41,7 @@ func WithStartLine(l int) Option {
 func New(name string, input []byte, opts ...Option) *Scanner {
 	l := &Scanner{
 		name:  name,
-		input: normalizeNewLines(input),
+		input: input,
 		state: scanToken,
 		items: make(chan *token.Token, 2), // Two items sufficient.
 		pos:   token.Pos{Line: 1, Column: 1},
@@ -86,17 +78,29 @@ func (l *Scanner) lit() []byte {
 
 // next returns the next rune in the input.
 func (l *Scanner) next() rune {
-	if l.pos.Offset >= len(l.input) {
+	i := l.pos.Offset
+	if i >= len(l.input) {
 		l.last = l.pos
 		// fmt.Println("NEXT EOF")
 		return -1
 	}
-	c, width := utf8.DecodeRune(l.input[l.pos.Offset:])
+	c, width := utf8.DecodeRune(l.input[i:])
 	l.last = l.pos
 	l.pos.Offset += width
-	if c == '\n' || c == '\r' {
+	i += width
+	if c == '\n' {
+		if i < len(l.input) && l.input[i] == '\r' {
+			l.pos.Offset++
+		}
 		l.pos.Line++
 		l.pos.Column = 1
+	} else if c == '\r' {
+		if i < len(l.input) && l.input[i] == '\n' {
+			l.pos.Offset++
+		}
+		l.pos.Line++
+		l.pos.Column = 1
+		c = '\n'
 	} else {
 		l.pos.Column++
 	}
@@ -134,6 +138,14 @@ func (l *Scanner) accept(valid string) bool {
 	return false
 }
 
+func (l *Scanner) acceptRune(r rune) bool {
+	if l.next() == r {
+		return true
+	}
+	l.backup()
+	return false
+}
+
 // errorf returns an error token and terminates the scan
 // by passing back a nil pointer that will be the next
 // state, terminating l.run.
@@ -165,13 +177,4 @@ func (l *Scanner) Scan() *token.Token {
 // ErrorMsg returns the current error message or an empty string if there is none.
 func (l *Scanner) ErrorMsg() string {
 	return l.errorMsg
-}
-
-var newLines = regexp.MustCompile(`(?s)\r\n|\n\r|\r`)
-
-func normalizeNewLines(b []byte) []byte {
-	if bytes.IndexByte(b, '\r') == -1 {
-		return b
-	}
-	return newLines.ReplaceAllLiteral(b, []byte{'\n'})
 }

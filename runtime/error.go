@@ -42,7 +42,7 @@ func NewErrorF(msg string, args ...interface{}) *Error {
 	return NewErrorS(fmt.Sprintf(msg, args...))
 }
 
-// AddContext sets the lineno / source fields of the error if not already set
+// AddContext sets the lineno / source fields of the error if not already set.
 func (e *Error) AddContext(c Cont, depth int) {
 	if e.lineno != 0 || e.handled {
 		return
@@ -90,13 +90,14 @@ func (e *Error) Value() Value {
 	return e.message
 }
 
+// Handled returns true if the error has been handled (i.e. the message handler
+// has processed it).
 func (e *Error) Handled() bool {
 	return e.handled
 }
 
 // Error implements the error interface.
 func (e *Error) Error() string {
-	// TODO
 	s, _ := e.message.ToString()
 	return fmt.Sprintf("error: %s", s)
 }

@@ -14,20 +14,22 @@ It's unfortunate it has to be split like this but I cannot find a better
 approach.
 */
 
+// DebugHookFlags is the type of representing a set of debug hooks.
 type DebugHookFlags uint8
 
 const (
-	hookFlagInHook DebugHookFlags = 1 << iota
-	HookFlagCall
-	HookFlagReturn
-	HookFlagLine
-	HookFlagCount
+	hookFlagInHook DebugHookFlags = 1 << iota // This flag allows knowing when we are in hook callback
+	HookFlagCall                              // call hook
+	HookFlagReturn                            // return hook
+	HookFlagLine                              // line hook
+	HookFlagCount                             // count hook
 )
 
+// DebugHooks contains data specifying a debug hooks configuration.
 type DebugHooks struct {
-	DebugHookFlags DebugHookFlags
-	HookLineCount  int
-	Hook           Value
+	DebugHookFlags DebugHookFlags // hooks enabled
+	HookLineCount  int            // number of lines for count hook
+	Hook           Value          // The hook callback
 }
 
 func (h *DebugHooks) callHook(t *Thread, c Cont, args ...Value) *Error {
@@ -40,6 +42,8 @@ func (h *DebugHooks) callHook(t *Thread, c Cont, args ...Value) *Error {
 	return Call(t, h.Hook, args, term)
 }
 
+// SetupHooks configures the debug hooks to use.  It does nothing if we are in a
+// hook callback.
 func (h *DebugHooks) SetupHooks(newHooks DebugHooks) {
 	if h.DebugHookFlags&hookFlagInHook != 0 {
 		return
@@ -54,7 +58,7 @@ var (
 	lineHookString     = StringValue("line")
 )
 
-// Important for this function to inline
+// Important for this function to inline.
 func (h *DebugHooks) triggerCall(t *Thread, c Cont) *Error {
 	if h.DebugHookFlags&HookFlagCall == 0 {
 		return nil
@@ -62,7 +66,7 @@ func (h *DebugHooks) triggerCall(t *Thread, c Cont) *Error {
 	return h.callHook(t, c, callHookString)
 }
 
-// Important for this function to inline
+// Important for this function to inline.
 func (h *DebugHooks) triggerTailCall(t *Thread, c Cont) *Error {
 	if h.DebugHookFlags&HookFlagCall == 0 {
 		return nil
@@ -70,7 +74,7 @@ func (h *DebugHooks) triggerTailCall(t *Thread, c Cont) *Error {
 	return h.callHook(t, c, tailCallHookString)
 }
 
-// Important for this function to inline
+// Important for this function to inline.
 func (h *DebugHooks) triggerReturn(t *Thread, c Cont) *Error {
 	if h.DebugHookFlags&HookFlagReturn == 0 {
 		return nil
@@ -78,7 +82,7 @@ func (h *DebugHooks) triggerReturn(t *Thread, c Cont) *Error {
 	return h.callHook(t, c, returnHookString)
 }
 
-// Important for this function to inline
+// Important for this function to inline.
 func (h *DebugHooks) triggerLine(t *Thread, c Cont, l int32) *Error {
 	if h.DebugHookFlags&HookFlagLine == 0 || l <= 0 {
 		return nil
@@ -86,7 +90,7 @@ func (h *DebugHooks) triggerLine(t *Thread, c Cont, l int32) *Error {
 	return h.callHook(t, c, lineHookString, IntValue(int64(l)))
 }
 
-// Important for this function to inline
+// Important for this function to inline.
 func (h *DebugHooks) areFlagsEnabled(flags DebugHookFlags) bool {
 	return h.DebugHookFlags&hookFlagInHook == 0 && h.DebugHookFlags&flags != 0
 }

@@ -51,22 +51,23 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	)
 
 	var (
-		stdoutOpts int
-		stderrOpts int
-		stdinOpts  int
+		stdoutOpts = statusNotClosable
+		stderrOpts = statusNotClosable
+		stdinOpts  = statusNotClosable
 	)
 	if BufferedStdFiles {
-		stdoutOpts = bufferedWrite
-		stdinOpts = bufferedRead
+		stdoutOpts |= bufferedWrite
+		stdinOpts |= bufferedRead
 	}
 
+	stdinFile := NewFile(os.Stdin, stdinOpts)
 	stdoutFile := NewFile(os.Stdout, stdoutOpts)
 	stderrFile := NewFile(os.Stderr, stderrOpts)
 	// This is not a good pattern - it has to do for now.
 	if r.Stdout == nil {
 		r.Stdout = stdoutFile.writer
 	}
-	stdin := newFileUserData(NewFile(os.Stdin, stdinOpts), meta)
+	stdin := newFileUserData(stdinFile, meta)
 	stdout := newFileUserData(stdoutFile, meta)
 	stderr := newFileUserData(stderrFile, meta) // I''m guessing, don't buffer stderr?
 
@@ -389,7 +390,7 @@ func write(r *rt.Runtime, vf rt.Value, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if !ok {
 		return nil, rt.NewErrorS("#1 must be a file")
 	}
-	if f.closed {
+	if f.IsClosed() {
 		return nil, rt.NewErrorE(errFileAlreadyClosed)
 	}
 	var err error
@@ -504,7 +505,7 @@ func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err
 	}
 	var s string
-	if f.closed {
+	if f.IsClosed() {
 		s = "file (closed)"
 	} else {
 		s = fmt.Sprintf("file (%q)", f.Name())

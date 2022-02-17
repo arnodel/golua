@@ -27,3 +27,13 @@ func (d *UserData) Metatable() *Table {
 func (d *UserData) SetMetatable(m *Table) {
 	d.meta = m
 }
+
+//
+// LightUserData
+//
+
+// A LightUserData is some Go value of unspecified type wrapped to be used as a
+// lua Value.
+type LightUserData struct {
+	Data interface{}
+}

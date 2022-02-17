@@ -66,8 +66,22 @@ print(tostring(polly))
 
 do
     go = require("golib")
-    fmt = go.import("fmt")
-    sprintf = fmt.Sprintf
-    print(sprintf("-%s-", "hello"))
+    if go.import then
+        fmt = go.import("fmt")
+        sprintf = fmt.Sprintf
+        print(sprintf("-%s-", "hello"))
+    else
+        print("-hello-")
+    end
 end
 --> =-hello-
+
+print(pcall(ben))
+--> ~false\t.*not a function
+
+print(pcall(double, {}))
+--> ~false\t.*cannot be converted to int
+
+-- No argument defaults to the zero value
+print(double())
+--> =0
