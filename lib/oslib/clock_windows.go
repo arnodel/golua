@@ -11,7 +11,7 @@ import (
 
 var startTime time.Time
 
-func clock(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func clock(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	// No syscall.Getrusage on windows.  As a fallback return clock time since
 	// starting the program.
 	time := float64(time.Now().Sub(startTime).Microseconds()) / 1e6

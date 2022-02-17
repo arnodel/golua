@@ -1,8 +1,12 @@
 package base
 
-import rt "github.com/arnodel/golua/runtime"
+import (
+	"errors"
 
-func next(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	rt "github.com/arnodel/golua/runtime"
+)
+
+func next(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -17,7 +21,7 @@ func next(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
 	nk, nv, ok := tbl.Next(k)
 	if !ok {
-		return nil, rt.NewErrorS("invalid key for 'next'")
+		return nil, errors.New("invalid key for 'next'")
 	}
 	t.Push1(next, nk)
 	if !nk.IsNil() {

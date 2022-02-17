@@ -46,7 +46,7 @@ func (m *runtimeContextManager) RequiredFlags() (f ComplianceFlags) {
 	return
 }
 
-func (m *runtimeContextManager) CheckRequiredFlags(ComplianceFlags) *Error {
+func (m *runtimeContextManager) CheckRequiredFlags(ComplianceFlags) error {
 	return nil
 }
 
@@ -84,7 +84,7 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 	return &mCopy
 }
 
-func (m *runtimeContextManager) CallContext(def RuntimeContextDef, f func() *Error) (ctx RuntimeContext, err *Error) {
+func (m *runtimeContextManager) CallContext(def RuntimeContextDef, f func() error) (ctx RuntimeContext, err error) {
 	m.PushContext(def)
 	defer m.PopContext()
 	return nil, f()

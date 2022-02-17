@@ -1,6 +1,8 @@
 package stringlib
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/arnodel/golua/lib/packagelib"
@@ -74,7 +76,7 @@ func minpos(i, j int) int {
 	return j
 }
 
-func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -108,16 +110,16 @@ func bytef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
-func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	vals := c.Etc()
 	buf := make([]byte, len(vals))
 	for i, v := range vals {
 		x, ok := rt.ToInt(v)
 		if !ok {
-			return nil, rt.NewErrorS("arguments must be integers")
+			return nil, errors.New("arguments must be integers")
 		}
 		if x < 0 || x > 255 {
-			return nil, rt.NewErrorF("#%d out of range", i+1)
+			return nil, fmt.Errorf("#%d out of range", i+1)
 		}
 		buf[i] = byte(x)
 	}
@@ -125,7 +127,7 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.StringValue(string(buf))), nil
 }
 
-func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -136,7 +138,7 @@ func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.IntValue(int64(len(s)))), nil
 }
 
-func lower(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func lower(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -149,7 +151,7 @@ func lower(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.StringValue(s)), nil
 }
 
-func upper(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func upper(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -162,7 +164,7 @@ func upper(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.StringValue(s)), nil
 }
 
-func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
@@ -176,7 +178,7 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	n := int(ln)
 	if n < 0 {
-		return nil, rt.NewErrorS("#2 out of range")
+		return nil, errors.New("#2 out of range")
 	}
 	var sep []byte
 	if c.NArgs() >= 3 {
@@ -195,7 +197,7 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if sep == nil {
 		if len(ls)*n/n != len(ls) {
 			// Overflow
-			return nil, rt.NewErrorS("rep causes overflow")
+			return nil, errors.New("rep causes overflow")
 		}
 		t.RequireBytes(n * len(ls))
 		return c.PushingNext1(t.Runtime, rt.StringValue(strings.Repeat(string(ls), n))), nil
@@ -206,7 +208,7 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	sz2 := (n - 1) * len(sep)
 	sz := sz1 + sz2
 	if sz1/n != len(s) || sz2/(n-1) != len(sep) || sz < 0 {
-		return nil, rt.NewErrorS("rep causes overflow")
+		return nil, errors.New("rep causes overflow")
 	}
 	t.RequireBytes(n*len(s) + (n-1)*len(sep))
 	builder.Grow(sz)
@@ -222,7 +224,7 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.StringValue(builder.String())), nil
 }
 
-func reverse(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func reverse(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -239,7 +241,7 @@ func reverse(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.StringValue(string(sb))), nil
 }
 
-func sub(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func sub(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}

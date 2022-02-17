@@ -1,8 +1,10 @@
 package runtime
 
+type GoFunctionFunc func(*Thread, *GoCont) (Cont, error)
+
 // A GoFunction is a callable value implemented by a native Go function.
 type GoFunction struct {
-	f           func(*Thread, *GoCont) (Cont, *Error)
+	f           GoFunctionFunc
 	safetyFlags ComplianceFlags
 	name        string
 	nArgs       int
@@ -12,7 +14,7 @@ type GoFunction struct {
 var _ Callable = (*GoFunction)(nil)
 
 // NewGoFunction returns a new GoFunction.
-func NewGoFunction(f func(*Thread, *GoCont) (Cont, *Error), name string, nArgs int, hasEtc bool) *GoFunction {
+func NewGoFunction(f GoFunctionFunc, name string, nArgs int, hasEtc bool) *GoFunction {
 	return &GoFunction{
 		f:      f,
 		name:   name,

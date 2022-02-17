@@ -4,7 +4,7 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func rawequal(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func rawequal(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}

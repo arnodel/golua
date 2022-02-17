@@ -52,7 +52,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 }
 
 // Creates a new regex userdata from a string.
-func newRegex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func newRegex(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var s string
 	err := c.Check1Arg()
 	if err == nil {
@@ -63,7 +63,7 @@ func newRegex(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	re, compErr := regexp.Compile(string(s))
 	if compErr != nil {
-		return nil, rt.NewErrorE(compErr)
+		return nil, compErr
 	}
 	regexMeta := t.Registry(regexMetaKey)
 	return c.PushingNext(t.Runtime, t.NewUserDataValue(re, regexMeta.AsTable())), nil
@@ -80,16 +80,16 @@ func valueToRegex(v rt.Value) (re *regexp.Regexp, ok bool) {
 }
 
 // Helper function that extracts a regexp arg from a continuation.
-func regexArg(c *rt.GoCont, n int) (*regexp.Regexp, *rt.Error) {
+func regexArg(c *rt.GoCont, n int) (*regexp.Regexp, error) {
 	re, ok := valueToRegex(c.Arg(n))
 	if ok {
 		return re, nil
 	}
-	return nil, rt.NewErrorF("#%d must be a regex", n+1)
+	return nil, fmt.Errorf("#%d must be a regex", n+1)
 }
 
 // This implements the 'find' method of a regexp.
-func regexFind(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func regexFind(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var (
 		re *regexp.Regexp
 		s  string
@@ -114,7 +114,7 @@ func regexFind(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 // Implementation of the regex's '__tostring' metamethod.
-func regexToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func regexToString(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var re *regexp.Regexp
 	err := c.Check1Arg()
 	if err == nil {

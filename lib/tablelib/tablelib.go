@@ -1,6 +1,8 @@
 package tablelib
 
 import (
+	"errors"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -34,7 +36,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	return rt.TableValue(pkg), nil
 }
 
-func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -113,12 +115,12 @@ func concat(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return nil, err
 }
 
-func errInvalidConcatValue(v rt.Value, i int64) *rt.Error {
+func errInvalidConcatValue(v rt.Value, i int64) error {
 	s, _ := v.ToString()
-	return rt.NewErrorF("invalid value (%s) at index %d in table for 'concat'", s, i)
+	return fmt.Errorf("invalid value (%s) at index %d in table for 'concat'", s, i)
 }
 
-func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
@@ -141,7 +143,7 @@ func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, err
 		}
 		if pos <= 0 || pos > tblLen+1 {
-			return nil, rt.NewErrorS("#2 out of range")
+			return nil, errors.New("#2 out of range")
 		}
 		val = c.Arg(2)
 	} else {
@@ -173,7 +175,7 @@ func insert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.Next(), nil
 }
 
-func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(4); err != nil {
 		return nil, err
 	}
@@ -205,14 +207,14 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if srcStart > srcEnd || srcStart == dstStart && dstVal == srcVal {
 		// Nothing to do apparently!
 	} else if srcStart <= 0 && srcStart+math.MaxInt64 <= srcEnd {
-		return nil, rt.NewErrorS("interval too large")
+		return nil, errors.New("interval too large")
 	} else if dstStart >= srcStart {
 		// Move in descending order to avoid writing at a position
 		// before moving it
 		offset := srcEnd - srcStart // 0 <= offset < math.MaxInt64
 		if dstStart > math.MaxInt64-offset {
 			// Not enough space to move
-			return nil, rt.NewErrorS("destination would wrap around")
+			return nil, errors.New("destination would wrap around")
 		}
 		dstStart += offset
 		for srcEnd >= srcStart {
@@ -254,7 +256,7 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, dstVal), nil
 }
 
-func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	tbl := rt.NewTable()
 	// We can use t.SetTable() because tbl has no metatable
 	for i, v := range c.Etc() {
@@ -265,7 +267,7 @@ func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.TableValue(tbl)), nil
 }
 
-func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -297,7 +299,7 @@ func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			return nil, err
 		}
 	case pos <= 0 || pos > tblLen:
-		return nil, rt.NewErrorS("#2 out of range")
+		return nil, errors.New("#2 out of range")
 	default:
 		var newVal rt.Value
 		for pos <= tblLen {
@@ -337,7 +339,15 @@ func (s *tableSorter) Len() int {
 
 const maxSortSize = 1 << 40
 
-func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
+type sortError struct {
+	err error
+}
+
+func throwSortError(err error) {
+	panic(sortError{err: err})
+}
+
+func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -349,14 +359,14 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 	get := func(i int) rt.Value {
 		x, err := rt.Index(t, tblVal, rt.IntValue(int64(i+1)))
 		if err != nil {
-			panic(err)
+			throwSortError(err)
 		}
 		return x
 	}
 	set := func(i int, x rt.Value) {
 		err := rt.SetIndex(t, tblVal, rt.IntValue(int64(i+1)), x)
 		if err != nil {
-			panic(err)
+			throwSortError(err)
 		}
 	}
 	swap := func(i, j int) {
@@ -366,10 +376,10 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 	}
 	l, err := rt.IntLen(t, tblVal)
 	if err != nil {
-		return nil, rt.NewErrorE(err)
+		return nil, err
 	}
 	if l >= maxSortSize {
-		return nil, rt.NewErrorS("too big to sort")
+		return nil, errors.New("too big to sort")
 	}
 	if l <= 0 {
 		return c.Next(), nil
@@ -385,7 +395,7 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 			term.Reset()
 			err := rt.Call(t, comp, []rt.Value{get(i), get(j)}, term)
 			if err != nil {
-				panic(err)
+				throwSortError(err)
 			}
 			return rt.Truth(term.Get(0))
 		}
@@ -393,7 +403,7 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 		less = func(i, j int) bool {
 			res, err := rt.Lt(t, get(i), get(j))
 			if err != nil {
-				panic(err)
+				throwSortError(err)
 			}
 			return res
 		}
@@ -401,8 +411,8 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 	defer func() {
 		if r := recover(); r != nil {
 			next = nil
-			if rtErr, ok := r.(*rt.Error); ok {
-				resErr = rtErr
+			if sortErr, ok := r.(sortError); ok {
+				resErr = sortErr.err
 				return
 			}
 			panic(r)
@@ -419,7 +429,7 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr *rt.Error) {
 // specify what this number should be.
 const maxUnpackSize = 256
 
-func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -448,7 +458,7 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err
 	}
 	if i < math.MaxInt64-maxUnpackSize && i+maxUnpackSize <= j {
-		return nil, rt.NewErrorS("too many values to unpack")
+		return nil, errors.New("too many values to unpack")
 	}
 	next := c.Next()
 	for ; i <= j; i++ {

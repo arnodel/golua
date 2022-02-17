@@ -1,6 +1,7 @@
 package oslib
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -38,9 +39,9 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	return rt.TableValue(pkg), nil
 }
 
-func date(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func date(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var (
-		err    *rt.Error
+		err    error
 		utc    bool
 		now    time.Time
 		format string
@@ -85,7 +86,7 @@ func date(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		{
 			dateStr, fmtErr := strftime.StrictFormat(format, now)
 			if fmtErr != nil {
-				return nil, rt.NewErrorE(fmtErr)
+				return nil, fmtErr
 			}
 			date = rt.StringValue(dateStr)
 		}
@@ -93,7 +94,7 @@ func date(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, date), nil
 }
 
-func difftime(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func difftime(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
@@ -108,7 +109,7 @@ func difftime(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.IntValue(t2-t1)), nil
 }
 
-func exit(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func exit(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var (
 		code  = 0 // 0 for success, 1 for failure
 		close = false
@@ -129,7 +130,7 @@ func exit(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return nil, nil
 }
 
-func timef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func timef(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if c.NArgs() == 0 {
 		now := time.Now().Unix()
 		return c.PushingNext1(t.Runtime, rt.IntValue(now)), nil
@@ -138,7 +139,7 @@ func timef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	if err != nil {
 		return nil, err
 	}
-	var fieldErr *rt.Error
+	var fieldErr error
 	var getField = func(dest *int, name string, required bool) bool {
 		if fieldErr != nil {
 			return false
@@ -150,14 +151,14 @@ func timef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 		if val == rt.NilValue {
 			if required {
-				fieldErr = rt.NewErrorF("required field '%s' missing", name)
+				fieldErr = fmt.Errorf("required field '%s' missing", name)
 				return false
 			}
 			return true
 		}
 		iVal, ok := val.TryInt()
 		if !ok {
-			fieldErr = rt.NewErrorF("field '%s' is not an integer", name)
+			fieldErr = fmt.Errorf("field '%s' is not an integer", name)
 			return false
 		}
 		*dest = int(iVal)
@@ -183,7 +184,7 @@ func timef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.IntValue(date.Unix())), nil
 }
 
-func setlocale(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func setlocale(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -198,7 +199,7 @@ func setlocale(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.StringValue(locale)), nil
 }
 
-func getenv(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func getenv(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -215,7 +216,7 @@ func getenv(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, valV), nil
 }
 
-func tmpname(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func tmpname(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	f, ioErr := safeio.TempFile(t.Runtime, "", "")
 	if ioErr != nil {
 		return t.ProcessIoError(c.Next(), ioErr)
@@ -226,7 +227,7 @@ func tmpname(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.StringValue(name)), nil
 }
 
-func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -241,7 +242,7 @@ func remove(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.BoolValue(true)), nil
 }
 
-func rename(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func rename(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}

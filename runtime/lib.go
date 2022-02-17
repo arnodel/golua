@@ -29,7 +29,7 @@ const maxIndexChainLength = 100
 // Index returns the item in a collection for the given key k, using the
 // '__index' metamethod if appropriate.
 // Index always consumes CPU.
-func Index(t *Thread, coll Value, k Value) (Value, *Error) {
+func Index(t *Thread, coll Value, k Value) (Value, error) {
 	for i := 0; i < maxIndexChainLength; i++ {
 		t.RequireCPU(1)
 		tbl, ok := coll.TryTable()
@@ -55,25 +55,25 @@ func Index(t *Thread, coll Value, k Value) (Value, *Error) {
 			return res.Get(0), nil
 		}
 	}
-	return NilValue, NewErrorF("'__index' chain too long; possible loop")
+	return NilValue, fmt.Errorf("'__index' chain too long; possible loop")
 }
 
-func indexError(coll Value) *Error {
-	return NewErrorF("attempt to index a %s value", coll.CustomTypeName())
+func indexError(coll Value) error {
+	return fmt.Errorf("attempt to index a %s value", coll.CustomTypeName())
 }
 
 // SetIndex sets the item in a collection for the given key, using the
 // '__newindex' metamethod if appropriate.  SetIndex always consumes CPU if it
 // doesn't return an error.
-func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
+func SetIndex(t *Thread, coll Value, idx Value, val Value) error {
 	if idx.IsNil() {
-		return NewErrorS("index is nil")
+		return errors.New("index is nil")
 	}
 	for i := 0; i < maxIndexChainLength; i++ {
 		t.RequireCPU(1)
 		tbl, isTable := coll.TryTable()
 		if isTable && idx.IsNaN() {
-			return NewErrorE(errTableIndexIsNaN)
+			return errTableIndexIsNaN
 		}
 		if isTable && tbl.Reset(idx, val) {
 			return nil
@@ -92,7 +92,7 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) *Error {
 			return Call(t, metaNewIndex, []Value{coll, idx, val}, NewTermination(t.CurrentCont(), nil, nil))
 		}
 	}
-	return NewErrorF("'__newindex' chain too long; possible loop")
+	return fmt.Errorf("'__newindex' chain too long; possible loop")
 }
 
 // Truth returns true if v is neither nil nor a false boolean.
@@ -106,7 +106,7 @@ func Truth(v Value) bool {
 
 // Metacall calls the metamethod called method on obj with the given arguments
 // args, pushing the result to the continuation next.
-func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (*Error, bool) {
+func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (error, bool) {
 	if f := t.metaGetS(obj, method); !f.IsNil() {
 		return Call(t, f, args, next), true
 	}
@@ -116,14 +116,14 @@ func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (*Er
 // Continue tries to continue the value f or else use its '__call'
 // metamethod and returns the continuations that needs to be run to get the
 // results.
-func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
+func Continue(t *Thread, f Value, next Cont) (Cont, error) {
 	callable, ok := f.TryCallable()
 	if ok {
 		return callable.Continuation(t, next), nil
 	}
 	cont, err, ok := metacont(t, f, "__call", next)
 	if !ok {
-		return nil, NewErrorF("attempt to call a %s value", f.CustomTypeName())
+		return nil, fmt.Errorf("attempt to call a %s value", f.CustomTypeName())
 	}
 	if cont != nil {
 		t.Push1(cont, f)
@@ -133,9 +133,9 @@ func Continue(t *Thread, f Value, next Cont) (Cont, *Error) {
 
 // Call calls f with arguments args, pushing the results on next.  It may use
 // the metamethod '__call' if f is not callable.
-func Call(t *Thread, f Value, args []Value, next Cont) *Error {
+func Call(t *Thread, f Value, args []Value, next Cont) error {
 	if f.IsNil() {
-		return NewErrorS("attempt to call a nil value")
+		return errors.New("attempt to call a nil value")
 	}
 	callable, ok := f.TryCallable()
 	if ok {
@@ -145,12 +145,12 @@ func Call(t *Thread, f Value, args []Value, next Cont) *Error {
 	if ok {
 		return err
 	}
-	return NewErrorF("attempt to call a %s value", f.CustomTypeName())
+	return fmt.Errorf("attempt to call a %s value", f.CustomTypeName())
 }
 
 // Call1 is a convenience method that calls f with arguments args and returns
 // exactly one value.
-func Call1(t *Thread, f Value, args ...Value) (Value, *Error) {
+func Call1(t *Thread, f Value, args ...Value) (Value, error) {
 	term := NewTerminationWith(t.CurrentCont(), 1, false)
 	if err := Call(t, f, args, term); err != nil {
 		return NilValue, err
@@ -159,7 +159,7 @@ func Call1(t *Thread, f Value, args ...Value) (Value, *Error) {
 }
 
 // Concat returns x .. y, possibly calling the '__concat' metamethod.
-func Concat(t *Thread, x, y Value) (Value, *Error) {
+func Concat(t *Thread, x, y Value) (Value, error) {
 	var sx, sy string
 	var okx, oky bool
 	if sx, okx = x.ToString(); okx {
@@ -175,7 +175,7 @@ func Concat(t *Thread, x, y Value) (Value, *Error) {
 	return NilValue, concatError(x, y, okx, oky)
 }
 
-func concatError(x, y Value, okx, oky bool) *Error {
+func concatError(x, y Value, okx, oky bool) error {
 	var wrongVal Value
 	switch {
 	case oky:
@@ -183,14 +183,14 @@ func concatError(x, y Value, okx, oky bool) *Error {
 	case okx:
 		wrongVal = y
 	default:
-		return NewErrorF("attempt to concatenate a %s value with a %s value", x.CustomTypeName(), y.CustomTypeName())
+		return fmt.Errorf("attempt to concatenate a %s value with a %s value", x.CustomTypeName(), y.CustomTypeName())
 	}
-	return NewErrorF("attempt to concatenate a %s value", wrongVal.CustomTypeName())
+	return fmt.Errorf("attempt to concatenate a %s value", wrongVal.CustomTypeName())
 }
 
 // IntLen returns the length of v as an int64, possibly calling the '__len'
 // metamethod.  This is an optimization of Len for an integer output.
-func IntLen(t *Thread, v Value) (int64, *Error) {
+func IntLen(t *Thread, v Value) (int64, error) {
 	if s, ok := v.TryString(); ok {
 		return int64(len(s)), nil
 	}
@@ -202,7 +202,7 @@ func IntLen(t *Thread, v Value) (int64, *Error) {
 		}
 		l, ok := ToInt(res.Get(0))
 		if !ok {
-			err = NewErrorS("len should return an integer")
+			err = errors.New("len should return an integer")
 		}
 		return l, err
 	}
@@ -213,7 +213,7 @@ func IntLen(t *Thread, v Value) (int64, *Error) {
 }
 
 // Len returns the length of v, possibly calling the '__len' metamethod.
-func Len(t *Thread, v Value) (Value, *Error) {
+func Len(t *Thread, v Value) (Value, error) {
 	if s, ok := v.TryString(); ok {
 		return IntValue(int64(len(s))), nil
 	}
@@ -231,8 +231,8 @@ func Len(t *Thread, v Value) (Value, *Error) {
 	return NilValue, lenError(v)
 }
 
-func lenError(x Value) *Error {
-	return NewErrorF("attempt to get length of a %s value", x.CustomTypeName())
+func lenError(x Value) error {
+	return fmt.Errorf("attempt to get length of a %s value", x.CustomTypeName())
 }
 
 // SetEnv sets the item in the table t for a string key.  Useful when writing
@@ -243,7 +243,7 @@ func (r *Runtime) SetEnv(t *Table, name string, v Value) {
 
 // SetEnvGoFunc sets the item in the table t for a string key to be a GoFunction
 // defined by f.  Useful when writing libraries
-func (r *Runtime) SetEnvGoFunc(t *Table, name string, f func(*Thread, *GoCont) (Cont, *Error), nArgs int, hasEtc bool) *GoFunction {
+func (r *Runtime) SetEnvGoFunc(t *Table, name string, f GoFunctionFunc, nArgs int, hasEtc bool) *GoFunction {
 	gof := &GoFunction{
 		f:      f,
 		name:   name,
@@ -267,8 +267,8 @@ func (r *Runtime) ParseLuaChunk(name string, source []byte, scannerOptions ...sc
 	*stat, err = parsing.ParseChunk(s)
 	if err != nil {
 		r.ReleaseMem(statSize)
-		parseErr, ok := err.(parsing.Error)
-		if !ok {
+		var parseErr parsing.Error
+		if !errors.As(err, &parseErr) {
 			return nil, 0, err
 		}
 		return nil, 0, NewSyntaxError(name, parseErr)
@@ -288,8 +288,8 @@ func (r *Runtime) ParseLuaExp(name string, source []byte, scannerOptions ...scan
 	exp, err := parsing.ParseExp(s)
 	if err != nil {
 		r.ReleaseMem(statSize)
-		parseErr, ok := err.(parsing.Error)
-		if !ok {
+		var parseErr parsing.Error
+		if !errors.As(err, &parseErr) {
 			return nil, 0, err
 		}
 		return nil, 0, NewSyntaxError(name, parseErr)
@@ -353,8 +353,8 @@ func (r *Runtime) CompileLuaChunkOrExp(name string, source []byte, scannerOption
 	}
 	if expErr != nil && statErr != nil {
 		// If parsing as expression or chunk failed, then try to return the error that showed the most parsing
-		expSyntaxErr, okExp := expErr.(*SyntaxError)
-		statSyntaxErr, okStat := statErr.(*SyntaxError)
+		expSyntaxErr, okExp := AsSyntaxError(expErr)
+		statSyntaxErr, okStat := AsSyntaxError(statErr)
 		switch {
 		case !okStat:
 			err = expErr
@@ -465,7 +465,7 @@ func stripFirstLineComment(chunk []byte) ([]byte, bool) {
 	return nil, true
 }
 
-func metacont(t *Thread, obj Value, method string, next Cont) (Cont, *Error, bool) {
+func metacont(t *Thread, obj Value, method string, next Cont) (Cont, error, bool) {
 	f := t.metaGetS(obj, method)
 	if f.IsNil() {
 		return nil, nil, false
@@ -477,7 +477,7 @@ func metacont(t *Thread, obj Value, method string, next Cont) (Cont, *Error, boo
 	return cont, nil, true
 }
 
-func metabin(t *Thread, f string, x Value, y Value) (Value, *Error, bool) {
+func metabin(t *Thread, f string, x Value, y Value) (Value, error, bool) {
 	xy := []Value{x, y}
 	res := NewTerminationWith(t.CurrentCont(), 1, false)
 	err, ok := Metacall(t, x, f, xy, res)
@@ -490,7 +490,7 @@ func metabin(t *Thread, f string, x Value, y Value) (Value, *Error, bool) {
 	return NilValue, nil, false
 }
 
-func metaun(t *Thread, f string, x Value) (Value, *Error, bool) {
+func metaun(t *Thread, f string, x Value) (Value, error, bool) {
 	res := NewTerminationWith(t.CurrentCont(), 1, false)
 	err, ok := Metacall(t, x, f, []Value{x}, res)
 	if ok {

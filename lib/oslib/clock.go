@@ -9,7 +9,7 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func clock(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func clock(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var rusage syscall.Rusage
 	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &rusage) // ignore errors
 	time := float64(rusage.Utime.Sec+rusage.Stime.Sec) + float64(rusage.Utime.Usec+rusage.Stime.Usec)/1000000.0

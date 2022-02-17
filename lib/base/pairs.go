@@ -2,7 +2,7 @@ package base
 
 import rt "github.com/arnodel/golua/runtime"
 
-func pairs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func pairs(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}

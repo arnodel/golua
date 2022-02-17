@@ -210,7 +210,7 @@ This is the Go function that we are going to call from Lua. Its inputs are:
 It returns the next continuation on success, else an error.
 
 ```golang
-func addints(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func addints(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var x, y rt.Int
 
 	// First check there are two arguments
