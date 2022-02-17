@@ -1,6 +1,7 @@
 package base
 
 import (
+	"errors"
 	"runtime"
 	"runtime/debug"
 
@@ -10,7 +11,7 @@ import (
 var gcPercent int
 var gcRunning bool
 
-func collectgarbage(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func collectgarbage(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	opt := "collect"
 	if c.NArgs() > 0 {
 		optv, err := c.StringArg(0)
@@ -44,7 +45,7 @@ func collectgarbage(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		runtime.ReadMemStats(&stats)
 		t.Push1(next, rt.FloatValue(float64(stats.Alloc)/1024.0))
 	default:
-		return nil, rt.NewErrorS("invalid option")
+		return nil, errors.New("invalid option")
 	}
 	return next, nil
 }

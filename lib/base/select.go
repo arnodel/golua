@@ -1,10 +1,12 @@
 package base
 
 import (
+	"errors"
+
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func selectF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func selectF(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -13,7 +15,7 @@ func selectF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		var s string
 		s, err = c.StringArg(0)
 		if err != nil || s != "#" {
-			return nil, rt.NewErrorS("#1 must be an integer or '#'")
+			return nil, errors.New("#1 must be an integer or '#'")
 		}
 		return c.PushingNext1(t.Runtime, rt.IntValue(int64(len(c.Etc())))), nil
 	}
@@ -22,7 +24,7 @@ func selectF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		n += int64(len(etc)) + 1
 	}
 	if n < 1 {
-		return nil, rt.NewErrorS("#1 out of range")
+		return nil, errors.New("#1 out of range")
 	}
 	next := c.Next()
 	if int(n) <= len(etc) {

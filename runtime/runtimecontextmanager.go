@@ -65,10 +65,10 @@ func (m *runtimeContextManager) RequiredFlags() ComplianceFlags {
 	return m.requiredFlags
 }
 
-func (m *runtimeContextManager) CheckRequiredFlags(flags ComplianceFlags) *Error {
+func (m *runtimeContextManager) CheckRequiredFlags(flags ComplianceFlags) error {
 	missingFlags := m.requiredFlags &^ flags
 	if missingFlags != 0 {
-		return NewErrorF("missing flags: %s", strings.Join(missingFlags.Names(), " "))
+		return fmt.Errorf("missing flags: %s", strings.Join(missingFlags.Names(), " "))
 	}
 	return nil
 }
@@ -99,7 +99,7 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	parent := *m
 	m.startTime = now()
 	m.hardLimits = m.hardLimits.Remove(m.usedResources).Merge(ctx.HardLimits)
-	m.softLimits = m.hardLimits.Merge(ctx.SoftLimits)
+	m.softLimits = m.hardLimits.Merge(m.softLimits).Merge(ctx.SoftLimits)
 	m.usedResources = RuntimeResources{}
 	m.requiredFlags |= ctx.RequiredFlags
 
@@ -264,10 +264,12 @@ func (m *runtimeContextManager) LinearRequire(cpuFactor uint64, amt uint64) {
 	m.RequireCPU(amt / cpuFactor)
 }
 
+// KillContext forcefully terminates the context with the message "force kill".
 func (m *runtimeContextManager) KillContext() {
 	m.TerminateContext("force kill")
 }
 
+// TerminateContext forcefully terminates the context with the given message.
 func (m *runtimeContextManager) TerminateContext(format string, args ...interface{}) {
 	if m.status != StatusLive {
 		return

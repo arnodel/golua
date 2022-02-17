@@ -56,7 +56,7 @@ func Load(r *rt.Runtime) (rt.Value, func()) {
 	return rt.NilValue, nil
 }
 
-func ToString(t *rt.Thread, v rt.Value) (string, *rt.Error) {
+func ToString(t *rt.Thread, v rt.Value) (string, error) {
 	next := rt.NewTerminationWith(t.CurrentCont(), 1, false)
 	err, ok := rt.Metacall(t, v, "__tostring", []rt.Value{v}, next)
 	if err != nil {
@@ -65,7 +65,7 @@ func ToString(t *rt.Thread, v rt.Value) (string, *rt.Error) {
 	if ok {
 		s, ok := next.Get(0).ToString()
 		if !ok {
-			return "", rt.NewErrorS("'__tostring' must return a string")
+			return "", errors.New("'__tostring' must return a string")
 		}
 		return s, nil
 	}
@@ -73,7 +73,7 @@ func ToString(t *rt.Thread, v rt.Value) (string, *rt.Error) {
 	return s, nil
 }
 
-func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}

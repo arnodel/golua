@@ -26,7 +26,7 @@ print(pcall(loadfile, "lua/loadfile.lua.notest", 123))
 --> ~false\t.*must be a string
 
 print(loadfile("lua/nonexistent_file"))
---> ~nil\t.*no such file or directory
+--> ~nil\t
 
 dofile("lua/loadfile.lua.notest")
 --> =loadfile

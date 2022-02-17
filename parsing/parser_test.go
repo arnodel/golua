@@ -587,7 +587,6 @@ func TestParser_Field(t *testing.T) {
 			},
 			want1: tok(token.EOF, ""),
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -788,7 +787,6 @@ func TestParser_Block(t *testing.T) {
 			),
 			want1: tok(token.KwEnd, "end"),
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1391,7 +1389,6 @@ func TestError_Error(t *testing.T) {
 			},
 			want: "10:3: expected 'foo' near 'bar'",
 		},
-		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

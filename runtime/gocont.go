@@ -1,6 +1,10 @@
 package runtime
 
-import "unsafe"
+import (
+	"errors"
+	"fmt"
+	"unsafe"
+)
 
 // GoCont implements Cont for functions written in Go.
 type GoCont struct {
@@ -62,8 +66,7 @@ func (c *GoCont) PushingNext1(r *Runtime, val Value) Cont {
 	return next
 }
 
-// PushEtc pushes a slice of values to the continutation. TODO: find why this is
-// not used.
+// PushEtc pushes a slice of values to the continutation.
 func (c *GoCont) PushEtc(r *Runtime, etc []Value) {
 	if c.nArgs < len(c.args) {
 		for i, v := range etc {
@@ -84,18 +87,18 @@ FillEtc:
 	*c.etc = append(*c.etc, etc...)
 }
 
-// RunInThread implements Cont.RunInThread
-func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
+// RunInThread implements Cont.RunInThread.
+func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
 	if err := t.CheckRequiredFlags(c.safetyFlags); err != nil {
 		return nil, err
 	}
-	t.RequireCPU(1) // TODO: an appropriate amount
+	t.RequireCPU(1)
 
 	t.goFunctionCallDepth++
 	defer func() { t.goFunctionCallDepth-- }()
 
 	if t.goFunctionCallDepth > maxGoFunctionCallDepth {
-		return nil, NewErrorS("stack overflow")
+		return nil, errors.New("stack overflow")
 	}
 	next, err = c.f(t, c)
 	_ = t.triggerReturn(t, c)
@@ -115,16 +118,17 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err *Error) {
 	return
 }
 
-// Next implements Cont.Next.
+// Next returns the next continuation.
 func (c *GoCont) Next() Cont {
 	return c.next
 }
 
+// Parent returns the continuation's parent.
 func (c *GoCont) Parent() Cont {
 	return c.next
 }
 
-// DebugInfo implements Cont.DebugInfo.
+// DebugInfo returns c's debug info.
 func (c *GoCont) DebugInfo() *DebugInfo {
 	name := c.name
 	if name == "" {
@@ -160,114 +164,114 @@ func (c *GoCont) Etc() []Value {
 	return *c.etc
 }
 
-// Check1Arg returns a non-nil *Error if the continuation doesn't have at least
+// Check1Arg returns a non-nil error if the continuation doesn't have at least
 // one arg.
-func (c *GoCont) Check1Arg() *Error {
+func (c *GoCont) Check1Arg() error {
 	if c.nArgs == 0 {
-		return NewErrorS("bad argument #1 (value needed)")
+		return errors.New("bad argument #1 (value needed)")
 	}
 	return nil
 }
 
-// CheckNArgs returns a non-nil *Error if the continuation doesn't have at least
+// CheckNArgs returns a non-nil error if the continuation doesn't have at least
 // n args.
-func (c *GoCont) CheckNArgs(n int) *Error {
+func (c *GoCont) CheckNArgs(n int) error {
 	if c.nArgs < n {
-		return NewErrorF("%d arguments needed", n)
+		return fmt.Errorf("%d arguments needed", n)
 	}
 	return nil
 }
 
 // StringArg returns the n-th argument as a string if possible, otherwise a
-// non-nil *Error.  No range check!
-func (c *GoCont) StringArg(n int) (string, *Error) {
+// non-nil error.  No range check!
+func (c *GoCont) StringArg(n int) (string, error) {
 	s, ok := c.Arg(n).TryString()
 	if !ok {
-		return "", NewErrorF("#%d must be a string", n+1)
+		return "", fmt.Errorf("#%d must be a string", n+1)
 	}
 	return s, nil
 }
 
 // BoolArg returns the n-th argument as a string if possible, otherwise a
-// non-nil *Error.  No range check!
-func (c *GoCont) BoolArg(n int) (bool, *Error) {
+// non-nil error.  No range check!
+func (c *GoCont) BoolArg(n int) (bool, error) {
 	arg := c.Arg(n)
 	if arg.IsNil() {
 		return false, nil
 	}
 	b, ok := arg.TryBool()
 	if !ok {
-		return false, NewErrorF("#%d must be a boolean", n+1)
+		return false, fmt.Errorf("#%d must be a boolean", n+1)
 	}
 	return b, nil
 }
 
 // CallableArg returns the n-th argument as a callable if possible, otherwise a
-// non-nil *Error.  No range check!
-func (c *GoCont) CallableArg(n int) (Callable, *Error) {
+// non-nil error.  No range check!
+func (c *GoCont) CallableArg(n int) (Callable, error) {
 	f, ok := c.Arg(n).TryCallable()
 	if !ok {
-		return nil, NewErrorF("#%d must be a callable", n+1)
+		return nil, fmt.Errorf("#%d must be a callable", n+1)
 	}
 	return f, nil
 }
 
 // ClosureArg returns the n-th argument as a closure if possible, otherwise a
-// non-nil *Error.  No range check!
-func (c *GoCont) ClosureArg(n int) (*Closure, *Error) {
+// non-nil error.  No range check!
+func (c *GoCont) ClosureArg(n int) (*Closure, error) {
 	f, ok := c.Arg(n).TryClosure()
 	if !ok {
-		return nil, NewErrorF("#%d must be a lua function", n+1)
+		return nil, fmt.Errorf("#%d must be a lua function", n+1)
 	}
 	return f, nil
 }
 
 // ThreadArg returns the n-th argument as a thread if possible, otherwise a
-// non-nil *Error.  No range check!
-func (c *GoCont) ThreadArg(n int) (*Thread, *Error) {
+// non-nil error.  No range check!
+func (c *GoCont) ThreadArg(n int) (*Thread, error) {
 	t, ok := c.Arg(n).TryThread()
 	if !ok {
-		return nil, NewErrorF("#%d must be a thread", n+1)
+		return nil, fmt.Errorf("#%d must be a thread", n+1)
 	}
 	return t, nil
 }
 
 // IntArg returns the n-th argument as an Int if possible, otherwise a
-// non-nil *Error.  No range check!
-func (c *GoCont) IntArg(n int) (int64, *Error) {
+// non-nil error.  No range check!
+func (c *GoCont) IntArg(n int) (int64, error) {
 	i, ok := ToInt(c.Arg(n))
 	if !ok {
-		return 0, NewErrorF("#%d must be an integer", n+1)
+		return 0, fmt.Errorf("#%d must be an integer", n+1)
 	}
 	return i, nil
 }
 
 // FloatArg returns the n-th argument as a Float if possible, otherwise a
-// non-nil *Error.  No range check!
-func (c *GoCont) FloatArg(n int) (float64, *Error) {
+// non-nil error.  No range check!
+func (c *GoCont) FloatArg(n int) (float64, error) {
 	x, ok := ToFloat(c.Arg(n))
 	if !ok {
-		return 0, NewErrorF("#%d must be a number", n+1)
+		return 0, fmt.Errorf("#%d must be a number", n+1)
 	}
 	return x, nil
 }
 
 // TableArg returns the n-th argument as a table if possible, otherwise a
-// non-nil *Error.  No range check!
-func (c *GoCont) TableArg(n int) (*Table, *Error) {
+// non-nil error.  No range check!
+func (c *GoCont) TableArg(n int) (*Table, error) {
 	t, ok := c.Arg(n).TryTable()
 	if !ok {
-		return nil, NewErrorF("#%d must be a table", n+1)
+		return nil, fmt.Errorf("#%d must be a table", n+1)
 	}
 	return t, nil
 }
 
 // UserDataArg returns the n-th argument as a UserData if possible, otherwise a
-// non-nil *Error.  No range check!
-func (c *GoCont) UserDataArg(n int) (*UserData, *Error) {
+// non-nil error.  No range check!
+func (c *GoCont) UserDataArg(n int) (*UserData, error) {
 	t, ok := c.Arg(n).TryUserData()
 	if !ok {
-		return nil, NewErrorF("#%d must be userdata", n+1)
+		return nil, fmt.Errorf("#%d must be userdata", n+1)
 	}
 	return t, nil
 }

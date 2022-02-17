@@ -1,6 +1,7 @@
 package debuglib
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/arnodel/golua/lib/packagelib"
@@ -35,7 +36,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	return pkgVal, nil
 }
 
-func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -53,7 +54,7 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		fIdx = 1
 	}
 	if c.NArgs() < 1+fIdx {
-		return nil, rt.NewErrorS("missing argument: f")
+		return nil, errors.New("missing argument: f")
 	}
 	switch arg := c.Arg(fIdx); arg.Type() {
 	case rt.IntType:
@@ -65,10 +66,10 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		var tp rt.NumberType
 		idx, tp = rt.FloatToInt(arg.AsFloat())
 		if tp != rt.IsInt {
-			return nil, rt.NewErrorS("f should be an integer or function")
+			return nil, errors.New("f should be an integer or function")
 		}
 	default:
-		return nil, rt.NewErrorS("f should be an integer or function")
+		return nil, errors.New("f should be an integer or function")
 	}
 	if cont == nil {
 		cont = thread.CurrentCont()
@@ -94,7 +95,7 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
-func getupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func getupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
@@ -114,7 +115,7 @@ func getupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
-func setupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func setupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(3); err != nil {
 		return nil, err
 	}
@@ -135,7 +136,7 @@ func setupvalue(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
-func upvaluejoin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func upvaluejoin(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(4); err != nil {
 		return nil, err
 	}
@@ -158,13 +159,13 @@ func upvaluejoin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	up1 := int(upv1) - 1
 	up2 := int(upv2) - 1
 	if up1 < 0 || up1 >= int(f1.Code.UpvalueCount) || up2 < 0 || up2 >= int(f2.Code.UpvalueCount) {
-		return nil, rt.NewErrorS("Invalid upvalue index")
+		return nil, errors.New("Invalid upvalue index")
 	}
 	f1.Upvalues[up1] = f2.Upvalues[up2]
 	return c.Next(), nil
 }
 
-func upvalueid(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func upvalueid(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
@@ -183,8 +184,8 @@ func upvalueid(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.LightUserDataValue(rt.LightUserData{Data: f.Upvalues[up]})), nil
 }
 
-func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var err *rt.Error
+func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	var err error
 	if err = c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
@@ -200,9 +201,9 @@ func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, v), nil
 }
 
-func gethook(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func gethook(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var (
-		err    *rt.Error
+		err    error
 		thread = t
 	)
 	if c.NArgs() > 0 {
@@ -229,10 +230,10 @@ func getMaskString(flags rt.DebugHookFlags) string {
 	return b.String()
 }
 
-func sethook(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func sethook(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var (
 		argOffset int
-		err       *rt.Error
+		err       error
 		thread    = t
 		hook      rt.Value
 		mask      string
@@ -298,7 +299,7 @@ func sethook(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.Next(), nil
 }
 
-func traceback(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func traceback(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var (
 		cont            = t.CurrentCont()
 		msgString       = ""
@@ -323,7 +324,7 @@ func traceback(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			}
 		}
 		if nArgs > msgIndex+1 {
-			var err *rt.Error
+			var err error
 			level, err = c.IntArg(msgIndex + 1)
 			if err != nil {
 				return nil, err

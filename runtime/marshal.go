@@ -12,6 +12,8 @@ import (
 var marshalPrefix = []byte{6, 0, 4}
 var ErrInvalidMarshalPrefix = errors.New("Invalid marshal prefix")
 
+// HasMarshalPrefix returns true if the byte slice passed starts witht the magic
+// prefix for Lua marshalled values.
 func HasMarshalPrefix(bs []byte) bool {
 	return len(bs) >= len(marshalPrefix) && bytes.Equal(marshalPrefix, bs[:len(marshalPrefix)])
 }

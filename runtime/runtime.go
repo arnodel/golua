@@ -9,15 +9,18 @@ import (
 // A Runtime is a Lua runtime.  It contains all the global state of the runtime
 // (in particular a reference to the global environment and the main thread).
 type Runtime struct {
-	globalEnv  *Table
-	stringMeta *Table
-	numberMeta *Table
-	boolMeta   *Table
-	nilMeta    *Table
-	Stdout     io.Writer
-	mainThread *Thread
-	registry   *Table
-	warner     Warner
+	globalEnv *Table // The global table
+
+	stringMeta *Table // Metatable for all string values
+	numberMeta *Table // Metatable for all numeric values
+	boolMeta   *Table // Metatable for all boolan values
+	nilMeta    *Table // Metatable for nil
+
+	Stdout     io.Writer // This is useful for testing / repls
+	mainThread *Thread   // An initialised Runtimes comes with this thread
+	registry   *Table    // The registry table can store data global to the runtime
+
+	warner Warner // Lua 5.4 introduces a warning system, implemented by this
 
 	// This has an almost empty implementation when the noquotas build tag is
 	// set.  It should allow the compiler to compile away almost all runtime
@@ -31,7 +34,7 @@ type Runtime struct {
 	argsPool valuePool
 	cellPool cellPool
 
-	// Continuation pools, disable witht the nocontpool build tag.
+	// Continuation pools, disable with the nocontpool build tag.
 	luaContPool luaContPool
 	goContPool  goContPool
 }
@@ -46,6 +49,7 @@ var defaultRuntimeOptions = runtimeOptions{
 	regSetMaxAge: 10,
 }
 
+// A RuntimeOption configures the Runtime.
 type RuntimeOption func(*runtimeOptions)
 
 // WithRegPoolSize set the size of register pool when creating a new Runtime.
@@ -192,6 +196,8 @@ func (r *Runtime) SetTable(t *Table, k, v Value) {
 var errTableIndexIsNil = errors.New("table index is nil")
 var errTableIndexIsNaN = errors.New("table index is NaN")
 
+// SetTableCheck sets k => v in table T if possible, returning an error if k is
+// nil or NaN.
 func (r *Runtime) SetTableCheck(t *Table, k, v Value) error {
 	if k.IsNil() {
 		return errTableIndexIsNil

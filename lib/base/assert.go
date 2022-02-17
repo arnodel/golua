@@ -2,7 +2,7 @@ package base
 
 import rt "github.com/arnodel/golua/runtime"
 
-func assert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func assert(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -15,8 +15,7 @@ func assert(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		} else {
 			msg = etc[0]
 		}
-		err := rt.NewError(msg)
-		err.AddContext(c.Next(), 1)
+		err := rt.NewError(msg).AddContext(c.Next(), 1)
 		return nil, err
 	}
 	next := c.Next()

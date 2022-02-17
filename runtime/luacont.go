@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"errors"
+	"fmt"
 	"unsafe"
 
 	"github.com/arnodel/golua/code"
@@ -36,7 +38,7 @@ func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 		copy(cells, clos.Upvalues)
 		t.RequireArrSize(unsafe.Sizeof(Cell{}), int(clos.CellCount))
 		for i := clos.UpvalueCount; i < clos.CellCount; i++ {
-			cells[i] = NewCell(NilValue)
+			cells[i] = newCell(NilValue)
 		}
 	}
 	t.RequireArrSize(unsafe.Sizeof(Value{}), int(clos.RegCount))
@@ -69,6 +71,7 @@ func (c *LuaCont) release(r *Runtime) {
 func (c *LuaCont) Push(r *Runtime, val Value) {
 	opcode := c.code[c.pc]
 	if opcode.HasType0() {
+		r.RequireCPU(1)
 		dst := opcode.GetA()
 		if opcode.GetF() {
 			// It's an etc
@@ -102,7 +105,7 @@ func (c *LuaCont) Parent() Cont {
 }
 
 // RunInThread implements Cont.RunInThread.
-func (c *LuaCont) RunInThread(t *Thread) (Cont, *Error) {
+func (c *LuaCont) RunInThread(t *Thread) (Cont, error) {
 	pc := c.pc
 	consts := c.consts
 	lines := c.lines
@@ -130,7 +133,7 @@ RunLoop:
 			x := getReg(regs, cells, opcode.GetB())
 			y := getReg(regs, cells, opcode.GetC())
 			var res Value
-			var err *Error
+			var err error
 			var ok bool
 			switch opcode.GetX() {
 
@@ -139,37 +142,37 @@ RunLoop:
 			case code.OpAdd:
 				res, ok = Add(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__add", x, y)
+					res, err = binaryArithFallback(t, "__add", x, y)
 				}
 			case code.OpSub:
 				res, ok = Sub(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__sub", x, y)
+					res, err = binaryArithFallback(t, "__sub", x, y)
 				}
 			case code.OpMul:
 				res, ok = Mul(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__mul", x, y)
+					res, err = binaryArithFallback(t, "__mul", x, y)
 				}
 			case code.OpDiv:
 				res, ok = Div(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__div", x, y)
+					res, err = binaryArithFallback(t, "__div", x, y)
 				}
 			case code.OpFloorDiv:
 				res, ok, err = Idiv(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__idiv", x, y)
+					res, err = binaryArithFallback(t, "__idiv", x, y)
 				}
 			case code.OpMod:
 				res, ok, err = Mod(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__mod", x, y)
+					res, err = binaryArithFallback(t, "__mod", x, y)
 				}
 			case code.OpPow:
 				res, ok = Pow(x, y)
 				if !ok {
-					res, err = BinaryArithFallback(t, "__pow", x, y)
+					res, err = binaryArithFallback(t, "__pow", x, y)
 				}
 
 			// Bitwise
@@ -275,14 +278,14 @@ RunLoop:
 			dst := opcode.GetA()
 			var res Value
 			var ok bool
-			var err *Error
+			var err error
 			if opcode.HasType4a() {
 				val := getReg(regs, cells, opcode.GetB())
 				switch opcode.GetUnOp() {
 				case code.OpNeg:
 					res, ok = Unm(val)
 					if !ok {
-						res, err = UnaryArithFallback(t, "__unm", val)
+						res, err = unaryArithFallback(t, "__unm", val)
 					}
 				case code.OpBitNot:
 					res, err = bnot(t, val)
@@ -413,7 +416,7 @@ RunLoop:
 					v := getReg(regs, cells, opcode.GetA())
 					if Truth(v) && t.metaGetS(v, "__close").IsNil() {
 						c.pc = pc
-						return nil, NewErrorS("to be closed value missing a __close metamethod")
+						return nil, errors.New("to be closed value missing a __close metamethod")
 					}
 					t.closeStack.push(v)
 				} else {
@@ -489,7 +492,7 @@ RunLoop:
 					default:
 						role, val = "step", step
 					}
-					return nil, NewErrorF("'for' %s: expected number, got %s", role, val.CustomTypeName())
+					return nil, fmt.Errorf("'for' %s: expected number, got %s", role, val.CustomTypeName())
 				}
 				// Make sure start and step have the same numeric type
 				if tstart != tstep {
@@ -503,7 +506,7 @@ RunLoop:
 				// A 0 step is an error
 				if isZero(step) {
 					c.pc = pc
-					return nil, NewErrorS("'for' step is zero")
+					return nil, errors.New("'for' step is zero")
 				}
 				// Check the loop is not already finished. If so, startReg is
 				// set to nil.
@@ -557,7 +560,7 @@ func (c *LuaCont) getRegCell(reg code.Reg) Cell {
 
 func (c *LuaCont) clearReg(reg code.Reg) {
 	if reg.IsCell() {
-		c.cells[reg.Idx()] = NewCell(NilValue)
+		c.cells[reg.Idx()] = newCell(NilValue)
 	} else {
 		c.registers[reg.Idx()] = NilValue
 	}
@@ -566,7 +569,7 @@ func (c *LuaCont) clearReg(reg code.Reg) {
 func setReg(regs []Value, cells []Cell, reg code.Reg, val Value) {
 	idx := reg.Idx()
 	if reg.IsCell() {
-		cells[idx].Set(val)
+		cells[idx].set(val)
 	} else {
 		regs[idx] = val
 	}

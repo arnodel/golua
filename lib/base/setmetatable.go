@@ -1,10 +1,12 @@
 package base
 
 import (
+	"errors"
+
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
@@ -13,9 +15,9 @@ func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err
 	}
 	if !rt.RawGet(tbl.Metatable(), rt.StringValue("__metatable")).IsNil() {
-		return nil, rt.NewErrorS("cannot set metatable")
+		return nil, errors.New("cannot set metatable")
 	}
-	if rt.IsNil(c.Arg(1)) {
+	if c.Arg(1).IsNil() {
 		tbl.SetMetatable(nil)
 	} else if meta, err := c.TableArg(1); err == nil {
 		tbl.SetMetatable(meta)

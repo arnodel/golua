@@ -22,7 +22,7 @@ var _ ExpNode = String{}
 // literal, or an error if it couln't (although perhaps it should panic instead?
 // Parsing should ensure well-formed string token).
 func NewString(id *token.Token) (ss String, err error) {
-	s := id.Lit
+	s := luastrings.NormalizeNewLines(id.Lit)
 	defer func() {
 		if r := recover(); r != nil {
 			err2, ok := r.(error)
@@ -40,7 +40,7 @@ func NewString(id *token.Token) (ss String, err error) {
 // NewLongString returns a String computed from a token containing a Lua long
 // string.
 func NewLongString(id *token.Token) String {
-	s := id.Lit
+	s := luastrings.NormalizeNewLines(id.Lit)
 	idx := bytes.IndexByte(s[1:], '[') + 2
 	contents := s[idx : len(s)-idx]
 	if contents[0] == '\n' {

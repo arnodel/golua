@@ -4,27 +4,6 @@ import (
 	"github.com/arnodel/golua/token"
 )
 
-func scanFirstLine(l *Scanner) stateFn {
-	c := l.next()
-	// BOM
-	if c == rune(0xFEFF) {
-		l.ignore()
-		c = l.next()
-	}
-	if c == '#' {
-		for {
-			switch l.next() {
-			case '\n', '\r', -1:
-				l.ignore()
-				return scanToken
-			}
-		}
-	}
-
-	l.backup()
-	return scanToken
-}
-
 func scanToken(l *Scanner) stateFn {
 	for {
 		switch c := l.next(); {
@@ -97,7 +76,8 @@ func scanComment(l *Scanner) stateFn {
 func scanShortComment(l *Scanner) stateFn {
 	for {
 		switch c := l.next(); c {
-		case '\n', '\r':
+		case '\n':
+			l.acceptRune('\r')
 			l.ignore()
 			return scanToken
 		case -1:
@@ -189,16 +169,7 @@ func scanShortString(q rune) stateFn {
 				default:
 					switch c {
 					case '\n':
-						// we accept "\r\n" as one newline
-						if l.next() != '\r' {
-							l.backup()
-						}
-					// This case doesn't happen because newlines were normalized.
-					// case '\r':
-					// 	// we accept "\n\r" as one newline
-					// 	if l.next() != '\n' {
-					// 		l.backup()
-					// 	}
+						// Nothing to do
 					case 'a', 'b', 'f', 'n', 'r', 't', 'v', 'z', '"', '\'', '\\':
 						break
 					default:

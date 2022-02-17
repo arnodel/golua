@@ -79,30 +79,30 @@ func valueToResources(v rt.Value) (res rt.RuntimeResources, ok bool) {
 	return
 }
 
-func contextArg(c *rt.GoCont, n int) (rt.RuntimeContext, *rt.Error) {
+func contextArg(c *rt.GoCont, n int) (rt.RuntimeContext, error) {
 	ctx, ok := valueToContext(c.Arg(n))
 	if ok {
 		return ctx, nil
 	}
-	return nil, rt.NewErrorF("#%d must be a runtime context", n+1)
+	return nil, fmt.Errorf("#%d must be a runtime context", n+1)
 }
 
-func optContextArg(t *rt.Thread, c *rt.GoCont, n int) (rt.RuntimeContext, *rt.Error) {
+func optContextArg(t *rt.Thread, c *rt.GoCont, n int) (rt.RuntimeContext, error) {
 	if n >= c.NArgs() {
 		return t.RuntimeContext(), nil
 	}
 	return contextArg(c, n)
 }
 
-func resourcesArg(c *rt.GoCont, n int) (rt.RuntimeResources, *rt.Error) {
+func resourcesArg(c *rt.GoCont, n int) (rt.RuntimeResources, error) {
 	res, ok := valueToResources(c.Arg(n))
 	if ok {
 		return res, nil
 	}
-	return res, rt.NewErrorF("#%d must be a runtime resources", n+1)
+	return res, fmt.Errorf("#%d must be a runtime resources", n+1)
 }
 
-func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	ctx, err := contextArg(c, 0)
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func context__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, val), nil
 }
 
-func context__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func context__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	ctx, err := contextArg(c, 0)
 	if err != nil {
 		return nil, err
@@ -143,7 +143,7 @@ func context__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, statusValue(ctx.Status())), nil
 }
 
-func resources__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func resources__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	res, err := resourcesArg(c, 0)
 	if err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func resources__index(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, val), nil
 }
 
-func resources__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func resources__tostring(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	res, err := resourcesArg(c, 0)
 	if err != nil {
 		return nil, err
@@ -212,7 +212,7 @@ func statusValue(st rt.RuntimeContextStatus) rt.Value {
 	return rt.StringValue(s)
 }
 
-func killnow(t *rt.Thread, c *rt.GoCont) (next rt.Cont, err *rt.Error) {
+func killnow(t *rt.Thread, c *rt.GoCont) (next rt.Cont, err error) {
 	ctx, err := optContextArg(t, c, 0)
 	if err != nil {
 		return nil, err
@@ -221,7 +221,7 @@ func killnow(t *rt.Thread, c *rt.GoCont) (next rt.Cont, err *rt.Error) {
 	return nil, nil
 }
 
-func stopnow(t *rt.Thread, c *rt.GoCont) (next rt.Cont, err *rt.Error) {
+func stopnow(t *rt.Thread, c *rt.GoCont) (next rt.Cont, err error) {
 	ctx, err := optContextArg(t, c, 0)
 	if err != nil {
 		return nil, err
@@ -230,7 +230,7 @@ func stopnow(t *rt.Thread, c *rt.GoCont) (next rt.Cont, err *rt.Error) {
 	return c.Next(), nil
 }
 
-func due(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr *rt.Error) {
+func due(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr error) {
 	ctx, err := optContextArg(t, c, 0)
 	if err != nil {
 		return nil, err

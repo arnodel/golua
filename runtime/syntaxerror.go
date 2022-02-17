@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/arnodel/golua/parsing"
@@ -38,6 +39,11 @@ func (e *SyntaxError) IsUnexpectedEOF() bool {
 }
 
 func ErrorIsUnexpectedEOF(err error) bool {
-	snErr, ok := err.(*SyntaxError)
+	snErr, ok := AsSyntaxError(err)
 	return ok && snErr.IsUnexpectedEOF()
+}
+
+func AsSyntaxError(err error) (snErr *SyntaxError, ok bool) {
+	ok = errors.As(err, &snErr)
+	return
 }

@@ -116,7 +116,7 @@ func getConfig(pkg *rt.Table) *config {
 	return conf
 }
 
-func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	// First check is the module is already loaded
 	loaded, ok := pkg.Get(loadedKey).TryTable()
 	if !ok {
-		return nil, rt.NewErrorS("package.loaded must be a table")
+		return nil, errors.New("package.loaded must be a table")
 	}
 	next := c.Next()
 	if mod := loaded.Get(nameVal); !mod.IsNil() {
@@ -141,13 +141,13 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	// If not, then go through the searchers
 	searchers, ok := pkg.Get(searchersKey).TryTable()
 	if !ok {
-		return nil, rt.NewErrorS("package.searchers must be a table")
+		return nil, errors.New("package.searchers must be a table")
 	}
 
 	for i := int64(1); ; i++ {
 		searcher := searchers.Get(rt.IntValue(i))
-		if rt.IsNil(searcher) {
-			err = rt.NewErrorF("could not find package '%s'", name)
+		if searcher.IsNil() {
+			err = fmt.Errorf("could not find package '%s'", name)
 			break
 		}
 		res := rt.NewTerminationWith(c, 2, false)
@@ -174,7 +174,7 @@ func require(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return nil, err
 }
 
-func searchpath(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func searchpath(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var (
 		name, path string
 		sep        = "."
@@ -224,7 +224,7 @@ func searchPath(name, path, dot string, conf *config) (string, []string) {
 	return "", templates
 }
 
-func searchPreload(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func searchPreload(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -236,7 +236,7 @@ func searchPreload(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, loader), nil
 }
 
-func searchLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func searchLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ func searchLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	pkg := pkgTable(t.Runtime)
 	path, ok := pkg.Get(pathKey).TryString()
 	if !ok {
-		return nil, rt.NewErrorS("package.path must be a string")
+		return nil, errors.New("package.path must be a string")
 	}
 	conf := getConfig(pkg)
 	found, templates := searchPath(string(s), string(path), ".", conf)
@@ -267,7 +267,7 @@ var (
 	searchPreloadGoFunc = rt.NewGoFunction(searchPreload, "searchpreload", 1, false)
 )
 
-func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
@@ -278,11 +278,11 @@ func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	src, readErr := ioutil.ReadFile(string(filePath))
 	if readErr != nil {
-		return nil, rt.NewErrorF("error reading file: %s", readErr)
+		return nil, fmt.Errorf("error reading file: %s", readErr)
 	}
 	clos, compErr := t.LoadFromSourceOrCode(string(filePath), src, "bt", rt.TableValue(t.GlobalEnv()), true)
 	if compErr != nil {
-		return nil, rt.NewErrorF("error compiling file: %s", compErr)
+		return nil, fmt.Errorf("error compiling file: %s", compErr)
 	}
 	return rt.Continue(t, rt.FunctionValue(clos), c.Next())
 }

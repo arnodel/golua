@@ -7,11 +7,11 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func ioread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func ioread(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	next := c.Next()
 	readers, fmtErr := getFormatReaders(c.Etc())
 	if fmtErr != nil {
-		return nil, rt.NewErrorE(fmtErr)
+		return nil, fmtErr
 	}
 	ioErr := read(t.Runtime, getIoData(t.Runtime).defaultInputFile(), readers, next)
 	if ioErr != nil && ioErr != io.EOF {
@@ -20,7 +20,7 @@ func ioread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
-func fileread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func fileread(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func fileread(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
 	readers, fmtErr := getFormatReaders(c.Etc())
 	if fmtErr != nil {
-		return nil, rt.NewErrorE(fmtErr)
+		return nil, fmtErr
 	}
 	ioErr := read(t.Runtime, f, readers, next)
 	if ioErr != nil && ioErr != io.EOF {
@@ -83,7 +83,7 @@ func getFormatReaders(fmts []rt.Value) ([]formatReader, error) {
 }
 
 func read(r *rt.Runtime, f *File, readers []formatReader, next rt.Cont) error {
-	if f.closed {
+	if f.IsClosed() {
 		return errFileAlreadyClosed
 	}
 	if len(readers) == 0 {
