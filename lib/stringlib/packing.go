@@ -82,7 +82,7 @@ Xop: an empty item that aligns according to option op (which is otherwise ignore
 ' ': (empty space) ignored
 */
 
-func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -93,19 +93,19 @@ func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	res, used, perr := PackValues(string(format), c.Etc(), t.LinearUnused(10))
 	t.LinearRequire(10, used)
 	if perr != nil {
-		return nil, rt.NewErrorE(perr)
+		return nil, perr
 	}
 	return c.PushingNext1(t.Runtime, rt.StringValue(res)), nil
 }
 
-func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
 	var (
 		format, pack string
 		n            int64 = 1
-		err          *rt.Error
+		err          error
 	)
 	format, err = c.StringArg(0)
 	if err == nil {
@@ -116,7 +116,7 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	i := luastrings.StringNormPos(pack, int(n)) - 1
 	if i < 0 || i > len(pack) {
-		err = rt.NewErrorS("#3 out of string")
+		err = errors.New("#3 out of string")
 	}
 	if err != nil {
 		return nil, err
@@ -124,7 +124,7 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	vals, m, used, uerr := UnpackString(string(format), string(pack), i, t.LinearUnused(10))
 	t.LinearRequire(10, used)
 	if uerr != nil {
-		return nil, rt.NewErrorE(uerr)
+		return nil, uerr
 	}
 	next := c.Next()
 	t.Push(next, vals...)
@@ -132,7 +132,7 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
-func packsize(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func packsize(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func packsize(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	size, serr := PackSize(string(format))
 	if serr != nil {
-		return nil, rt.NewErrorE(serr)
+		return nil, serr
 	}
 	return c.PushingNext1(t.Runtime, rt.IntValue(int64(size))), nil
 }

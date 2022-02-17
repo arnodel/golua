@@ -3,6 +3,7 @@ package mathlib
 import (
 	crypto "crypto/rand"
 	"encoding/binary"
+	"errors"
 	"math"
 	"math/rand"
 
@@ -53,7 +54,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	return rt.TableValue(pkg), nil
 }
 
-func abs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func abs(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -68,12 +69,12 @@ func abs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	case rt.IsFloat:
 		t.Push1(next, rt.FloatValue(math.Abs(f)))
 	default:
-		return nil, rt.NewErrorS("#1 must be a number")
+		return nil, errors.New("#1 must be a number")
 	}
 	return next, nil
 }
 
-func acos(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func acos(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -85,7 +86,7 @@ func acos(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, y), nil
 }
 
-func asin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func asin(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -97,7 +98,7 @@ func asin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, y), nil
 }
 
-func atan(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func atan(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -116,7 +117,7 @@ func atan(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, z), nil
 }
 
-func ceil(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func ceil(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -134,12 +135,12 @@ func ceil(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			t.Push1(next, rt.FloatValue(f))
 		}
 	default:
-		return nil, rt.NewErrorS("#1 must be a number")
+		return nil, errors.New("#1 must be a number")
 	}
 	return next, nil
 }
 
-func cos(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func cos(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -151,7 +152,7 @@ func cos(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, y), nil
 }
 
-func deg(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func deg(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -163,7 +164,7 @@ func deg(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, y), nil
 }
 
-func exp(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func exp(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -175,7 +176,7 @@ func exp(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, y), nil
 }
 
-func floor(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func floor(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -193,12 +194,12 @@ func floor(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			t.Push1(next, rt.FloatValue(f))
 		}
 	default:
-		return nil, rt.NewErrorS("#1 must be a number")
+		return nil, errors.New("#1 must be a number")
 	}
 	return next, nil
 }
 
-func fmod(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func fmod(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
@@ -206,7 +207,7 @@ func fmod(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	y, _ := rt.ToNumberValue(c.Arg(1))
 	res, ok, err := rt.Mod(x, y)
 	if !ok {
-		err = rt.NewErrorS("expected numeric arguments")
+		err = errors.New("expected numeric arguments")
 	}
 	if err != nil {
 		return nil, err
@@ -214,7 +215,7 @@ func fmod(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, res), nil
 }
 
-func log(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func log(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -233,7 +234,7 @@ func log(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.FloatValue(y)), nil
 }
 
-func max(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func max(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -250,7 +251,7 @@ func max(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, x), nil
 }
 
-func min(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func min(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -267,7 +268,7 @@ func min(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, x), nil
 }
 
-func modf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func modf(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -281,7 +282,7 @@ func modf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 	x, ok := arg.TryFloat()
 	if !ok {
-		return nil, rt.NewErrorS("#1 must be numeric")
+		return nil, errors.New("#1 must be numeric")
 	}
 	var i, f float64
 	if math.IsInf(x, 0) {
@@ -294,7 +295,7 @@ func modf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
-func rad(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func rad(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -307,9 +308,9 @@ func rad(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 }
 
 // TODO: have a per runtime random generator
-func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var (
-		err *rt.Error
+		err error
 		m   int64 = 1
 		n   int64
 	)
@@ -332,7 +333,7 @@ func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err
 	}
 	if m > n {
-		return nil, rt.NewErrorS("#2 must be >= #1")
+		return nil, errors.New("#2 must be >= #1")
 	}
 	var r int64
 	if m <= 0 && m+math.MaxInt64 < n {
@@ -351,15 +352,17 @@ func random(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.IntValue(m+r)), nil
 }
 
-func randomseed(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	var seed int64
-	var err *rt.Error
+func randomseed(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	var (
+		seed int64
+		err  error
+	)
 	switch c.NArgs() {
 	case 0:
 		// We need something as random as possible to make a seed.
 		readErr := binary.Read(crypto.Reader, binary.LittleEndian, &seed)
 		if readErr != nil {
-			return nil, rt.NewErrorS("unable to get random seed")
+			return nil, errors.New("unable to get random seed")
 		}
 	case 1:
 		seed, err = c.IntArg(0)
@@ -382,7 +385,7 @@ func randomseed(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext(t.Runtime, rt.IntValue(seed), rt.IntValue(0)), nil
 }
 
-func sin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func sin(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -394,7 +397,7 @@ func sin(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, y), nil
 }
 
-func sqrt(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func sqrt(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -406,7 +409,7 @@ func sqrt(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, y), nil
 }
 
-func tan(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func tan(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -418,7 +421,7 @@ func tan(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, y), nil
 }
 
-func tointeger(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func tointeger(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -429,7 +432,7 @@ func tointeger(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.IntValue(n)), nil
 }
 
-func typef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func typef(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -443,7 +446,7 @@ func typef(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, tp), nil
 }
 
-func ult(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func ult(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}

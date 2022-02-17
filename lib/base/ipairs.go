@@ -2,7 +2,7 @@ package base
 
 import rt "github.com/arnodel/golua/runtime"
 
-func ipairsIteratorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func ipairsIteratorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func ipairsIteratorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 
 var ipairsIterator = rt.NewGoFunction(ipairsIteratorF, "ipairsiterator", 2, false)
 
-func ipairs(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func ipairs(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}

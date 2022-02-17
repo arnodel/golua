@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"errors"
+	"fmt"
 	"unsafe"
 
 	"github.com/arnodel/golua/code"
@@ -103,7 +105,7 @@ func (c *LuaCont) Parent() Cont {
 }
 
 // RunInThread implements Cont.RunInThread.
-func (c *LuaCont) RunInThread(t *Thread) (Cont, *Error) {
+func (c *LuaCont) RunInThread(t *Thread) (Cont, error) {
 	pc := c.pc
 	consts := c.consts
 	lines := c.lines
@@ -131,7 +133,7 @@ RunLoop:
 			x := getReg(regs, cells, opcode.GetB())
 			y := getReg(regs, cells, opcode.GetC())
 			var res Value
-			var err *Error
+			var err error
 			var ok bool
 			switch opcode.GetX() {
 
@@ -276,7 +278,7 @@ RunLoop:
 			dst := opcode.GetA()
 			var res Value
 			var ok bool
-			var err *Error
+			var err error
 			if opcode.HasType4a() {
 				val := getReg(regs, cells, opcode.GetB())
 				switch opcode.GetUnOp() {
@@ -414,7 +416,7 @@ RunLoop:
 					v := getReg(regs, cells, opcode.GetA())
 					if Truth(v) && t.metaGetS(v, "__close").IsNil() {
 						c.pc = pc
-						return nil, NewErrorS("to be closed value missing a __close metamethod")
+						return nil, errors.New("to be closed value missing a __close metamethod")
 					}
 					t.closeStack.push(v)
 				} else {
@@ -490,7 +492,7 @@ RunLoop:
 					default:
 						role, val = "step", step
 					}
-					return nil, NewErrorF("'for' %s: expected number, got %s", role, val.CustomTypeName())
+					return nil, fmt.Errorf("'for' %s: expected number, got %s", role, val.CustomTypeName())
 				}
 				// Make sure start and step have the same numeric type
 				if tstart != tstep {
@@ -504,7 +506,7 @@ RunLoop:
 				// A 0 step is an error
 				if isZero(step) {
 					c.pc = pc
-					return nil, NewErrorS("'for' step is zero")
+					return nil, errors.New("'for' step is zero")
 				}
 				// Check the loop is not already finished. If so, startReg is
 				// set to nil.

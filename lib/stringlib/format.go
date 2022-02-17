@@ -1,6 +1,7 @@
 package stringlib
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -10,7 +11,7 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func format(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func format(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -26,7 +27,7 @@ func format(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.StringValue(s)), nil
 }
 
-var errNotEnoughValues = rt.NewErrorS("not enough values for format string")
+var errNotEnoughValues = errors.New("not enough values for format string")
 
 // Format is the base for the implementation of lua string.format()
 //
@@ -37,7 +38,7 @@ var errNotEnoughValues = rt.NewErrorS("not enough values for format string")
 // It temporarily requires all the memory needed to store the formatted string,
 // but releases it before returning so the caller should require memory first
 // thing after the call.
-func Format(t *rt.Thread, format string, values []rt.Value) (string, *rt.Error) {
+func Format(t *rt.Thread, format string, values []rt.Value) (string, error) {
 	var tmpMem uint64
 	defer t.ReleaseMem(tmpMem)
 	// Temporarily require memory for building the argument list
@@ -70,7 +71,7 @@ OuterLoop:
 					}
 					n, ok := rt.ToInt(values[j])
 					if !ok {
-						return "", rt.NewErrorS("invalid value for integer format")
+						return "", errors.New("invalid value for integer format")
 					}
 					arg = []byte{byte(n)}
 					tmpMem += t.RequireBytes(1)
@@ -83,7 +84,7 @@ OuterLoop:
 					}
 					n, ok := rt.ToInt(values[j])
 					if !ok {
-						return "", rt.NewErrorS("invalid value for integer format")
+						return "", errors.New("invalid value for integer format")
 					}
 					tmpMem += t.RequireBytes(10)
 					switch format[i] {
@@ -112,7 +113,7 @@ OuterLoop:
 					}
 					f, ok := rt.ToFloat(values[j])
 					if !ok {
-						return "", rt.NewErrorS("invalid value for float format")
+						return "", errors.New("invalid value for float format")
 					}
 					tmpMem += t.RequireBytes(10)
 					arg = float64(f)
@@ -131,7 +132,7 @@ OuterLoop:
 				case 'q':
 					// quote, only for literals I think
 					if start < i {
-						return "", rt.NewErrorS("specifier '%q' cannot have modifiers")
+						return "", errors.New("specifier '%q' cannot have modifiers")
 					}
 					if len(args) <= j {
 						return "", errNotEnoughValues
@@ -142,7 +143,7 @@ OuterLoop:
 						arg = s
 						outFormat[i] = 's'
 					} else {
-						return "", rt.NewErrorS("no literal")
+						return "", errors.New("no literal")
 					}
 					break ArgLoop
 				case 'p':
@@ -172,7 +173,7 @@ OuterLoop:
 					}
 					b, ok := values[j].TryBool()
 					if !ok {
-						return "", rt.NewErrorS("invalid value for boolean format")
+						return "", errors.New("invalid value for boolean format")
 					}
 					tmpMem += t.RequireBytes(5)
 					arg = bool(b)
@@ -183,19 +184,19 @@ OuterLoop:
 					if foundDot {
 						prec = prec*10 + int(format[i]-'0')
 						if prec >= 100 {
-							return "", rt.NewErrorS("length too long")
+							return "", errors.New("length too long")
 						}
 					} else {
 						length = length*10 + int(format[i]-'0')
 						if length >= 100 {
-							return "", rt.NewErrorS("precision too long")
+							return "", errors.New("precision too long")
 						}
 					}
 				case '+', '-', '#', ' ':
 					// flag characters
 				default:
 					// Unrecognised verbs
-					return "", rt.NewErrorS("invalid format string")
+					return "", errors.New("invalid format string")
 				}
 			}
 			args[j] = arg

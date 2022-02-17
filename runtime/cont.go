@@ -21,7 +21,7 @@ type Cont interface {
 
 	// RunInThread runs the continuation in the given thread, returning either
 	// the next continuation to be run or an error.
-	RunInThread(*Thread) (Cont, *Error)
+	RunInThread(*Thread) (Cont, error)
 
 	// Next() returns the continuation that follows after this one (could be
 	// e.g. the caller).
@@ -53,7 +53,7 @@ func (r *Runtime) Push1(c Cont, v Value) {
 // PushIoError is a convenience method that translates ioErr to a value if
 // appropriated and pushes that value to c, else returns an error.  It is useful
 // because a number of Go IO errors are considered regular return values by Lua.
-func (r *Runtime) PushIoError(c Cont, ioErr error) *Error {
+func (r *Runtime) PushIoError(c Cont, ioErr error) error {
 	// It is not specified in the Lua docs, but the test suite expects an
 	// errno as the third value returned in case of an error.  I'm not sure
 	// the conversion to syscall.Errno is future-proof though?
@@ -65,7 +65,7 @@ func (r *Runtime) PushIoError(c Cont, ioErr error) *Error {
 	case *os.LinkError:
 		err = tErr.Unwrap()
 	default:
-		return NewErrorE(ioErr)
+		return ioErr
 	}
 	r.Push1(c, NilValue)
 	r.Push1(c, StringValue(ioErr.Error()))
@@ -77,7 +77,7 @@ func (r *Runtime) PushIoError(c Cont, ioErr error) *Error {
 
 // ProcessIoError is like PushIoError but its signature makes it convenient to
 // use in a return statement from a GoFunc implementation.
-func (r *Runtime) ProcessIoError(c Cont, ioErr error) (Cont, *Error) {
+func (r *Runtime) ProcessIoError(c Cont, ioErr error) (Cont, error) {
 	if err := r.PushIoError(c, ioErr); err != nil {
 		return nil, err
 	}

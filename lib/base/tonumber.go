@@ -2,11 +2,12 @@ package base
 
 import (
 	"bytes"
+	"errors"
 
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -27,11 +28,11 @@ func tonumber(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		return nil, err
 	}
 	if base < 2 || base > 36 {
-		return nil, rt.NewErrorS("#2 out of range")
+		return nil, errors.New("#2 out of range")
 	}
 	s, ok := n.TryString()
 	if !ok {
-		return nil, rt.NewErrorS("#1 must be a string")
+		return nil, errors.New("#1 must be a string")
 	}
 	digits := bytes.TrimSpace([]byte(s))
 	if len(digits) == 0 {

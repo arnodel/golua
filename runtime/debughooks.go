@@ -32,7 +32,7 @@ type DebugHooks struct {
 	Hook           Value          // The hook callback
 }
 
-func (h *DebugHooks) callHook(t *Thread, c Cont, args ...Value) *Error {
+func (h *DebugHooks) callHook(t *Thread, c Cont, args ...Value) error {
 	if h.DebugHookFlags&hookFlagInHook != 0 || c == nil {
 		return nil
 	}
@@ -59,7 +59,7 @@ var (
 )
 
 // Important for this function to inline.
-func (h *DebugHooks) triggerCall(t *Thread, c Cont) *Error {
+func (h *DebugHooks) triggerCall(t *Thread, c Cont) error {
 	if h.DebugHookFlags&HookFlagCall == 0 {
 		return nil
 	}
@@ -67,7 +67,7 @@ func (h *DebugHooks) triggerCall(t *Thread, c Cont) *Error {
 }
 
 // Important for this function to inline.
-func (h *DebugHooks) triggerTailCall(t *Thread, c Cont) *Error {
+func (h *DebugHooks) triggerTailCall(t *Thread, c Cont) error {
 	if h.DebugHookFlags&HookFlagCall == 0 {
 		return nil
 	}
@@ -75,7 +75,7 @@ func (h *DebugHooks) triggerTailCall(t *Thread, c Cont) *Error {
 }
 
 // Important for this function to inline.
-func (h *DebugHooks) triggerReturn(t *Thread, c Cont) *Error {
+func (h *DebugHooks) triggerReturn(t *Thread, c Cont) error {
 	if h.DebugHookFlags&HookFlagReturn == 0 {
 		return nil
 	}
@@ -83,7 +83,7 @@ func (h *DebugHooks) triggerReturn(t *Thread, c Cont) *Error {
 }
 
 // Important for this function to inline.
-func (h *DebugHooks) triggerLine(t *Thread, c Cont, l int32) *Error {
+func (h *DebugHooks) triggerLine(t *Thread, c Cont, l int32) error {
 	if h.DebugHookFlags&HookFlagLine == 0 || l <= 0 {
 		return nil
 	}

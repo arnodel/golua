@@ -90,7 +90,7 @@ func TestThread_Yield(t *testing.T) {
 func TestThread_end(t *testing.T) {
 	type args struct {
 		args  []Value
-		err   *Error
+		err   error
 		extra interface{}
 	}
 	quotaErr := ContextTerminationError{message: "boo!"}

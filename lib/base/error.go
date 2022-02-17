@@ -4,7 +4,7 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func errorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func errorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var (
 		err   *rt.Error
 		level int64 = 1
@@ -15,14 +15,14 @@ func errorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		err = rt.NewError(c.Arg(0))
 	}
 	if c.NArgs() >= 2 {
-		var argErr *rt.Error
+		var argErr error
 		level, argErr = c.IntArg(1)
 		if argErr != nil {
 			return nil, argErr
 		}
 	}
 	if level != 1 {
-		err.AddContext(c.Next(), int(level))
+		err = err.AddContext(c.Next(), int(level))
 	}
 	return nil, err
 }

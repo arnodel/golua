@@ -3,6 +3,7 @@ package iolib
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"io/ioutil"
@@ -114,12 +115,12 @@ func TempFile(r *rt.Runtime) (*File, error) {
 }
 
 // FileArg turns a continuation argument into a *File.
-func FileArg(c *rt.GoCont, n int) (*File, *rt.Error) {
+func FileArg(c *rt.GoCont, n int) (*File, error) {
 	f, ok := ValueToFile(c.Arg(n))
 	if ok {
 		return f, nil
 	}
-	return nil, rt.NewErrorF("#%d must be a file", n+1)
+	return nil, fmt.Errorf("#%d must be a file", n+1)
 }
 
 // ValueToFile turns a lua value to a *File if possible.

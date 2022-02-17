@@ -2,6 +2,7 @@ package utf8lib
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"unicode/utf8"
 
@@ -33,7 +34,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	return rt.TableValue(pkg), nil
 }
 
-func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	runes := c.Etc()
 	maxLen := len(runes) * luastrings.UTFMax
 	t.RequireBytes(maxLen)
@@ -44,10 +45,10 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	for i, r := range runes {
 		n, ok := rt.ToInt(r)
 		if !ok {
-			return nil, rt.NewErrorF("#%d should be an integer", i+1)
+			return nil, fmt.Errorf("#%d should be an integer", i+1)
 		}
 		if n < 0 || n > math.MaxInt32 {
-			return nil, rt.NewErrorF("#%d value out of range", i+1)
+			return nil, fmt.Errorf("#%d value out of range", i+1)
 		}
 		sz := luastrings.UTF8EncodeInt32(cur, int32(n))
 		cur = cur[sz:]
@@ -57,11 +58,11 @@ func char(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.StringValue(string(buf[:bufLen]))), nil
 }
 
-func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var (
 		s   string
 		lax bool
-		err *rt.Error
+		err error
 	)
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
@@ -78,7 +79,7 @@ func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	decode := luastrings.GetDecodeRuneInString(lax)
 	var p int64
-	var iterF = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+	var iterF = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		t.RequireCPU(1)
 		next := c.Next()
 		r, n := decode(s[p:])
@@ -87,7 +88,7 @@ func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 			case 0:
 				return next, nil
 			case 1:
-				return nil, rt.NewErrorE(errInvalidCode)
+				return nil, errInvalidCode
 			}
 			// If n > 1, then it is a successful decode in lax mode.
 		}
@@ -101,7 +102,7 @@ func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return c.PushingNext1(t.Runtime, rt.FunctionValue(iter)), nil
 }
 
-func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -125,17 +126,17 @@ func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	next := c.Next()
 	i := luastrings.StringNormPos(s, int(ii))
 	if i < 1 {
-		return nil, rt.NewErrorE(errPosOutOfRange)
+		return nil, errPosOutOfRange
 	}
 	j := luastrings.StringNormPos(s, int(jj))
 	if j > len(s) {
-		return nil, rt.NewErrorE(errPosOutOfRange)
+		return nil, errPosOutOfRange
 	}
 	for k := i - 1; k < j; {
 		t.RequireCPU(1)
 		r, sz := decode(s[k:])
 		if r == utf8.RuneError && sz <= 1 {
-			return nil, rt.NewErrorE(errInvalidCode)
+			return nil, errInvalidCode
 		}
 		t.Push1(next, rt.IntValue(int64(r)))
 		k += sz
@@ -143,7 +144,7 @@ func codepoint(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
-func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -171,7 +172,7 @@ func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		slen   int64
 	)
 	if i <= 0 || i > len(s)+1 || j > len(s) {
-		return nil, rt.NewErrorE(errPosOutOfRange)
+		return nil, errPosOutOfRange
 	}
 	for k := i - 1; k < j; {
 		t.RequireCPU(1)
@@ -188,7 +189,7 @@ func lenf(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	return next, nil
 }
 
-func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
 	}
@@ -210,7 +211,7 @@ func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	i := luastrings.StringNormPos(ss, int(ii)) - 1
 	s := string(ss)
 	if i < 0 || i > len(s) {
-		return nil, rt.NewErrorE(errPosOutOfRange)
+		return nil, errPosOutOfRange
 	}
 	if nn == 0 {
 		// Special case: locate the starting position of the current
@@ -221,7 +222,7 @@ func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 		}
 	} else {
 		if i < len(s) && !utf8.RuneStart(s[i]) {
-			return nil, rt.NewErrorS("initial position is a continuation byte")
+			return nil, errors.New("initial position is a continuation byte")
 		}
 		if nn > 0 {
 			nn--

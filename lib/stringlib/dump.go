@@ -6,7 +6,7 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func dump(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func dump(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func dump(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	// worry about the rest of this codepath in this case.
 	t.LinearRequire(10, used)
 	if err != nil {
-		return nil, rt.NewErrorE(mErr)
+		return nil, mErr
 	}
 	return c.PushingNext1(t.Runtime, rt.StringValue(w.String())), nil
 }

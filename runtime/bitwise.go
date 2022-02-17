@@ -1,6 +1,8 @@
 package runtime
 
-func band(t *Thread, x, y Value) (Value, *Error) {
+import "fmt"
+
+func band(t *Thread, x, y Value) (Value, error) {
 	ix, okx := ToIntNoString(x)
 	iy, oky := ToIntNoString(y)
 	if okx && oky {
@@ -13,7 +15,7 @@ func band(t *Thread, x, y Value) (Value, *Error) {
 	return NilValue, binaryBitwiseError("and", x, y, okx, oky)
 }
 
-func bor(t *Thread, x, y Value) (Value, *Error) {
+func bor(t *Thread, x, y Value) (Value, error) {
 	ix, okx := ToIntNoString(x)
 	iy, oky := ToIntNoString(y)
 	if okx && oky {
@@ -26,7 +28,7 @@ func bor(t *Thread, x, y Value) (Value, *Error) {
 	return NilValue, binaryBitwiseError("or", x, y, okx, oky)
 }
 
-func bxor(t *Thread, x, y Value) (Value, *Error) {
+func bxor(t *Thread, x, y Value) (Value, error) {
 	ix, okx := ToIntNoString(x)
 	iy, oky := ToIntNoString(y)
 	if okx && oky {
@@ -39,7 +41,7 @@ func bxor(t *Thread, x, y Value) (Value, *Error) {
 	return NilValue, binaryBitwiseError("xor", x, y, okx, oky)
 }
 
-func shl(t *Thread, x, y Value) (Value, *Error) {
+func shl(t *Thread, x, y Value) (Value, error) {
 	ix, okx := ToIntNoString(x)
 	iy, oky := ToIntNoString(y)
 
@@ -58,7 +60,7 @@ func shl(t *Thread, x, y Value) (Value, *Error) {
 	return NilValue, binaryBitwiseError("shl", x, y, okx, oky)
 }
 
-func shr(t *Thread, x, y Value) (Value, *Error) {
+func shr(t *Thread, x, y Value) (Value, error) {
 	ix, okx := ToIntNoString(x)
 	iy, oky := ToIntNoString(y)
 
@@ -77,7 +79,7 @@ func shr(t *Thread, x, y Value) (Value, *Error) {
 	return NilValue, binaryBitwiseError("shr", x, y, okx, oky)
 }
 
-func bnot(t *Thread, x Value) (Value, *Error) {
+func bnot(t *Thread, x Value) (Value, error) {
 	ix, okx := ToIntNoString(x)
 	if okx {
 		return IntValue(^ix), nil
@@ -89,7 +91,7 @@ func bnot(t *Thread, x Value) (Value, *Error) {
 	return NilValue, binaryBitwiseError("not", x, x, false, true)
 }
 
-func binaryBitwiseError(op string, x, y Value, okx, oky bool) *Error {
+func binaryBitwiseError(op string, x, y Value, okx, oky bool) error {
 	var wrongVal Value
 	switch {
 	case oky:
@@ -105,7 +107,7 @@ func binaryBitwiseError(op string, x, y Value, okx, oky bool) *Error {
 		wrongVal = x
 	}
 	if wrongVal.Type() == FloatType {
-		return NewErrorF("number has no integer representation")
+		return fmt.Errorf("number has no integer representation")
 	}
-	return NewErrorF("attempt to perform bitwise %s on a %s value", op, wrongVal.CustomTypeName())
+	return fmt.Errorf("attempt to perform bitwise %s on a %s value", op, wrongVal.CustomTypeName())
 }

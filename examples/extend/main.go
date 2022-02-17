@@ -16,7 +16,7 @@ import (
 //      (the one which receives the values computed by this function).
 //
 // It returns the next continuation on success, else an error.
-func addints(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func addints(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	var x, y int64
 
 	// First check there are two arguments

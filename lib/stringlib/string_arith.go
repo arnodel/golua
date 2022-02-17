@@ -13,8 +13,8 @@ var (
 	string__unm  = stringUnOp(rt.Unm, "__unm")
 )
 
-func stringBinOp(f func(x, y rt.Value) (rt.Value, bool), op string) func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	return func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func stringBinOp(f func(x, y rt.Value) (rt.Value, bool), op string) func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	return func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		if err := c.CheckNArgs(2); err != nil {
 			return nil, err
 		}
@@ -39,8 +39,8 @@ func stringBinOp(f func(x, y rt.Value) (rt.Value, bool), op string) func(t *rt.T
 	}
 }
 
-func stringBinOpErr(f func(x, y rt.Value) (rt.Value, bool, *rt.Error), op string) func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	return func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func stringBinOpErr(f func(x, y rt.Value) (rt.Value, bool, error), op string) func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	return func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		if err := c.CheckNArgs(2); err != nil {
 			return nil, err
 		}
@@ -68,8 +68,8 @@ func stringBinOpErr(f func(x, y rt.Value) (rt.Value, bool, *rt.Error), op string
 	}
 }
 
-func stringUnOp(f func(x rt.Value) (rt.Value, bool), op string) func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
-	return func(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func stringUnOp(f func(x rt.Value) (rt.Value, bool), op string) func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	return func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		if err := c.Check1Arg(); err != nil {
 			return nil, err
 		}

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"sync"
 	"unsafe"
 )
@@ -27,7 +28,7 @@ const maxGoFunctionCallDepth = 1000
 // coroutine.close() function).  Other types will cause a panic.
 type valuesError struct {
 	args      []Value     // arguments ot yield or resume
-	err       *Error      // execution error
+	err       error       // execution error
 	exception interface{} // used when the thread should be closed right away
 }
 
@@ -40,8 +41,8 @@ type Thread struct {
 	*Runtime
 	mux         sync.Mutex
 	status      ThreadStatus
-	closeErr    *Error // Error that caused the thread to stop
-	currentCont Cont   // Currently running continuation
+	closeErr    error // Error that caused the thread to stop
+	currentCont Cont  // Currently running continuation
 	resumeCh    chan valuesError
 	caller      *Thread // Who resumed this thread
 
@@ -85,7 +86,7 @@ var errErrorInMessageHandler = StringValue("error in error handling")
 // RunContinuation runs the continuation c in the thread. It keeps running until
 // the next continuation is nil or an error occurs, in which case it returns the
 // error.
-func (t *Thread) RunContinuation(c Cont) (err *Error) {
+func (t *Thread) RunContinuation(c Cont) (err error) {
 	var next Cont
 	var errContCount = 0
 	_ = t.triggerCall(t, c)
@@ -93,21 +94,21 @@ func (t *Thread) RunContinuation(c Cont) (err *Error) {
 		t.currentCont = c
 		next, err = c.RunInThread(t)
 		if err != nil {
-			if err.Handled() {
-				return err
+			rtErr := ToError(err)
+			if rtErr.Handled() {
+				return rtErr
 			}
-			err.AddContext(c, -1)
+			err = rtErr.AddContext(c, -1)
 			errContCount++
 			if t.messageHandler != nil {
 				if errContCount > maxErrorsInMessageHandler {
 					return newHandledError(errErrorInMessageHandler)
 				}
 				next = t.messageHandler.Continuation(t, newMessageHandlerCont(c))
-				next.Push(t.Runtime, err.Value())
 			} else {
 				next = newMessageHandlerCont(c)
-				next.Push(t.Runtime, err.Value())
 			}
+			next.Push(t.Runtime, ErrorValue(err))
 		}
 		c = next
 	}
@@ -131,7 +132,7 @@ func (t *Thread) Start(c Callable) {
 	go func() {
 		var (
 			args []Value
-			err  *Error
+			err  error
 		)
 		// If there was a panic due to an exceeded quota, we need to end the
 		// thread and propagate that panic to the calling thread
@@ -165,15 +166,15 @@ func (t *Thread) Status() ThreadStatus {
 
 // Resume execution of a suspended thread.  Its status switches to
 // running while its caller's status switches to suspended.
-func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, *Error) {
+func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, error) {
 	t.mux.Lock()
 	if t.status != ThreadSuspended {
 		t.mux.Unlock()
 		switch t.status {
 		case ThreadDead:
-			return nil, NewErrorS("cannot resume dead thread")
+			return nil, errors.New("cannot resume dead thread")
 		default:
-			return nil, NewErrorS("cannot resume running thread")
+			return nil, errors.New("cannot resume running thread")
 		}
 	}
 	caller.mux.Lock()
@@ -193,7 +194,7 @@ func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, *Error) {
 // suspended or already dead).  The error is non-nil if there was an error in
 // the cleanup process, or if the thread had already stopped with an error
 // previously.
-func (t *Thread) Close(caller *Thread) (bool, *Error) {
+func (t *Thread) Close(caller *Thread) (bool, error) {
 	t.mux.Lock()
 	if t.status != ThreadSuspended {
 		t.mux.Unlock()
@@ -221,7 +222,7 @@ func (t *Thread) Close(caller *Thread) (bool, *Error) {
 
 // Yield to the caller thread.  The yielding thread's status switches to
 // suspended.  The caller's status must be OK.
-func (t *Thread) Yield(args []Value) ([]Value, *Error) {
+func (t *Thread) Yield(args []Value) ([]Value, error) {
 	t.mux.Lock()
 	if t.status != ThreadOK {
 		panic("Thread to yield is not running")
@@ -229,7 +230,7 @@ func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 	caller := t.caller
 	if caller == nil {
 		t.mux.Unlock()
-		return nil, NewErrorS("cannot yield from main thread")
+		return nil, errors.New("cannot yield from main thread")
 	}
 	caller.mux.Lock()
 	if caller.status != ThreadOK {
@@ -245,7 +246,7 @@ func (t *Thread) Yield(args []Value) ([]Value, *Error) {
 
 // This turns off the thread, cleaning up its close stack.  The thread must be
 // running.
-func (t *Thread) end(args []Value, err *Error, exception interface{}) {
+func (t *Thread) end(args []Value, err error, exception interface{}) {
 	caller := t.caller
 	t.mux.Lock()
 	caller.mux.Lock()
@@ -266,13 +267,13 @@ func (t *Thread) end(args []Value, err *Error, exception interface{}) {
 	t.ReleaseBytes(2 << 10) // The goroutine will terminate after this
 }
 
-func (t *Thread) call(c Callable, args []Value, next Cont) *Error {
+func (t *Thread) call(c Callable, args []Value, next Cont) error {
 	cont := c.Continuation(t, next)
 	t.Push(cont, args...)
 	return t.RunContinuation(cont)
 }
 
-func (t *Thread) getResumeValues() ([]Value, *Error) {
+func (t *Thread) getResumeValues() ([]Value, error) {
 	res := <-t.resumeCh
 	if res.exception != nil {
 		panic(res.exception)
@@ -280,7 +281,7 @@ func (t *Thread) getResumeValues() ([]Value, *Error) {
 	return res.args, res.err
 }
 
-func (t *Thread) sendResumeValues(args []Value, err *Error, exception interface{}) {
+func (t *Thread) sendResumeValues(args []Value, err error, exception interface{}) {
 	t.resumeCh <- valuesError{args: args, err: err, exception: exception}
 }
 
@@ -297,7 +298,7 @@ func (t *Thread) sendResumeValues(args []Value, err *Error, exception interface{
 // be finalized.
 //
 // See quotas.md for details about this API.
-func (t *Thread) CallContext(def RuntimeContextDef, f func() *Error) (ctx RuntimeContext, err *Error) {
+func (t *Thread) CallContext(def RuntimeContextDef, f func() error) (ctx RuntimeContext, err error) {
 	t.PushContext(def)
 	c, h := t.CurrentCont(), t.closeStack.size()
 	defer func() {
@@ -353,14 +354,14 @@ func (s *closeStack) truncate(h int) {
 
 // Truncate the close stack to size h, calling the __close metamethods in the
 // context of the given continuation c and feeding them with the given error.
-func (t *Thread) cleanupCloseStack(c Cont, h int, err *Error) *Error {
+func (t *Thread) cleanupCloseStack(c Cont, h int, err error) error {
 	closeStack := &t.closeStack
 	for closeStack.size() > h {
 		v, _ := closeStack.pop()
 		if Truth(v) {
-			closeErr, ok := Metacall(t, v, "__close", []Value{v, err.Value()}, NewTerminationWith(c, 0, false))
+			closeErr, ok := Metacall(t, v, "__close", []Value{v, ErrorValue(err)}, NewTerminationWith(c, 0, false))
 			if !ok {
-				return NewErrorS("to be closed value missing a __close metamethod")
+				return errors.New("to be closed value missing a __close metamethod")
 			}
 			if closeErr != nil {
 				err = closeErr
@@ -412,6 +413,6 @@ func (c *messageHandlerCont) PushEtc(r *Runtime, etc []Value) {
 	c.Push(r, etc[0])
 }
 
-func (c *messageHandlerCont) RunInThread(t *Thread) (Cont, *Error) {
+func (c *messageHandlerCont) RunInThread(t *Thread) (Cont, error) {
 	return nil, newHandledError(c.err)
 }

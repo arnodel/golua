@@ -1,10 +1,12 @@
 package base
 
 import (
+	"errors"
+
 	rt "github.com/arnodel/golua/runtime"
 )
 
-func rawset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
+func rawset(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(3); err != nil {
 		return nil, err
 	}
@@ -14,10 +16,10 @@ func rawset(t *rt.Thread, c *rt.GoCont) (rt.Cont, *rt.Error) {
 	}
 	key := c.Arg(1)
 	if key.IsNil() {
-		return nil, rt.NewErrorS("#2 must not be nil")
+		return nil, errors.New("#2 must not be nil")
 	}
 	if err := t.SetTableCheck(tbl, key, c.Arg(2)); err != nil {
-		return nil, rt.NewErrorE(err)
+		return nil, err
 	}
 	return c.PushingNext1(t.Runtime, c.Arg(0)), nil
 }
