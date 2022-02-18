@@ -7,7 +7,8 @@ package weakref
 // SafePool is an implementation of Pool that keeps alive all the values it is
 // given.
 type SafePool struct {
-	marked []interface{}
+	markedFinalize []interface{}
+	markedRelease  []interface{}
 }
 
 func NewSafePool() *SafePool {
@@ -23,22 +24,43 @@ func (p *SafePool) Get(iface interface{}) WeakRef {
 }
 
 // Mark adds iface to the list of marked values.
-func (p *SafePool) Mark(iface interface{}) {
-	p.marked = append(p.marked, iface)
+func (p *SafePool) Mark(iface interface{}, flags MarkFlags) {
+	if flags&Finalize != 0 {
+		p.markedFinalize = append(p.markedFinalize, iface)
+	}
+	if flags&Release != 0 {
+		p.markedRelease = append(p.markedRelease, iface)
+	}
 }
 
-// ExtractDeadMarked returns nil because all marked values are kept alive by the
+// ExtractPendingFinalize returns nil because all marked values are kept alive by the
 // pool.
-func (p *SafePool) ExtractDeadMarked() []interface{} {
+func (p *SafePool) ExtractPendingFinalize() []interface{} {
 	return nil
 }
 
-// ExtractAllMarked returns all marked values in reverse order, clearing them.
-func (p *SafePool) ExtractAllMarked() []interface{} {
-	marked := p.marked
-	p.marked = nil
+// ExtractPendingRelease returns nil because all marked values are kept alive by
+// the pool.
+func (p *SafePool) ExtractPendingRelease() []interface{} {
+	return nil
+}
+
+// ExtractAllMarkedFinalize returns all values marked for finalizing in reverse
+// order, clearing them.
+func (p *SafePool) ExtractAllMarkedFinalize() []interface{} {
+	marked := p.markedFinalize
+	p.markedFinalize = nil
 	reverse(marked)
-	return runPrefinalizers(marked)
+	return marked
+}
+
+// ExtractAllMarkedRelease returns all values marked for release in reverse
+// order, clearing them.
+func (p *SafePool) ExtractAllMarkedRelease() []interface{} {
+	marked := p.markedRelease
+	p.markedRelease = nil
+	reverse(marked)
+	return marked
 }
 
 //

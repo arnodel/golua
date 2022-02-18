@@ -39,41 +39,58 @@ type Pool interface {
 	// Mark indicates that the pool should keep a copy of v when it dies.
 	//
 	// The associated Golua Runtime marks all values which have a __gc
-	// metamethod, so that it can get notified when those values are dead via
-	// ExtractDeadMarked.
-	Mark(v interface{})
+	// metamethod, so that it can get notified when those values are unreachable
+	// via ExtractPendingFinalize, ExtractPendingRelease.
+	Mark(v interface{}, flags MarkFlags)
 
-	// ExtractDeadMarked returns all marked values which are now dead and
-	// haven't been returned yet, so that some finalizing code can be run with
-	// them.  The returned values are ordered in reverse order of marking (i.e.
-	// if v1 was marked before v2, then v2 comes before v1 in the returned
-	// list).  Any value implementing Prefinalizer has its Prefinalize() method
-	// called before it is returned.  Further calls should not return the same
-	// values again.
+	// ExtractPendingFinalize returns all marked values which are no longer reachable
+	// and haven't been returned yet, so that some finalizing code can be run
+	// with them.  The returned values are ordered in reverse order of marking
+	// (i.e. if v1 was marked before v2, then v2 comes before v1 in the returned
+	// list). Further calls should not return the same values again.
 	//
 	// This is called periodically by the Golua Runtime to run Lua finalizers on
 	// GCed values.
-	ExtractDeadMarked() []interface{}
+	ExtractPendingFinalize() []interface{}
 
-	// ExtractAllMarked returns all marked values (live or dead), following the
-	// same order as ExtractDeadMarked.  All marked values are cleared in the
-	// pool so that they will no longer be returned by this method or
-	// ExtractDeadMarked.  Any value implementing Prefinalizer has its
-	// Prefinalize() method called before it is returned.
+	// ExtractPendingRelease returns all marked values which are no longer
+	// reachable, no longer need to be finalized and haven't been returned yet,
+	// so that their associated resources can be released.  The returned values
+	// are ordered in reverse order of marking (i.e. if v1 was marked before v2,
+	// then v2 comes before v1 in the returned list). Further calls should not
+	// return the same values again.
+	//
+	// This is called periodically by the Golua Runtime to release resources
+	// associated with GCed values.
+	ExtractPendingRelease() []interface{}
+
+	// ExtractAllMarkedFinalize returns all values marked for Lua finalizing,
+	// following the same order as ExtractPendingFinalize.  All marked values
+	// are cleared in the pool so that they will no longer be returned by this
+	// method or ExtractPendingFinalize.
 	//
 	// Typically this method will be called when the associated Golua Runtime is
 	// being closed so that all outstanding Lua finalizers can be called (even
 	// if their values might get GCed later).
-	ExtractAllMarked() []interface{}
+	ExtractAllMarkedFinalize() []interface{}
+
+	// ExtractAllMarkedRelease returns all values marked for releasing,
+	// following the same order as ExtractPendingRelease.  All marked values
+	// are cleared in the pool so that they will no longer be returned by this
+	// method or ExtractPendingRelease.
+	//
+	// Typically this method will be called when the associated Golua Runtime is
+	// being closed so that all outstanding Lua finalizers can be called (even
+	// if their values might get GCed later).
+	ExtractAllMarkedRelease() []interface{}
 }
 
-// A Prefinalizer has a Prefinalize method which should be run when the value is
-// extracted from the weakref pool.  Prefinalize() does not need to be
-// thread-safe, it will only run while an Extract* method is called on the Pool.
-// This behaviour cannot be overridden.
-type Prefinalizer interface {
-	Prefinalize()
-}
+type MarkFlags uint8
+
+const (
+	Finalize MarkFlags = 1 << iota
+	Release
+)
 
 // NewPool returns a new WeakRefPool with an appropriate implementation.
 func NewPool() Pool {

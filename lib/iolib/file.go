@@ -38,7 +38,7 @@ type File struct {
 	writer bufWriter
 }
 
-var _ rt.UserDataPrefinalizer = (*File)(nil)
+var _ rt.UserDataResourceReleaser = (*File)(nil)
 
 type fileStatus int
 
@@ -318,8 +318,8 @@ func (f *File) Name() string {
 	return f.file.Name()
 }
 
-// Prefinalize cleans up the file
-func (f *File) Prefinalize(d *rt.UserData) {
+// ReleaseResources cleans up the file
+func (f *File) ReleaseResources(d *rt.UserData) {
 	f.cleanup()
 }
 

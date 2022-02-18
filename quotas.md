@@ -34,7 +34,6 @@
     - [Restricting access to Go functions.](#restricting-access-to-go-functions)
       - [`ComplianceFlags`](#complianceflags)
       - [`(*GoFunction).SolemnlyDeclareCompliance(ComplianceFlags)`](#gofunctionsolemnlydeclarecompliancecomplianceflags)
-  - [Random notes](#random-notes)
 ## Overview
 
 First of all: everything in this document is subject to change!
@@ -344,10 +343,12 @@ which are no longer used are closed.
 The Golua runtime makes sure that when a value is created within a runtime
 context with restricted resources, running its finalizer will not use another
 context's resources.  However, only in the case of userdata,  it is sometimes
-the case the value contains a resource that should be released (e.g. a file
-descriptor).  Golua provides a general mechanism to support that, simply by
-defining a `Prefinalize` method on the underlying type.  For example in the
-standard library, the underlying type of file userdata is as follows.
+the case the value contains a resource that should be released unconditionnally
+(e.g. a file descriptor).  Golua provides a general mechanism to support that,
+simply by defining a `ReleaseResources` method on the underlying type.  That
+method is guaranteed to run before the runtime context is closed, but after the
+Lua finalizer runs if it exists.  For example in the standard library, the
+underlying type of file userdata is as follows.
 
 ```golang
 type File struct {
@@ -363,8 +364,8 @@ close the `os.File` instance it owns.  This is done as follows.
 
 ```golang
 
-// The *File type implements the Prefinalizer interface.
-func (f *File) Prefinalize(d *rt.UserData) {
+// The *File type implements the ResourceReleaser interface.
+func (f *File) ReleaseResources(d *rt.UserData) {
 	f.cleanup()
 }
 
@@ -379,10 +380,10 @@ func (f *File) cleanup() {
 }
 ```
 
-The runtime makes sure that any userdata that implements `runtime.Prefinalizer`
-interface will have its `Prefinalize` method called unconditionally.  Of course
-it is important that the code in those methods consumes as little resources as
-possible.
+The runtime makes sure that any userdata that implements
+`runtime.ResourceReleaser` interface will have its `ReleaseResources` method
+called unconditionally.  Of course it is important that the code in those
+methods consumes as little resources as possible.
 
 ## How to implement the safe execution environment
 
@@ -521,30 +522,3 @@ Before execution, the current context's `RequiredFlags` value is checked against
 the compliance flags declared by the Go functions.  If any of the required flags
 is not complied with by the function, execution will immediately return an error
 (but not terminate the context).
-
-
-## Random notes
-
-TODOs:
-- push Etc: done for requiring mem, should release mem when register is cleared?
-- strings: streamline requiring mem
-
-Implementations Guidelines:
-- in an unbounded loop require cpu proportional to the number of iterations in
-  the loop
-- when creating a Value require memory
-- when creating a slice of values require memory
-- when creating a string require memory
-- when calling a Go standard library function you want to require memory /
-  cpu depending on the characteristics of this function
-
-Testing guidelines
-- write *.quotas.lua test file, using quota.rcall to check that memory and cpu
-  are accounted for.
-
-- namespacing
-- filesystem restrictions
-- context:aborted()
-- context:abort()
-- . vs _ in context hard_cpu, hard.cpu
-  

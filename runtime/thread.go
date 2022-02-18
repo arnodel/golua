@@ -316,7 +316,7 @@ func (t *Thread) CallContext(def RuntimeContextDef, f func() error) (ctx Runtime
 	}()
 	err = t.cleanupCloseStack(c, h, f())
 	if t.GCPolicy() == IsolateGCPolicy {
-		t.runFinalizers(t.weakRefPool.ExtractAllMarked())
+		t.runFinalizers(t.weakRefPool.ExtractAllMarkedFinalize())
 	}
 	if err != nil {
 		t.setStatus(StatusError)

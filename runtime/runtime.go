@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"runtime"
+
+	"github.com/arnodel/golua/runtime/internal/weakref"
 )
 
 // A Runtime is a Lua runtime.  It contains all the global state of the runtime
@@ -179,28 +181,35 @@ func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
 		tbl := v.AsTable()
 		tbl.SetMetatable(meta)
 		if !RawGet(meta, MetaFieldGcValue).IsNil() {
-			r.addFinalizer(tbl)
+			r.addFinalizer(tbl, weakref.Finalize)
 		}
 	case UserDataType:
 		udata := v.AsUserData()
 		udata.SetMetatable(meta)
-		if udata.HasFinalizer() {
-			r.addFinalizer(udata)
-		}
+		r.addFinalizer(udata, udata.MarkFlags())
 	default:
 		// Should there be an error here?
 	}
 }
 
-//
-func (r *Runtime) addFinalizer(iface interface{}) {
-	r.weakRefPool.Mark(iface)
+func (r *Runtime) addFinalizer(iface interface{}, flags weakref.MarkFlags) {
+	if flags != 0 {
+		r.weakRefPool.Mark(iface, flags)
+	}
 }
 
 func (r *Runtime) runPendingFinalizers() {
-	pending := r.weakRefPool.ExtractDeadMarked()
-	if len(pending) > 0 {
-		r.runFinalizers(pending)
+
+	// Running finalizers may panic if we run out of resources
+	pendingFinalize := r.weakRefPool.ExtractPendingFinalize()
+	if len(pendingFinalize) > 0 {
+		r.runFinalizers(pendingFinalize)
+	}
+
+	// If we get there, releasing resources should not panic
+	pendingRelease := r.weakRefPool.ExtractPendingRelease()
+	if len(pendingRelease) > 0 {
+		releaseResources(pendingRelease)
 	}
 }
 
@@ -225,6 +234,9 @@ func (t *Thread) CollectGarbage() {
 func (r *Runtime) Close() {
 	runtime.SetFinalizer(r, nil)
 	defer func() {
+		if r.PopContext() != nil {
+			r.Close()
+		}
 		if r := recover(); r != nil {
 			_, ok := r.(ContextTerminationError)
 			if !ok {
@@ -232,10 +244,7 @@ func (r *Runtime) Close() {
 			}
 		}
 	}()
-	r.runFinalizers(r.weakRefPool.ExtractAllMarked())
-	if r.PopContext() != nil {
-		r.Close()
-	}
+	r.runFinalizers(r.weakRefPool.ExtractAllMarkedFinalize())
 }
 
 // Metatable returns the metatalbe of v (looking for '__metatable' in the raw

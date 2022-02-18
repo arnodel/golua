@@ -146,7 +146,8 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 		return nil
 	}
 	if m.gcPolicy == IsolateGCPolicy {
-		m.weakRefPool.ExtractAllMarked()
+		m.weakRefPool.ExtractAllMarkedFinalize()
+		releaseResources(m.weakRefPool.ExtractAllMarkedRelease())
 	}
 	mCopy := *m
 	if mCopy.status == StatusLive {

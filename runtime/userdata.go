@@ -2,6 +2,22 @@ package runtime
 
 import "github.com/arnodel/golua/runtime/internal/weakref"
 
+type ResourceReleaser interface {
+	ReleaseResources()
+}
+
+func releaseResources(vals []interface{}) {
+	for _, v := range vals {
+		if rr, ok := v.(ResourceReleaser); ok {
+			rr.ReleaseResources()
+		}
+	}
+}
+
+type UserDataResourceReleaser interface {
+	ReleaseResources(d *UserData)
+}
+
 // A UserData is a Go value of any type wrapped to be used as a Lua value.  It
 // has a metatable which may allow Lua code to interact with it.
 type UserData struct {
@@ -9,7 +25,7 @@ type UserData struct {
 	meta  *Table
 }
 
-var _ weakref.Prefinalizer = (*UserData)(nil)
+var _ ResourceReleaser = (*UserData)(nil)
 
 // NewUserData returns a new UserData pointer for the value v, giving it meta as
 // a metatable.  This does not register a GC finalizer because access to a
@@ -35,15 +51,21 @@ func (d *UserData) SetMetatable(m *Table) {
 
 // HasFinalizer returns true if the user data has finalizing code (either via
 // __gc metamethod or the value needs prefinalization).
-func (d *UserData) HasFinalizer() bool {
-	_, ok := d.value.(UserDataPrefinalizer)
-	return ok || !RawGet(d.meta, MetaFieldGcValue).IsNil()
+func (d *UserData) MarkFlags() (flags weakref.MarkFlags) {
+	_, ok := d.value.(UserDataResourceReleaser)
+	if ok {
+		flags |= weakref.Release
+	}
+	if !RawGet(d.meta, MetaFieldGcValue).IsNil() {
+		flags |= weakref.Finalize
+	}
+	return flags
 }
 
 // Prefinalizer runs the value's prefinalize
-func (d *UserData) Prefinalize() {
-	if pf, ok := d.value.(UserDataPrefinalizer); ok {
-		pf.Prefinalize(d)
+func (d *UserData) ReleaseResources() {
+	if pf, ok := d.value.(UserDataResourceReleaser); ok {
+		pf.ReleaseResources(d)
 	}
 }
 
@@ -52,14 +74,8 @@ func (d *UserData) Prefinalize() {
 // __gc field.
 func (r *Runtime) NewUserDataValue(iface interface{}, meta *Table) Value {
 	udata := NewUserData(iface, meta)
-	if udata.HasFinalizer() {
-		r.addFinalizer(udata)
-	}
+	r.addFinalizer(udata, udata.MarkFlags())
 	return UserDataValue(udata)
-}
-
-type UserDataPrefinalizer interface {
-	Prefinalize(*UserData)
 }
 
 //
