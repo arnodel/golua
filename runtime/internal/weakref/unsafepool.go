@@ -19,7 +19,7 @@ import (
 type UnsafePool struct {
 	mx            sync.Mutex           // Used to synchronize access to weakrefs, pendingVals, pendingOrders.
 	weakrefs      map[uintptr]*weakRef //
-	pending       orderedVals          // Values pending Lua finalization
+	pending       sortabelVals         // Values pending Lua finalization
 	lastMarkOrder int                  // this is to sort values by reverse order of mark for finalize
 }
 
@@ -219,23 +219,23 @@ type orderedVal struct {
 	order int
 }
 
-type orderedVals []orderedVal
+type sortabelVals []orderedVal
 
-var _ sort.Interface = orderedVals(nil)
+var _ sort.Interface = sortabelVals(nil)
 
-func (vs orderedVals) Len() int {
+func (vs sortabelVals) Len() int {
 	return len(vs)
 }
 
-func (vs orderedVals) Less(i, j int) bool {
+func (vs sortabelVals) Less(i, j int) bool {
 	return vs[i].order > vs[j].order
 }
 
-func (vs orderedVals) Swap(i, j int) {
+func (vs sortabelVals) Swap(i, j int) {
 	vs[i], vs[j] = vs[j], vs[i]
 }
 
-func (vs orderedVals) vals() []interface{} {
+func (vs sortabelVals) vals() []interface{} {
 	vals := make([]interface{}, len(vs))
 	for i, v := range vs {
 		vals[i] = v.val
