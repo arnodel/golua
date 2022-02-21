@@ -11,6 +11,9 @@ import (
 // Unsafe Pool implementation
 //
 
+// So that runtime.SetFinalizer can be mocked for testing.
+var setFinalizer = runtime.SetFinalizer
+
 // UnsafePool is an implementation of Pool that makes every effort to let
 // values be GCed when they are only reachable via WeakRefs.  It relies on
 // casting interface{} to unsafe pointers and back again, which would break if
@@ -44,7 +47,7 @@ func (p *UnsafePool) get(iface interface{}) *weakRef {
 	id := w.id()
 	r := p.weakrefs[id]
 	if r == nil {
-		runtime.SetFinalizer(iface, p.goFinalizer)
+		setFinalizer(iface, p.goFinalizer)
 		r = &weakRef{
 			w:    getwiface(iface),
 			pool: p,
@@ -100,6 +103,7 @@ func (p *UnsafePool) ExtractPendingFinalize() []interface{} {
 			rval.ref.setFlag(wrFinalized)
 			pending = append(pending, rval)
 		}
+		setFinalizer(rval.val, p.goFinalizer)
 	}
 	p.pendingFinalize = nil
 	p.mx.Unlock()
@@ -119,6 +123,9 @@ func (p *UnsafePool) ExtractPendingRelease() []interface{} {
 	p.pendingRelease = nil
 	p.mx.Unlock()
 
+	for _, rval := range pending {
+		rval.ref.setFlag(wrReleased)
+	}
 	sort.Sort(pending)
 	return pending.vals()
 }
@@ -144,7 +151,7 @@ func (p *UnsafePool) ExtractAllMarkedFinalize() []interface{} {
 			// We don't want the finalizer to be triggered anymore, but more
 			// important the finalizer is holding a reference to the pool
 			// (although that may not affect its reachability?)
-			runtime.SetFinalizer(iface, nil)
+			setFinalizer(iface, nil)
 		}
 	}
 	p.mx.Unlock()
@@ -174,7 +181,7 @@ func (p *UnsafePool) ExtractAllMarkedRelease() []interface{} {
 			// We don't want the finalizer to be triggered anymore, but more
 			// important the finalizer is holding a reference to the pool
 			// (although that may not affect its reachability?)
-			runtime.SetFinalizer(iface, nil)
+			setFinalizer(iface, nil)
 		}
 	}
 	p.pendingRelease = nil
@@ -198,9 +205,9 @@ func (p *UnsafePool) goFinalizer(iface interface{}) {
 	}
 
 	// A resurrected value has its go finalizer reinstated.
-	if r.flags&wrResurrected != 0 {
-		r.flags &= ^wrResurrected
-		runtime.SetFinalizer(iface, p.goFinalizer)
+	if r.hasFlag(wrResurrected) {
+		r.clearFlag(wrResurrected)
+		setFinalizer(iface, p.goFinalizer)
 		return
 	}
 
@@ -212,16 +219,17 @@ func (p *UnsafePool) goFinalizer(iface interface{}) {
 	// A not yet finalized value is added to the pendingFinalize list.  As it
 	// may get resurrected in the finalizer, we reinstate its go finalizer.
 	// When it is extracted to be processed, its finalized flag will be set.
-	if r.flags&wrFinalized == 0 {
+	if !r.hasFlag(wrFinalized) {
 		p.pendingFinalize = append(p.pendingFinalize, rval)
-		runtime.SetFinalizer(iface, p.goFinalizer)
+		setFinalizer(iface, p.goFinalizer)
 		return
 	}
 
-	// A not yet released value is added to the pendingRelease list.  This is a
-	// point of no return, this value is now dead to the Lua runtime.
-	if r.flags&wrReleased == 0 {
-		r.flags = wrDead
+	// This is a point of no return, this value is now dead to the Lua runtime.
+	r.setFlag(wrDead)
+
+	// A not yet released value is added to the pendingRelease list.
+	if !r.hasFlag(wrReleased) {
 		p.pendingRelease = append(p.pendingRelease, rval)
 	}
 
