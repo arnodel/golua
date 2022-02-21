@@ -102,8 +102,8 @@ func (p *UnsafePool) ExtractPendingFinalize() []interface{} {
 		} else {
 			rval.ref.setFlag(wrFinalized)
 			pending = append(pending, rval)
+			setFinalizer(rval.val, p.goFinalizer)
 		}
-		setFinalizer(rval.val, p.goFinalizer)
 	}
 	p.pendingFinalize = nil
 	p.mx.Unlock()
