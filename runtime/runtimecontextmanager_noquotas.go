@@ -20,7 +20,7 @@ type runtimeContextManager struct {
 var _ RuntimeContext = (*runtimeContextManager)(nil)
 
 func (m *runtimeContextManager) initRoot() {
-	m.weakRefPool = weakref.NewPool()
+	m.weakRefPool = weakref.NewDefaultPool()
 }
 
 func (m *runtimeContextManager) HardLimits() (r RuntimeResources) {
