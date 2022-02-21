@@ -30,6 +30,8 @@ func (e Error) Error() string {
 	expected := e.Expected
 	if e.Got.Type == token.INVALID {
 		expected = "invalid token: " + expected
+	} else if e.Got.Type == token.UNFINISHED {
+		expected = "unexpected <eof>"
 	} else if expected == "" {
 		expected = "unexpected symbol"
 	} else {

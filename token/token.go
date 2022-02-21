@@ -21,6 +21,7 @@ type Type int
 
 const (
 	INVALID Type = iota
+	UNFINISHED
 	EOF
 	LONGSTRING
 	NUMDEC
