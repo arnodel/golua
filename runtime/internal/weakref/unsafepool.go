@@ -178,6 +178,7 @@ func (p *UnsafePool) ExtractAllMarkedRelease() []interface{} {
 		}
 	}
 	p.pendingRelease = nil
+	p.weakrefs = nil
 	p.mx.Unlock()
 
 	// Sort in reverse order

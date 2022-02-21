@@ -75,9 +75,10 @@ type Pool interface {
 	ExtractAllMarkedFinalize() []interface{}
 
 	// ExtractAllMarkedRelease returns all values marked for releasing,
-	// following the same order as ExtractPendingRelease.  All marked values
-	// are cleared in the pool so that they will no longer be returned by this
-	// method or ExtractPendingRelease.
+	// following the same order as ExtractPendingRelease.  All values marked for
+	// Finalize or Release are cleared in the pool so that they will no longer
+	// be returned by any Extract* method.  This means this method should be
+	// called as the last action before discarding the pool.
 	//
 	// Typically this method will be called when the associated Golua Runtime is
 	// being closed so that all outstanding Lua finalizers can be called (even
@@ -85,14 +86,11 @@ type Pool interface {
 	ExtractAllMarkedRelease() []interface{}
 }
 
+// MarkFlags are passsed to the Pool.Mark method to signal to the pool how to
+// deal with the value when it becomes unreachable.
 type MarkFlags uint8
 
 const (
-	Finalize MarkFlags = 1 << iota
-	Release
+	Finalize MarkFlags = 1 << iota // Mark a value for finalizing
+	Release                        // Mark a value for releasing
 )
-
-// NewPool returns a new WeakRefPool with an appropriate implementation.
-func NewPool() Pool {
-	return NewUnsafePool()
-}

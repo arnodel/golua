@@ -26,11 +26,24 @@ func (p *SafePool) Get(iface interface{}) WeakRef {
 // Mark adds iface to the list of marked values.
 func (p *SafePool) Mark(iface interface{}, flags MarkFlags) {
 	if flags&Finalize != 0 {
-		p.markedFinalize = append(p.markedFinalize, iface)
+		p.markedFinalize = appendNoDup(p.markedFinalize, iface)
 	}
 	if flags&Release != 0 {
-		p.markedRelease = append(p.markedRelease, iface)
+		p.markedRelease = appendNoDup(p.markedRelease, iface)
 	}
+}
+
+// append y to the end of xs, removing a previous occurrence of y in xs if
+// found.  It is assumed that xs doesn't have any duplicates.
+func appendNoDup(xs []interface{}, y interface{}) []interface{} {
+	for i, x := range xs {
+		if x == y {
+			copy(xs[i:], xs[i+1:])
+			xs[len(xs)-1] = y
+			return xs
+		}
+	}
+	return append(xs, y)
 }
 
 // ExtractPendingFinalize returns nil because all marked values are kept alive by the

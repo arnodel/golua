@@ -15,6 +15,7 @@ jobs:
           - 'noquotas'
           - 'nocontpool noregpool'
           - 'noquotas nocontpool noregpool'
+          - 'safepool'
         os:
           - ubuntu-latest
           - macOS-latest

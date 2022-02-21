@@ -48,7 +48,7 @@ var _ RuntimeContext = (*runtimeContextManager)(nil)
 
 func (m *runtimeContextManager) initRoot() {
 	m.gcPolicy = IsolateGCPolicy
-	m.weakRefPool = weakref.NewPool()
+	m.weakRefPool = weakref.NewDefaultPool()
 }
 
 func (m *runtimeContextManager) HardLimits() RuntimeResources {
@@ -129,7 +129,7 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	m.messageHandler = ctx.MessageHandler
 	m.parent = &parent
 	if ctx.GCPolicy == IsolateGCPolicy || ctx.HardLimits.Millis > 0 || ctx.HardLimits.Cpu > 0 || ctx.HardLimits.Memory > 0 {
-		m.weakRefPool = weakref.NewPool()
+		m.weakRefPool = weakref.NewDefaultPool()
 		m.gcPolicy = IsolateGCPolicy
 	} else {
 		m.weakRefPool = parent.weakRefPool
