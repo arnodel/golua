@@ -67,9 +67,13 @@ func (p *UnsafePool) Mark(iface interface{}, flags MarkFlags) {
 	r.markOrder = p.lastMarkOrder
 	if flags&Finalize == 0 {
 		r.setFlag(wrFinalized)
+	} else {
+		r.clearFlag(wrFinalized)
 	}
 	if flags&Release == 0 {
 		r.setFlag(wrReleased)
+	} else {
+		r.clearFlag(wrReleased)
 	}
 }
 
@@ -130,7 +134,7 @@ func (p *UnsafePool) ExtractAllMarkedFinalize() []interface{} {
 	p.pendingFinalize = nil
 	var marked sortableVals
 	for _, r := range p.weakrefs {
-		if r.flags&wrFinalized == 0 {
+		if !r.hasFlag(wrFinalized) {
 			iface := r.w.iface()
 			marked = append(marked, refVal{
 				val: iface,
@@ -160,7 +164,7 @@ func (p *UnsafePool) ExtractAllMarkedRelease() []interface{} {
 	// release, then add all values in the weakrefs map not yet released.
 	marked := p.pendingRelease
 	for _, r := range p.weakrefs {
-		if r.flags&wrReleased == 0 {
+		if !r.hasFlag(wrReleased) {
 			iface := r.w.iface()
 			marked = append(marked, refVal{
 				val: iface,

@@ -385,6 +385,9 @@ The runtime makes sure that any userdata that implements
 called unconditionally.  Of course it is important that the code in those
 methods consumes as little resources as possible.
 
+For details about the semantics see the [userdata.lua](runtime/lua/userdata.lua)
+test file
+
 ## How to implement the safe execution environment
 
 ### CPU limits

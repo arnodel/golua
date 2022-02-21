@@ -236,6 +236,8 @@ func (r *Runtime) Close() {
 	defer func() {
 		if r.PopContext() != nil {
 			r.Close()
+		} else {
+			releaseResources(r.weakRefPool.ExtractAllMarkedRelease())
 		}
 		if r := recover(); r != nil {
 			_, ok := r.(ContextTerminationError)
