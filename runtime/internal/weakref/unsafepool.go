@@ -120,11 +120,12 @@ func (p *UnsafePool) ExtractPendingRelease() []interface{} {
 		return nil
 	}
 	p.pendingRelease = nil
-	p.mx.Unlock()
 
 	for _, rval := range pending {
 		rval.ref.setFlag(wrReleased)
 	}
+	p.mx.Unlock()
+
 	sort.Sort(pending)
 	return pending.vals()
 }
