@@ -80,11 +80,11 @@ func (p *UnsafePool) Mark(iface interface{}, flags MarkFlags) {
 	}
 }
 
-// ExtractDeadMarked returns the set of values which are being garbage collected
-// and need their finalizer running, in the order that they should be run.  The
-// caller of this function has the responsibility to run all the finalizers. The
-// values returned are removed from the pool and their weak refs are
-// invalidated.
+// ExtractPendingFinalize returns the set of values which are being garbage
+// collected and need their finalizer running, in the order that they should be
+// run.  The caller of this function has the responsibility to run all the
+// finalizers. The values returned are removed from the pool and their weak refs
+// are invalidated.
 func (p *UnsafePool) ExtractPendingFinalize() []interface{} {
 
 	// It may be that since a value pending finalizing has been added to the
