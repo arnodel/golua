@@ -1,16 +1,22 @@
 package runtime
 
+import (
+	"unsafe"
+
+	"github.com/arnodel/golua/runtime/internal/weakref"
+)
+
 // Table implements a Lua table.
 type Table struct {
 	// This is where the implementation details are.
-	mixedTable
+	*mixedTable
 
 	meta *Table
 }
 
 // NewTable returns a new Table.
 func NewTable() *Table {
-	return &Table{mixedTable: mixedTable{}}
+	return &Table{mixedTable: &mixedTable{}}
 }
 
 // Metatable returns the table's metatable.
@@ -21,6 +27,18 @@ func (t *Table) Metatable() *Table {
 // SetMetatable sets the table's metatable.
 func (t *Table) SetMetatable(m *Table) {
 	t.meta = m
+}
+
+var _ weakref.Value = (*Table)(nil)
+
+func (t *Table) Key() weakref.Key {
+	return unsafe.Pointer(t.mixedTable)
+}
+
+func (t *Table) Clone() weakref.Value {
+	clone := new(Table)
+	*clone = *t
+	return clone
 }
 
 // Get returns t[k].

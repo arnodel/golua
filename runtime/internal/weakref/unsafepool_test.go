@@ -8,7 +8,7 @@ import (
 // Simulate the Go runtime object management (GC, SetFinalizer).
 type testCollector struct {
 	mx      sync.Mutex
-	pending map[interface{}]func(interface{})
+	pending map[interface{}]func(Value)
 }
 
 // SetFinalizer simulates runtime.SetFinalizer.
@@ -18,11 +18,11 @@ func (c *testCollector) SetFinalizer(obj interface{}, finalizer interface{}) {
 	if finalizer == nil {
 		delete(c.pending, obj)
 	} else {
-		c.pending[obj] = finalizer.(func(interface{}))
+		c.pending[obj] = finalizer.(func(Value))
 	}
 }
 
-func (c *testCollector) getFinalizer(obj interface{}) func(interface{}) {
+func (c *testCollector) getFinalizer(obj interface{}) func(Value) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	defer delete(c.pending, obj)
@@ -30,7 +30,7 @@ func (c *testCollector) getFinalizer(obj interface{}) func(interface{}) {
 }
 
 // GC simulate runtime.GC.
-func (c *testCollector) GC(objs ...interface{}) {
+func (c *testCollector) GC(objs ...Value) {
 	for _, obj := range objs {
 		f := c.getFinalizer(obj)
 		if f != nil {
@@ -39,11 +39,17 @@ func (c *testCollector) GC(objs ...interface{}) {
 	}
 }
 
+func (c *testCollector) FinalizerCount() int {
+	c.mx.Lock()
+	defer c.mx.Unlock()
+	return len(c.pending)
+}
+
 // Replace the Go runtime.SetFinalizer function with the testCollector version,
 // for testing of UnsafePool.
 func installTestCollector() *testCollector {
 	c := &testCollector{
-		pending: make(map[interface{}]func(interface{})),
+		pending: make(map[interface{}]func(Value)),
 	}
 	setFinalizer = c.SetFinalizer
 	return c
@@ -53,7 +59,7 @@ func TestUnsafePoolFinalize(t *testing.T) {
 	const nObjs = 100
 	c := installTestCollector()
 	p := NewUnsafePool()
-	objs := make([]interface{}, nObjs)
+	objs := make([]Value, nObjs)
 	ws := make([]WeakRef, nObjs/2)
 
 	// Create nObjs pointers to integers, each containing its index in the objs
@@ -87,9 +93,9 @@ func TestUnsafePoolFinalize(t *testing.T) {
 	j := nObjs - 1
 	for j >= 0 {
 		for _, obj := range p.ExtractPendingFinalize() {
-			n := obj.(*int)
-			if *n != j {
-				t.Fatalf("Expected %d, got %d", j, *n)
+			n := getInt(obj)
+			if n != j {
+				t.Fatalf("Expected %d, got %d", j, n)
 			}
 			j -= 2
 		}
@@ -110,8 +116,8 @@ func TestUnsafePoolFinalize(t *testing.T) {
 	// Now all revived objects are ready to be finalized
 	j = nObjs - 2
 	for _, obj := range p.ExtractPendingFinalize() {
-		n := obj.(*int)
-		if *n != j {
+		n := getInt(obj)
+		if n != j {
 			t.Fatalf("Expected %d, got %d", j, n)
 		}
 		j -= 2
@@ -134,9 +140,9 @@ func TestUnsafePoolFinalize(t *testing.T) {
 	}
 	// Check the extra values can be finalized
 	for i, obj := range extraMarked {
-		n := obj.(*int)
-		if *n != nObjs-1-i {
-			t.Fatalf("Expected extra %d, got %d", nObjs-1-i, *n)
+		n := getInt(obj)
+		if n != nObjs-1-i {
+			t.Fatalf("Expected extra %d, got %d", nObjs-1-i, n)
 		}
 	}
 }
@@ -145,7 +151,7 @@ func TestUnsafePoolRelease(t *testing.T) {
 	const nObjs = 100
 	c := installTestCollector()
 	p := NewUnsafePool()
-	objs := make([]interface{}, nObjs)
+	objs := make([]Value, nObjs)
 	ws := make([]WeakRef, nObjs/2)
 
 	// Create nObjs pointers to integers, each containing its index in the objs
@@ -179,9 +185,9 @@ func TestUnsafePoolRelease(t *testing.T) {
 	j := nObjs - 1
 	for j >= 0 {
 		for _, obj := range p.ExtractPendingRelease() {
-			n := obj.(*int)
-			if *n != j {
-				t.Fatalf("Expected %d, got %d", j, *n)
+			n := getInt(obj)
+			if n != j {
+				t.Fatalf("Expected %d, got %d", j, n)
 			}
 			j -= 2
 		}
@@ -202,8 +208,8 @@ func TestUnsafePoolRelease(t *testing.T) {
 	// Now all revived objects are ready to be finalized
 	j = nObjs - 2
 	for _, obj := range p.ExtractPendingRelease() {
-		n := obj.(*int)
-		if *n != j {
+		n := getInt(obj)
+		if n != j {
 			t.Fatalf("Expected %d, got %d", j, n)
 		}
 		j -= 2
@@ -226,9 +232,9 @@ func TestUnsafePoolRelease(t *testing.T) {
 		t.Fatalf("Expected %d extra, got %d", nObjs, len(extraMarked))
 	}
 	for i, obj := range extraMarked {
-		n := obj.(*int)
-		if *n != nObjs-1-i {
-			t.Fatalf("Expected extra %d, got %d", nObjs-1-i, *n)
+		n := getInt(obj)
+		if n != nObjs-1-i {
+			t.Fatalf("Expected extra %d, got %d", nObjs-1-i, n)
 		}
 	}
 }
@@ -282,6 +288,25 @@ func TestUnsafePoolFinalizeRelease(t *testing.T) {
 	}
 }
 
-func newIntPtr(n int) *int {
-	return &n
+func newIntPtr(n int) *intVal {
+	v := intVal(n)
+	return &v
+}
+
+type intVal int
+
+var _ Value = (*intVal)(nil)
+
+func (v *intVal) Key() Key {
+	return *v
+}
+
+func (v *intVal) Clone() Value {
+	clone := new(intVal)
+	*clone = *v
+	return clone
+}
+
+func getInt(r Value) int {
+	return int(*r.(*intVal))
 }

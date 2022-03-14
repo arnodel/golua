@@ -45,8 +45,9 @@ type Runtime struct {
 }
 
 type runtimeOptions struct {
-	regPoolSize  uint
-	regSetMaxAge uint
+	regPoolSize       uint
+	regSetMaxAge      uint
+	runtimeContextDef *RuntimeContextDef
 }
 
 var defaultRuntimeOptions = runtimeOptions{
@@ -73,6 +74,12 @@ func WithRegSetMaxAge(age uint) RuntimeOption {
 	}
 }
 
+func WithRuntimeContext(def RuntimeContextDef) RuntimeOption {
+	return func(rtOpts *runtimeOptions) {
+		rtOpts.runtimeContextDef = &def
+	}
+}
+
 // New returns a new pointer to a Runtime with the given stdout.
 func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 	rtOpts := defaultRuntimeOptions
@@ -87,6 +94,10 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 		regPool:   mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
 		argsPool:  mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
 		cellPool:  mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+	}
+
+	if rtOpts.runtimeContextDef != nil {
+		r.PushContext(*rtOpts.runtimeContextDef)
 	}
 
 	mainThread := NewThread(r)
@@ -192,9 +203,9 @@ func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
 	}
 }
 
-func (r *Runtime) addFinalizer(iface interface{}, flags weakref.MarkFlags) {
+func (r *Runtime) addFinalizer(ref weakref.Value, flags weakref.MarkFlags) {
 	if flags != 0 {
-		r.weakRefPool.Mark(iface, flags)
+		r.weakRefPool.Mark(ref, flags)
 	}
 }
 
@@ -213,10 +224,10 @@ func (r *Runtime) runPendingFinalizers() {
 	}
 }
 
-func (r *Runtime) runFinalizers(ifaces []interface{}) {
-	for _, iface := range ifaces {
+func (r *Runtime) runFinalizers(refs []weakref.Value) {
+	for _, ref := range refs {
 		term := NewTerminationWith(nil, 0, false)
-		v := AsValue(iface)
+		v := AsValue(ref)
 		err, _ := Metacall(r.gcThread, v, MetaFieldGcString, []Value{v}, term)
 		if err != nil {
 			r.Warn(fmt.Sprintf("error in finalizer: %s", err))

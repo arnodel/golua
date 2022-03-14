@@ -4,5 +4,5 @@ package weakref
 
 // NewDefaultPool returns a new WeakRefPool with an appropriate implementation.
 func NewDefaultPool() Pool {
-	return NewUnsafePool()
+	return NewClonePool()
 }

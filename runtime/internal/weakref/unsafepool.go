@@ -33,23 +33,23 @@ func NewUnsafePool() *UnsafePool {
 	return &UnsafePool{weakrefs: make(map[uintptr]*weakRef)}
 }
 
-// Get returns a *WeakRef for v if possible.
-func (p *UnsafePool) Get(iface interface{}) WeakRef {
+// Get returns a WeakRef for v if possible.
+func (p *UnsafePool) Get(v Value) WeakRef {
 	p.mx.Lock()
 	defer p.mx.Unlock()
-	return p.get(iface)
+	return p.get(v)
 }
 
 // Returns a *WeakRef for iface, not thread safe, only call when you have the
 // pool lock.
-func (p *UnsafePool) get(iface interface{}) *weakRef {
-	w := getwiface(iface)
+func (p *UnsafePool) get(v Value) *weakRef {
+	w := getwiface(v)
 	id := w.id()
 	r := p.weakrefs[id]
 	if r == nil {
-		setFinalizer(iface, p.goFinalizer)
+		setFinalizer(v, p.goFinalizer)
 		r = &weakRef{
-			w:    getwiface(iface),
+			w:    w,
 			pool: p,
 		}
 		p.weakrefs[id] = r
@@ -59,14 +59,14 @@ func (p *UnsafePool) get(iface interface{}) *weakRef {
 
 // Mark marks v for finalizing, i.e. when v is garbage collected, its finalizer
 // should be run.  It only takes effect if v can have a weak ref.
-func (p *UnsafePool) Mark(iface interface{}, flags MarkFlags) {
+func (p *UnsafePool) Mark(v Value, flags MarkFlags) {
 	if flags == 0 {
 		return
 	}
 	p.mx.Lock()
 	defer p.mx.Unlock()
 	p.lastMarkOrder++
-	r := p.get(iface)
+	r := p.get(v)
 	r.markOrder = p.lastMarkOrder
 	if flags&Finalize == 0 {
 		r.setFlag(wrFinalized)
@@ -85,7 +85,7 @@ func (p *UnsafePool) Mark(iface interface{}, flags MarkFlags) {
 // run.  The caller of this function has the responsibility to run all the
 // finalizers. The values returned are removed from the pool and their weak refs
 // are invalidated.
-func (p *UnsafePool) ExtractPendingFinalize() []interface{} {
+func (p *UnsafePool) ExtractPendingFinalize() []Value {
 
 	// It may be that since a value pending finalizing has been added to the
 	// list, it was resurrected by a weak ref, so we need to go through the list
@@ -97,10 +97,10 @@ func (p *UnsafePool) ExtractPendingFinalize() []interface{} {
 	}
 	var pending sortableVals
 	for _, rval := range p.pendingFinalize {
-		if rval.ref.hasFlag(wrResurrected) {
-			rval.ref.clearFlag(wrResurrected)
+		if rval.r.hasFlag(wrResurrected) {
+			rval.r.clearFlag(wrResurrected)
 		} else {
-			rval.ref.setFlag(wrFinalized)
+			rval.r.setFlag(wrFinalized)
 			pending = append(pending, rval)
 		}
 	}
@@ -112,7 +112,7 @@ func (p *UnsafePool) ExtractPendingFinalize() []interface{} {
 	return pending.vals()
 }
 
-func (p *UnsafePool) ExtractPendingRelease() []interface{} {
+func (p *UnsafePool) ExtractPendingRelease() []Value {
 	p.mx.Lock()
 	pending := p.pendingRelease
 	if pending == nil {
@@ -122,7 +122,7 @@ func (p *UnsafePool) ExtractPendingRelease() []interface{} {
 	p.pendingRelease = nil
 
 	for _, rval := range pending {
-		rval.ref.setFlag(wrReleased)
+		rval.r.setFlag(wrReleased)
 	}
 	p.mx.Unlock()
 
@@ -133,7 +133,7 @@ func (p *UnsafePool) ExtractPendingRelease() []interface{} {
 // ExtractAllMarkedFinalized returns all the values that have been marked for
 // finalizing, even if their go finalizer hasn't run yet.  This is useful e.g.
 // when closing a runtime, to run all pending finalizers.
-func (p *UnsafePool) ExtractAllMarkedFinalize() []interface{} {
+func (p *UnsafePool) ExtractAllMarkedFinalize() []Value {
 	p.mx.Lock()
 
 	// Disregard the pendingFinalize list as all values are still present in the
@@ -144,8 +144,8 @@ func (p *UnsafePool) ExtractAllMarkedFinalize() []interface{} {
 		if !r.hasFlag(wrFinalized) {
 			iface := r.w.iface()
 			marked = append(marked, refVal{
-				val: iface,
-				ref: r,
+				v: iface,
+				r: r,
 			})
 			r.setFlag(wrFinalized)
 			// We don't want the finalizer to be triggered anymore, but more
@@ -164,7 +164,7 @@ func (p *UnsafePool) ExtractAllMarkedFinalize() []interface{} {
 // ExtractAllMarkedRelease returns all the values that have been marked for
 // release, even if their go finalizer hasn't run yet.  This is useful e.g. when
 // closing a runtime, to release all resources.
-func (p *UnsafePool) ExtractAllMarkedRelease() []interface{} {
+func (p *UnsafePool) ExtractAllMarkedRelease() []Value {
 	p.mx.Lock()
 
 	// Start from values whose go finalizer has already run and are awaiting
@@ -174,8 +174,8 @@ func (p *UnsafePool) ExtractAllMarkedRelease() []interface{} {
 		if !r.hasFlag(wrReleased) {
 			iface := r.w.iface()
 			marked = append(marked, refVal{
-				val: iface,
-				ref: r,
+				v: iface,
+				r: r,
 			})
 			r.flags |= wrReleased
 			// We don't want the finalizer to be triggered anymore, but more
@@ -195,10 +195,10 @@ func (p *UnsafePool) ExtractAllMarkedRelease() []interface{} {
 
 // This is the finalizer that Go runs on values added to the pool when they
 // become unreachable.
-func (p *UnsafePool) goFinalizer(iface interface{}) {
+func (p *UnsafePool) goFinalizer(v Value) {
 	p.mx.Lock()
 	defer p.mx.Unlock()
-	id := getwiface(iface).id()
+	id := getwiface(v).id()
 	r := p.weakrefs[id]
 	if r == nil {
 		return
@@ -207,13 +207,13 @@ func (p *UnsafePool) goFinalizer(iface interface{}) {
 	// A resurrected value has its go finalizer reinstated.
 	if r.hasFlag(wrResurrected) {
 		r.clearFlag(wrResurrected)
-		setFinalizer(iface, p.goFinalizer)
+		setFinalizer(v, p.goFinalizer)
 		return
 	}
 
 	rval := refVal{
-		val: iface,
-		ref: r,
+		v: v,
+		r: r,
 	}
 
 	// A not yet finalized value is added to the pendingFinalize list.  As it
@@ -221,7 +221,7 @@ func (p *UnsafePool) goFinalizer(iface interface{}) {
 	// When it is extracted to be processed, its finalized flag will be set.
 	if !r.hasFlag(wrFinalized) {
 		p.pendingFinalize = append(p.pendingFinalize, rval)
-		setFinalizer(iface, p.goFinalizer)
+		setFinalizer(v, p.goFinalizer)
 		return
 	}
 
@@ -254,7 +254,7 @@ var _ WeakRef = &weakRef{}
 
 // Value returns the value this weak ref refers to if it is still alive, else
 // returns NilValue.
-func (r *weakRef) Value() interface{} {
+func (r *weakRef) Value() Value {
 	r.pool.mx.Lock()
 	defer r.pool.mx.Unlock()
 	if r.hasFlag(wrDead) {
@@ -299,8 +299,8 @@ const (
 // a Go interface value, but does not keep it alive.
 type wiface [2]uintptr
 
-func getwiface(iface interface{}) wiface {
-	return *(*[2]uintptr)(unsafe.Pointer(&iface))
+func getwiface(r Value) wiface {
+	return *(*[2]uintptr)(unsafe.Pointer(&r))
 }
 
 func (w wiface) id() uintptr {
@@ -308,16 +308,16 @@ func (w wiface) id() uintptr {
 	return w[1]
 }
 
-func (w wiface) iface() interface{} {
-	return *(*interface{})(unsafe.Pointer(&w))
+func (w wiface) iface() Value {
+	return *(*Value)(unsafe.Pointer(&w))
 }
 
 //
 // Values need to be sorted by reverse mark order.  The data structures below help with that.
 //
 type refVal struct {
-	val interface{}
-	ref *weakRef
+	v Value
+	r *weakRef
 }
 
 type sortableVals []refVal
@@ -329,7 +329,7 @@ func (vs sortableVals) Len() int {
 }
 
 func (vs sortableVals) Less(i, j int) bool {
-	return vs[i].ref.markOrder > vs[j].ref.markOrder
+	return vs[i].r.markOrder > vs[j].r.markOrder
 }
 
 func (vs sortableVals) Swap(i, j int) {
@@ -337,10 +337,10 @@ func (vs sortableVals) Swap(i, j int) {
 }
 
 // Extract the values.
-func (vs sortableVals) vals() []interface{} {
-	vals := make([]interface{}, len(vs))
+func (vs sortableVals) vals() []Value {
+	vals := make([]Value, len(vs))
 	for i, v := range vs {
-		vals[i] = v.val
+		vals[i] = v.v
 	}
 	return vals
 }

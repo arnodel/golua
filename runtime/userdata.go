@@ -6,9 +6,9 @@ type ResourceReleaser interface {
 	ReleaseResources()
 }
 
-func releaseResources(vals []interface{}) {
-	for _, v := range vals {
-		if rr, ok := v.(ResourceReleaser); ok {
+func releaseResources(refs []weakref.Value) {
+	for _, r := range refs {
+		if rr, ok := r.(ResourceReleaser); ok {
 			rr.ReleaseResources()
 		}
 	}
@@ -47,6 +47,18 @@ func (d *UserData) Metatable() *Table {
 // SetMetatable sets d's metatable to m.
 func (d *UserData) SetMetatable(m *Table) {
 	d.meta = m
+}
+
+var _ weakref.Value = (*UserData)(nil)
+
+func (d *UserData) Key() weakref.Key {
+	return d.value
+}
+
+func (d *UserData) Clone() weakref.Value {
+	clone := new(UserData)
+	*clone = *d
+	return clone
 }
 
 // HasFinalizer returns true if the user data has finalizing code (either via
