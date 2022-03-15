@@ -64,7 +64,7 @@ func TestClonePoolGC(t *testing.T) {
 	p.Mark(n4, Finalize|Release)
 	p.Mark(n4, 0)
 
-	c.GC(n1, n2, n3, n4)
+	c.GC(n2, n1, n3, n4)
 
 	mf := p.ExtractPendingFinalize()
 	if !reflect.DeepEqual(mf, []Value{n1, n2}) {
