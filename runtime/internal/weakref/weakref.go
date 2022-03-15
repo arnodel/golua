@@ -31,7 +31,7 @@ type Value interface {
 	Clone() Value
 }
 
-// Key is the type for value keys (see the Value interface)
+// Key is the type for value keys (see the Value interface).
 type Key interface{}
 
 // A WeakRef is a weak reference to a value. Its Value() method returns the
@@ -54,13 +54,23 @@ type Pool interface {
 
 	// Get returns a WeakRef for the given value v.  Calling Get several times
 	// with the same value should return the same WeakRef.
+	//
+	// An implementation of Pool may return nil if it is unable to make a
+	// WeakRef for the passed-in value.
 	Get(v Value) WeakRef
 
-	// Mark indicates that the pool should keep a copy of v when it dies.
+	// Mark indicates that the pool should keep a copy of v when it becomes
+	// unreachable.  It can then notify the Golua runtime via the
+	// ExtractPendingFinalize() and ExtractPendingRelease() methods (depending
+	// on the flags passed in).
 	//
 	// The associated Golua Runtime marks all values which have a __gc
-	// metamethod, so that it can get notified when those values are unreachable
-	// via ExtractPendingFinalize, ExtractPendingRelease.
+	// metamethod with the Finalize flag, and all values which implement the
+	// ResourceReleaser interface with the Release flag (this is contextual
+	// info, this package is unaware of this).
+	//
+	// Note: "Mark" is the terminology used in the Lua docs, it is unrelated to
+	// "Mark and Sweep".
 	Mark(v Value, flags MarkFlags)
 
 	// ExtractPendingFinalize returns all marked values which are no longer reachable
