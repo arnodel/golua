@@ -38,6 +38,10 @@ func TestClonePoolNoGC(t *testing.T) {
 	if n := len(p.ExtractAllMarkedRelease()); n != 0 {
 		t.Fatalf("Expected no marked release, got %d", n)
 	}
+
+	if p.Get(n1) != nil {
+		t.Fatalf("It should not be possible to get weak refs")
+	}
 }
 
 func TestClonePoolGC(t *testing.T) {
