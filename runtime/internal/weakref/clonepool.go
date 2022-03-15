@@ -15,7 +15,7 @@ import (
 // to use in any compliant Go implementation.  The downsid of this
 // implementation is that it cannot provide any WeakRefs.
 type ClonePool struct {
-	pendingClones map[Key]pendingClone
+	cloneRegister map[Key]cloneEntry
 	lastMarkOrder int
 	mx            sync.Mutex
 
@@ -26,7 +26,7 @@ type ClonePool struct {
 // NewClonePool returns a new *ClonePool ready to be used.
 func NewClonePool() *ClonePool {
 	return &ClonePool{
-		pendingClones: make(map[Key]pendingClone),
+		cloneRegister: make(map[Key]cloneEntry),
 	}
 }
 
@@ -43,11 +43,11 @@ func (p *ClonePool) Mark(v Value, flags MarkFlags) {
 	k := v.Key()
 	p.mx.Lock()
 	defer p.mx.Unlock()
-	c, ok := p.pendingClones[k]
+	c, ok := p.cloneRegister[k]
 	if flags == 0 {
 		if ok {
 			setFinalizer(v, nil)
-			delete(p.pendingClones, k)
+			delete(p.cloneRegister, k)
 		}
 		return
 	}
@@ -67,7 +67,7 @@ func (p *ClonePool) Mark(v Value, flags MarkFlags) {
 	} else {
 		c.clearFlag(wrReleased)
 	}
-	p.pendingClones[k] = c
+	p.cloneRegister[k] = c
 }
 
 // ExtractPendingFinalize returns the set of values which are being garbage
@@ -120,10 +120,10 @@ func (p *ClonePool) ExtractAllMarkedFinalize() []Value {
 	// weakrefs map.
 	p.pendingFinalize = nil
 	var marked sortablePendingClones
-	for k, c := range p.pendingClones {
+	for k, c := range p.cloneRegister {
 		if !c.hasFlag(wrFinalized) {
 			c.setFlag(wrFinalized)
-			p.pendingClones[k] = c
+			p.cloneRegister[k] = c
 			marked = append(marked, c)
 		}
 	}
@@ -143,13 +143,13 @@ func (p *ClonePool) ExtractAllMarkedRelease() []Value {
 	// Start from values whose go finalizer has already run and are awaiting
 	// release, then add all values in the weakrefs map not yet released.
 	marked := p.pendingRelease
-	for _, c := range p.pendingClones {
+	for _, c := range p.cloneRegister {
 		if !c.hasFlag(wrReleased) {
 			marked = append(marked, c)
 		}
 	}
 	p.pendingRelease = nil
-	p.pendingClones = nil
+	p.cloneRegister = nil
 	p.mx.Unlock()
 
 	// Sort in reverse order
@@ -161,7 +161,7 @@ func (p *ClonePool) goFinalizer(v Value) {
 	k := v.Key()
 	p.mx.Lock()
 	defer p.mx.Unlock()
-	c, ok := p.pendingClones[k]
+	c, ok := p.cloneRegister[k]
 	if !ok {
 		// We are too late - ExtractAllMarkedRelease() has been run
 		return
@@ -170,7 +170,7 @@ func (p *ClonePool) goFinalizer(v Value) {
 	if !c.hasFlag(wrFinalized) {
 		p.pendingFinalize = append(p.pendingFinalize, c)
 		c.setFlag(wrFinalized)
-		p.pendingClones[k] = c
+		p.cloneRegister[k] = c
 		return
 	}
 
@@ -178,28 +178,28 @@ func (p *ClonePool) goFinalizer(v Value) {
 		p.pendingRelease = append(p.pendingRelease, c)
 	}
 
-	delete(p.pendingClones, v.Key())
+	delete(p.cloneRegister, v.Key())
 }
 
-type pendingClone struct {
+type cloneEntry struct {
 	value     Value
 	markOrder int
 	flags     wrStatusFlags
 }
 
-func (c *pendingClone) hasFlag(flag wrStatusFlags) bool {
+func (c *cloneEntry) hasFlag(flag wrStatusFlags) bool {
 	return c.flags&flag != 0
 }
 
-func (c *pendingClone) setFlag(flag wrStatusFlags) {
+func (c *cloneEntry) setFlag(flag wrStatusFlags) {
 	c.flags |= flag
 }
 
-func (c *pendingClone) clearFlag(flag wrStatusFlags) {
+func (c *cloneEntry) clearFlag(flag wrStatusFlags) {
 	c.flags &= ^flag
 }
 
-type sortablePendingClones []pendingClone
+type sortablePendingClones []cloneEntry
 
 var _ sort.Interface = sortableVals(nil)
 
