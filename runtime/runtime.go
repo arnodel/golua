@@ -96,10 +96,6 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 		cellPool:  mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
 	}
 
-	if rtOpts.runtimeContextDef != nil {
-		r.PushContext(*rtOpts.runtimeContextDef)
-	}
-
 	mainThread := NewThread(r)
 	mainThread.status = ThreadOK
 	r.mainThread = mainThread
@@ -110,7 +106,11 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 
 	r.runtimeContextManager.initRoot()
 
-	runtime.SetFinalizer(r, (*Runtime).Close)
+	if rtOpts.runtimeContextDef != nil {
+		r.PushContext(*rtOpts.runtimeContextDef)
+	}
+
+	runtime.SetFinalizer(r, func(r *Runtime) { r.Close(nil) })
 	return r
 }
 
@@ -242,22 +242,35 @@ func (t *Thread) CollectGarbage() {
 	}
 }
 
-func (r *Runtime) Close() {
+func (r *Runtime) Close(err *error) {
 	runtime.SetFinalizer(r, nil)
+	if r := recover(); r != nil {
+		ctErr, ok := r.(ContextTerminationError)
+		if !ok {
+			panic(r)
+		}
+		if err != nil && *err == nil {
+			*err = ctErr
+		}
+	}
 	defer func() {
 		if r.PopContext() != nil {
-			r.Close()
+			r.Close(err)
 		} else {
 			releaseResources(r.weakRefPool.ExtractAllMarkedRelease())
 		}
 		if r := recover(); r != nil {
-			_, ok := r.(ContextTerminationError)
+			ctErr, ok := r.(ContextTerminationError)
 			if !ok {
 				panic(r)
+			}
+			if err != nil && *err == nil {
+				*err = ctErr
 			}
 		}
 	}()
 	r.runFinalizers(r.weakRefPool.ExtractAllMarkedFinalize())
+	return
 }
 
 // Metatable returns the metatalbe of v (looking for '__metatable' in the raw

@@ -308,10 +308,11 @@ func (t *Thread) CallContext(def RuntimeContextDef, f func() error) (ctx Runtime
 		ctx = t.PopContext()
 		if r := recover(); r != nil {
 			t.closeStack.truncate(h) // No resources to run that, so just discard it.
-			_, ok := r.(ContextTerminationError)
+			termErr, ok := r.(ContextTerminationError)
 			if !ok {
 				panic(r)
 			}
+			err = termErr
 		}
 	}()
 	err = t.cleanupCloseStack(c, h, f())

@@ -77,7 +77,7 @@ func (c *luaCmd) run() (retcode int) {
 	defer cleanup()
 
 	// Run finalizers before we exit
-	defer r.Close()
+	defer r.Close(nil)
 
 	if len(c.exec) == 0 && flag.NArg() == 0 {
 		chunkName = "<stdin>"
