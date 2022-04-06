@@ -178,7 +178,7 @@ func (p *ClonePool) goFinalizer(v Value) {
 		p.pendingRelease = append(p.pendingRelease, c)
 	}
 
-	delete(p.cloneRegister, v.Key())
+	delete(p.cloneRegister, k)
 }
 
 type cloneEntry struct {
