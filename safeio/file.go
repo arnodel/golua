@@ -23,6 +23,20 @@ const (
 const AllFileActions = ReadFileAction | WriteFileAction | CreateFileAction | DeleteFileAction | CreateFileInDirAction
 
 func OpenFile(r FSActionsChecker, name string, flag int, perm fs.FileMode) (*os.File, error) {
+	if flag&os.O_CREATE != 0 && flag&os.O_EXCL == 0 {
+		// In this case if the file already exists, the user is allowed to open
+		// it even if they are not allowed to create it so we first try to open
+		// the file without creating it.
+		f, err := OpenFile(r, name, flag&^os.O_CREATE, perm)
+		// If that worked then good, otherwise if the error was caused by the
+		// file not existing we go on to try opening it with the O_CREATE flag
+		// on.
+		if err == nil {
+			return f, nil
+		} else if errors.Is(err, ErrNotAllowed) || !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
+	}
 	if !r.CheckFSActions(name, osFlagToFSActions(flag)) {
 		return nil, ErrNotAllowed
 	}
