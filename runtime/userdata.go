@@ -1,12 +1,12 @@
 package runtime
 
-import "github.com/arnodel/golua/runtime/internal/weakref"
+import "github.com/arnodel/golua/runtime/internal/luagc"
 
 type ResourceReleaser interface {
 	ReleaseResources()
 }
 
-func releaseResources(refs []weakref.Value) {
+func releaseResources(refs []luagc.Value) {
 	for _, r := range refs {
 		if rr, ok := r.(ResourceReleaser); ok {
 			rr.ReleaseResources()
@@ -49,13 +49,13 @@ func (d *UserData) SetMetatable(m *Table) {
 	d.meta = m
 }
 
-var _ weakref.Value = (*UserData)(nil)
+var _ luagc.Value = (*UserData)(nil)
 
-func (d *UserData) Key() weakref.Key {
+func (d *UserData) Key() luagc.Key {
 	return d.value
 }
 
-func (d *UserData) Clone() weakref.Value {
+func (d *UserData) Clone() luagc.Value {
 	clone := new(UserData)
 	*clone = *d
 	return clone
@@ -63,13 +63,13 @@ func (d *UserData) Clone() weakref.Value {
 
 // HasFinalizer returns true if the user data has finalizing code (either via
 // __gc metamethod or the value needs prefinalization).
-func (d *UserData) MarkFlags() (flags weakref.MarkFlags) {
+func (d *UserData) MarkFlags() (flags luagc.MarkFlags) {
 	_, ok := d.value.(UserDataResourceReleaser)
 	if ok {
-		flags |= weakref.Release
+		flags |= luagc.Release
 	}
 	if !RawGet(d.meta, MetaFieldGcValue).IsNil() {
-		flags |= weakref.Finalize
+		flags |= luagc.Finalize
 	}
 	return flags
 }

@@ -1,4 +1,4 @@
-package weakref
+package luagc
 
 import (
 	"sort"
@@ -12,7 +12,7 @@ import (
 // ClonePool is an implementation of Pool that makes every effort to let values
 // be GCed when they are only reachable via WeakRefs.  Unlike UnsafePool, it
 // doesn't rely on any undocumented properties of the Go runtime so it is safe
-// to use in any compliant Go implementation.  The downsid of this
+// to use in any compliant Go implementation.  The downside of this
 // implementation is that it cannot provide any WeakRefs.
 type ClonePool struct {
 	cloneRegister map[Key]cloneEntry

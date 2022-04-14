@@ -6,7 +6,7 @@ package runtime
 import (
 	"fmt"
 
-	"github.com/arnodel/golua/runtime/internal/weakref"
+	"github.com/arnodel/golua/runtime/internal/luagc"
 )
 
 const QuotasAvailable = false
@@ -14,13 +14,13 @@ const QuotasAvailable = false
 type runtimeContextManager struct {
 	messageHandler Callable
 	parent         *runtimeContextManager
-	weakRefPool    weakref.Pool
+	weakRefPool    luagc.Pool
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
 
 func (m *runtimeContextManager) initRoot() {
-	m.weakRefPool = weakref.NewDefaultPool()
+	m.weakRefPool = luagc.NewDefaultPool()
 }
 
 func (m *runtimeContextManager) HardLimits() (r RuntimeResources) {

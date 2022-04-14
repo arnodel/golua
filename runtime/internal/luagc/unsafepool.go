@@ -1,4 +1,4 @@
-package weakref
+package luagc
 
 import (
 	"runtime"
@@ -243,7 +243,7 @@ func (p *UnsafePool) goFinalizer(v Value) {
 
 type weakRef struct {
 	w         wiface // encodes the value the weak ref refers to
-	markOrder int    // positive if the value was marked with WeakRefPool.Mark()
+	markOrder int    // positive if the value was marked with UnsafePool.Mark()
 	flags     wrStatusFlags
 
 	// Needed to sync with the Go finalizers which run in their own goroutine.
@@ -315,6 +315,7 @@ func (w wiface) iface() Value {
 //
 // Values need to be sorted by reverse mark order.  The data structures below help with that.
 //
+
 type refVal struct {
 	v Value
 	r *weakRef

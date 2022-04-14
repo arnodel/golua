@@ -1,6 +1,6 @@
 //go:build !safepool
 
-package weakref
+package luagc
 
 // NewDefaultPool returns a new WeakRefPool with an appropriate implementation.
 func NewDefaultPool() Pool {

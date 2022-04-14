@@ -3,7 +3,7 @@ package runtime
 import (
 	"unsafe"
 
-	"github.com/arnodel/golua/runtime/internal/weakref"
+	"github.com/arnodel/golua/runtime/internal/luagc"
 )
 
 // Table implements a Lua table.
@@ -29,13 +29,13 @@ func (t *Table) SetMetatable(m *Table) {
 	t.meta = m
 }
 
-var _ weakref.Value = (*Table)(nil)
+var _ luagc.Value = (*Table)(nil)
 
-func (t *Table) Key() weakref.Key {
+func (t *Table) Key() luagc.Key {
 	return unsafe.Pointer(t.mixedTable)
 }
 
-func (t *Table) Clone() weakref.Value {
+func (t *Table) Clone() luagc.Value {
 	clone := new(Table)
 	*clone = *t
 	return clone

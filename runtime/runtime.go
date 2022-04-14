@@ -7,7 +7,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/arnodel/golua/runtime/internal/weakref"
+	"github.com/arnodel/golua/runtime/internal/luagc"
 )
 
 // A Runtime is a Lua runtime.  It contains all the global state of the runtime
@@ -192,7 +192,7 @@ func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
 		tbl := v.AsTable()
 		tbl.SetMetatable(meta)
 		if !RawGet(meta, MetaFieldGcValue).IsNil() {
-			r.addFinalizer(tbl, weakref.Finalize)
+			r.addFinalizer(tbl, luagc.Finalize)
 		}
 	case UserDataType:
 		udata := v.AsUserData()
@@ -203,7 +203,7 @@ func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
 	}
 }
 
-func (r *Runtime) addFinalizer(ref weakref.Value, flags weakref.MarkFlags) {
+func (r *Runtime) addFinalizer(ref luagc.Value, flags luagc.MarkFlags) {
 	if flags != 0 {
 		r.weakRefPool.Mark(ref, flags)
 	}
@@ -224,7 +224,7 @@ func (r *Runtime) runPendingFinalizers() {
 	}
 }
 
-func (r *Runtime) runFinalizers(refs []weakref.Value) {
+func (r *Runtime) runFinalizers(refs []luagc.Value) {
 	for _, ref := range refs {
 		term := NewTerminationWith(nil, 0, false)
 		v := AsValue(ref)

@@ -1,4 +1,4 @@
-package weakref
+package luagc
 
 //
 // Safe Pool implementation
