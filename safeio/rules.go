@@ -25,6 +25,22 @@ func (s FSAccessRuleset) GetFSAccessEffect(path string, requested FSAction) (all
 	return
 }
 
+// FSAccessRulechain chains rules, i.e. for an action to be allowed it needs to
+// be allowed by all members of the chain.
+type FSAccessRulechain struct {
+	Rules []FSAccessRule
+}
+
+func (r FSAccessRulechain) GetFSAccessEffect(path string, requested FSAction) (allowed FSAction, denied FSAction) {
+	allowed, denied = AllFileActions, AllFileActions
+	for _, r := range r.Rules {
+		a, d := r.GetFSAccessEffect(path, requested)
+		allowed &= a
+		denied |= d
+	}
+	return
+}
+
 type PrefixFSAccessRule struct {
 	Prefix         string
 	AllowedActions FSAction
@@ -60,5 +76,25 @@ func MergeFSAccessRules(rules ...FSAccessRule) FSAccessRule {
 		return mergedRules[0]
 	default:
 		return FSAccessRuleset{Rules: mergedRules}
+	}
+}
+
+// MergeFSAccessRules returns an FSAccessRule chaining all the rules passed in.
+// It discards nil rules.
+func ChainFSAccessRules(rules ...FSAccessRule) FSAccessRule {
+	var chain []FSAccessRule
+	for _, r := range rules {
+		if r == nil {
+			continue
+		}
+		chain = append(chain, r)
+	}
+	switch len(chain) {
+	case 0:
+		return nil
+	case 1:
+		return chain[0]
+	default:
+		return FSAccessRulechain{Rules: chain}
 	}
 }
