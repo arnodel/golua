@@ -1,6 +1,8 @@
 package safeio
 
-import "strings"
+import (
+	"strings"
+)
 
 // FSAccessRule knows how to allow or deny actions on a certain file path.
 type FSAccessRule interface {

@@ -20,6 +20,8 @@ const (
 	CreateFileInDirAction
 )
 
+const AllFileActions = ReadFileAction | WriteFileAction | CreateFileAction | DeleteFileAction | CreateFileInDirAction
+
 func OpenFile(r FSActionsChecker, name string, flag int, perm fs.FileMode) (*os.File, error) {
 	if !r.CheckFSActions(name, osFlagToFSActions(flag)) {
 		return nil, ErrNotAllowed
@@ -72,12 +74,12 @@ var ErrNotAllowed = errors.New("safeio: operation not allowed")
 func osFlagToFSActions(flag int) FSAction {
 	var perms FSAction
 	switch {
-	case flag&os.O_RDONLY != 0:
-		perms |= WriteFileAction
 	case flag&os.O_WRONLY != 0:
-		perms |= ReadFileAction
+		perms |= WriteFileAction
 	case flag&os.O_RDWR != 0:
 		perms |= ReadFileAction | WriteFileAction
+	default: // os.O_RDONLY is 0...
+		perms |= ReadFileAction
 	}
 	if flag&os.O_CREATE != 0 {
 		perms |= CreateFileAction

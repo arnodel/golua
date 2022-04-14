@@ -5,6 +5,7 @@ package runtime
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -296,8 +297,8 @@ func (m *runtimeContextManager) CheckFSActions(path string, requested safeio.FSA
 		return true
 	}
 	if m.fsAccessRule != nil {
-		allowed, denied := m.fsAccessRule.GetFSAccessEffect(path, requested)
-		return denied != 0 && allowed == requested
+		allowed, denied := m.fsAccessRule.GetFSAccessEffect(filepath.Clean(path), requested)
+		return denied == 0 && allowed == requested
 	}
 	return false
 }

@@ -3,10 +3,12 @@ package runtimelib
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
+	"github.com/arnodel/golua/safeio"
 )
 
 var LibLoader = packagelib.Loader{
@@ -49,6 +51,7 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr error) {
 		flagsV      = quotas.Get(rt.StringValue("flags"))
 		limitsV     = quotas.Get(rt.StringValue("kill"))
 		softLimitsV = quotas.Get(rt.StringValue("stop"))
+		fsV         = quotas.Get(rt.StringValue("fs"))
 		hardLimits  rt.RuntimeResources
 		softLimits  rt.RuntimeResources
 		f           = c.Arg(1)
@@ -81,7 +84,10 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr error) {
 			}
 		}
 	}
-
+	fsRule, err := getFSAccessRuleset(t, fsV)
+	if err != nil {
+		return nil, err
+	}
 	next = c.Next()
 	res := rt.NewTerminationWith(c, 0, true)
 
@@ -89,6 +95,7 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr error) {
 		HardLimits:    hardLimits,
 		SoftLimits:    softLimits,
 		RequiredFlags: flags,
+		FSAccessRule:  fsRule,
 	}, func() error {
 		return rt.Call(t, f, fArgs, res)
 	})
@@ -171,11 +178,99 @@ func validateTimeVal(val rt.Value, factor float64, name string) (uint64, error) 
 	return uint64(s * factor), nil
 }
 
+func getFSAccessRuleset(t *rt.Thread, val rt.Value) (safeio.FSAccessRule, error) {
+	if val.IsNil() {
+		return nil, nil
+	}
+	sz, err := rt.IntLen(t, val)
+	if err != nil {
+		return nil, err
+	}
+	if sz < 1 {
+		return nil, errors.New("fs ruleset must be non-empty list of rules")
+	}
+	var rules []safeio.FSAccessRule
+	for i := int64(1); i <= sz; i++ {
+		ruleV, err := rt.Index(t, val, rt.IntValue(i))
+		if err != nil {
+			return nil, err
+		}
+		rule, err := getFSAccessRule(ruleV)
+		if err != nil {
+			return nil, err
+		}
+		rules = append(rules, rule)
+	}
+	return safeio.MergeFSAccessRules(rules...), nil
+}
+
+func getFSAccessRule(val rt.Value) (safeio.FSAccessRule, error) {
+	tbl, ok := val.TryTable()
+	if !ok {
+		return nil, errors.New("fs rules must be in the form of tables")
+	}
+	allowed, err := fsActionsFromValue(tbl.Get(allowedString))
+	if err != nil {
+		return nil, fmt.Errorf("error in %s value: %w", allowedName, err)
+	}
+	denied, err := fsActionsFromValue(tbl.Get(deniedString))
+	if err != nil {
+		return nil, fmt.Errorf("error in %s value: %w", deniedName, err)
+	}
+	var prefix string
+	if prefixV := tbl.Get(prefixString); !prefixV.IsNil() {
+		prefix, ok = prefixV.TryString()
+		if !ok {
+			return nil, fmt.Errorf("%s value in fs rule must be a string", prefixName)
+		}
+		prefix = filepath.Clean(prefix)
+	}
+	return safeio.PrefixFSAccessRule{
+		Prefix:         prefix,
+		AllowedActions: allowed,
+		DeniedActions:  denied,
+	}, nil
+}
+
+func fsActionsFromValue(val rt.Value) (safeio.FSAction, error) {
+	if val.IsNil() {
+		return 0, nil
+	}
+	s, ok := val.TryString()
+	if !ok {
+		return 0, errors.New("fs actions must be strings")
+	}
+	var actions safeio.FSAction
+	for _, c := range s {
+		switch c {
+		case 'r':
+			actions |= safeio.ReadFileAction
+		case 'w':
+			actions |= safeio.WriteFileAction
+		case 'c':
+			actions |= safeio.CreateFileAction
+		case 'd':
+			actions |= safeio.DeleteFileAction
+		case 'C':
+			actions |= safeio.CreateFileInDirAction
+		case '*':
+			actions |= safeio.AllFileActions
+		default:
+			return 0, fmt.Errorf("invalid file action '%c' (expect rwcdV*)", c)
+		}
+	}
+	return actions, nil
+}
+
 const (
 	secondsName = "seconds"
 	millisName  = "millis"
 	cpuName     = "cpu"
 	memoryName  = "memory"
+
+	allowedName = "allowed"
+	deniedName  = "denied"
+	prefixName  = "prefix"
 )
 
 var (
@@ -183,4 +278,8 @@ var (
 	millisString  = rt.StringValue(millisName)
 	cpuString     = rt.StringValue(cpuName)
 	memoryString  = rt.StringValue(memoryName)
+
+	allowedString = rt.StringValue(allowedName)
+	deniedString  = rt.StringValue(deniedName)
+	prefixString  = rt.StringValue(prefixName)
 )
