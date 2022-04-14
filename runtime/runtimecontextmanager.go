@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/arnodel/golua/safeio"
 )
 
 const QuotasAvailable = true
@@ -37,9 +39,12 @@ type runtimeContextManager struct {
 	stopLevel        StopLevel
 	startTime        uint64
 	nextCpuThreshold uint64
+
+	fsAccessRule safeio.FSAccessRule
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
+var _ safeio.FSActionsChecker = (*runtimeContextManager)(nil)
 
 func (m *runtimeContextManager) HardLimits() RuntimeResources {
 	return m.hardLimits
@@ -112,11 +117,15 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	if ctx.HardLimits.Millis > 0 {
 		m.requiredFlags |= ComplyTimeSafe
 	}
+	if ctx.FSAccessRule != nil {
+		m.requiredFlags |= ComplyIoSafe
+	}
 	m.trackTime = m.hardLimits.Millis > 0 || m.softLimits.Millis > 0
 	m.trackCpu = m.hardLimits.Cpu > 0 || m.softLimits.Cpu > 0 || m.trackTime
 	m.trackMem = m.hardLimits.Memory > 0 || m.softLimits.Memory > 0
 	m.status = StatusLive
 	m.messageHandler = ctx.MessageHandler
+	m.fsAccessRule = safeio.MergeFSAccessRules(parent.fsAccessRule, ctx.FSAccessRule)
 	m.parent = &parent
 }
 
@@ -278,6 +287,19 @@ func (m *runtimeContextManager) TerminateContext(format string, args ...interfac
 	panic(ContextTerminationError{
 		message: fmt.Sprintf(format, args...),
 	})
+}
+
+// CheckFSActions returns true if the context allows the requested action on the
+// given path.
+func (m *runtimeContextManager) CheckFSActions(path string, requested safeio.FSAction) bool {
+	if m.requiredFlags&ComplyIoSafe == 0 {
+		return true
+	}
+	if m.fsAccessRule != nil {
+		allowed, denied := m.fsAccessRule.GetFSAccessEffect(path, requested)
+		return denied != 0 && allowed == requested
+	}
+	return false
 }
 
 // Current unix time in ms

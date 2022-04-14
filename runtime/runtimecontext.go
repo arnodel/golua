@@ -1,11 +1,14 @@
 package runtime
 
+import "github.com/arnodel/golua/safeio"
+
 // RuntimeContextDef contains the data necessary to create an new runtime context.
 type RuntimeContextDef struct {
 	HardLimits     RuntimeResources
 	SoftLimits     RuntimeResources
 	RequiredFlags  ComplianceFlags
 	MessageHandler Callable
+	FSAccessRule   safeio.FSAccessRule
 }
 
 // RuntimeContext is an interface implemented by Runtime.RuntimeContext().  It
