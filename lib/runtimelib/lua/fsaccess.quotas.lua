@@ -19,7 +19,7 @@ print(err)
 -- Allow only reading files in lua/testfiles/
 local ctx, err = runtime.callcontext({fs={{prefix="lua/testfiles/", allowed="r"}}}, function() 
     -- This operation is allowed but the file doesn't exist, so open returns an error
-    local f <close>, err = io.open("lua/testfiles/non-existent-file")
+    local f, err = io.open("lua/testfiles/non-existent-file")
     print(err == nil)
     --> =false
 
@@ -32,9 +32,11 @@ print(err)
 -- Allow all operations apart from creating files in lua/testfiles/
 local ctx, err = runtime.callcontext({fs={{prefix="lua/testfiles/", allowed="*", denied="c"}}}, function() 
     -- This is allowed because the file exists
-    local f <close>, err = io.open("lua/testfiles/existing-file.txt", "w")
+    local f, err = io.open("lua/testfiles/existing-file.txt", "w")
     print(err)
     --> =nil
+
+    f:close()
 
     -- This operation fails because file creation is disallowed
     io.open("lua/testfiles/non-existent-file", "w")
@@ -45,9 +47,11 @@ print(err)
 -- Allow all operations in lua/testfiles/
 local ctx, err = runtime.callcontext({fs={{prefix="lua/testfiles/", allowed="*"}}}, function() 
     -- This operation succeeds because file creation is allowed
-    local f <close>, err = io.open("lua/testfiles/non-existent-file.txt", "w")
+    local f, err = io.open("lua/testfiles/non-existent-file.txt", "w")
     print(err)
     --> =nil
+
+    f:close()
 
     -- The file can be renamed within lua/testfiles
     print(os.rename("lua/testfiles/non-existent-file.txt", "lua/testfiles/renamed.txt"))
