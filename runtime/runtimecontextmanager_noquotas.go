@@ -5,6 +5,8 @@ package runtime
 
 import (
 	"fmt"
+
+	"github.com/arnodel/golua/safeio"
 )
 
 const QuotasAvailable = false
@@ -128,4 +130,8 @@ func (m *runtimeContextManager) TerminateContext(format string, args ...interfac
 	panic(ContextTerminationError{
 		message: fmt.Sprintf(format, args...),
 	})
+}
+
+func (m *runtimeContextManager) CheckFSActions(path string, requested safeio.FSAction) bool {
+	return true
 }
