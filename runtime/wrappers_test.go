@@ -7,15 +7,22 @@ import (
 )
 
 func Test_runChunk(t *testing.T) {
+
+	if !QuotasAvailable {
+		t.Skip("Skipping as build does not enforce quotas")
+		return
+	}
+
 	type args struct {
 		source string
 		rtCtx  RuntimeContextDef
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    Value
-		wantErr bool
+		name           string
+		args           args
+		want           Value
+		wantErr        bool
+		skipIfNoQuotas bool
 	}{
 		{
 			name: "run out of cpu",
