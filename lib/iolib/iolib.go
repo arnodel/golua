@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"runtime"
 
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
@@ -91,7 +93,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(pkg, "lines", iolines, 1, true),
 		r.SetEnvGoFunc(pkg, "open", open, 2, false),
 		r.SetEnvGoFunc(pkg, "output", output, 1, false),
-		// TODO: popen,
+		r.SetEnvGoFunc(pkg, "popen", popen, 2, false),
 		r.SetEnvGoFunc(pkg, "read", ioread, 0, true),
 		r.SetEnvGoFunc(pkg, "tmpfile", tmpfile, 0, false),
 		r.SetEnvGoFunc(pkg, "write", iowrite, 0, true),
@@ -355,6 +357,55 @@ func open(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if ioErr != nil {
 		return pushingNextIoResult(t.Runtime, c, ioErr)
 	}
+
+	u := newFileUserData(f, getIoData(t.Runtime).metatable)
+	return c.PushingNext(t.Runtime, rt.UserDataValue(u)), nil
+}
+
+func popen(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err
+	}
+	cmdStr, err := c.StringArg(0)
+	if err != nil {
+		return nil, err
+	}
+
+	mode := "r"
+	if c.NArgs() >= 2 {
+		mode, err = c.StringArg(1)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var cmdArgs []string
+	if runtime.GOOS == "windows" {
+		cmdArgs = []string{"C:\\Windows\\system32\\cmd.exe", "/c", cmdStr}
+	} else {
+		cmdArgs = []string{"/bin/sh", "-c", cmdStr}
+	}
+
+	cmd := exec.Cmd{
+		Path: cmdArgs[0],
+		Args: cmdArgs,
+	}
+
+	f := &File{}
+	switch mode {
+		case "r":
+			stdout, _ := cmd.StdoutPipe()
+			f.reader = &nobufReader{stdout}
+		case "w":
+			stdin, _ := cmd.StdinPipe()
+			f.writer = &nobufWriter{stdin}
+	}
+
+	err = cmd.Start()
+	if err != nil {
+		return nil, err
+	}
+
 	u := newFileUserData(f, getIoData(t.Runtime).metatable)
 	return c.PushingNext(t.Runtime, rt.UserDataValue(u)), nil
 }
