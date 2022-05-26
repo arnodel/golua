@@ -191,7 +191,11 @@ func (f *File) Flush() error {
 	if err := f.writer.Flush(); err != nil {
 		return err
 	}
-	return f.file.Sync()
+	if f.file != nil {
+		return f.file.Sync()
+	}
+
+	return nil
 }
 
 // ReadLine reads a line from the file.  If withEnd is true, it will include the
@@ -280,6 +284,11 @@ func (f *File) WriteString(s string) error {
 
 // Seek seeks from the file.
 func (f *File) Seek(offset int64, whence int) (n int64, err error) {
+	if f.cmd != nil {
+		// popen'd; seems you can't seek a popen file in original lua impl, so error
+		return 0, errors.New("Illegal seek") // not sure what error message to use
+	}
+
 	err = f.writer.Flush()
 	if err != nil {
 		return
