@@ -394,11 +394,18 @@ func popen(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	f := &File{}
 	switch mode {
 		case "r":
-			stdout, _ := cmd.StdoutPipe()
+			var stdout io.ReadCloser
+			stdout, err = cmd.StdoutPipe()
 			f.reader = &nobufReader{stdout}
 		case "w":
-			stdin, _ := cmd.StdinPipe()
+			var stdin io.WriteCloser
+			stdin, err = cmd.StdinPipe()
 			f.writer = &nobufWriter{stdin}
+		default:
+			err = errors.New("invalid mode")
+	}
+	if err != nil {
+		return pushingNextIoResult(t.Runtime, c, err)
 	}
 
 	err = cmd.Start()
