@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 
@@ -37,6 +38,7 @@ type File struct {
 	status fileStatus
 	reader bufReader
 	writer bufWriter
+	cmd *exec.Cmd
 }
 
 type fileStatus int
@@ -162,7 +164,22 @@ func (f *File) Close() error {
 	}
 	f.status |= statusClosed
 	errFlush := f.writer.Flush()
-	err := f.file.Close()
+
+	var err error
+	if f.file != nil {
+		err = f.file.Close()
+	} else {
+		if readcloser, ok := f.reader.(io.Closer); ok {
+			err = readcloser.Close()
+			if err != nil {
+				return err
+			}
+		}
+		if writecloser, ok := f.writer.(io.Closer); ok {
+			err = writecloser.Close()
+		}
+	}
+
 	if err == nil {
 		return errFlush
 	}

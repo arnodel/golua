@@ -1,12 +1,14 @@
 package iolib
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"runtime"
+	"syscall"
 
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
@@ -153,7 +155,44 @@ func ioclose(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 			return nil, err
 		}
 	}
-	return pushingNextIoResult(t.Runtime, c, f.Close())
+
+	var cont rt.Cont
+	var err error
+	if f.cmd != nil {
+		err := f.Close()
+		if err != nil {
+			return pushingNextIoResult(t.Runtime, c, err)
+		}
+
+		cont = c.Next()
+
+		f.cmd.Wait()
+		ps := f.cmd.ProcessState
+		if ps.Success() {
+			t.Runtime.Push(cont, rt.BoolValue(true))
+		} else {
+			t.Runtime.Push(cont, rt.NilValue)
+		}
+
+		exit := rt.StringValue("exit")
+		code := rt.IntValue(int64(ps.ExitCode()))
+		if !ps.Exited() {
+			// received signal instead of normal exit
+			exit = rt.StringValue("signal")
+			if runtime.GOOS != "windows" {
+				// i can't find out what Sys() is on windows ...
+				ws := ps.Sys().(syscall.WaitStatus)
+				sig := ws.Signal()
+				code = rt.IntValue(int64(sig)) // syscall.Signal
+			}
+		}
+
+		t.Runtime.Push(cont, exit, code)
+	} else {
+		cont, err = pushingNextIoResult(t.Runtime, c, f.Close())
+	}
+
+	return cont, err
 }
 
 func fileclose(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
@@ -391,16 +430,20 @@ func popen(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		Args: cmdArgs,
 	}
 
-	f := &File{}
+	f := &File{
+		cmd: &cmd,
+		writer: &nobufWriter{},
+		reader: &nobufReader{},
+	}
 	switch mode {
 		case "r":
 			var stdout io.ReadCloser
 			stdout, err = cmd.StdoutPipe()
-			f.reader = &nobufReader{stdout}
+			f.reader = bufio.NewReader(stdout)
 		case "w":
 			var stdin io.WriteCloser
 			stdin, err = cmd.StdinPipe()
-			f.writer = &nobufWriter{stdin}
+			f.writer = bufio.NewWriterSize(stdin, 65536)
 		default:
 			err = errors.New("invalid mode")
 	}
