@@ -341,7 +341,11 @@ func (f *File) SetWriteBuffer(mode string, size int) error {
 
 // Name returns the file name.
 func (f *File) Name() string {
-	return f.file.Name()
+	if f.file != nil {
+		return f.file.Name()
+	}
+
+	return strings.Join(f.cmd.Args[2:], " ")
 }
 
 // Best effort to flush and close files when they are no longer accessible.
