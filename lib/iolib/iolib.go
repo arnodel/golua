@@ -158,36 +158,8 @@ func ioclose(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 
 	var cont rt.Cont
 	var err error
-	if f.cmd != nil {
-		err := f.Close()
-		if err != nil {
-			return pushingNextIoResult(t.Runtime, c, err)
-		}
-
-		cont = c.Next()
-
-		f.cmd.Wait()
-		ps := f.cmd.ProcessState
-		if ps.Success() {
-			t.Runtime.Push(cont, rt.BoolValue(true))
-		} else {
-			t.Runtime.Push(cont, rt.NilValue)
-		}
-
-		exit := rt.StringValue("exit")
-		code := rt.IntValue(int64(ps.ExitCode()))
-		if !ps.Exited() {
-			// received signal instead of normal exit
-			exit = rt.StringValue("signal")
-			if runtime.GOOS != "windows" {
-				// i can't find out what Sys() is on windows ...
-				ws := ps.Sys().(syscall.WaitStatus)
-				sig := ws.Signal()
-				code = rt.IntValue(int64(sig)) // syscall.Signal
-			}
-		}
-
-		t.Runtime.Push(cont, exit, code)
+	if f.file == nil {
+		cont, err = f.close(t, c)
 	} else {
 		cont, err = pushingNextIoResult(t.Runtime, c, f.Close())
 	}
@@ -436,24 +408,66 @@ func popen(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	}
 
 	f := &File{
-		cmd: &cmd,
 		writer: &nobufWriter{inDummy},
 		reader: &nobufReader{outDummy},
+		name: cmdStr,
 	}
+
+	var stdout io.ReadCloser
+	var stdin io.WriteCloser
 	switch mode {
 		case "r":
-			var stdout io.ReadCloser
 			stdout, err = cmd.StdoutPipe()
 			f.reader = bufio.NewReader(stdout)
-			f.stdout = stdout
 		case "w":
-			var stdin io.WriteCloser
 			stdin, err = cmd.StdinPipe()
 			f.writer = bufio.NewWriterSize(stdin, 65536)
-			f.stdin = stdin
 		default:
 			err = errors.New("invalid mode")
 	}
+	// called *only* from io.close
+	f.close = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+		if stdout != nil {
+			err = stdout.Close()
+			if err != nil {
+				return pushingNextIoResult(t.Runtime, c, err)
+			}
+		}
+		if stdin != nil {
+			err := stdin.Close()
+			if err != nil {
+				return pushingNextIoResult(t.Runtime, c, err)
+			}
+		}
+
+		cont := c.Next()
+
+		cmd.Wait()
+		ps := cmd.ProcessState
+		if ps.Success() {
+			t.Runtime.Push(cont, rt.BoolValue(true))
+		} else {
+			t.Runtime.Push(cont, rt.NilValue)
+		}
+
+		exit := rt.StringValue("exit")
+		code := rt.IntValue(int64(ps.ExitCode()))
+		if !ps.Exited() {
+			// received signal instead of normal exit
+			exit = rt.StringValue("signal")
+			if runtime.GOOS != "windows" {
+				// i can't find out what Sys() is on windows ...
+				ws := ps.Sys().(syscall.WaitStatus)
+				sig := ws.Signal()
+				code = rt.IntValue(int64(sig)) // syscall.Signal
+			}
+		}
+
+		t.Runtime.Push(cont, exit, code)
+
+		return c.Next(), nil
+	}
+
 	if err != nil {
 		return pushingNextIoResult(t.Runtime, c, err)
 	}

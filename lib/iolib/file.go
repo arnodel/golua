@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"runtime"
 	"strings"
 
@@ -35,12 +34,11 @@ var (
 // A File wraps an os.File for manipulation by iolib.
 type File struct {
 	file   *os.File
+	name   string
+	close func(*rt.Thread, *rt.GoCont) (rt.Cont, error)
 	status fileStatus
 	reader bufReader
 	writer bufWriter
-	cmd *exec.Cmd
-	stdin io.WriteCloser
-	stdout io.ReadCloser
 }
 
 type fileStatus int
@@ -53,7 +51,7 @@ const (
 
 // NewFile returns a new *File from an *os.File.
 func NewFile(file *os.File, options int) *File {
-	f := &File{file: file}
+	f := &File{file: file, name: file.Name()}
 	// TODO: find out if there is mileage in having unbuffered readers.
 	if true || options&bufferedRead != 0 {
 		f.reader = bufio.NewReader(file)
@@ -170,16 +168,6 @@ func (f *File) Close() error {
 	var err error
 	if f.file != nil {
 		err = f.file.Close()
-	} else {
-		if f.stdout != nil {
-			err = f.stdout.Close()
-			if err != nil {
-				return err
-			}
-		}
-		if f.stdin != nil {
-			err = f.stdin.Close()
-		}
 	}
 
 	if err == nil {
@@ -286,7 +274,7 @@ func (f *File) WriteString(s string) error {
 
 // Seek seeks from the file.
 func (f *File) Seek(offset int64, whence int) (n int64, err error) {
-	if f.cmd != nil {
+	if f.file == nil {
 		// popen'd; seems you can't seek a popen file in original lua impl, so error
 		return 0, errors.New("Illegal seek") // not sure what error message to use
 	}
@@ -343,11 +331,7 @@ func (f *File) SetWriteBuffer(mode string, size int) error {
 
 // Name returns the file name.
 func (f *File) Name() string {
-	if f.file != nil {
-		return f.file.Name()
-	}
-
-	return strings.Join(f.cmd.Args[2:], " ")
+	return f.name
 }
 
 // Best effort to flush and close files when they are no longer accessible.
