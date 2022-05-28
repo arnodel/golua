@@ -90,9 +90,6 @@ do
     print(pcall(io.popen, "aaa", false))
     --> ~^false\t.*must be a string
 
-    testf(io.popen)("eejkgfdbnjb")
-    --> ~OK\tnil\t
-
     local f = io.popen("cat files/iotest.txt")
     print(f)
     --> =file ("cat files/iotext.txt")
