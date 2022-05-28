@@ -92,7 +92,7 @@ do
 
     local f = io.popen("cat files/iotest.txt")
     print(f)
-    --> =file ("cat files/iotext.txt")
+    --> =file ("cat files/iotest.txt")
 
     print(pcall(f.read))
     --> ~^false\t.*value needed
