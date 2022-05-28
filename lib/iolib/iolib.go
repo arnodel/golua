@@ -430,12 +430,7 @@ func popen(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		Args: cmdArgs,
 	}
 
-	outDummy, _, err := os.Pipe()
-	if err != nil {
-		return nil, err
-	}
-
-	_, inDummy, err := os.Pipe()
+	outDummy, inDummy, err := os.Pipe()
 	if err != nil {
 		return nil, err
 	}
