@@ -440,10 +440,12 @@ func popen(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 			var stdout io.ReadCloser
 			stdout, err = cmd.StdoutPipe()
 			f.reader = bufio.NewReader(stdout)
+			f.stdout = stdout
 		case "w":
 			var stdin io.WriteCloser
 			stdin, err = cmd.StdinPipe()
 			f.writer = bufio.NewWriterSize(stdin, 65536)
+			f.stdin = stdin
 		default:
 			err = errors.New("invalid mode")
 	}

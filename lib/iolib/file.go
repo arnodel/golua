@@ -39,6 +39,8 @@ type File struct {
 	reader bufReader
 	writer bufWriter
 	cmd *exec.Cmd
+	stdin io.WriteCloser
+	stdout io.ReadCloser
 }
 
 type fileStatus int
@@ -169,14 +171,14 @@ func (f *File) Close() error {
 	if f.file != nil {
 		err = f.file.Close()
 	} else {
-		if readcloser, ok := f.reader.(io.Closer); ok {
-			err = readcloser.Close()
+		if f.stdout != nil {
+			err = f.stdout.Close()
 			if err != nil {
 				return err
 			}
 		}
-		if writecloser, ok := f.writer.(io.Closer); ok {
-			err = writecloser.Close()
+		if f.stdin != nil {
+			err = f.stdin.Close()
 		}
 	}
 
