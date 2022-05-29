@@ -90,9 +90,11 @@ do
     print(pcall(io.popen, "aaa", false))
     --> ~^false\t.*must be a string
 
-    local f = io.popen("cat files/iotest.txt")
-    print(f)
-    --> =file ("cat files/iotest.txt")
+    local fh = io.popen("hello")
+    print(fh)
+    --> =file ("hello")
+
+    local f = io.popen(readcmd)
 
     print(pcall(f.read))
     --> ~^false\t.*value needed
@@ -240,7 +242,7 @@ do
     local function wp(x)
         print("[" .. tostring(x) .. "]")
     end
-    local f = io.popen("cat > files/popenwrite.txt", "w")
+    local f = io.popen(writecmd, "w")
 
     testf(f.write)()
     --> ~ERR	.*value needed
