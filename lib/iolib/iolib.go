@@ -427,8 +427,13 @@ func popen(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	}
 	// called *only* from io.close
 	f.close = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+		err := f.Close()
+		if err != nil {
+			return pushingNextIoResult(t.Runtime, c, err)
+		}
+	
 		if stdout != nil {
-			err = stdout.Close()
+			err := stdout.Close()
 			if err != nil {
 				return pushingNextIoResult(t.Runtime, c, err)
 			}
