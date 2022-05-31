@@ -94,55 +94,57 @@ do
     print(fh)
     --> =file ("hello")
 
-    local f = io.popen(readcmd)
+    if goos ~= 'windows' then
+        local f = io.popen('cat files/iotest.txt')
 
-    print(pcall(f.read))
-    --> ~^false\t.*value needed
+        print(pcall(f.read))
+        --> ~^false\t.*value needed
 
-    print(pcall(f.read, 123))
-    --> ~^false\t
+        print(pcall(f.read, 123))
+        --> ~^false\t
 
-    print(pcall(f.read, f, "?"))
-    --> ~^false\t.*invalid format
+        print(pcall(f.read, f, "?"))
+        --> ~^false\t.*invalid format
 
-    testf(io.type)()
-    --> ~ERR	.*value needed
+        testf(io.type)()
+        --> ~ERR	.*value needed
 
-    print(io.type(123))
-    --> =nil
+        print(io.type(123))
+        --> =nil
 
-    print(io.type(f))
-    --> =file
+        print(io.type(f))
+        --> =file
 
-    print(pcall(f.lines))
-    --> ~^false\t.*value needed
+        print(pcall(f.lines))
+        --> ~^false\t.*value needed
 
-    print(pcall(f.lines, 123))
-    --> ~^false\t.*must be a file
+        print(pcall(f.lines, 123))
+        --> ~^false\t.*must be a file
 
-    print(pcall(f.lines, f, "wat"))
-    --> ~^false\t.*invalid format
+        print(pcall(f.lines, f, "wat"))
+        --> ~^false\t.*invalid format
 
 
-    for line in f:lines() do
-        print(line)
+        for line in f:lines() do
+            print(line)
+        end
+        --> =hello
+        --> =123
+        --> =bye
+
+        testf(f.close)()
+        --> ~ERR	.*value needed
+
+        testf(f.flush)()
+        --> ~ERR	.*value needed
+
+        testf(f.flush)(123)
+        --> ~ERR	.*must be a file
+
+        f:close()
+        print(io.type(f))
+        --> =closed file
     end
-    --> =hello
-    --> =123
-    --> =bye
-
-    testf(f.close)()
-    --> ~ERR	.*value needed
-
-    testf(f.flush)()
-    --> ~ERR	.*value needed
-
-    testf(f.flush)(123)
-    --> ~ERR	.*must be a file
-
-    f:close()
-    print(io.type(f))
-    --> =closed file
 end
 
 do
@@ -239,31 +241,33 @@ do
 end
 
 do
-    local function wp(x)
-        print("[" .. tostring(x) .. "]")
+    if goos ~= 'windows' then
+        local function wp(x)
+            print("[" .. tostring(x) .. "]")
+        end
+        local f = io.popen('cat > files/popenwrite.txt', "w")
+
+        testf(f.write)()
+        --> ~ERR	.*value needed
+
+        print(pcall(f.write, 123))
+        --> ~^false\t.*must be a file
+
+        print(pcall(f.write, f, {}))
+        --> ~^false\t.*must be a string or a number
+
+        f:write("foobar", 1234, "\nabc\n")
+        f:close()
+        f = io.open("files/popenwrite.txt", "r")
+
+        wp(f:read("a"))
+        --> =[foobar1234
+        --> =abc
+        --> =]
+
+        wp(f:read("l"))
+        --> =[nil]
     end
-    local f = io.popen(writecmd, "w")
-
-    testf(f.write)()
-    --> ~ERR	.*value needed
-
-    print(pcall(f.write, 123))
-    --> ~^false\t.*must be a file
-
-    print(pcall(f.write, f, {}))
-    --> ~^false\t.*must be a string or a number
-
-    f:write("foobar", 1234, "\nabc\n")
-    f:close()
-    f = io.open("files/popenwrite.txt", "r")
-
-    wp(f:read("a"))
-    --> =[foobar1234
-    --> =abc
-    --> =]
-
-    wp(f:read("l"))
-    --> =[nil]
 end
 
 do
