@@ -7,7 +7,7 @@ import (
 	"runtime"
 )
 
-var tagsPtn = regexp.MustCompile(`^-- tags: *(!?[a-z]+)(?:,(!?[a-z]+))* *\n`)
+var tagsPtn = regexp.MustCompile(`^-- tags: *(!?[a-z]+)(?:,(!?[a-z]+))* *[\n\r]`)
 
 type testTag struct {
 	name  string
@@ -33,7 +33,7 @@ func getTags(source []byte) ([]testTag, error) {
 	}
 	match := tagsPtn.FindSubmatch(source)
 	if len(match) == 0 {
-		return nil, fmt.Errorf("Bad tags line")
+		return nil, fmt.Errorf("bad tags line")
 	}
 	var tags []testTag
 	for _, b := range match[1:] {
