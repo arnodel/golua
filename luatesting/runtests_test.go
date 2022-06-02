@@ -1,10 +1,13 @@
 package luatesting_test
 
 import (
+	"runtime"
 	"testing"
 
 	"github.com/arnodel/golua/lib"
 	"github.com/arnodel/golua/luatesting"
+
+	rt "github.com/arnodel/golua/runtime"
 )
 
 func TestRunLuaTest(t *testing.T) {
@@ -28,5 +31,12 @@ error("hello")
 }
 
 func TestLua(t *testing.T) {
-	luatesting.RunLuaTestsInDir(t, "lua", lib.LoadAll)
+	luatesting.RunLuaTestsInDir(t, "lua", setup)
+}
+
+func setup(r *rt.Runtime) func() {
+	cleanup := lib.LoadAll(r)
+	g := r.GlobalEnv()
+	r.SetEnv(g, "goos", rt.StringValue(runtime.GOOS))
+	return cleanup
 }
