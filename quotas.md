@@ -18,6 +18,7 @@
       - [`(*Runtime).PopContext() RuntimeContext`](#runtimepopcontext-runtimecontext)
       - [`(*Runtime).CallContext(def RuntimeContextDef, f func() *Error) (RuntimeContext, *Error)`](#runtimecallcontextdef-runtimecontextdef-f-func-error-runtimecontext-error)
       - [`(*Runtime).TerminateContext(format string, args ...interface{})`](#runtimeterminatecontextformat-string-args-interface)
+  - [Finalizers and runtime contexts](#finalizers-and-runtime-contexts)
   - [How to implement the safe execution environment](#how-to-implement-the-safe-execution-environment)
     - [CPU limits](#cpu-limits)
       - [`(*Runtime).RequireCPU(n uint64)`](#runtimerequirecpun-uint64)
@@ -33,7 +34,6 @@
     - [Restricting access to Go functions.](#restricting-access-to-go-functions)
       - [`ComplianceFlags`](#complianceflags)
       - [`(*GoFunction).SolemnlyDeclareCompliance(ComplianceFlags)`](#gofunctionsolemnlydeclarecompliancecomplianceflags)
-  - [Random notes](#random-notes)
 ## Overview
 
 First of all: everything in this document is subject to change!
@@ -333,6 +333,61 @@ func main() {
 
 Terminate the context immediately if it is live.
 
+## Finalizers and runtime contexts
+
+In Lua it is possible to add finalizers to two types of values: tables and
+userdata.  Finalizers are run once the garbage collector knows the values are no
+longer reachable.  This is used in the standard library to make sure open files
+which are no longer used are closed.
+
+The Golua runtime makes sure that when a value is created within a runtime
+context with restricted resources, running its finalizer will not use another
+context's resources.  However, only in the case of userdata,  it is sometimes
+the case the value contains a resource that should be released unconditionnally
+(e.g. a file descriptor).  Golua provides a general mechanism to support that,
+simply by defining a `ReleaseResources` method on the underlying type.  That
+method is guaranteed to run before the runtime context is closed, but after the
+Lua finalizer runs if it exists.  For example in the standard library, the
+underlying type of file userdata is as follows.
+
+```golang
+type File struct {
+	file   *os.File
+	status fileStatus
+	reader bufReader
+	writer bufWriter
+}
+```
+
+When file userdata becomes unreachable, the underlying `File` instance should
+close the `os.File` instance it owns.  This is done as follows.
+
+```golang
+
+// The *File type implements the ResourceReleaser interface.
+func (f *File) ReleaseResources(d *rt.UserData) {
+	f.cleanup()
+}
+
+// Included to show what happens in Prefinalize
+func (f *File) cleanup() {
+	if !f.IsClosed() {
+		f.Close()
+	}
+	if f.IsTemp() {
+		_ = os.Remove(f.Name())
+	}
+}
+```
+
+The runtime makes sure that any userdata that implements
+`runtime.ResourceReleaser` interface will have its `ReleaseResources` method
+called unconditionally.  Of course it is important that the code in those
+methods consumes as little resources as possible.
+
+For details about the semantics see the
+[userdata.quotas.lua](runtime/lua/userdata.quotas.lua) test file
+
 ## How to implement the safe execution environment
 
 ### CPU limits
@@ -470,30 +525,3 @@ Before execution, the current context's `RequiredFlags` value is checked against
 the compliance flags declared by the Go functions.  If any of the required flags
 is not complied with by the function, execution will immediately return an error
 (but not terminate the context).
-
-
-## Random notes
-
-TODOs:
-- push Etc: done for requiring mem, should release mem when register is cleared?
-- strings: streamline requiring mem
-
-Implementations Guidelines:
-- in an unbounded loop require cpu proportional to the number of iterations in
-  the loop
-- when creating a Value require memory
-- when creating a slice of values require memory
-- when creating a string require memory
-- when calling a Go standard library function you want to require memory /
-  cpu depending on the characteristics of this function
-
-Testing guidelines
-- write *.quotas.lua test file, using quota.rcall to check that memory and cpu
-  are accounted for.
-
-- namespacing
-- filesystem restrictions
-- context:aborted()
-- context:abort()
-- . vs _ in context hard_cpu, hard.cpu
-  

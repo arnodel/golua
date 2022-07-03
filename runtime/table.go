@@ -1,16 +1,22 @@
 package runtime
 
+import (
+	"unsafe"
+
+	"github.com/arnodel/golua/runtime/internal/luagc"
+)
+
 // Table implements a Lua table.
 type Table struct {
 	// This is where the implementation details are.
-	mixedTable
+	*mixedTable
 
 	meta *Table
 }
 
 // NewTable returns a new Table.
 func NewTable() *Table {
-	return &Table{mixedTable: mixedTable{}}
+	return &Table{mixedTable: &mixedTable{}}
 }
 
 // Metatable returns the table's metatable.
@@ -21,6 +27,18 @@ func (t *Table) Metatable() *Table {
 // SetMetatable sets the table's metatable.
 func (t *Table) SetMetatable(m *Table) {
 	t.meta = m
+}
+
+var _ luagc.Value = (*Table)(nil)
+
+func (t *Table) Key() luagc.Key {
+	return unsafe.Pointer(t.mixedTable)
+}
+
+func (t *Table) Clone() luagc.Value {
+	clone := new(Table)
+	*clone = *t
+	return clone
 }
 
 // Get returns t[k].

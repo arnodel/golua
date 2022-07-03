@@ -66,7 +66,7 @@ func newRegex(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		return nil, compErr
 	}
 	regexMeta := t.Registry(regexMetaKey)
-	return c.PushingNext(t.Runtime, rt.UserDataValue(rt.NewUserData(re, regexMeta.AsTable()))), nil
+	return c.PushingNext(t.Runtime, t.NewUserDataValue(re, regexMeta.AsTable())), nil
 }
 
 // Hepler function that turns a Lua value to a Go regexp.
