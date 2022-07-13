@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
-	"runtime"
 	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
@@ -41,6 +40,8 @@ type File struct {
 	writer bufWriter
 }
 
+var _ rt.UserDataResourceReleaser = (*File)(nil)
+
 type fileStatus int
 
 const (
@@ -69,7 +70,6 @@ func NewFile(file *os.File, options int) *File {
 	if options&notClosable != 0 {
 		f.status |= statusNotClosable
 	}
-	runtime.SetFinalizer(f, (*File).cleanup)
 	return f
 }
 
@@ -332,6 +332,11 @@ func (f *File) SetWriteBuffer(mode string, size int) error {
 // Name returns the file name.
 func (f *File) Name() string {
 	return f.name
+}
+
+// ReleaseResources cleans up the file
+func (f *File) ReleaseResources(d *rt.UserData) {
+	f.cleanup()
 }
 
 // Best effort to flush and close files when they are no longer accessible.

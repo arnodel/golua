@@ -40,6 +40,7 @@ func RunLuaTest(source []byte, setup func(*rt.Runtime) func()) error {
 	}
 	checkers := ExtractLineCheckers(source)
 	RunSource(r, source)
+	r.Close(nil)
 	return CheckLines(outputBuf.Bytes(), checkers)
 }
 

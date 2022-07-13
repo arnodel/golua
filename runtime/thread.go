@@ -91,6 +91,9 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 	var errContCount = 0
 	_ = t.triggerCall(t, c)
 	for c != nil {
+		if t != t.gcThread {
+			t.runPendingFinalizers()
+		}
 		t.currentCont = c
 		next, err = c.RunInThread(t)
 		if err != nil {
@@ -303,17 +306,21 @@ func (t *Thread) CallContext(def RuntimeContextDef, f func() error) (ctx Runtime
 	c, h := t.CurrentCont(), t.closeStack.size()
 	defer func() {
 		ctx = t.PopContext()
-		t.closeStack.truncate(h) // No resources to run that, so just discard it.
 		if r := recover(); r != nil {
-			_, ok := r.(ContextTerminationError)
+			t.closeStack.truncate(h) // No resources to run that, so just discard it.
+			termErr, ok := r.(ContextTerminationError)
 			if !ok {
 				panic(r)
 			}
+			err = termErr
 		}
 	}()
 	err = t.cleanupCloseStack(c, h, f())
+	if t.GCPolicy() == IsolateGCPolicy {
+		t.runFinalizers(t.weakRefPool.ExtractAllMarkedFinalize())
+	}
 	if err != nil {
-		t.Runtime.setStatus(StatusError)
+		t.setStatus(StatusError)
 	}
 	return
 }

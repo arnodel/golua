@@ -20,7 +20,7 @@ func setmetatable(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if c.Arg(1).IsNil() {
 		tbl.SetMetatable(nil)
 	} else if meta, err := c.TableArg(1); err == nil {
-		tbl.SetMetatable(meta)
+		t.SetRawMetatable(c.Arg(0), meta)
 	} else {
 		return nil, err
 	}

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/arnodel/golua/runtime/internal/luagc"
 )
 
 const QuotasAvailable = true
@@ -37,9 +39,17 @@ type runtimeContextManager struct {
 	stopLevel        StopLevel
 	startTime        uint64
 	nextCpuThreshold uint64
+
+	weakRefPool luagc.Pool
+	gcPolicy    GCPolicy
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
+
+func (m *runtimeContextManager) initRoot() {
+	m.gcPolicy = IsolateGCPolicy
+	m.weakRefPool = luagc.NewDefaultPool()
+}
 
 func (m *runtimeContextManager) HardLimits() RuntimeResources {
 	return m.hardLimits
@@ -118,11 +128,26 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	m.status = StatusLive
 	m.messageHandler = ctx.MessageHandler
 	m.parent = &parent
+	if ctx.GCPolicy == IsolateGCPolicy || ctx.HardLimits.Millis > 0 || ctx.HardLimits.Cpu > 0 || ctx.HardLimits.Memory > 0 {
+		m.weakRefPool = luagc.NewDefaultPool()
+		m.gcPolicy = IsolateGCPolicy
+	} else {
+		m.weakRefPool = parent.weakRefPool
+		m.gcPolicy = ShareGCPolicy
+	}
+}
+
+func (m *runtimeContextManager) GCPolicy() GCPolicy {
+	return m.gcPolicy
 }
 
 func (m *runtimeContextManager) PopContext() RuntimeContext {
 	if m == nil || m.parent == nil {
 		return nil
+	}
+	if m.gcPolicy == IsolateGCPolicy {
+		m.weakRefPool.ExtractAllMarkedFinalize()
+		releaseResources(m.weakRefPool.ExtractAllMarkedRelease())
 	}
 	mCopy := *m
 	if mCopy.status == StatusLive {

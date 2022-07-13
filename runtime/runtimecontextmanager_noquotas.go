@@ -5,6 +5,8 @@ package runtime
 
 import (
 	"fmt"
+
+	"github.com/arnodel/golua/runtime/internal/luagc"
 )
 
 const QuotasAvailable = false
@@ -12,9 +14,14 @@ const QuotasAvailable = false
 type runtimeContextManager struct {
 	messageHandler Callable
 	parent         *runtimeContextManager
+	weakRefPool    luagc.Pool
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
+
+func (m *runtimeContextManager) initRoot() {
+	m.weakRefPool = luagc.NewDefaultPool()
+}
 
 func (m *runtimeContextManager) HardLimits() (r RuntimeResources) {
 	return
@@ -54,6 +61,10 @@ func (m *runtimeContextManager) Due() bool {
 func (m *runtimeContextManager) SetStopLevel(StopLevel) {
 }
 
+func (m *runtimeContextManager) GCPolicy() GCPolicy {
+	return ShareGCPolicy
+}
+
 func (m *runtimeContextManager) RuntimeContext() RuntimeContext {
 	return m
 }
@@ -65,8 +76,12 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 }
 
 func (m *runtimeContextManager) PopContext() RuntimeContext {
+	if m == nil || m.parent == nil {
+		return nil
+	}
+	mCopy := *m
 	*m = *m.parent
-	return nil
+	return &mCopy
 }
 
 func (m *runtimeContextManager) CallContext(def RuntimeContextDef, f func() error) (ctx RuntimeContext, err error) {

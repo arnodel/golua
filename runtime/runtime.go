@@ -2,8 +2,12 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"runtime"
+
+	"github.com/arnodel/golua/runtime/internal/luagc"
 )
 
 // A Runtime is a Lua runtime.  It contains all the global state of the runtime
@@ -18,6 +22,7 @@ type Runtime struct {
 
 	Stdout     io.Writer // This is useful for testing / repls
 	mainThread *Thread   // An initialised Runtimes comes with this thread
+	gcThread   *Thread   // Thread for running Lua finalizers
 	registry   *Table    // The registry table can store data global to the runtime
 
 	warner Warner // Lua 5.4 introduces a warning system, implemented by this
@@ -40,8 +45,9 @@ type Runtime struct {
 }
 
 type runtimeOptions struct {
-	regPoolSize  uint
-	regSetMaxAge uint
+	regPoolSize       uint
+	regSetMaxAge      uint
+	runtimeContextDef *RuntimeContextDef
 }
 
 var defaultRuntimeOptions = runtimeOptions{
@@ -68,6 +74,12 @@ func WithRegSetMaxAge(age uint) RuntimeOption {
 	}
 }
 
+func WithRuntimeContext(def RuntimeContextDef) RuntimeOption {
+	return func(rtOpts *runtimeOptions) {
+		rtOpts.runtimeContextDef = &def
+	}
+}
+
 // New returns a new pointer to a Runtime with the given stdout.
 func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 	rtOpts := defaultRuntimeOptions
@@ -83,9 +95,22 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 		argsPool:  mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
 		cellPool:  mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
 	}
+
 	mainThread := NewThread(r)
 	mainThread.status = ThreadOK
 	r.mainThread = mainThread
+
+	gcThread := NewThread(r)
+	gcThread.status = ThreadOK
+	r.gcThread = gcThread
+
+	r.runtimeContextManager.initRoot()
+
+	if rtOpts.runtimeContextDef != nil {
+		r.PushContext(*rtOpts.runtimeContextDef)
+	}
+
+	runtime.SetFinalizer(r, func(r *Runtime) { r.Close(nil) })
 	return r
 }
 
@@ -164,12 +189,88 @@ func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
 	case BoolType:
 		r.boolMeta = meta
 	case TableType:
-		v.AsTable().SetMetatable(meta)
+		tbl := v.AsTable()
+		tbl.SetMetatable(meta)
+		if !RawGet(meta, MetaFieldGcValue).IsNil() {
+			r.addFinalizer(tbl, luagc.Finalize)
+		}
 	case UserDataType:
-		v.AsUserData().SetMetatable(meta)
+		udata := v.AsUserData()
+		udata.SetMetatable(meta)
+		r.addFinalizer(udata, udata.MarkFlags())
 	default:
-		// Shoul there be an error here?
+		// Should there be an error here?
 	}
+}
+
+func (r *Runtime) addFinalizer(ref luagc.Value, flags luagc.MarkFlags) {
+	if flags != 0 {
+		r.weakRefPool.Mark(ref, flags)
+	}
+}
+
+func (r *Runtime) runPendingFinalizers() {
+
+	// Running finalizers may panic if we run out of resources
+	pendingFinalize := r.weakRefPool.ExtractPendingFinalize()
+	if len(pendingFinalize) > 0 {
+		r.runFinalizers(pendingFinalize)
+	}
+
+	// If we get there, releasing resources should not panic
+	pendingRelease := r.weakRefPool.ExtractPendingRelease()
+	if len(pendingRelease) > 0 {
+		releaseResources(pendingRelease)
+	}
+}
+
+func (r *Runtime) runFinalizers(refs []luagc.Value) {
+	for _, ref := range refs {
+		term := NewTerminationWith(nil, 0, false)
+		v := AsValue(ref)
+		err, _ := Metacall(r.gcThread, v, MetaFieldGcString, []Value{v}, term)
+		if err != nil {
+			r.Warn(fmt.Sprintf("error in finalizer: %s", err))
+		}
+	}
+}
+
+func (t *Thread) CollectGarbage() {
+	if t != t.gcThread {
+		runtime.GC()
+		t.runPendingFinalizers()
+	}
+}
+
+func (r *Runtime) Close(err *error) {
+	runtime.SetFinalizer(r, nil)
+	if r := recover(); r != nil {
+		ctErr, ok := r.(ContextTerminationError)
+		if !ok {
+			panic(r)
+		}
+		if err != nil && *err == nil {
+			*err = ctErr
+		}
+	}
+	defer func() {
+		if r.PopContext() != nil {
+			r.Close(err)
+		} else {
+			releaseResources(r.weakRefPool.ExtractAllMarkedRelease())
+		}
+		if r := recover(); r != nil {
+			ctErr, ok := r.(ContextTerminationError)
+			if !ok {
+				panic(r)
+			}
+			if err != nil && *err == nil {
+				*err = ctErr
+			}
+		}
+	}()
+	r.runFinalizers(r.weakRefPool.ExtractAllMarkedFinalize())
+	return
 }
 
 // Metatable returns the metatalbe of v (looking for '__metatable' in the raw
