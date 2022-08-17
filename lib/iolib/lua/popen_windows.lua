@@ -26,7 +26,7 @@ do
     print(fh)
     --> =file ("hello")
 
-    local f = io.popen("type files/iotest.txt")
+    local f = io.popen("type files\\iotest.txt")
 
     print(pcall(f.read))
     --> ~^false\t.*value needed
