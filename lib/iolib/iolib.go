@@ -1,10 +1,14 @@
 package iolib
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"runtime"
+	"syscall"
 
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
@@ -92,7 +96,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(pkg, "lines", iolines, 1, true),
 		r.SetEnvGoFunc(pkg, "open", open, 2, false),
 		r.SetEnvGoFunc(pkg, "output", output, 1, false),
-		// TODO: popen,
+		r.SetEnvGoFunc(pkg, "popen", popen, 2, false),
 		r.SetEnvGoFunc(pkg, "read", ioread, 0, true),
 		r.SetEnvGoFunc(pkg, "tmpfile", tmpfile, 0, false),
 		r.SetEnvGoFunc(pkg, "write", iowrite, 0, true),
@@ -152,7 +156,16 @@ func ioclose(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 			return nil, err
 		}
 	}
-	return pushingNextIoResult(t.Runtime, c, f.Close())
+
+	var cont rt.Cont
+	var err error
+	if f.file == nil {
+		cont, err = f.close(t, c)
+	} else {
+		cont, err = pushingNextIoResult(t.Runtime, c, f.Close())
+	}
+
+	return cont, err
 }
 
 func fileclose(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
@@ -355,6 +368,120 @@ func open(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if ioErr != nil {
 		return pushingNextIoResult(t.Runtime, c, ioErr)
 	}
+
+	fv := t.NewUserDataValue(f, getIoData(t.Runtime).metatable)
+	return c.PushingNext(t.Runtime, fv), nil
+}
+
+func popen(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err
+	}
+	cmdStr, err := c.StringArg(0)
+	if err != nil {
+		return nil, err
+	}
+
+	mode := "r"
+	if c.NArgs() >= 2 {
+		mode, err = c.StringArg(1)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var cmdArgs []string
+	if runtime.GOOS == "windows" {
+		cmdArgs = []string{"C:\\Windows\\system32\\cmd.exe", "/c", cmdStr}
+	} else {
+		cmdArgs = []string{"/bin/sh", "-c", cmdStr}
+	}
+
+	cmd := exec.Cmd{
+		Path: cmdArgs[0],
+		Args: cmdArgs,
+	}
+
+	outDummy, inDummy, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+
+	f := &File{
+		writer: &nobufWriter{inDummy},
+		reader: &nobufReader{outDummy},
+		name: cmdStr,
+	}
+
+	var stdout io.ReadCloser
+	var stdin io.WriteCloser
+	switch mode {
+		case "r":
+			stdout, err = cmd.StdoutPipe()
+			f.reader = bufio.NewReader(stdout)
+		case "w":
+			stdin, err = cmd.StdinPipe()
+			f.writer = bufio.NewWriterSize(stdin, 65536)
+		default:
+			err = errors.New("invalid mode")
+	}
+	// called *only* from io.close
+	f.close = func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+		err := f.Close()
+		if err != nil {
+			return pushingNextIoResult(t.Runtime, c, err)
+		}
+	
+		if stdout != nil {
+			err := stdout.Close()
+			if err != nil {
+				return pushingNextIoResult(t.Runtime, c, err)
+			}
+		}
+		if stdin != nil {
+			err := stdin.Close()
+			if err != nil {
+				return pushingNextIoResult(t.Runtime, c, err)
+			}
+		}
+
+		cont := c.Next()
+
+		cmd.Wait()
+		ps := cmd.ProcessState
+		if ps.Success() {
+			t.Runtime.Push(cont, rt.BoolValue(true))
+		} else {
+			t.Runtime.Push(cont, rt.NilValue)
+		}
+
+		exit := rt.StringValue("exit")
+		code := rt.IntValue(int64(ps.ExitCode()))
+		if !ps.Exited() {
+			// received signal instead of normal exit
+			exit = rt.StringValue("signal")
+			if runtime.GOOS != "windows" {
+				// i can't find out what Sys() is on windows ...
+				ws := ps.Sys().(syscall.WaitStatus)
+				sig := ws.Signal()
+				code = rt.IntValue(int64(sig)) // syscall.Signal
+			}
+		}
+
+		t.Runtime.Push(cont, exit, code)
+
+		return c.Next(), nil
+	}
+
+	if err != nil {
+		return pushingNextIoResult(t.Runtime, c, err)
+	}
+
+	err = cmd.Start()
+	if err != nil {
+		return nil, err
+	}
+
 	fv := t.NewUserDataValue(f, getIoData(t.Runtime).metatable)
 	return c.PushingNext(t.Runtime, fv), nil
 }
