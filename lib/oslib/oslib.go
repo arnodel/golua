@@ -47,12 +47,13 @@ func date(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		format string
 		date   rt.Value
 	)
-	if err = c.Check1Arg(); err != nil {
-		return nil, err
-	}
-	format, err = c.StringArg(0)
-	if err != nil {
-		return nil, err
+	if c.NArgs() == 0 {
+		format = "%c"
+	} else {
+		format, err = c.StringArg(0)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// If format starts with "!" it means UTC
