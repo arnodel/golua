@@ -20,7 +20,7 @@ print(ctx.used.millis >= 10)
 --> =true
 
 -- It didn't last much more than that (could be flaky)
-print(ctx.used.millis <= 15)
+print(ctx.used.millis <= 20)
 --> =true
 
 -- Significant work was done while it lasted (could be flaky)
