@@ -27,3 +27,25 @@ print(pcall(function() return t <= false end))
 meta.__le = meta.__lt
 print(t <= false)
 --> =false
+
+do
+  local ud1 = testudata("foo")
+  local ud2 = testudata("bar")
+
+  print(ud1 == ud1)
+  --> =true
+  print(ud1 == ud2)
+  --> =false
+
+  local meta1 = {__eq=function(x, y) return true end}
+  local meta2 = {__eq=function(x, y) return false end}
+  debug.setmetatable(ud1, meta1)
+  debug.setmetatable(ud2, meta2)
+
+  print(ud1 == ud2)
+  --> =true
+  print(ud2 == ud1)
+  --> =false
+  --> =**release bar**
+  --> =**release foo**
+end

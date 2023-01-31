@@ -96,8 +96,11 @@ func eq(t *Thread, x, y Value) (bool, error) {
 		if _, ok := y.TryTable(); !ok {
 			return false, nil
 		}
+	} else if _, ok := x.TryUserData(); ok {
+		if _, ok := y.TryUserData(); !ok {
+			return false, nil
+		}
 	} else {
-		// TODO: deal with UserData
 		return false, nil
 	}
 	res, err, ok := metabin(t, "__eq", x, y)
