@@ -39,7 +39,7 @@ func (p *packFormatReader) smallOptSize(defaultSize uint) (ok bool) {
 	return
 }
 
-const maxDecuplable = math.MaxUint64 / 10
+const maxDecuplable = math.MaxUint / 10
 
 func (p *packFormatReader) getOptSize() bool {
 	var (

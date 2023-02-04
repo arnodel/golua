@@ -303,7 +303,7 @@ func (v Value) ToString() (string, bool) {
 	}
 	switch x := v.iface.(type) {
 	case int64:
-		return strconv.Itoa(int(v.AsInt())), true
+		return strconv.FormatInt(v.AsInt(), 10), true
 	case float64:
 		return strconv.FormatFloat(v.AsFloat(), 'g', -1, 64), true
 	case bool:
