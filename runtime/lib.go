@@ -83,8 +83,10 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) error {
 			if isTable {
 				// No need to call SetTableCheck
 				t.SetTable(tbl, idx, val)
+				return nil
 			}
-			return nil
+			return fmt.Errorf(
+				"attempt to index %s value without __newindex", coll.TypeName())
 		}
 		if _, ok := metaNewIndex.TryTable(); ok {
 			coll = metaNewIndex
