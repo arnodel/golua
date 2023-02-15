@@ -75,3 +75,18 @@ func TestRuntime_CompileAndLoadLuaChunkOrExp(t *testing.T) {
 		})
 	}
 }
+
+// TestSetIndexNoNewIndex tests setting new indices of values without
+// a __newindex metamethod.
+func TestSetIndexNoNewIndex(t *testing.T) {
+	r := New(os.Stdout)
+	intValue := IntValue(42)
+	meta := NewTable()
+	udValue := UserDataValue(NewUserData([]int{}, meta))
+	if err := SetIndex(r.MainThread(), intValue, intValue, intValue); err == nil {
+		t.Error("expected error indexing int value")
+	}
+	if err := SetIndex(r.MainThread(), udValue, intValue, intValue); err == nil {
+		t.Error("expected error indexing userdata value")
+	}
+}
