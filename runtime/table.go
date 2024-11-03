@@ -70,6 +70,10 @@ func (t *Table) Len() int64 {
 }
 
 // Next returns the key-value pair that comes after k in the table t.
+//   - If k is NilValue, the first key-value pair in the table t is returned.
+//   - If k is the last key in the table t, a pair of NilValues is returned.
+//   - If the table t is empty, the returned key-value pair is always a pair of NilValues, regardless of k.
+//   - In all cases, ok is true if and only if k is either NilValue or a key present in the table t.
 func (t *Table) Next(k Value) (next Value, val Value, ok bool) {
 	return t.mixedTable.next(k)
 }
