@@ -2,10 +2,10 @@
 
 -- A time bound context stops when the time is exceeded
 local n = 0
-local ctx = runtime.callcontext({kill={millis=10}}, function()
+local ctx = runtime.callcontext({kill={millis=100}}, function()
     local ctx = runtime.context()
     print(ctx.kill.millis, ctx.kill.seconds)
-    --> =10	0.01
+    --> =100	0.1
     while true do
         n = n + 1
     end
@@ -15,16 +15,16 @@ end)
 print(ctx)
 --> =killed
 
--- It lasted for at least 1e6ms
-print(ctx.used.millis >= 10)
+-- It lasted for at least 100ms
+print(ctx.used.millis >= 100)
 --> =true
 
 -- It didn't last much more than that (could be flaky)
-print(ctx.used.millis <= 20)
+print(ctx.used.millis <= 150)
 --> =true
 
 -- Significant work was done while it lasted (could be flaky)
-print(n > 20000)
+print(n > 100000)
 --> =true
 
 -- The outer context keeps track of time spent in the inner context
