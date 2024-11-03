@@ -151,7 +151,7 @@ do
     print(runtime.callcontext({kill={cpu=1000}}, table.sort, unsorted(10)))
     --> =done
 
-    print(runtime.callcontext({kill={cpu=1000}}, table.sort, unsorted(100)))
+    print(runtime.callcontext({kill={cpu=1000}}, table.sort, unsorted(500)))
     --> =killed
 end
 
