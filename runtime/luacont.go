@@ -14,7 +14,7 @@ type LuaCont struct {
 	*Closure
 	registers      []Value
 	cells          []Cell
-	pc             int16
+	pc             int32
 	acc            []Value
 	running        bool
 	borrowedCells  bool
@@ -358,12 +358,12 @@ RunLoop:
 		case code.Type5Pfx:
 			switch opcode.GetJ() {
 			case code.OpJump:
-				pc += int16(opcode.GetOffset())
+				pc += int32(opcode.GetOffset())
 				continue RunLoop
 			case code.OpJumpIf:
 				test := Truth(getReg(regs, cells, opcode.GetA()))
 				if test == opcode.GetF() {
-					pc += int16(opcode.GetOffset())
+					pc += int32(opcode.GetOffset())
 				} else {
 					pc++
 				}
