@@ -119,6 +119,9 @@ func (t *mixedTable) next(k Value) (next Value, v Value, ok bool) {
 		isInt = true
 	} else {
 		i, isInt = ToIntNoString(k)
+		if isInt && i <= 0 {
+			isInt = false
+		}
 	}
 	if isInt {
 		j, v, ok := t.array.next(i)

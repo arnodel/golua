@@ -89,3 +89,13 @@ do
     print(pcall(table.insert, t, 5))
     --> ~false\t.* haha
 end
+
+do
+    local t = {[0]=0, [1]=1, [2]=2}
+    local s = ""
+    for _, x in pairs(t) do
+        s = s..x
+    end
+    print(s)
+    --> =120
+end
