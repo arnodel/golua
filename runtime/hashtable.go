@@ -119,8 +119,8 @@ func (t *mixedTable) next(k Value) (next Value, v Value, ok bool) {
 		isInt = true
 	} else {
 		i, isInt = ToIntNoString(k)
-		if isInt && i == 0 {
-			return t.hashTable.next(IntValue(0))
+		if isInt && i <= 0 {
+			isInt = false
 		}
 	}
 	if isInt {
