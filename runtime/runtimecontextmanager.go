@@ -5,10 +5,12 @@ package runtime
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/arnodel/golua/runtime/internal/luagc"
+	"github.com/arnodel/golua/safeio"
 )
 
 const QuotasAvailable = true
@@ -42,9 +44,12 @@ type runtimeContextManager struct {
 
 	weakRefPool luagc.Pool
 	gcPolicy    GCPolicy
+
+	fsAccessRule safeio.FSAccessRule
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
+var _ safeio.FSActionsChecker = (*runtimeContextManager)(nil)
 
 func (m *runtimeContextManager) initRoot() {
 	m.gcPolicy = IsolateGCPolicy
@@ -122,11 +127,15 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	if ctx.HardLimits.Millis > 0 {
 		m.requiredFlags |= ComplyTimeSafe
 	}
+	if ctx.FSAccessRule != nil {
+		m.requiredFlags |= ComplyIoSafe
+	}
 	m.trackTime = m.hardLimits.Millis > 0 || m.softLimits.Millis > 0
 	m.trackCpu = m.hardLimits.Cpu > 0 || m.softLimits.Cpu > 0 || m.trackTime
 	m.trackMem = m.hardLimits.Memory > 0 || m.softLimits.Memory > 0
 	m.status = StatusLive
 	m.messageHandler = ctx.MessageHandler
+	m.fsAccessRule = safeio.ChainFSAccessRules(parent.fsAccessRule, ctx.FSAccessRule)
 	m.parent = &parent
 	if ctx.GCPolicy == IsolateGCPolicy || ctx.HardLimits.Millis > 0 || ctx.HardLimits.Cpu > 0 || ctx.HardLimits.Memory > 0 {
 		m.weakRefPool = luagc.NewDefaultPool()
@@ -303,6 +312,19 @@ func (m *runtimeContextManager) TerminateContext(format string, args ...interfac
 	panic(ContextTerminationError{
 		message: fmt.Sprintf(format, args...),
 	})
+}
+
+// CheckFSActions returns true if the context allows the requested action on the
+// given path.
+func (m *runtimeContextManager) CheckFSActions(path string, requested safeio.FSAction) bool {
+	if m.requiredFlags&ComplyIoSafe == 0 {
+		return true
+	}
+	if m.fsAccessRule != nil {
+		effect := m.fsAccessRule.GetFSAccessEffect(filepath.Clean(path), requested)
+		return effect.Allows(requested)
+	}
+	return false
 }
 
 // Current unix time in ms

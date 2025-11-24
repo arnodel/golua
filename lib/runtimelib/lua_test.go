@@ -11,5 +11,5 @@ import (
 )
 
 func TestRuntimeLib(t *testing.T) {
-	luatesting.RunLuaTestsInDir(t, "lua", lib.LoadAll)
+	luatesting.RunLuaTestsInDir(t, "lua", lib.LoadAll, "fsaccess")
 }
