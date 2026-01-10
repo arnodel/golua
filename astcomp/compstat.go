@@ -243,6 +243,18 @@ func (c *compiler) ProcessLocalStat(s ast.LocalStat) {
 	}
 }
 
+// ProcessGlobalStat compiles a GlobalStat.
+func (c *compiler) ProcessGlobalStat(s ast.GlobalStat) {
+	// TODO: Implement global variable declaration compilation
+	panic("ProcessGlobalStat not yet implemented")
+}
+
+// ProcessGlobalWildcardStat compiles a GlobalWildcardStat.
+func (c *compiler) ProcessGlobalWildcardStat(s ast.GlobalWildcardStat) {
+	// TODO: Implement global wildcard declaration compilation
+	panic("ProcessGlobalWildcardStat not yet implemented")
+}
+
 // ProcessRepeatStat compiles a RepeatStat.
 func (c *compiler) ProcessRepeatStat(s ast.RepeatStat) {
 	c.PushContext()
