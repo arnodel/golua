@@ -245,14 +245,60 @@ func (c *compiler) ProcessLocalStat(s ast.LocalStat) {
 
 // ProcessGlobalStat compiles a GlobalStat.
 func (c *compiler) ProcessGlobalStat(s ast.GlobalStat) {
-	// TODO: Implement global variable declaration compilation
-	panic("ProcessGlobalStat not yet implemented")
+	// Register the global declarations progressively
+	for _, nameAttrib := range s.NameAttribs {
+		var declType ir.GlobalDeclType
+		if nameAttrib.Attrib != nil {
+			switch nameAttrib.Attrib.Type {
+			case ast.ConstAttrib:
+				declType = ir.ConstGlobal
+			case ast.CloseAttrib:
+				panic(Error{
+					Where:   nameAttrib,
+					Message: "<close> attribute is not valid for global declarations",
+				})
+			default:
+				panic(compilerBug{})
+			}
+		} else {
+			declType = ir.MutableGlobal
+		}
+		c.DeclareGlobal(ir.Name(nameAttrib.Name.Val), declType)
+	}
+
+	// Handle value assignments
+	if len(s.Values) > 0 {
+		valueRegs := make([]ir.Register, len(s.NameAttribs))
+		c.compileExpList(s.Values, valueRegs)
+
+		// Assign each value to the corresponding global (via _ENV)
+		lvals := make([]ast.Var, len(s.NameAttribs))
+		for i, nameAttrib := range s.NameAttribs {
+			lvals[i] = globalVar(nameAttrib.Name)
+		}
+		c.compileAssignments(lvals, valueRegs)
+	}
 }
 
 // ProcessGlobalWildcardStat compiles a GlobalWildcardStat.
 func (c *compiler) ProcessGlobalWildcardStat(s ast.GlobalWildcardStat) {
-	// TODO: Implement global wildcard declaration compilation
-	panic("ProcessGlobalWildcardStat not yet implemented")
+	var declType ir.GlobalDeclType
+	if s.Attrib != nil {
+		switch s.Attrib.Type {
+		case ast.ConstAttrib:
+			declType = ir.ConstGlobal
+		case ast.CloseAttrib:
+			panic(Error{
+				Where:   s,
+				Message: "<close> attribute is not valid for global declarations",
+			})
+		default:
+			panic(compilerBug{})
+		}
+	} else {
+		declType = ir.MutableGlobal
+	}
+	c.SetGlobalWildcard(declType)
 }
 
 // ProcessRepeatStat compiles a RepeatStat.
