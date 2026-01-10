@@ -49,6 +49,20 @@ func (c *assignCompiler) ProcessNameVar(n ast.Name) {
 			c.emitMove(n, reg, src)
 		})
 	} else {
+		// This is a global variable - check if write is authorized
+		declType := c.GetGlobalDeclType(ir.Name(n.Val))
+		switch declType {
+		case ir.NoDeclaredGlobal:
+			panic(Error{
+				Where:   n,
+				Message: fmt.Sprintf("attempt to assign to undeclared global variable '%s'", n.Val),
+			})
+		case ir.ConstGlobal:
+			panic(Error{
+				Where:   n,
+				Message: fmt.Sprintf("attempt to assign to const global variable '%s'", n.Val),
+			})
+		}
 		c.ProcessIndexExpVar(globalVar(n))
 	}
 }
