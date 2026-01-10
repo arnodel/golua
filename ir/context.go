@@ -2,10 +2,23 @@ package ir
 
 import "fmt"
 
+// GlobalDeclType represents the type of a global variable declaration
+type GlobalDeclType uint8
+
+const (
+	NoDeclaredGlobal GlobalDeclType = iota
+	MutableGlobal
+	ConstGlobal
+)
+
 type lexicalScope struct {
 	reg    map[Name]taggedReg     // maps variable names to registers
 	label  map[Name]labelWithLine // maps label names to labels
 	height int                    // This is the height of the close stack in this scope
+
+	// Global variable tracking for Lua 5.5
+	globalDecls       map[Name]GlobalDeclType // tracks declared globals in this scope
+	globalWildcardDecl GlobalDeclType          // tracks "global *" or "global<const> *"
 }
 
 func (s lexicalScope) getLabel(name Name) (label Label, line int, ok bool) {
@@ -112,13 +125,69 @@ func (c lexicalContext) getHeight() int {
 	return 0
 }
 
+// declareGlobal adds an explicit global variable declaration to the topmost scope
+func (c lexicalContext) declareGlobal(name Name, declType GlobalDeclType) (ok bool) {
+	ok = len(c) > 0
+	if ok {
+		c[len(c)-1].globalDecls[name] = declType
+	}
+	return
+}
+
+// setGlobalWildcard sets the wildcard declaration type in the topmost scope
+func (c lexicalContext) setGlobalWildcard(declType GlobalDeclType) (ok bool) {
+	ok = len(c) > 0
+	if ok {
+		c[len(c)-1].globalWildcardDecl = declType
+	}
+	return
+}
+
+// getGlobalDeclType returns the declaration type for a global variable.
+// It searches from the current scope upward, first checking for explicit declarations,
+// then checking for wildcard declarations.
+// - Returns MutableGlobal by default if NO global declarations exist at all (legacy Lua 5.4 behavior)
+// - Returns NoDeclaredGlobal if global declarations exist but this variable is not declared
+func (c lexicalContext) getGlobalDeclType(name Name) GlobalDeclType {
+	hasAnyGlobalDecls := false
+
+	// First pass: check for explicit declarations from current scope upward
+	for i := len(c) - 1; i >= 0; i-- {
+		globalDecls := c[i].globalDecls
+		if declType, ok := globalDecls[name]; ok {
+			return declType
+		}
+		// Track if we've seen any explicit global declarations
+		if len(globalDecls) > 0 {
+			hasAnyGlobalDecls = true
+		}
+	}
+
+	// Second pass: check for wildcard declarations from current scope upward
+	for i := len(c) - 1; i >= 0; i-- {
+		if c[i].globalWildcardDecl != NoDeclaredGlobal {
+			return c[i].globalWildcardDecl
+		}
+	}
+
+	// If we've seen any global declarations but none matched, return NoDeclaredGlobal
+	if hasAnyGlobalDecls {
+		return NoDeclaredGlobal
+	}
+
+	// Default: no global declarations at all = mutable global allowed (legacy Lua 5.4 behavior)
+	return MutableGlobal
+}
+
 // pushNew returns a new LexicalContext that extends the receive with a new
 // blank lexical scope.
 func (c lexicalContext) pushNew() lexicalContext {
 	return append(c, lexicalScope{
-		reg:    make(map[Name]taggedReg),
-		label:  make(map[Name]labelWithLine),
-		height: c.top().height,
+		reg:                make(map[Name]taggedReg),
+		label:              make(map[Name]labelWithLine),
+		height:             c.top().height,
+		globalDecls:        make(map[Name]GlobalDeclType),
+		globalWildcardDecl: NoDeclaredGlobal,
 	})
 }
 

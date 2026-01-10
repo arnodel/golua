@@ -229,6 +229,22 @@ func (c *CodeBuilder) DeclareLocal(name Name, reg Register) {
 	c.context.addToTop(name, reg)
 }
 
+// DeclareGlobal records an explicit global variable declaration in the current scope
+func (c *CodeBuilder) DeclareGlobal(name Name, declType GlobalDeclType) {
+	c.context.declareGlobal(name, declType)
+}
+
+// SetGlobalWildcard records a wildcard global declaration (global * or global<const> *)
+// in the current scope
+func (c *CodeBuilder) SetGlobalWildcard(declType GlobalDeclType) {
+	c.context.setGlobalWildcard(declType)
+}
+
+// GetGlobalDeclType returns the declaration type for a global variable
+func (c *CodeBuilder) GetGlobalDeclType(name Name) GlobalDeclType {
+	return c.context.getGlobalDeclType(name)
+}
+
 func (c *CodeBuilder) MarkConstantReg(reg Register) {
 	c.registers[reg].IsConstant = true
 }
