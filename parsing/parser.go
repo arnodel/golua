@@ -129,6 +129,8 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 		return p.FunctionStat(t)
 	case token.KwLocal:
 		return p.Local(t)
+	case token.KwGlobal:
+		return p.Global(t)
 	case token.SgDoubleColon:
 		name, t := p.Name(p.Scan())
 		expectType(t, token.SgDoubleColon, "'::'")
@@ -255,6 +257,40 @@ func (p *Parser) Local(*token.Token) (ast.Stat, *token.Token) {
 		values, t = p.ExpList(p.Scan())
 	}
 	return ast.NewLocalStat(nameAttribs, values), t
+}
+
+// Global parses a "global" statement (variable declaration).
+// It assumes that t is the "global" token.
+func (p *Parser) Global(globalTok *token.Token) (ast.Stat, *token.Token) {
+	t := p.Scan()
+
+	// Check for optional attribute before name or wildcard
+	attrib, t := p.DeclAttrib(t)
+
+	// Check if this is a wildcard form: "global *" or "global<attrib> *"
+	if t.Type == token.SgStar {
+		return ast.NewGlobalWildcardStat(ast.LocFromToken(globalTok), attrib), p.Scan()
+	}
+
+	// Otherwise, parse "global [<attrib>] namelist ['=' explist]"
+	// Parse first name (attrib may be nil or already parsed)
+	name, t := p.Name(t)
+	nameAttrib := ast.NewNameAttrib(name, attrib)
+	nameAttribs := []ast.NameAttrib{nameAttrib}
+
+	// Parse additional comma-separated names
+	for t.Type == token.SgComma {
+		nameAttrib, t = p.NameAttrib(p.Scan())
+		nameAttribs = append(nameAttribs, nameAttrib)
+	}
+
+	// Parse optional assignment
+	var values []ast.ExpNode
+	if t.Type == token.SgAssign {
+		values, t = p.ExpList(p.Scan())
+	}
+
+	return ast.NewGlobalStat(nameAttribs, values), t
 }
 
 // FunctionStat parses a function definition statement. It assumes that t is the
@@ -610,26 +646,42 @@ func (p *Parser) Name(t *token.Token) (ast.Name, *token.Token) {
 	return ast.NewName(t), p.Scan()
 }
 
+// DeclAttrib parses an optional declaration attribute like <const> or <close>
+// Returns nil if no attribute is present
+func (p *Parser) DeclAttrib(t *token.Token) (*ast.DeclAttrib, *token.Token) {
+	if t.Type != token.SgLess {
+		return nil, t
+	}
+
+	// Parse "<attrib>"
+	lessTok := t
+	attribTok := p.Scan()
+	expectIdent(attribTok)
+	attribName := string(attribTok.Lit)
+
+	var attribType ast.DeclAttribType
+	switch attribName {
+	case "const":
+		attribType = ast.ConstAttrib
+	case "close":
+		attribType = ast.CloseAttrib
+	default:
+		tokenError(attribTok, "'const' or 'close'")
+	}
+
+	greaterTok := p.Scan()
+	expectType(greaterTok, token.SgGreater, "'>'")
+
+	// Location is from '<' to '>'
+	loc := ast.MergeLocations(ast.LocFromToken(lessTok), ast.LocFromToken(greaterTok))
+	attrib := ast.NewDeclAttrib(loc, attribType)
+	return &attrib, p.Scan()
+}
+
 func (p *Parser) NameAttrib(t *token.Token) (ast.NameAttrib, *token.Token) {
 	name, t := p.Name(t)
-	attrib := ast.NoAttrib
-	var attribName *ast.Name
-	if t.Type == token.SgLess {
-		attribTok := p.Scan()
-		attribName = new(ast.Name)
-		*attribName, t = p.Name(attribTok)
-		switch attribName.Val {
-		case "const":
-			attrib = ast.ConstAttrib
-		case "close":
-			attrib = ast.CloseAttrib
-		default:
-			tokenError(attribTok, "'const' or 'close'")
-		}
-		expectType(t, token.SgGreater, "'>'")
-		t = p.Scan()
-	}
-	return ast.NewNameAttrib(name, attribName, attrib), t
+	attrib, t := p.DeclAttrib(t)
+	return ast.NewNameAttrib(name, attrib), t
 }
 
 func expectIdent(t *token.Token) {

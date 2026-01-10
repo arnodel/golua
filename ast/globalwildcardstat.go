@@ -1,19 +1,19 @@
 package ast
 
 // GlobalWildcardStat is a statement node representing the wildcard global
-// declaration forms: "global *" or "global<const> *"
+// declaration forms: "global *" or "global<attrib> *"
 type GlobalWildcardStat struct {
 	Location
-	IsConst bool
+	Attrib *DeclAttrib // The optional attribute (nil if none)
 }
 
 var _ Stat = GlobalWildcardStat{}
 
-// NewGlobalWildcardStat returns a GlobalWildcardStat for "global *" or "global<const> *"
-func NewGlobalWildcardStat(loc Location, isConst bool) GlobalWildcardStat {
+// NewGlobalWildcardStat returns a GlobalWildcardStat for "global *" or "global<attrib> *"
+func NewGlobalWildcardStat(loc Location, attrib *DeclAttrib) GlobalWildcardStat {
 	return GlobalWildcardStat{
 		Location: loc,
-		IsConst:  isConst,
+		Attrib:   attrib,
 	}
 }
 
@@ -24,9 +24,14 @@ func (s GlobalWildcardStat) ProcessStat(p StatProcessor) {
 
 // HWrite prints a tree representation of the node.
 func (s GlobalWildcardStat) HWrite(w HWriter) {
-	if s.IsConst {
-		w.Writef("global<const> *")
-	} else {
-		w.Writef("global *")
+	w.Writef("global")
+	if s.Attrib != nil {
+		switch s.Attrib.Type {
+		case ConstAttrib:
+			w.Writef("<const>")
+		case CloseAttrib:
+			w.Writef("<close>")
+		}
 	}
+	w.Writef(" *")
 }
