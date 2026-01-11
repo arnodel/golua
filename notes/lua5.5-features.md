@@ -4,7 +4,7 @@ Based on [Lua 5.5 README](https://www.lua.org/manual/5.5/readme.html) and [Incom
 
 ## Language Features
 
-- [ ] **Global variable declarations** - New syntax for declaring global variables
+- [x] **Global variable declarations** - New syntax for declaring global variables
   - Syntax: `global [attrib] name [attrib]` or `global [attrib] *` (wildcard)
   - Attributes: `<const>` makes globals read-only
   - Semantics:
