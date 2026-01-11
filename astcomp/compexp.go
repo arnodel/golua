@@ -373,10 +373,9 @@ func (c *compiler) compileFunctionBody(f ast.Function) {
 		c.emitInstr(f, ir.ReceiveEtc{Dst: recvRegs, Etc: etcReg})
 
 		if f.VarargName != nil {
-			// Create a table for the named vararg
+			// Create a table whose array part references the vararg data
 			tableReg := c.GetFreeRegister()
-			c.emitInstr(f, ir.MkTable{Dst: tableReg})
-			c.emitInstr(f, ir.FillTable{Dst: tableReg, Idx: 1, Etc: etcReg})
+			c.emitInstr(f, ir.MkVarargTable{Dst: tableReg, Etc: etcReg})
 			c.DeclareLocal(ir.Name(f.VarargName.Val), tableReg)
 			c.MarkConstantReg(tableReg)
 		}
