@@ -445,6 +445,7 @@ func (p *Parser) FunctionDef(startTok *token.Token) (ast.Function, *token.Token)
 	t := p.Scan()
 	var names []ast.Name
 	hasEtc := false
+	var varargName *ast.Name
 ParamsLoop:
 	for {
 		switch t.Type {
@@ -458,6 +459,11 @@ ParamsLoop:
 		case token.SgEtc:
 			hasEtc = true
 			t = p.Scan()
+			if t.Type == token.IDENT {
+				name := ast.NewName(t)
+				varargName = &name
+				t = p.Scan()
+			}
 			break ParamsLoop
 		case token.SgCloseBkt:
 			break ParamsLoop
@@ -468,7 +474,7 @@ ParamsLoop:
 	expectType(t, token.SgCloseBkt, "')'")
 	body, endTok := p.Block(p.Scan())
 	expectType(endTok, token.KwEnd, "'end'")
-	def := ast.NewFunction(startTok, endTok, ast.NewParList(names, hasEtc, nil), body)
+	def := ast.NewFunction(startTok, endTok, ast.NewParList(names, hasEtc, varargName), body)
 	return def, p.Scan()
 }
 
