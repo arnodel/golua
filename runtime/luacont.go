@@ -317,6 +317,9 @@ RunLoop:
 					getReg(regs, cells, dst).AsClosure().AddUpvalue(cell)
 					pc++
 					continue RunLoop
+				case code.OpMkVarargTable:
+					// Create table whose array part references the vararg slice
+					res = TableValue(NewTableFromSlice(val.AsArray()))
 				default:
 					panic("unsupported")
 				}
