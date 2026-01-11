@@ -111,3 +111,27 @@ do
   sum(1, 2, 3, 4, 5)
 end
 --> =15
+
+-- Test 11: Shared mutation - modify args affects ...
+do
+  local function f(...args)
+    print(...)
+    args[1] = 999
+    print(...)
+  end
+  f(10, 20, 30)
+end
+--> =10	20	30
+--> =999	20	30
+
+-- Test 12: Shared mutation - setting nil
+do
+  local function f(...args)
+    print(...)
+    args[2] = nil
+    print(...)
+  end
+  f(10, 20, 30)
+end
+--> =10	20	30
+--> =10	nil	30
