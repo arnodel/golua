@@ -170,6 +170,11 @@ func (ic instrCompiler) ProcessMkTableInstr(m ir.MkTable) {
 	ic.Emit(opcode)
 }
 
+// ProcessMkVarargTableInstr compiles a MkVarargTable instruction.
+func (ic instrCompiler) ProcessMkVarargTableInstr(m ir.MkVarargTable) {
+	ic.Emit(code.MkVarargTable(ic.codeReg(m.Dst), ic.codeReg(m.Etc)))
+}
+
 // ProcessLookupInstr compiles a Lookup instruction.
 func (ic instrCompiler) ProcessLookupInstr(s ir.Lookup) {
 	opcode := code.LoadLookup(ic.codeReg(s.Dst), ic.codeReg(s.Table), ic.codeReg(s.Index))

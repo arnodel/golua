@@ -19,6 +19,20 @@ func NewTable() *Table {
 	return &Table{mixedTable: &mixedTable{}}
 }
 
+// NewTableFromSlice creates a table whose array part references the given slice.
+// This is used for named vararg tables (Lua 5.5), where modifying the table
+// should affect what ... expands to. The slice is NOT copied.
+func NewTableFromSlice(values []Value) *Table {
+	return &Table{
+		mixedTable: &mixedTable{
+			array: &array{
+				values: values,
+				len:    uintptr(len(values)),
+			},
+		},
+	}
+}
+
 // Metatable returns the table's metatable.
 func (t *Table) Metatable() *Table {
 	return t.meta

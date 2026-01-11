@@ -230,16 +230,17 @@ type UnOp uint8
 
 // Available unary operators
 const (
-	OpNeg      UnOp = iota // numerical negation
-	OpBitNot               // bitwise negation
-	OpLen                  // length
-	OpCont                 // make a continuation for the closure
-	OpTailCont             // make a "tail continuation" for the closure (its next is cc's next)
-	OpId                   // identity
-	OpTruth                // Turn operand to boolean
-	OpNot                  // Added afterwards - why did I not have it in the first place?
-	OpUpvalue              // get an upvalue
-	OpEtcId                // etc identity
+	OpNeg           UnOp = iota // numerical negation
+	OpBitNot                    // bitwise negation
+	OpLen                       // length
+	OpCont                      // make a continuation for the closure
+	OpTailCont                  // make a "tail continuation" for the closure (its next is cc's next)
+	OpId                        // identity
+	OpTruth                     // Turn operand to boolean
+	OpNot                       // Added afterwards - why did I not have it in the first place?
+	OpUpvalue                   // get an upvalue
+	OpEtcId                     // etc identity
+	OpMkVarargTable             // create table from vararg data (Lua 5.5)
 )
 
 // encodeZ enocodes an UnOp into an opcode.
@@ -583,6 +584,8 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 			case OpUpvalue:
 				// Special case
 				return fmt.Sprintf("upval %s, %s", rA, rB)
+			case OpMkVarargTable:
+				tpl = "mkvargtable(%s)"
 			}
 			if f {
 				// It's a push

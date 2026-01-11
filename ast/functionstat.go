@@ -9,7 +9,7 @@ func NewFunctionStat(fName Var, method Name, fx Function) AssignStat {
 		loc := fx.Locate()
 		fx = NewFunction(
 			nil, nil,
-			ParList{append([]Name{{Val: "self"}}, fx.Params...), fx.HasDots},
+			NewParList(append([]Name{{Val: "self"}}, fx.Params...), fx.HasDots, nil),
 			fx.Body,
 		)
 		fx.Location = loc
