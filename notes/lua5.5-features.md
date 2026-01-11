@@ -23,18 +23,29 @@ Based on [Lua 5.5 README](https://www.lua.org/manual/5.5/readme.html) and [Incom
   - Implementation: Add compile-time check to prevent assignment to loop control variables
   - Complexity: **Low** - similar to const local variable checking
 
-- [ ] **Named vararg tables** - Enhanced variable argument handling
+- [x] **Named vararg tables** - Enhanced variable argument handling with shared mutation semantics
   - Syntax: `function f(...name)` where `name` is optional
   - Semantics:
     - The name refers to a read-only local variable that refers to the vararg table
-    - Optimization: If the vararg table isn't captured as an upvalue, no actual table is created
-    - Indexing expressions and vararg expressions are translated to direct vararg data access
-  - Example: `function f(...args) return args[1] end`
-  - Implementation:
-    - Parser: Accept optional name after `...`
-    - Compiler: Create read-only local variable for named vararg
-    - Runtime: Optimize when vararg table isn't used as upvalue
-  - Complexity: **Medium-High** - affects function parameter handling and optimization
+    - **Shared mutation**: Modifying `args[i]` within original bounds affects what `...` expands to
+    - **Array growth divergence**: Adding beyond original bounds creates a copy (mutations diverge)
+    - Upvalue capture: Table survives function lifetime when captured (Go GC handles this)
+  - Example: `function f(...args) args[1] = 999; print(...) end  -- prints 999, ...`
+  - Status: **Implemented** with proper Lua 5.5 semantics
+  - Implementation approach:
+    - New opcode `OpMkVarargTable` (Type4a) creates table from vararg data
+    - `NewTableFromSlice()` constructor creates table whose array part references vararg slice (no copy)
+    - Go's GC keeps slice alive as long as table exists (automatic upvalue safety)
+  - Files modified:
+    - `code/opcodes.go` - Added `OpMkVarargTable` opcode and disassemble case
+    - `code/instructions.go` - Added `MkVarargTable()` instruction builder
+    - `ir/instructions.go` - Added `MkVarargTable` IR instruction type
+    - `ircomp/compinstr.go` - IR to bytecode compilation
+    - `runtime/table.go` - Added `NewTableFromSlice()` constructor
+    - `runtime/luacont.go` - Runtime execution of new opcode
+    - `astcomp/compexp.go` - Use `MkVarargTable` instead of `MkTable + FillTable`
+    - `runtime/lua/named_varargs.lua` - 12 comprehensive tests including shared mutation
+  - Complexity: **Medium** - required new opcode but leveraged existing infrastructure
 
 ## Standard Library Functions
 
