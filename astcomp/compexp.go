@@ -368,9 +368,18 @@ func (c *compiler) compileFunctionBody(f ast.Function) {
 	if !f.HasDots {
 		c.emitInstr(f, ir.Receive{Dst: recvRegs})
 	} else {
-		reg := c.GetFreeRegister()
-		c.DeclareLocal(ellipsisRegName, reg)
-		c.emitInstr(f, ir.ReceiveEtc{Dst: recvRegs, Etc: reg})
+		etcReg := c.GetFreeRegister()
+		c.DeclareLocal(ellipsisRegName, etcReg)
+		c.emitInstr(f, ir.ReceiveEtc{Dst: recvRegs, Etc: etcReg})
+
+		if f.VarargName != nil {
+			// Create a table for the named vararg
+			tableReg := c.GetFreeRegister()
+			c.emitInstr(f, ir.MkTable{Dst: tableReg})
+			c.emitInstr(f, ir.FillTable{Dst: tableReg, Idx: 1, Etc: etcReg})
+			c.DeclareLocal(ir.Name(f.VarargName.Val), tableReg)
+			c.MarkConstantReg(tableReg)
+		}
 	}
 
 	// Need to make sure there is a return instruction emitted at the
