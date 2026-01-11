@@ -135,3 +135,67 @@ do
 end
 --> =10	20	30
 --> =10	nil	30
+
+-- Test 13: Upvalue capture - args captured in inner function
+do
+  local function outer(...args)
+    args[1] = 999
+    local function inner()
+      return args[1], args[2]
+    end
+    print(inner())
+    args[1] = 111
+    print(inner())
+  end
+  outer(10, 20, 30)
+end
+--> =999	20
+--> =111	20
+
+-- Test 14: Upvalue capture - return captured args
+do
+  local function outer(...args)
+    local function inner()
+      return args
+    end
+    return inner
+  end
+  local captured = outer(10, 20, 30)
+  local t = captured()
+  print(t[1], t[2], t[3])
+  t[1] = 999
+  print(t[1], t[2], t[3])
+end
+--> =10	20	30
+--> =999	20	30
+
+-- Test 15: Upvalue capture - modify and return args
+do
+  local function outer(...args)
+    args[1] = 888
+    return args
+  end
+  local t = outer(10, 20, 30)
+  print(t[1], t[2], t[3])
+  t[1] = 777
+  print(t[1], t[2], t[3])
+end
+--> =888	20	30
+--> =777	20	30
+
+-- Test 16: Upvalue capture - multiple references to same args
+do
+  local function outer(...args)
+    local ref1 = args
+    local ref2 = args
+    print(ref1[1], ref2[1])
+    ref1[1] = 111
+    print(ref1[1], ref2[1])
+    ref2[1] = 222
+    print(ref1[1], ref2[1])
+  end
+  outer(10, 20, 30)
+end
+--> =10	10
+--> =111	111
+--> =222	222
