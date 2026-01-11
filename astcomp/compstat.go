@@ -61,7 +61,7 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 
 	nameAttribs := make([]ast.NameAttrib, len(s.Vars))
 	for i, name := range s.Vars {
-		nameAttribs[i] = ast.NewNameAttrib(name, nil, ast.NoAttrib)
+		nameAttribs[i] = ast.NewNameAttrib(name, nil)
 	}
 	c.CompileStat(ast.LocalStat{
 		NameAttribs: nameAttribs,
@@ -229,18 +229,76 @@ func (c *compiler) ProcessLocalStat(s ast.LocalStat) {
 	for i, reg := range localRegs {
 		c.ReleaseRegister(reg)
 		c.DeclareLocal(ir.Name(s.NameAttribs[i].Name.Val), reg)
-		switch s.NameAttribs[i].Attrib {
-		case ast.NoAttrib:
-			// Nothing to do
+		if s.NameAttribs[i].Attrib != nil {
+			switch s.NameAttribs[i].Attrib.Type {
+			case ast.ConstAttrib:
+				c.MarkConstantReg(reg)
+			case ast.CloseAttrib:
+				c.MarkConstantReg(reg)
+				c.PushCloseAction(reg)
+			default:
+				panic(compilerBug{})
+			}
+		}
+	}
+}
+
+// ProcessGlobalStat compiles a GlobalStat.
+func (c *compiler) ProcessGlobalStat(s ast.GlobalStat) {
+	// Register the global declarations progressively
+	for _, nameAttrib := range s.NameAttribs {
+		var declType ir.GlobalDeclType
+		if nameAttrib.Attrib != nil {
+			switch nameAttrib.Attrib.Type {
+			case ast.ConstAttrib:
+				declType = ir.ConstGlobal
+			case ast.CloseAttrib:
+				panic(Error{
+					Where:   nameAttrib,
+					Message: "<close> attribute is not valid for global declarations",
+				})
+			default:
+				panic(compilerBug{})
+			}
+		} else {
+			declType = ir.MutableGlobal
+		}
+		c.DeclareGlobal(ir.Name(nameAttrib.Name.Val), declType)
+	}
+
+	// Handle value assignments
+	if len(s.Values) > 0 {
+		valueRegs := make([]ir.Register, len(s.NameAttribs))
+		c.compileExpList(s.Values, valueRegs)
+
+		// Assign each value to the corresponding global (via _ENV)
+		lvals := make([]ast.Var, len(s.NameAttribs))
+		for i, nameAttrib := range s.NameAttribs {
+			lvals[i] = globalVar(nameAttrib.Name)
+		}
+		c.compileAssignments(lvals, valueRegs)
+	}
+}
+
+// ProcessGlobalWildcardStat compiles a GlobalWildcardStat.
+func (c *compiler) ProcessGlobalWildcardStat(s ast.GlobalWildcardStat) {
+	var declType ir.GlobalDeclType
+	if s.Attrib != nil {
+		switch s.Attrib.Type {
 		case ast.ConstAttrib:
-			c.MarkConstantReg(reg)
+			declType = ir.ConstGlobal
 		case ast.CloseAttrib:
-			c.MarkConstantReg(reg)
-			c.PushCloseAction(reg)
+			panic(Error{
+				Where:   s,
+				Message: "<close> attribute is not valid for global declarations",
+			})
 		default:
 			panic(compilerBug{})
 		}
+	} else {
+		declType = ir.MutableGlobal
 	}
+	c.SetGlobalWildcard(declType)
 }
 
 // ProcessRepeatStat compiles a RepeatStat.

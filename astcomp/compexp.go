@@ -1,6 +1,8 @@
 package astcomp
 
 import (
+	"fmt"
+
 	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/ops"
@@ -137,13 +139,21 @@ func (c *expCompiler) ProcessIndexExp(e ast.IndexExp) {
 
 // ProcessNameExp compiles a NameExp.
 func (c *expCompiler) ProcessNameExp(n ast.Name) {
-	// Is it bound to a local name?
+	// Check if it's bound to a local name
 	reg, ok := c.GetRegister(ir.Name(n.Val))
 	if ok {
 		c.dst = reg
 		return
 	}
-	// If not, try _ENV.
+	// This is a global variable - validate access is authorized
+	declType := c.GetGlobalDeclType(ir.Name(n.Val))
+	if declType == ir.NoDeclaredGlobal {
+		panic(Error{
+			Where:   n,
+			Message: fmt.Sprintf("attempt to read undeclared global variable '%s'", n.Val),
+		})
+	}
+	// Access the global via _ENV
 	c.CompileExp(globalVar(n))
 }
 

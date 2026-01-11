@@ -39,14 +39,17 @@ func name(s string) ast.Name {
 }
 
 func nameAttrib(s string, attribs ...string) ast.NameAttrib {
-	var attrib = ast.NoAttrib
+	var attrib *ast.DeclAttrib
 	if len(attribs) > 0 {
+		var attribType ast.DeclAttribType
 		switch attribs[0] {
 		case "close":
-			attrib = ast.CloseAttrib
+			attribType = ast.CloseAttrib
 		case "const":
-			attrib = ast.ConstAttrib
+			attribType = ast.ConstAttrib
 		}
+		declAttrib := ast.NewDeclAttrib(ast.Location{}, attribType)
+		attrib = &declAttrib
 	}
 	return ast.NameAttrib{Name: name(s), Attrib: attrib}
 }

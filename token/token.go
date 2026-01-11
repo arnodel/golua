@@ -44,6 +44,7 @@ const (
 	KwIn
 	KwFunction
 	KwLocal
+	KwGlobal
 	KwNot
 	KwNil
 	KwTrue
