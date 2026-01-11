@@ -468,7 +468,7 @@ ParamsLoop:
 	expectType(t, token.SgCloseBkt, "')'")
 	body, endTok := p.Block(p.Scan())
 	expectType(endTok, token.KwEnd, "'end'")
-	def := ast.NewFunction(startTok, endTok, ast.NewParList(names, hasEtc), body)
+	def := ast.NewFunction(startTok, endTok, ast.NewParList(names, hasEtc, nil), body)
 	return def, p.Scan()
 }
 

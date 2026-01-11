@@ -44,6 +44,9 @@ func (f Function) HWrite(w HWriter) {
 	}
 	if f.HasDots {
 		w.Writef("...")
+		if f.VarargName != nil {
+			w.Writef(f.VarargName.Val)
+		}
 	}
 	w.Writef(")")
 	w.Indent()
@@ -54,14 +57,16 @@ func (f Function) HWrite(w HWriter) {
 
 // A ParList represents a function parameter list (it is not a node).
 type ParList struct {
-	Params  []Name
-	HasDots bool
+	Params     []Name
+	HasDots    bool
+	VarargName *Name // Optional name for varargs (Lua 5.5 feature)
 }
 
 // NewParList returns ParList instance for the given parameters.
-func NewParList(params []Name, hasDots bool) ParList {
+func NewParList(params []Name, hasDots bool, varargName *Name) ParList {
 	return ParList{
-		Params:  params,
-		HasDots: hasDots,
+		Params:     params,
+		HasDots:    hasDots,
+		VarargName: varargName,
 	}
 }
