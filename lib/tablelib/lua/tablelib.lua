@@ -287,3 +287,65 @@ do
     print(pcall(table.unpack, tt))
     --> ~false\t.* g
 end
+
+-- table.create tests
+do
+    local t = table.create(5)
+    print(type(t))
+    --> =table
+    print(#t)
+    --> =0
+end
+
+do
+    local t = table.create(3, 2)
+    print(type(t))
+    --> =table
+    print(#t)
+    --> =0
+end
+
+do
+    local t = table.create(3)
+    t[1] = "a"
+    t[2] = "b"
+    t[3] = "c"
+    print(t[1], t[2], t[3])
+    --> =a	b	c
+    print(#t)
+    --> =3
+end
+
+do
+    local t = table.create(0)
+    print(type(t))
+    --> =table
+end
+
+do
+    local t = table.create(0, 5)
+    t["a"] = 1
+    t["b"] = 2
+    print(t["a"], t["b"])
+    --> =1	2
+end
+
+do
+    print(pcall(table.create))
+    --> ~^false\t.*value needed
+end
+
+do
+    print(pcall(table.create, -1))
+    --> ~^false\t.*out of range
+end
+
+do
+    print(pcall(table.create, 5, -1))
+    --> ~^false\t.*out of range
+end
+
+do
+    print(pcall(table.create, "foo"))
+    --> ~^false\t.*must be an integer
+end
