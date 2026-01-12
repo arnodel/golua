@@ -25,6 +25,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "concat", concat, 4, false),
+		r.SetEnvGoFunc(pkg, "create", create, 2, false),
 		r.SetEnvGoFunc(pkg, "insert", insert, 3, false),
 		r.SetEnvGoFunc(pkg, "move", move, 5, false),
 		r.SetEnvGoFunc(pkg, "pack", pack, 0, true),
@@ -474,4 +475,46 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		}
 	}
 	return next, nil
+}
+
+func create(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	// Require at least 1 argument
+	if err := c.Check1Arg(); err != nil {
+		return nil, err
+	}
+
+	// Extract nseq (required)
+	nseq, err := c.IntArg(0)
+	if err != nil {
+		return nil, err
+	}
+	if nseq < 0 {
+		return nil, fmt.Errorf("#1 out of range")
+	}
+
+	// Extract nrec (optional, defaults to 0)
+	nrec := int64(0)
+	if c.NArgs() >= 2 {
+		nrec, err = c.IntArg(1)
+		if err != nil {
+			return nil, err
+		}
+		if nrec < 0 {
+			return nil, fmt.Errorf("#2 out of range")
+		}
+	}
+
+	// Conditional implementation based on memory quotas
+	var tbl *rt.Table
+	hardLimits := t.Runtime.HardLimits()
+	softLimits := t.Runtime.SoftLimits()
+	if hardLimits.Memory > 0 || softLimits.Memory > 0 {
+		// Memory quotas are active - don't preallocate to avoid security issue
+		tbl = rt.NewTable()
+	} else {
+		// No memory quotas - preallocate for performance
+		tbl = rt.NewTableWithCapacity(int(nseq), int(nrec))
+	}
+
+	return c.PushingNext1(t.Runtime, rt.TableValue(tbl)), nil
 }

@@ -49,15 +49,25 @@ Based on [Lua 5.5 README](https://www.lua.org/manual/5.5/readme.html) and [Incom
 
 ## Standard Library Functions
 
-- [ ] **`table.create(nseq [, nrec])`** - New function for creating preallocated tables
+- [x] **`table.create(nseq [, nrec])`** - New function for creating preallocated tables
   - Signature: `table.create(nseq [, nrec])`
   - Parameters:
     - `nseq`: Hint for how many sequence elements (array part) the table will have
     - `nrec`: (optional) Hint for how many hash elements the table will have (defaults to 0)
   - Behavior: Creates empty table with preallocated memory based on hints
   - Purpose: Performance optimization to avoid repeated reallocations
-  - Implementation: Add to `lib/tablelib`
+  - Implementation: Added to `lib/tablelib` with conditional preallocation
+    - When memory quotas active (hard or soft): No preallocation (security safe)
+    - When no memory quotas: Preallocates capacity (performance optimization)
+    - See [table-memory-accounting.md](table-memory-accounting.md) for details on discovered issue
   - Complexity: **Low** - straightforward library function addition
+  - Files modified:
+    - `runtime/hashtable.go` - Added `newMixedTableWithCapacity(nseq, nrec int)`
+    - `runtime/table.go` - Added `NewTableWithCapacity(nseq, nrec int)`
+    - `lib/tablelib/tablelib.go` - Implemented `create` function
+    - `lib/tablelib/lua/tablelib.lua` - Added comprehensive tests
+    - `lib/tablelib/lua/tablelib.quotas.lua` - Added quota tests
+  - **Note**: Once comprehensive table memory accounting is implemented, revisit to enable preallocation with quotas
 
 - [ ] **Enhanced `utf8.offset`** - Returns both start and end positions
   - Old behavior: Returned single position (start of nth character)

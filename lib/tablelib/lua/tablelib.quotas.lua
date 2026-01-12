@@ -176,3 +176,36 @@ do
     print(runtime.callcontext({kill={cpu=200}}, table.unpack, mk("x", 200)))
     --> =killed
 end
+
+-- table.create quota tests
+do
+    local ctx = runtime.callcontext({kill={memory=10000}}, table.create, 100)
+    print(ctx)
+    --> =done
+end
+
+do
+    local function fill_table()
+        local t = table.create(50)
+        for i = 1, 50 do
+            t[i] = i
+        end
+        return t[1], t[25], t[50]
+    end
+    local ctx, a, b, c = runtime.callcontext({kill={memory=10000}}, fill_table)
+    print(ctx, a, b, c)
+    --> =done	1	25	50
+end
+
+do
+    local function fill_large_table()
+        local t = table.create(10000)
+        -- table.create doesn't preallocate with quotas
+        -- but filling it should still hit quota
+        for i = 1, 10000 do
+            t[i] = "large string that uses memory"
+        end
+    end
+    print(runtime.callcontext({kill={memory=100}}, fill_large_table))
+    --> =killed
+end
