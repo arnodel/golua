@@ -23,6 +23,36 @@ type mixedTable struct {
 	*array
 }
 
+// newMixedTableWithCapacity creates a mixedTable with preallocated capacity.
+// nseq: capacity hint for array part (sequence elements)
+// nrec: capacity hint for hash part (record/key-value pairs)
+func newMixedTableWithCapacity(nseq, nrec int) *mixedTable {
+	var arr *array
+	if nseq > 0 {
+		arr = &array{
+			values: make([]Value, nseq),
+			len:    0, // Table is empty, just preallocated
+		}
+	}
+
+	var hash *hashTable
+	if nrec > 0 {
+		// Hash table size must be power of 2
+		base := uint8(bits.Len(uint(nrec - 1)))
+		sz := 1 << base
+		hash = &hashTable{
+			slots:    make([]hashTableSlot, sz),
+			nextFree: uintptr(sz - 1),
+			base:     base,
+		}
+	}
+
+	return &mixedTable{
+		array:     arr,
+		hashTable: hash,
+	}
+}
+
 // Return v such that k => v, else return nil.
 func (t *mixedTable) get(k Value) Value {
 	i, ok := ToIntNoString(k)

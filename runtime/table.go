@@ -33,6 +33,16 @@ func NewTableFromSlice(values []Value) *Table {
 	}
 }
 
+// NewTableWithCapacity creates a table with preallocated capacity.
+// This is used for table.create (Lua 5.5) to avoid repeated reallocations.
+// nseq: capacity hint for array part (sequence elements)
+// nrec: capacity hint for hash part (record/key-value pairs)
+func NewTableWithCapacity(nseq, nrec int) *Table {
+	return &Table{
+		mixedTable: newMixedTableWithCapacity(nseq, nrec),
+	}
+}
+
 // Metatable returns the table's metatable.
 func (t *Table) Metatable() *Table {
 	return t.meta
