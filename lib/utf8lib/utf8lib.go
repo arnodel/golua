@@ -250,9 +250,20 @@ func offset(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		}
 	}
 	if nn == 0 {
-		return c.PushingNext1(t.Runtime, rt.IntValue(int64(i+1))), nil
+		// Calculate start and end positions
+		startPos := int64(i + 1)
+		var endPos int64
+		if i < len(s) {
+			_, sz := utf8.DecodeRuneInString(s[i:])
+			endPos = int64(i + sz)
+		} else {
+			// Past the end of string
+			endPos = int64(len(s) + 1)
+		}
+		return c.PushingNext(t.Runtime, rt.IntValue(startPos), rt.IntValue(endPos)), nil
 	}
-	return c.PushingNext1(t.Runtime, rt.NilValue), nil
+	// Failed to find the character
+	return c.PushingNext(t.Runtime, rt.NilValue, rt.NilValue), nil
 }
 
 var errInvalidCode = errors.New("invalid UTF-8 code")

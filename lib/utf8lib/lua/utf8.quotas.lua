@@ -73,11 +73,13 @@ end
 do
     -- utf8.offset requires cpu proportional to the displacement
 
-    print(runtime.callcontext({kill={cpu=1000}}, utf8.offset, ("日本誒"):rep(100), 200))
-    --> =done	598
+    local ctx, start, endpos = runtime.callcontext({kill={cpu=1000}}, utf8.offset, ("日本誒"):rep(100), 200)
+    print(ctx, start, endpos)
+    --> =done	598	600
 
-    print(runtime.callcontext({kill={cpu=1000}}, utf8.offset, ("日本誒"):rep(100), -200))
-    --> =done	301
+    ctx, start, endpos = runtime.callcontext({kill={cpu=1000}}, utf8.offset, ("日本誒"):rep(100), -200)
+    print(ctx, start, endpos)
+    --> =done	301	303
 
     print(runtime.callcontext({kill={cpu=2000}}, utf8.offset, ("日本誒"):rep(1000), 2000))
     --> =killed
