@@ -18,7 +18,7 @@ Based on [Lua 5.5 README](https://www.lua.org/manual/5.5/readme.html) and [Incom
     3. Compilation: Track declarations per scope and validate access (reads/writes)
   - Complexity: **Medium** - requires changes across lexer, parser, compiler
 
-- [ ] **Read-only for-loop variables** - Loop control variables cannot be modified within the loop body
+- [x] **Read-only for-loop variables** - Loop control variables cannot be modified within the loop body
   - Affects: `for i = 1, 10 do` and `for k, v in pairs(t) do`
   - Implementation: Add compile-time check to prevent assignment to loop control variables
   - Complexity: **Low** - similar to const local variable checking

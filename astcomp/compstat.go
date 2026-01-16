@@ -61,7 +61,8 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 
 	nameAttribs := make([]ast.NameAttrib, len(s.Vars))
 	for i, name := range s.Vars {
-		nameAttribs[i] = ast.NewNameAttrib(name, nil)
+		constDeclAttrib := ast.NewDeclAttrib(ast.Location{}, ast.ConstAttrib)
+		nameAttribs[i] = ast.NewNameAttrib(name, &constDeclAttrib) // Loop variables are read-only in Lua 5.5
 	}
 	c.CompileStat(ast.LocalStat{
 		NameAttribs: nameAttribs,
@@ -143,6 +144,7 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	// iter <- start
 	ir.EmitMoveNoLine(c.CodeBuilder, iterReg, startReg)
 	c.DeclareLocal(ir.Name(s.Var.Val), iterReg)
+	c.MarkConstantReg(iterReg) // Loop variable is read-only in Lua 5.5
 	c.compileBlock(s.Body)
 	c.PopContext()
 
