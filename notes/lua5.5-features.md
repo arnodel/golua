@@ -104,10 +104,14 @@ Based on [Lua 5.5 README](https://www.lua.org/manual/5.5/readme.html) and [Incom
 - [N/A] **External strings** - Strings using memory not managed by Lua
   - Not applicable: Go manages string memory, not under our control
 
-- [ ] **`__call` metamethod chain limit** - Maximum 15 objects in chain
+- [x] **`__call` metamethod chain limit** - Maximum 15 objects in chain
   - Implementation: Add counter in function call evaluation during metamethod resolution
   - Prevents infinite recursion through chained `__call` metamethods
   - Complexity: **Low-Medium** - add depth tracking to call handling
+  - **Status**: ✅ Implemented in [runtime/lib.go](../runtime/lib.go) and [runtime/thread.go](../runtime/thread.go)
+  - Added `metacallChainDepth` field to Thread struct
+  - Modified `Call` and `Continue` functions to track and limit chain depth
+  - Test: [runtime/lua/metacall_chain_limit.lua](../runtime/lua/metacall_chain_limit.lua)
 
 - [ ] **Nil error objects replaced with message** - Error handling behavior change
   - Implementation: When nil becomes an error object, replace it with a string message
