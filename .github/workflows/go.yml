@@ -42,13 +42,15 @@ jobs:
     - name: Build CLI
       run: go build -tags "${{ matrix.build_tags }}"
 
-    - name: Check out Lua Test Suite 5.4.3
-      uses: actions/checkout@v4
-      with:
-        repository: arnodel/golua-tests
-        ref: golua-5.4
-        path: ./lua-test-suite
+    # TODO: Lua 5.4 test suite disabled on lua5.5 branch
+    # Need to create/fork a Lua 5.5 compatible test suite
+    # - name: Check out Lua Test Suite 5.4.3
+    #   uses: actions/checkout@v4
+    #   with:
+    #     repository: arnodel/golua-tests
+    #     ref: golua-5.4
+    #     path: ./lua-test-suite
 
-    - name: Run Lua Test Suite
-      run: ../golua -u -e "_U=true" -e "_OS='${{ matrix.os }}'" all.lua
-      working-directory: ./lua-test-suite
+    # - name: Run Lua Test Suite
+    #   run: ../golua -u -e "_U=true" -e "_OS='${{ matrix.os }}'" all.lua
+    #   working-directory: ./lua-test-suite
