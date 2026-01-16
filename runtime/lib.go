@@ -25,6 +25,7 @@ func RawGet(t *Table, k Value) Value {
 }
 
 const maxIndexChainLength = 100
+const maxCallChainLength = 15 // Lua 5.5: limit __call metamethod chain
 
 // Index returns the item in a collection for the given key k, using the
 // '__index' metamethod if appropriate.
@@ -123,6 +124,15 @@ func Continue(t *Thread, f Value, next Cont) (Cont, error) {
 	if ok {
 		return callable.Continuation(t, next), nil
 	}
+	// Not callable, need to use __call metamethod
+	// Check if we've exceeded the chain limit (Lua 5.5)
+	if t.metacallChainDepth >= maxCallChainLength {
+		return nil, errors.New("'__call' chain too long")
+	}
+	// Increment chain depth before recursive call
+	t.metacallChainDepth++
+	defer func() { t.metacallChainDepth-- }()
+
 	cont, err, ok := metacont(t, f, "__call", next)
 	if !ok {
 		return nil, fmt.Errorf("attempt to call a %s value", f.CustomTypeName())
@@ -143,6 +153,15 @@ func Call(t *Thread, f Value, args []Value, next Cont) error {
 	if ok {
 		return t.call(callable, args, next)
 	}
+	// Not callable, need to use __call metamethod
+	// Check if we've exceeded the chain limit (Lua 5.5)
+	if t.metacallChainDepth >= maxCallChainLength {
+		return errors.New("'__call' chain too long")
+	}
+	// Increment chain depth before recursive call
+	t.metacallChainDepth++
+	defer func() { t.metacallChainDepth-- }()
+
 	err, ok := Metacall(t, f, "__call", append([]Value{f}, args...), next)
 	if ok {
 		return err
