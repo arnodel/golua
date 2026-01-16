@@ -52,6 +52,10 @@ type Thread struct {
 	// functions).
 	goFunctionCallDepth int
 
+	// Depth of __call metamethod chain (Lua 5.5).  This should not exceed
+	// maxCallChainLength to prevent infinite loops through chained __call metamethods.
+	metacallChainDepth int
+
 	DebugHooks
 
 	closeStack // Stack of pending to-be-closed values
