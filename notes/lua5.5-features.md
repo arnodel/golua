@@ -113,10 +113,14 @@ Based on [Lua 5.5 README](https://www.lua.org/manual/5.5/readme.html) and [Incom
   - Modified `Call` and `Continue` functions to track and limit chain depth
   - Test: [runtime/lua/metacall_chain_limit.lua](../runtime/lua/metacall_chain_limit.lua)
 
-- [ ] **Nil error objects replaced with message** - Error handling behavior change
+- [x] **Nil error objects replaced with message** - Error handling behavior change
   - Implementation: When nil becomes an error object, replace it with a string message
   - Affects: Error propagation and handling code
   - Complexity: **Low-Medium** - modify error handling logic
+  - **Status**: ✅ Implemented in [lib/base/error.go](../lib/base/error.go)
+  - When `error(nil)` or `error()` is called, the nil is replaced with `"<no error object>"`
+  - The error is treated as level 0 (no file:line context added)
+  - Test: Updated [lib/base/lua/error.lua](../lib/base/lua/error.lua)
 
 ## Go API
 
