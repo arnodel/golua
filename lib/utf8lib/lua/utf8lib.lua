@@ -164,43 +164,43 @@ end
 do
     local s = "abé日本誒"
     local function test(...)
-        local ok, offset = pcall(utf8.offset, s, ...)
+        local ok, offset, endpos = pcall(utf8.offset, s, ...)
         if ok then
-            print(offset)
+            print(offset, endpos)
         else
             print("ERROR")
         end
     end
 
     test(1)
-    --> =1
+    --> =1	1
 
     test(2, 3)
-    --> =5
+    --> =5	7
 
     test(5)
-    --> =8
+    --> =8	10
 
     test(1, 4)
     --> =ERROR
 
     test(10)
-    --> =nil
-    
+    --> =nil	nil
+
     test(0, 4)
-    --> =3
+    --> =3	4
 
     test(0, 7)
-    --> =5
+    --> =5	7
 
     test(-2)
-    --> =8
+    --> =8	10
 
     test(-3, 8)
-    --> =2
+    --> =2	2
 
     test(-10)
-    --> =nil
+    --> =nil	nil
 
     test(-1, 7)
     --> =ERROR
@@ -228,4 +228,41 @@ do
     err("ABC", 2, 5)
     --> ~out of range
 
+end
+
+-- Comprehensive tests for Lua 5.5 enhanced utf8.offset (returns start and end)
+do
+    -- Pure ASCII
+    local s = "ABC"
+    local start, endpos = utf8.offset(s, 1)
+    print(start, endpos)
+    --> =1	1
+
+    start, endpos = utf8.offset(s, 2)
+    print(start, endpos)
+    --> =2	2
+
+    start, endpos = utf8.offset(s, 4)  -- Past end
+    print(start, endpos)
+    --> =4	4
+end
+
+do
+    -- Multi-byte UTF-8 characters
+    local s = "日本語"  -- 3 Japanese chars, each 3 bytes
+    local start, endpos = utf8.offset(s, 1)
+    print(start, endpos)
+    --> =1	3
+
+    start, endpos = utf8.offset(s, 2)
+    print(start, endpos)
+    --> =4	6
+
+    start, endpos = utf8.offset(s, 3)
+    print(start, endpos)
+    --> =7	9
+
+    start, endpos = utf8.offset(s, 4)  -- Past end
+    print(start, endpos)
+    --> =10	10
 end

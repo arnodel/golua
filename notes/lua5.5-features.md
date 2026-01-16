@@ -69,13 +69,14 @@ Based on [Lua 5.5 README](https://www.lua.org/manual/5.5/readme.html) and [Incom
     - `lib/tablelib/lua/tablelib.quotas.lua` - Added quota tests
   - **Note**: Once comprehensive table memory accounting is implemented, revisit to enable preallocation with quotas
 
-- [ ] **Enhanced `utf8.offset`** - Returns both start and end positions
+- [x] **Enhanced `utf8.offset`** - Returns both start and end positions
   - Old behavior: Returned single position (start of nth character)
   - New behavior: Returns two integers - start position and end position of character encoding
   - Return value: `(start_pos, end_pos)` in bytes
   - Special case: If character is right after end of string, behaves as if there's a '\0' there
   - Implementation: Modify existing function in `lib/utf8lib` to return two values
   - Complexity: **Low** - simple function modification
+  - **Status**: ✅ Implemented in [lib/utf8lib/utf8lib.go:251-267](../lib/utf8lib/utf8lib.go)
 
 - [N/A] **Garbage collection parameter changes** - New "param" option system
   - Not applicable: Go runtime manages GC, not under our control
