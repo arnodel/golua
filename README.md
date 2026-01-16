@@ -4,9 +4,11 @@
 
 # GoLua
 
-Implementation of Lua **5.4** in Go with **no third party dependencies**. The
+Implementation of Lua **5.5** in Go with **no third party dependencies**. The
 compiler and runtime are complete (including coroutines), the standard Lua
 library is mostly implemented.
+
+**Note**: This is the `lua5.5` branch implementing Lua 5.5. For the Lua 5.4 implementation, see the [`lua5.4` branch](https://github.com/arnodel/golua/tree/lua5.4).
 
 - [GoLua](#golua)
 	- [Quick start: running golua](#quick-start-running-golua)
@@ -22,7 +24,7 @@ library is mostly implemented.
 		- [IR → Code Compilation](#ir--code-compilation)
 		- [Runtime](#runtime)
 		- [Test Suite](#test-suite)
-		- [The "official" Lua 5.4.3 Test Suite](#the-official-lua-543-test-suite)
+		- [The "official" Lua Test Suite](#the-official-lua-test-suite)
 		- [Standard Library](#standard-library)
 
 ## Quick start: running golua
@@ -333,24 +335,21 @@ print("ababab")
 Most of the code is covered with such Lua tests. Specific packages or functions
 are covered with Go tests.
 
-### The "official" Lua 5.4.3 Test Suite
+### The "official" Lua Test Suite
 
-Lua provides a test suites for each version (https://www.lua.org/tests/).  There
-is an adapted version of the 5.4.3 tests
-[here](https://github.com/arnodel/golua-tests/pull/3) which is supposed to be
-passed by the latest version of Golua.  It is the form of a PR so that the
-difference with the original test suite can be seen easily.
+Lua provides test suites for each version (https://www.lua.org/tests/).
 
-Assuming `golua` is installed on your system, those tests can be run from the
-root of the repository above as follows.
+The `lua5.4` branch passes an adapted version of the 5.4.3 test suite, available
+[here](https://github.com/arnodel/golua-tests/pull/3). The adaptations are shown
+as a PR so the differences from the original suite can be seen easily.
 
-```sh
-golua -u -e "_U=true" all.lua
-```
+For the `lua5.5` branch (this branch), adapting the official Lua 5.5 test suite
+is planned future work. The challenges are:
+1. Some tests are C-specific and not applicable to a Go implementation
+2. Some tests verify implementation details of the reference C implementation rather than language semantics
 
-For the moment `db.lua` is disabled (the file testing the debug module).  All
-other "soft" tests are run, some with adaptations.  The most significant
-differences are in error messages.
+In the meantime, comprehensive Lua-based tests are included throughout the
+codebase (see Test Suite section above).
 
 ### Standard Library
 
