@@ -53,6 +53,7 @@ type StatProcessor interface {
 	ProcessForInStat(ForInStat)
 	ProcessForStat(ForStat)
 	ProcessFunctionCallStat(FunctionCall)
+	ProcessGlobalFunctionStat(GlobalFunctionStat)
 	ProcessGlobalStat(GlobalStat)
 	ProcessGlobalWildcardStat(GlobalWildcardStat)
 	ProcessGotoStat(GotoStat)

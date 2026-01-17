@@ -259,10 +259,17 @@ func (p *Parser) Local(*token.Token) (ast.Stat, *token.Token) {
 	return ast.NewLocalStat(nameAttribs, values), t
 }
 
-// Global parses a "global" statement (variable declaration).
+// Global parses a "global" statement (variable declaration or function definition).
 // It assumes that t is the "global" token.
 func (p *Parser) Global(globalTok *token.Token) (ast.Stat, *token.Token) {
 	t := p.Scan()
+
+	// Check for "global function Name() ..." syntax
+	if t.Type == token.KwFunction {
+		name, t := p.Name(p.Scan())
+		fx, t := p.FunctionDef(t)
+		return ast.NewGlobalFunctionStat(name, fx), t
+	}
 
 	// Check for optional attribute before name or wildcard
 	attrib, t := p.DeclAttrib(t)

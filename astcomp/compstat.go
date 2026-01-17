@@ -245,6 +245,21 @@ func (c *compiler) ProcessLocalStat(s ast.LocalStat) {
 	}
 }
 
+// ProcessGlobalFunctionStat compiles a GlobalFunctionStat.
+func (c *compiler) ProcessGlobalFunctionStat(s ast.GlobalFunctionStat) {
+	// First, declare the global (as mutable, since function values can be reassigned)
+	c.DeclareGlobal(ir.Name(s.Name.Val), ir.MutableGlobal)
+
+	// Compile the function and assign it to the global
+	fReg := c.GetFreeRegister()
+	c.compileExpInto(s.Function, fReg)
+	c.TakeRegister(fReg)
+
+	// Assign the function value to the global variable via _ENV
+	lvals := []ast.Var{globalVar(s.Name)}
+	c.compileAssignments(lvals, []ir.Register{fReg})
+}
+
 // ProcessGlobalStat compiles a GlobalStat.
 func (c *compiler) ProcessGlobalStat(s ast.GlobalStat) {
 	// Register the global declarations progressively
