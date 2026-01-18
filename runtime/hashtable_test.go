@@ -26,6 +26,133 @@ func TestHashTable(t *testing.T) {
 	}
 }
 
+// TestMixedTableWithNonPowerOf2Capacity tests that tables created with
+// non-power-of-2 capacity hints work correctly. The capacity should be
+// rounded up to a power of 2 to ensure consistent behavior with the
+// grow() logic which uses power-of-2 bucket classification.
+func TestMixedTableWithNonPowerOf2Capacity(t *testing.T) {
+	// Create table with non-power-of-2 capacity (e.g., 5)
+	mt := newMixedTableWithCapacity(5, 0)
+
+	// Insert some values
+	for i := 1; i <= 5; i++ {
+		mt.insert(v(i), v(i*10))
+	}
+
+	// Verify values
+	for i := 1; i <= 5; i++ {
+		if mt.get(v(i)) != v(i*10) {
+			t.Errorf("Expected mt[%d] = %d, got %v", i, i*10, mt.get(v(i)))
+		}
+	}
+
+	// Verify the array length was updated correctly
+	if mt.array.getLen() != 5 {
+		t.Errorf("Expected array len 5, got %d", mt.array.getLen())
+	}
+
+	// Now modify and iterate - this would panic before the fix
+	mt.insert(v(6), v(60))
+	mt.insert(v(7), v(70))
+
+	if mt.array.getLen() != 7 {
+		t.Errorf("Expected array len 7, got %d", mt.array.getLen())
+	}
+
+	// Iterate with next() to verify no panic
+	// Note: next() returns (key, val, ok) where ok indicates whether the iteration
+	// can continue. Iteration is done when key is NilValue.
+	count := 0
+	key := NilValue
+	for {
+		var val Value
+		key, val, _ = mt.next(key)
+		if key.IsNil() {
+			break
+		}
+		if val.IsNil() {
+			t.Errorf("Expected non-nil value during iteration, key=%v", key)
+		}
+		count++
+		if count > 100 {
+			t.Fatal("Iteration seems infinite")
+		}
+	}
+
+	if count != 7 {
+		t.Errorf("Expected 7 items, got %d", count)
+	}
+}
+
+// TestMixedTableGrowWithCapacityHint tests that tables created with capacity
+// hints can grow correctly when more elements are inserted than the hint.
+func TestMixedTableGrowWithCapacityHint(t *testing.T) {
+	// Create table with capacity hint 5 (rounds to 8)
+	mt := newMixedTableWithCapacity(5, 0)
+
+	// Fill up the array beyond the original hint to force grow
+	for i := 1; i <= 10; i++ {
+		mt.insert(v(i), v(i*10))
+	}
+
+	// Verify all values are correct
+	for i := 1; i <= 10; i++ {
+		got := mt.get(v(i))
+		if got != v(i*10) {
+			t.Errorf("After grow: mt[%d] = %v, want %d", i, got, i*10)
+		}
+	}
+
+	// The array should have grown to accommodate all elements
+	if mt.array.getLen() != 10 {
+		t.Errorf("Expected array len 10, got %d", mt.array.getLen())
+	}
+
+	// Iterate to verify no issues after grow
+	count := 0
+	key := NilValue
+	for {
+		key, _, _ = mt.next(key)
+		if key.IsNil() {
+			break
+		}
+		count++
+		if count > 100 {
+			t.Fatal("Iteration seems infinite after grow")
+		}
+	}
+
+	if count != 10 {
+		t.Errorf("Expected 10 items after grow, got %d", count)
+	}
+}
+
+// TestMixedTableCapacityRoundedToPowerOf2 verifies that capacity hints
+// are rounded up to power of 2.
+func TestMixedTableCapacityRoundedToPowerOf2(t *testing.T) {
+	testCases := []struct {
+		hint     int
+		expected int
+	}{
+		{1, 1},
+		{2, 2},
+		{3, 4},
+		{5, 8},
+		{7, 8},
+		{9, 16},
+		{100, 128},
+		{1000, 1024},
+	}
+
+	for _, tc := range testCases {
+		mt := newMixedTableWithCapacity(tc.hint, 0)
+		if int(mt.array.size()) != tc.expected {
+			t.Errorf("Capacity hint %d: expected array size %d, got %d",
+				tc.hint, tc.expected, mt.array.size())
+		}
+	}
+}
+
 func TestMixedTable1To20(t *testing.T) {
 	var mt = new(mixedTable)
 	const n = 20

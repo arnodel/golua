@@ -29,8 +29,12 @@ type mixedTable struct {
 func newMixedTableWithCapacity(nseq, nrec int) *mixedTable {
 	var arr *array
 	if nseq > 0 {
+		// Round up to power of 2 to match the sizing used by calculateArraySize.
+		// This ensures the grow() logic behaves consistently.
+		base := uint8(bits.Len(uint(nseq - 1)))
+		sz := 1 << base
 		arr = &array{
-			values: make([]Value, nseq),
+			values: make([]Value, sz),
 			len:    0, // Table is empty, just preallocated
 		}
 	}
