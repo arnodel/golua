@@ -4,11 +4,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/arnodel/golua/ast"
 	"github.com/arnodel/golua/luastrings"
 	"github.com/arnodel/golua/ops"
 	"github.com/arnodel/golua/token"
-
-	"github.com/arnodel/golua/ast"
 )
 
 // Parser can parse lua statements or expressions
@@ -245,18 +244,25 @@ func (p *Parser) Local(*token.Token) (ast.Stat, *token.Token) {
 		fx, t := p.FunctionDef(t)
 		return ast.NewLocalFunctionStat(name, fx), t
 	}
-	// local namelist ['=' explist]
-	nameAttrib, t := p.NameAttrib(t)
-	nameAttribs := []ast.NameAttrib{nameAttrib}
-	for t.Type == token.SgComma {
-		nameAttrib, t = p.NameAttrib(p.Scan())
+	// local [<attrib>] namelist ['=' explist]
+	prefixAttrib, t := p.DeclAttrib(t)
+
+	var nameAttribs []ast.NameAttrib
+	var nameAttrib ast.NameAttrib
+	for {
+		nameAttrib, t = p.NameAttrib(t)
 		nameAttribs = append(nameAttribs, nameAttrib)
+		if t.Type != token.SgComma {
+			break
+		}
+		t = p.Scan() // Consume comma
 	}
+
 	var values []ast.ExpNode
 	if t.Type == token.SgAssign {
 		values, t = p.ExpList(p.Scan())
 	}
-	return ast.NewLocalStat(nameAttribs, values), t
+	return ast.NewLocalStat(prefixAttrib, nameAttribs, values), t
 }
 
 // Global parses a "global" statement (variable declaration or function definition).
@@ -264,40 +270,40 @@ func (p *Parser) Local(*token.Token) (ast.Stat, *token.Token) {
 func (p *Parser) Global(globalTok *token.Token) (ast.Stat, *token.Token) {
 	t := p.Scan()
 
-	// Check for "global function Name() ..." syntax
 	if t.Type == token.KwFunction {
 		name, t := p.Name(p.Scan())
 		fx, t := p.FunctionDef(t)
 		return ast.NewGlobalFunctionStat(name, fx), t
 	}
 
-	// Check for optional attribute before name or wildcard
-	attrib, t := p.DeclAttrib(t)
+	prefixAttrib, t := p.DeclAttrib(t)
 
-	// Check if this is a wildcard form: "global *" or "global<attrib> *"
 	if t.Type == token.SgStar {
-		return ast.NewGlobalWildcardStat(ast.LocFromToken(globalTok), attrib), p.Scan()
+		return ast.NewGlobalWildcardStat(ast.LocFromToken(globalTok), prefixAttrib), p.Scan()
 	}
 
-	// Otherwise, parse "global [<attrib>] namelist ['=' explist]"
-	// Parse first name (attrib may be nil or already parsed)
-	name, t := p.Name(t)
-	nameAttrib := ast.NewNameAttrib(name, attrib)
-	nameAttribs := []ast.NameAttrib{nameAttrib}
-
-	// Parse additional comma-separated names
-	for t.Type == token.SgComma {
-		nameAttrib, t = p.NameAttrib(p.Scan())
+	var nameAttribs []ast.NameAttrib
+	var nameAttrib ast.NameAttrib
+	for {
+		nameAttrib, t = p.NameAttrib(t)
 		nameAttribs = append(nameAttribs, nameAttrib)
+		if t.Type != token.SgComma {
+			break
+		}
+		t = p.Scan()
 	}
 
-	// Parse optional assignment
 	var values []ast.ExpNode
 	if t.Type == token.SgAssign {
 		values, t = p.ExpList(p.Scan())
 	}
+	return ast.NewGlobalStat(prefixAttrib, nameAttribs, values), t
+}
 
-	return ast.NewGlobalStat(nameAttribs, values), t
+func (p *Parser) NameAttrib(t *token.Token) (ast.NameAttrib, *token.Token) {
+	name, t := p.Name(t)
+	attrib, t := p.DeclAttrib(t)
+	return ast.NewNameAttrib(name, attrib), t
 }
 
 // FunctionStat parses a function definition statement. It assumes that t is the
@@ -396,8 +402,8 @@ func (p *Parser) Exp(t *token.Token) (ast.ExpNode, *token.Token) {
 	return last.exp, t
 }
 
-// ShortExp parses an expression which is either atomic, a unary operation, a
-// prefix expression or a power operation (right associatively composed). In
+// ShortExp parses an expression which is either atomic, a unary operation,
+// a prefix expression or a power operation (right associatively composed). In
 // other words, any expression that doesn't contain a binary operator.
 func (p *Parser) ShortExp(t *token.Token) (ast.ExpNode, *token.Token) {
 	var exp ast.ExpNode
@@ -689,12 +695,6 @@ func (p *Parser) DeclAttrib(t *token.Token) (*ast.DeclAttrib, *token.Token) {
 	loc := ast.MergeLocations(ast.LocFromToken(lessTok), ast.LocFromToken(greaterTok))
 	attrib := ast.NewDeclAttrib(loc, attribType)
 	return &attrib, p.Scan()
-}
-
-func (p *Parser) NameAttrib(t *token.Token) (ast.NameAttrib, *token.Token) {
-	name, t := p.Name(t)
-	attrib, t := p.DeclAttrib(t)
-	return ast.NewNameAttrib(name, attrib), t
 }
 
 func expectIdent(t *token.Token) {

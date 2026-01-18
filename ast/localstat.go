@@ -4,19 +4,21 @@ package ast
 // list of local variables.
 type LocalStat struct {
 	Location
-	NameAttribs []NameAttrib
-	Values      []ExpNode
+	PrefixAttrib *DeclAttrib
+	NameAttribs  []NameAttrib
+	Values       []ExpNode
 }
 
 var _ Stat = LocalStat{}
 
 // NewLocalStat returns a LocalStat instance defining the given names with the
 // given values.
-func NewLocalStat(nameAttribs []NameAttrib, values []ExpNode) LocalStat {
-	loc := MergeLocations(nameAttribs[0], nameAttribs[len(nameAttribs)-1])
-	if len(values) > 0 {
-		loc = MergeLocations(loc, values[len(values)-1])
-	}
+func NewLocalStat(prefixAttrib *DeclAttrib, nameAttribs []NameAttrib, values []ExpNode) LocalStat {
+	var loc Location = mergeLocationsOf(
+		optLocation(prefixAttrib),
+		sliceLocation(nameAttribs),
+		sliceLocation(values),
+	)
 	// Give a name to functions defined here if possible
 	for i, v := range values {
 		if i >= len(nameAttribs) {
@@ -28,7 +30,12 @@ func NewLocalStat(nameAttribs []NameAttrib, values []ExpNode) LocalStat {
 			values[i] = f
 		}
 	}
-	return LocalStat{Location: loc, NameAttribs: nameAttribs, Values: values}
+	return LocalStat{
+		Location:     loc,
+		PrefixAttrib: prefixAttrib,
+		NameAttribs:  nameAttribs,
+		Values:       values,
+	}
 }
 
 // ProcessStat uses the given StatProcessor to process the receiver.

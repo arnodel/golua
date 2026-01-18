@@ -1056,6 +1056,36 @@ func TestParser_Local(t *testing.T) {
 			input: `local x <foobar> = b`,
 			err:   Error{Got: tok(token.IDENT, "foobar"), Expected: "'const' or 'close'"},
 		},
+		{
+			name:  "local with prefix const attrib",
+			input: `local<const> x = 1`,
+			want: ast.LocalStat{
+				PrefixAttrib: &ast.DeclAttrib{Type: ast.ConstAttrib},
+				NameAttribs:  []ast.NameAttrib{nameAttrib("x")},
+				Values:       []ast.ExpNode{ast.NewInt(1)},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "local with prefix const attrib multiple vars",
+			input: `local<const> x, y = 1, 2`,
+			want: ast.LocalStat{
+				PrefixAttrib: &ast.DeclAttrib{Type: ast.ConstAttrib},
+				NameAttribs:  []ast.NameAttrib{nameAttrib("x"), nameAttrib("y")},
+				Values:       []ast.ExpNode{ast.NewInt(1), ast.NewInt(2)},
+			},
+			want1: tok(token.EOF, ""),
+		},
+		{
+			name:  "local with prefix close attrib",
+			input: `local<close> x = b`,
+			want: ast.LocalStat{
+				PrefixAttrib: &ast.DeclAttrib{Type: ast.CloseAttrib},
+				NameAttribs:  []ast.NameAttrib{nameAttrib("x")},
+				Values:       []ast.ExpNode{name("b")},
+			},
+			want1: tok(token.EOF, ""),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1310,6 +1340,18 @@ func TestParseChunk(t *testing.T) {
 			input:   "return ?",
 			wantErr: true,
 		},
+		{
+			name:  "local with prefix const",
+			input: "local<const> x = 1",
+			wantStat: ast.NewBlockStat(
+				[]ast.Stat{ast.LocalStat{
+					PrefixAttrib: &ast.DeclAttrib{Type: ast.ConstAttrib},
+					NameAttribs:  []ast.NameAttrib{nameAttrib("x")},
+					Values:       []ast.ExpNode{ast.NewInt(1)},
+				}},
+				nil,
+			),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1434,8 +1476,9 @@ func TestParser_Global(t *testing.T) {
 			name:  "global with const attrib",
 			input: `global<const> x = 1`,
 			want: ast.GlobalStat{
-				NameAttribs: []ast.NameAttrib{nameAttrib("x", "const")},
-				Values:      []ast.ExpNode{ast.NewInt(1)},
+				PrefixAttrib: &ast.DeclAttrib{Type: ast.ConstAttrib},
+				NameAttribs:  []ast.NameAttrib{nameAttrib("x")},
+				Values:       []ast.ExpNode{ast.NewInt(1)},
 			},
 			want1: tok(token.EOF, ""),
 		},
@@ -1462,8 +1505,9 @@ func TestParser_Global(t *testing.T) {
 			name:  "global with close attrib (invalid)",
 			input: `global<close> x = b`,
 			want: ast.GlobalStat{
-				NameAttribs: []ast.NameAttrib{nameAttrib("x", "close")},
-				Values:      []ast.ExpNode{name("b")},
+				PrefixAttrib: &ast.DeclAttrib{Type: ast.CloseAttrib},
+				NameAttribs:  []ast.NameAttrib{nameAttrib("x")},
+				Values:       []ast.ExpNode{name("b")},
 			},
 			want1: tok(token.EOF, ""),
 			// Note: <close> on global is a semantic error caught during compilation,

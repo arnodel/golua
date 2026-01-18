@@ -52,8 +52,13 @@ func LocFromTokens(t1, t2 *token.Token) Location {
 // MergeLocations takes two locators and merges them into one Location, starting
 // at the earliest start and ending at the latest end.
 func MergeLocations(l1, l2 Locator) Location {
-	l := l1.Locate()
-	ll := l2.Locate()
+	var l, ll Location
+	if l1 != nil {
+		l = l1.Locate()
+	}
+	if l2 != nil {
+		ll = l2.Locate()
+	}
 	if ll.start != nil && (l.start == nil || l.start.Offset > ll.start.Offset) {
 		l.start = ll.start
 	}
@@ -61,4 +66,21 @@ func MergeLocations(l1, l2 Locator) Location {
 		l.end = ll.end
 	}
 	return l
+}
+
+func sliceLocation[T Locator](s []T) (loc Location) {
+	for _, l := range s {
+		loc = MergeLocations(loc, l)
+	}
+	return
+}
+
+func optLocation[T Locator](l *T) (loc Location) {
+	if l != nil {
+		loc = (*l).Locate()
+	}
+	return
+}
+func mergeLocationsOf(locators ...Locator) (loc Location) {
+	return sliceLocation(locators)
 }

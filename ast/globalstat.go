@@ -4,19 +4,21 @@ package ast
 // list of global variables.
 type GlobalStat struct {
 	Location
-	NameAttribs []NameAttrib
-	Values      []ExpNode
+	PrefixAttrib *DeclAttrib
+	NameAttribs  []NameAttrib
+	Values       []ExpNode
 }
 
 var _ Stat = GlobalStat{}
 
 // NewGlobalStat returns a GlobalStat instance defining the given names with the
 // given values.
-func NewGlobalStat(nameAttribs []NameAttrib, values []ExpNode) GlobalStat {
-	loc := MergeLocations(nameAttribs[0], nameAttribs[len(nameAttribs)-1])
-	if len(values) > 0 {
-		loc = MergeLocations(loc, values[len(values)-1])
-	}
+func NewGlobalStat(prefixAttrib *DeclAttrib, nameAttribs []NameAttrib, values []ExpNode) GlobalStat {
+	var loc Location = mergeLocationsOf(
+		optLocation(prefixAttrib),
+		sliceLocation(nameAttribs),
+		sliceLocation(values),
+	)
 	// Give a name to functions defined here if possible
 	for i, v := range values {
 		if i >= len(nameAttribs) {
@@ -28,7 +30,12 @@ func NewGlobalStat(nameAttribs []NameAttrib, values []ExpNode) GlobalStat {
 			values[i] = f
 		}
 	}
-	return GlobalStat{Location: loc, NameAttribs: nameAttribs, Values: values}
+	return GlobalStat{
+		Location:     loc,
+		PrefixAttrib: prefixAttrib,
+		NameAttribs:  nameAttribs,
+		Values:       values,
+	}
 }
 
 // ProcessStat uses the given StatProcessor to process the receiver.
