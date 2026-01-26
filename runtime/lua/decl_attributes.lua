@@ -42,11 +42,11 @@ test("global postfix fail", "global gx<const>, gy = 1, 2; gx = 3")
 
 test("global close prefix fail", "global <close> gx")
 --> =global close prefix fail
---> ~^global close prefix fail:1:.*: only <const> is allowed for global prefix
+--> ~^global close prefix fail:1:.*: only <const> is allowed for global declarations
 
 test("global close postfix fail", "global gx <close>")
 --> =global close postfix fail
---> ~^global close postfix fail:1:.*: only <const> is allowed on global declarations
+--> ~^global close postfix fail:1:.*: only <const> is allowed for global declarations
 
 --
 -- Succeeding tests (Correct behavior is to compile successfully)

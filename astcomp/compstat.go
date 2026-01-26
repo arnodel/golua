@@ -6,6 +6,8 @@ import (
 	"github.com/arnodel/golua/ops"
 )
 
+const globalAttribError = "only <const> is allowed for global declarations"
+
 //
 // Statement compilation
 //
@@ -230,9 +232,14 @@ func (c *compiler) ProcessLocalStat(s ast.LocalStat) {
 	c.compileExpList(s.Values, localRegs)
 	for i, reg := range localRegs {
 		c.ReleaseRegister(reg)
-		c.DeclareLocal(ir.Name(s.NameAttribs[i].Name.Val), reg)
-		if s.NameAttribs[i].Attrib != nil {
-			switch s.NameAttribs[i].Attrib.Type {
+		nameAttrib := s.NameAttribs[i]
+		c.DeclareLocal(ir.Name(nameAttrib.Name.Val), reg)
+		attrib := nameAttrib.Attrib
+		if attrib == nil {
+			attrib = s.PrefixAttrib
+		}
+		if attrib != nil {
+			switch attrib.Type {
 			case ast.ConstAttrib:
 				c.MarkConstantReg(reg)
 			case ast.CloseAttrib:
@@ -262,21 +269,21 @@ func (c *compiler) ProcessGlobalFunctionStat(s ast.GlobalFunctionStat) {
 
 // ProcessGlobalStat compiles a GlobalStat.
 func (c *compiler) ProcessGlobalStat(s ast.GlobalStat) {
+	if s.PrefixAttrib != nil && s.PrefixAttrib.Type != ast.ConstAttrib {
+		panic(Error{Where: s.PrefixAttrib, Message: globalAttribError})
+	}
 	// Register the global declarations progressively
 	for _, nameAttrib := range s.NameAttribs {
 		var declType ir.GlobalDeclType
-		if nameAttrib.Attrib != nil {
-			switch nameAttrib.Attrib.Type {
-			case ast.ConstAttrib:
-				declType = ir.ConstGlobal
-			case ast.CloseAttrib:
-				panic(Error{
-					Where:   nameAttrib,
-					Message: "<close> attribute is not valid for global declarations",
-				})
-			default:
-				panic(compilerBug{})
+		attrib := nameAttrib.Attrib
+		if attrib == nil {
+			attrib = s.PrefixAttrib
+		}
+		if attrib != nil {
+			if attrib.Type != ast.ConstAttrib {
+				panic(Error{Where: attrib, Message: globalAttribError})
 			}
+			declType = ir.ConstGlobal
 		} else {
 			declType = ir.MutableGlobal
 		}
@@ -301,17 +308,10 @@ func (c *compiler) ProcessGlobalStat(s ast.GlobalStat) {
 func (c *compiler) ProcessGlobalWildcardStat(s ast.GlobalWildcardStat) {
 	var declType ir.GlobalDeclType
 	if s.Attrib != nil {
-		switch s.Attrib.Type {
-		case ast.ConstAttrib:
-			declType = ir.ConstGlobal
-		case ast.CloseAttrib:
-			panic(Error{
-				Where:   s,
-				Message: "<close> attribute is not valid for global declarations",
-			})
-		default:
-			panic(compilerBug{})
+		if s.Attrib.Type != ast.ConstAttrib {
+			panic(Error{Where: s.Attrib, Message: globalAttribError})
 		}
+		declType = ir.ConstGlobal
 	} else {
 		declType = ir.MutableGlobal
 	}
