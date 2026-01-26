@@ -29,12 +29,10 @@ type mixedTable struct {
 func newMixedTableWithCapacity(nseq, nrec int) *mixedTable {
 	var arr *array
 	if nseq > 0 {
-		// Round up to power of 2 to match the sizing used by calculateArraySize.
-		// This ensures the grow() logic behaves consistently.
-		base := uint8(bits.Len(uint(nseq - 1)))
-		sz := 1 << base
+		// Array can have arbitrary size. The grow() logic handles non-power-of-2
+		// sizes by checking if items can actually be moved from hashtable to array.
 		arr = &array{
-			values: make([]Value, sz),
+			values: make([]Value, nseq),
 			len:    0, // Table is empty, just preallocated
 		}
 	}
@@ -135,13 +133,13 @@ func (t *mixedTable) len() uintptr {
 // Provided no new key is inserted between successive calls of next(), then the
 // following code will iterate through all the key-value pairs in the table.
 //
-//    var k Value
-//    for {
-//        k, v, ok = t.next(k)
-//        if !ok {
-//            break
-//        }
-//    }
+//	var k Value
+//	for {
+//	    k, v, ok = t.next(k)
+//	    if !ok {
+//	        break
+//	    }
+//	}
 func (t *mixedTable) next(k Value) (next Value, v Value, ok bool) {
 	var i int64
 	var isInt bool
@@ -174,10 +172,9 @@ func (t *mixedTable) next(k Value) (next Value, v Value, ok bool) {
 
 // Grow the table - either the hash table part or the array part.
 //
-// The array part grows if there is a power of 2, N, bigger than the current
-// size of the array and such that at least N/2 integer keys between 1 and N
-// belong to the table, including one >= N/2.  It then grows to size N and all
-// the keys between 1 and N are transferred to it.
+// The array part grows if there are enough integer keys to justify it.
+// When arrSize=0, uses absolute bucketing; when arrSize>0, uses relative
+// bucketing. This allows non-power-of-2 array sizes to work correctly.
 //
 // If the array part doesn't grow, then the hash table part grows by a factor of
 // 2.
@@ -185,10 +182,11 @@ func (t *mixedTable) next(k Value) (next Value, v Value, ok bool) {
 // After growing the array it is guaranteed that there is at least one free slot
 // in the hash table part.
 func (t *mixedTable) grow() {
-	var idxCountByLen [uintptrLen]uintptr
+	var idxCountByBucket [uintptrLen]uintptr
+	arrSize := t.array.size() // 0 if nil
 
 	// Classify the keys in the hashtable
-	idxCount := t.hashTable.classifyIndices(&idxCountByLen)
+	idxCount := t.hashTable.classifyIndices(&idxCountByBucket, arrSize)
 
 	// If there are no possible index values, just grow the hash table
 	if idxCount == 0 {
@@ -196,18 +194,16 @@ func (t *mixedTable) grow() {
 		return
 	}
 
-	// Find out if we should grow the array
-	t.array.classifyIndices(&idxCountByLen)
-	arrSize := calculateArraySize(&idxCountByLen)
+	// Calculate optimal new array size
+	arrayItems := t.array.itemCount()
+	newSize := calculateNewArraySize(&idxCountByBucket, arrSize, arrayItems)
 
-	// If the array shouldn't grow, grow the hash table
-	if arrSize <= t.array.size() {
+	if newSize == 0 {
 		t.hashTable = t.hashTable.grow()
 		return
 	}
 
-	// Grow the array.  That should free capacity in the hashtable
-	array := t.array.grow(arrSize)
+	array := t.array.grow(newSize)
 	for i := range t.hashTable.slots {
 		it := &t.hashTable.slots[i]
 		if it.value.IsNil() {
@@ -258,8 +254,8 @@ func (t *mixedTable) grow() {
 // that the chain `S -> S'...` becomes `S -> F -> S'...`
 //
 // (3) Slot `S` contains an item `J` not in its primary position.  Because of
-// (I2) there is a chain `...S' -> S -> S''...`.  We move `J` to the next free
-// slot `F`, adjusting the chain as `...S' -> F -> S''...`.  That frees slot
+// (I2) there is a chain `...S' -> S -> S”...`.  We move `J` to the next free
+// slot `F`, adjusting the chain as `...S' -> F -> S”...`.  That frees slot
 // `S`, which means we can put the new item in it.
 //
 // It is easy to check that in the 3 cases all invariants (I1), (I2) and (I3)
@@ -405,7 +401,25 @@ func (t *hashTable) next(k Value) (next Value, v Value, ok bool) {
 	}
 }
 
-func (t *hashTable) classifyIndices(idxCountByLen *[uintptrLen]uintptr) (idxCount uintptr) {
+// Maximum index considered for array storage. Indices beyond this are always
+// stored in the hashtable. This prevents overflow in capacity calculations
+// and avoids considering impractically large arrays (2^40 = ~1 trillion slots).
+const maxArrayIndex = 1 << 40
+
+// classifyIndices buckets positive integer keys from the hashtable.
+//
+// When arrSize=0 (no array exists), uses absolute bucketing:
+//   - Bucket 0: index 1
+//   - Bucket 1: index 2
+//   - Bucket b: indices [2^(b-1)+1, 2^b]
+//
+// When arrSize>0, uses relative bucketing (indices > arrSize only):
+//   - Bucket 0: indices [arrSize+1, 2*arrSize]
+//   - Bucket 1: indices [2*arrSize+1, 4*arrSize]
+//   - Bucket b: indices [arrSize*2^b+1, arrSize*2^(b+1)]
+//
+// Indices beyond maxArrayIndex are ignored (kept in hashtable).
+func (t *hashTable) classifyIndices(idxCountByBucket *[uintptrLen]uintptr, arrSize uintptr) (idxCount uintptr) {
 	if t == nil {
 		return
 	}
@@ -413,8 +427,14 @@ func (t *hashTable) classifyIndices(idxCountByLen *[uintptrLen]uintptr) (idxCoun
 		if it.value.IsNil() {
 			continue
 		}
-		if i, ok := it.key.TryInt(); ok && i > 0 {
-			idxCountByLen[bits.Len(uint(i-1))]++
+		if i, ok := it.key.TryInt(); ok && i > 0 && i <= maxArrayIndex {
+			var bucket int
+			if arrSize == 0 {
+				bucket = bits.Len(uint(i - 1))
+			} else {
+				bucket = bits.Len(uint((i-1)/int64(arrSize))) - 1
+			}
+			idxCountByBucket[bucket]++
 			idxCount++
 		}
 	}
@@ -630,28 +650,62 @@ func (a *array) grow(sz uintptr) *array {
 	return a
 }
 
-func (a *array) classifyIndices(idxCountByLen *[uintptrLen]uintptr) {
+// itemCount returns the number of non-nil items in the array.
+func (a *array) itemCount() uintptr {
 	if a == nil {
-		return
+		return 0
 	}
-	for i, v := range a.values[:a.len] {
+	var count uintptr
+	for _, v := range a.values[:a.len] {
 		if !v.IsNil() {
-			idxCountByLen[bits.Len(uint(i))]++
+			count++
 		}
 	}
+	return count
 }
 
-func calculateArraySize(idxCountByLen *[uintptrLen]uintptr) uintptr {
-	var base = -1
-	var idxCount uintptr
-	for l, c := range idxCountByLen {
+// calculateNewArraySize determines the optimal array size based on index distribution.
+// Returns 0 if no array should be created/grown, otherwise returns the new size.
+//
+// arrayItems is the count of non-nil items currently in the array.
+// idxCountByBucket contains only hashtable items (indices outside current array).
+//
+// When arrSize=0 (absolute mode):
+//   - Bucket b covers indices up to 2^b, so capacity = 2^b
+//   - Threshold for 50% density = 2^(b-1), or 1 for b=0
+//
+// When arrSize>0 (relative mode):
+//   - Bucket b covers indices up to arrSize * 2^(b+1), so capacity = arrSize * 2^(b+1)
+//   - Threshold for 50% density = arrSize * 2^b
+func calculateNewArraySize(idxCountByBucket *[uintptrLen]uintptr, arrSize, arrayItems uintptr) uintptr {
+	var newSize uintptr
+	idxCount := arrayItems
+
+	for b, c := range idxCountByBucket {
 		idxCount += c
-		if c != 0 && (l == 0 || idxCount >= 1<<(l-1)) {
-			base = l
+		if c == 0 {
+			continue
+		}
+
+		var threshold, capacity uintptr
+		if arrSize == 0 {
+			// Absolute: capacity = 2^b, threshold = 2^(b-1) (or 1 for b=0)
+			capacity = 1 << b
+			if b == 0 {
+				threshold = 1
+			} else {
+				threshold = 1 << (b - 1)
+			}
+		} else {
+			// Relative: capacity = arrSize * 2^(b+1), threshold = arrSize * 2^b
+			capacity = arrSize << (b + 1)
+			threshold = arrSize << b
+		}
+
+		// Only grow if density threshold is met
+		if idxCount >= threshold {
+			newSize = capacity
 		}
 	}
-	if base >= 0 {
-		return 1 << base
-	}
-	return 0
+	return newSize
 }
