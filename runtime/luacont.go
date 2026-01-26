@@ -318,7 +318,6 @@ RunLoop:
 					pc++
 					continue RunLoop
 				case code.OpMkVarargTable:
-					// Create table whose array part references the vararg slice
 					res = TableValue(newVarargTable(val.AsArray()))
 				default:
 					panic("unsupported")
