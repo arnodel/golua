@@ -477,6 +477,9 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	return next, nil
 }
 
+// Maximum table size allowed by table.create (matches reference Lua 5.5)
+const maxTableCreateSize = 1 << 30
+
 func create(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	// Require at least 1 argument
 	if err := c.Check1Arg(); err != nil {
@@ -502,6 +505,11 @@ func create(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		if nrec < 0 {
 			return nil, fmt.Errorf("#2 out of range")
 		}
+	}
+
+	// Check for table overflow (matches reference Lua behavior)
+	if nseq > maxTableCreateSize || nrec > maxTableCreateSize {
+		return nil, fmt.Errorf("table overflow")
 	}
 
 	// Conditional implementation based on memory quotas
