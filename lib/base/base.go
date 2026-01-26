@@ -52,7 +52,7 @@ func Load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(env, "loadfile", loadfile, 3, false),
 	)
 	// That's not safe!
-	r.SetEnvGoFunc(env, "collectgarbage", collectgarbage, 2, false)
+	r.SetEnvGoFunc(env, "collectgarbage", collectgarbage, 3, false)
 	return rt.NilValue, nil
 }
 
