@@ -319,7 +319,7 @@ RunLoop:
 					continue RunLoop
 				case code.OpMkVarargTable:
 					// Create table whose array part references the vararg slice
-					res = TableValue(NewTableFromSlice(val.AsArray()))
+					res = TableValue(newVarargTable(val.AsArray()))
 				default:
 					panic("unsupported")
 				}
@@ -583,4 +583,12 @@ func getReg(regs []Value, cells []Cell, reg code.Reg) Value {
 		return *cells[reg.Idx()].ref
 	}
 	return regs[reg.Idx()]
+}
+
+// newVarargTable creates a vararg table (Lua 5.5) from a slice.
+// The table's array part references the slice directly, and t.n is set to the length.
+func newVarargTable(values []Value) *Table {
+	t := NewTableFromSlice(values)
+	t.Set(StringValue("n"), IntValue(int64(len(values))))
+	return t
 }

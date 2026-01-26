@@ -20,8 +20,7 @@ func NewTable() *Table {
 }
 
 // NewTableFromSlice creates a table whose array part references the given slice.
-// This is used for named vararg tables (Lua 5.5), where modifying the table
-// should affect what ... expands to. The slice is NOT copied.
+// The slice is NOT copied - modifications to the table affect the underlying slice.
 func NewTableFromSlice(values []Value) *Table {
 	return &Table{
 		mixedTable: &mixedTable{
