@@ -370,7 +370,15 @@ func (t *Thread) cleanupCloseStack(c Cont, h int, err error) error {
 	for closeStack.size() > h {
 		v, _ := closeStack.pop()
 		if Truth(v) {
-			closeErr, ok := Metacall(t, v, "__close", []Value{v, ErrorValue(err)}, NewTerminationWith(c, 0, false))
+			// Lua 5.5: __close receives 1 arg (the object) when closing normally,
+			// and 2 args (the object and the error) when closing due to an error.
+			var args []Value
+			if err == nil {
+				args = []Value{v}
+			} else {
+				args = []Value{v, ErrorValue(err)}
+			}
+			closeErr, ok := Metacall(t, v, "__close", args, NewTerminationWith(c, 0, false))
 			if !ok {
 				return errors.New("to be closed value missing a __close metamethod")
 			}
