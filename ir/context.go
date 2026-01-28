@@ -47,9 +47,15 @@ type lexicalContext []lexicalScope
 
 // getRegister returns the register associated with the given name if it exists
 // in one of the accessible lexical scopes.  Otherwise it sets ok to false.
+// If an explicit global declaration for the name is found in a more nested scope
+// than any local register, the local is considered shadowed and ok is false.
 // TODO: explain tags.
 func (c lexicalContext) getRegister(name Name, tags uint) (reg Register, ok bool) {
 	for i := len(c) - 1; i >= 0; i-- {
+		// Check for explicit global declaration first - it shadows outer locals
+		if _, hasGlobal := c[i].globalDecls[name]; hasGlobal {
+			return // Global declaration shadows any local in outer scopes
+		}
 		var tr taggedReg
 		tr, ok = c[i].reg[name]
 		if ok {

@@ -190,6 +190,51 @@ do
   --> =X after const redeclaration:	42
 end
 
+-- Test 18: Global declaration shadows local from outer scope (GOLUA-003 fix)
+do
+  global print, assert
+  local X = 10
+  do
+    global X
+    X = 20  -- Should assign to global _ENV.X, not local X
+  end
+  assert(X == 10, "local X should still be 10")
+  assert(_ENV.X == 20, "global X should be 20")
+  print("Test 18 passed: global shadows local correctly")
+  --> =Test 18 passed: global shadows local correctly
+  _ENV.X = nil  -- cleanup
+end
+
+-- Test 19: Global with initialization reads local before shadowing
+do
+  global print, assert
+  local Y = 100
+  do
+    global Y = Y  -- RHS Y reads local, then LHS Y becomes global
+  end
+  assert(Y == 100, "local Y should still be 100")
+  assert(_ENV.Y == 100, "global Y should be 100 (from local)")
+  print("Test 19 passed: global init reads local correctly")
+  --> =Test 19 passed: global init reads local correctly
+  _ENV.Y = nil  -- cleanup
+end
+
+-- Test 20: Reading global after it shadows local
+do
+  global print, assert
+  local Z = 50
+  _ENV.Z = 200
+  do
+    global Z
+    local val = Z  -- Should read global Z (200), not local Z (50)
+    assert(val == 200, "reading Z should get global value")
+  end
+  assert(Z == 50, "local Z should still be 50")
+  print("Test 20 passed: reading shadowed global works")
+  --> =Test 20 passed: reading shadowed global works
+  _ENV.Z = nil  -- cleanup
+end
+
 global print
 print("All tests passed!")
 --> =All tests passed!

@@ -272,7 +272,16 @@ func (c *compiler) ProcessGlobalStat(s ast.GlobalStat) {
 	if s.PrefixAttrib != nil && s.PrefixAttrib.Type != ast.ConstAttrib {
 		panic(Error{Where: s.PrefixAttrib, Message: globalAttribError})
 	}
-	// Register the global declarations progressively
+
+	// Compile the values BEFORE declaring the globals, so that RHS expressions
+	// like "global a = a" correctly read any local 'a' from outer scope.
+	var valueRegs []ir.Register
+	if len(s.Values) > 0 {
+		valueRegs = make([]ir.Register, len(s.NameAttribs))
+		c.compileExpList(s.Values, valueRegs)
+	}
+
+	// Now register the global declarations
 	for _, nameAttrib := range s.NameAttribs {
 		var declType ir.GlobalDeclType
 		attrib := nameAttrib.Attrib
@@ -290,12 +299,8 @@ func (c *compiler) ProcessGlobalStat(s ast.GlobalStat) {
 		c.DeclareGlobal(ir.Name(nameAttrib.Name.Val), declType)
 	}
 
-	// Handle value assignments
-	if len(s.Values) > 0 {
-		valueRegs := make([]ir.Register, len(s.NameAttribs))
-		c.compileExpList(s.Values, valueRegs)
-
-		// Assign each value to the corresponding global (via _ENV)
+	// Handle value assignments (to globals via _ENV)
+	if len(valueRegs) > 0 {
 		lvals := make([]ast.Var, len(s.NameAttribs))
 		for i, nameAttrib := range s.NameAttribs {
 			lvals[i] = globalVar(nameAttrib.Name)

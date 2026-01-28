@@ -149,6 +149,45 @@ do
   --> =add5(10) =	15
 end
 
+-- Test 13: Global function shadows local variable (GOLUA-006 fix)
+do
+  global print, assert
+  local foo = 20  -- local variable
+  do
+    global function foo(x)
+      if x == 0 then return 1 else return 2 * foo(x - 1) end
+    end
+    -- Inside this block, foo refers to the global function
+    assert(foo == _ENV.foo, "foo should be global inside block")
+    assert(foo(4) == 16, "foo(4) should be 16")
+  end
+  -- Outside the block, foo refers to the local variable
+  assert(_ENV.foo(4) == 16, "_ENV.foo(4) should be 16")
+  assert(foo == 20, "local foo should still be 20")
+  print("Test 13 passed: global function shadows local correctly")
+  --> =Test 13 passed: global function shadows local correctly
+  _ENV.foo = nil  -- cleanup
+end
+
+-- Test 14: Local function shadows outer global declaration
+do
+  global print, assert
+  global fact = false  -- global set to false
+  do
+    local res = 1
+    local function fact(n)
+      if n == 0 then return res else return n * fact(n - 1) end
+    end
+    -- Inside this block, fact is the local recursive function
+    assert(fact(5) == 120, "local fact(5) should be 120")
+  end
+  -- Outside, fact is still the global (false)
+  assert(fact == false, "global fact should still be false")
+  print("Test 14 passed: local function shadows global correctly")
+  --> =Test 14 passed: local function shadows global correctly
+  _ENV.fact = nil  -- cleanup
+end
+
 global print
 print("All global function tests passed!")
 --> =All global function tests passed!
