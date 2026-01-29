@@ -240,9 +240,36 @@ func (c *CodeBuilder) SetGlobalWildcard(declType GlobalDeclType) {
 	c.context.setGlobalWildcard(declType)
 }
 
-// GetGlobalDeclType returns the declaration type for a global variable
+// GetGlobalDeclType returns the declaration type for a global variable.
+// Global declarations are combined across nested functions:
+// - A nested function can access globals declared in parent scope
+// - A nested function can also declare additional globals for its own use
+// - Parent's restrictions still apply for names not declared anywhere
 func (c *CodeBuilder) GetGlobalDeclType(name Name) GlobalDeclType {
-	return c.context.getGlobalDeclType(name)
+	declType := c.context.getGlobalDeclType(name)
+
+	// If this context explicitly allows this name, use it
+	if declType.IsDeclared() || c.parent == nil {
+		return declType
+	}
+
+	// Check parent chain for this name
+	parentDeclType := c.parent.GetGlobalDeclType(name)
+
+	// If parent is in legacy mode (no declarations), child's mode takes precedence
+	if parentDeclType.IsLegacy() {
+		return declType
+	}
+
+	// Parent explicitly declares this name - inherit it
+	// If parent doesn't allow it (NoDeclaredGlobal), that restriction applies
+	// unless this context is also in legacy mode
+	if declType.IsLegacy() {
+		return parentDeclType
+	}
+
+	// Both have strict mode. Parent's declaration (or restriction) applies.
+	return parentDeclType
 }
 
 func (c *CodeBuilder) MarkConstantReg(reg Register) {

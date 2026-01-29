@@ -147,7 +147,7 @@ func (c *expCompiler) ProcessNameExp(n ast.Name) {
 	}
 	// This is a global variable - validate access is authorized
 	declType := c.GetGlobalDeclType(ir.Name(n.Val))
-	if declType == ir.NoDeclaredGlobal {
+	if !declType.IsAllowed() {
 		panic(Error{
 			Where:   n,
 			Message: fmt.Sprintf("attempt to read undeclared global variable '%s'", n.Val),

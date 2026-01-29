@@ -6,10 +6,27 @@ import "fmt"
 type GlobalDeclType uint8
 
 const (
-	NoDeclaredGlobal GlobalDeclType = iota
-	MutableGlobal
+	MutableGlobal GlobalDeclType = 1 << iota
 	ConstGlobal
+	LegacyGlobal
+	NoDeclaredGlobal = 0
 )
+
+func (d GlobalDeclType) IsLegacy() bool {
+	return d&LegacyGlobal != 0
+}
+
+func (d GlobalDeclType) IsDeclared() bool {
+	return d&LegacyGlobal == 0 && d != 0
+}
+
+func (d GlobalDeclType) IsAllowed() bool {
+	return d != 0
+}
+
+func (d GlobalDeclType) StripLegacy() GlobalDeclType {
+	return d &^ LegacyGlobal
+}
 
 type lexicalScope struct {
 	reg    map[Name]taggedReg     // maps variable names to registers
@@ -17,7 +34,7 @@ type lexicalScope struct {
 	height int                    // This is the height of the close stack in this scope
 
 	// Global variable tracking for Lua 5.5
-	globalDecls       map[Name]GlobalDeclType // tracks declared globals in this scope
+	globalDecls        map[Name]GlobalDeclType // tracks declared globals in this scope
 	globalWildcardDecl GlobalDeclType          // tracks "global *" or "global<const> *"
 }
 
@@ -149,6 +166,20 @@ func (c lexicalContext) setGlobalWildcard(declType GlobalDeclType) (ok bool) {
 	return
 }
 
+// hasAnyGlobalDecls returns true if any scope in this context has explicit global
+// declarations or wildcard declarations
+func (c lexicalContext) hasAnyGlobalDecls() bool {
+	for i := len(c) - 1; i >= 0; i-- {
+		if len(c[i].globalDecls) > 0 {
+			return true
+		}
+		if c[i].globalWildcardDecl != NoDeclaredGlobal {
+			return true
+		}
+	}
+	return false
+}
+
 // getGlobalDeclType returns the declaration type for a global variable.
 // It searches from the current scope upward, first checking for explicit declarations,
 // then checking for wildcard declarations.
@@ -182,7 +213,7 @@ func (c lexicalContext) getGlobalDeclType(name Name) GlobalDeclType {
 	}
 
 	// Default: no global declarations at all = mutable global allowed (legacy Lua 5.4 behavior)
-	return MutableGlobal
+	return MutableGlobal | LegacyGlobal
 }
 
 // pushNew returns a new LexicalContext that extends the receive with a new

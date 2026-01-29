@@ -57,7 +57,7 @@ end
 
 -- Test 6: Global function with varargs
 do
-  global print, table
+  global print, table, ipairs
   global function printAll(...)
     local args = {...}
     for i, v in ipairs(args) do

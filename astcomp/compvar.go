@@ -50,7 +50,7 @@ func (c *assignCompiler) ProcessNameVar(n ast.Name) {
 		})
 	} else {
 		// This is a global variable - check if write is authorized
-		declType := c.GetGlobalDeclType(ir.Name(n.Val))
+		declType := c.GetGlobalDeclType(ir.Name(n.Val)).StripLegacy()
 		switch declType {
 		case ir.NoDeclaredGlobal:
 			panic(Error{
