@@ -166,20 +166,6 @@ func (c lexicalContext) setGlobalWildcard(declType GlobalDeclType) (ok bool) {
 	return
 }
 
-// hasAnyGlobalDecls returns true if any scope in this context has explicit global
-// declarations or wildcard declarations
-func (c lexicalContext) hasAnyGlobalDecls() bool {
-	for i := len(c) - 1; i >= 0; i-- {
-		if len(c[i].globalDecls) > 0 {
-			return true
-		}
-		if c[i].globalWildcardDecl != NoDeclaredGlobal {
-			return true
-		}
-	}
-	return false
-}
-
 // getGlobalDeclType returns the declaration type for a global variable.
 // It searches from the current scope upward, first checking for explicit declarations,
 // then checking for wildcard declarations.
@@ -216,7 +202,7 @@ func (c lexicalContext) getGlobalDeclType(name Name) GlobalDeclType {
 	return MutableGlobal | LegacyGlobal
 }
 
-// pushNew returns a new LexicalContext that extends the receive with a new
+// pushNew returns a new LexicalContext that extends the receiver with a new
 // blank lexical scope.
 func (c lexicalContext) pushNew() lexicalContext {
 	return append(c, lexicalScope{
