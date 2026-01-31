@@ -36,6 +36,8 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(pkg, "exp", exp, 1, false),
 		r.SetEnvGoFunc(pkg, "floor", floor, 1, false),
 		r.SetEnvGoFunc(pkg, "fmod", fmod, 2, false),
+		r.SetEnvGoFunc(pkg, "frexp", frexp, 1, false),
+		r.SetEnvGoFunc(pkg, "ldexp", ldexp, 2, false),
 		r.SetEnvGoFunc(pkg, "log", log, 2, false),
 		r.SetEnvGoFunc(pkg, "max", max, 1, true),
 		r.SetEnvGoFunc(pkg, "min", min, 1, true),
@@ -460,4 +462,32 @@ func ult(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	}
 	lt := rt.BoolValue(uint64(x) < uint64(y))
 	return c.PushingNext1(t.Runtime, lt), nil
+}
+
+func frexp(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err
+	}
+	x, err := c.FloatArg(0)
+	if err != nil {
+		return nil, err
+	}
+	m, e := math.Frexp(x)
+	return c.PushingNext(t.Runtime, rt.FloatValue(m), rt.IntValue(int64(e))), nil
+}
+
+func ldexp(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	if err := c.CheckNArgs(2); err != nil {
+		return nil, err
+	}
+	x, err := c.FloatArg(0)
+	if err != nil {
+		return nil, err
+	}
+	e, err := c.IntArg(1)
+	if err != nil {
+		return nil, err
+	}
+	m := math.Ldexp(x, int(e))
+	return c.PushingNext1(t.Runtime, rt.FloatValue(m)), nil
 }

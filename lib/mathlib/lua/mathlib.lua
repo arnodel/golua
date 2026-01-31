@@ -7,6 +7,13 @@ local function checknumarg(f)
     end
 end
 
+local inf = 1/0
+local ninf = -1/0
+local nan = 0/0
+
+print(-inf == ninf)
+--> =true
+
 do
     checknumarg(math.abs)
     --> =ok
@@ -376,4 +383,24 @@ do
     -- TODO: fix implementation
     -- print(math.fmod(-5, 2))
     -- --> =-1
+end
+
+do
+    for _, n in ipairs({1, 10, 1000, 0.5, -1}) do
+        print(math.ldexp(math.frexp(n)))
+    end
+    --> =1
+    --> =10
+    --> =1000
+    --> =0.5
+    --> =-1
+
+    print(math.frexp(64))
+    --> ~0.5\t7
+    print(math.frexp(0))
+    --> ~0\t0
+    print(math.frexp(inf))
+    --> ~\+Inf\t0
+    print(math.frexp(-inf))
+    --> ~\-Inf\t0
 end
