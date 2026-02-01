@@ -19,15 +19,15 @@ ok, exitType, code = os.execute("exit 0")
 print(ok, exitType, code)
 --> =true	exit	0
 
--- Test signal termination (SIGKILL = 9)
-ok, exitType, code = os.execute("sh -c 'kill -9 $$'")
-print(ok, exitType, code)
---> =nil	signal	9
-
 -- Test signal termination (SIGTERM = 15)
-ok, exitType, code = os.execute("sh -c 'kill -15 $$'")
+ok, exitType, code = os.execute("kill -15 $$")
 print(ok, exitType, code)
 --> =nil	signal	15
+
+-- Test signal termination (SIGKILL = 9)
+ok, exitType, code = os.execute("kill -9 $$")
+print(ok, exitType, code)
+--> =nil	signal	9
 
 -- Test command that doesn't exist (shell runs but command fails with 127)
 ok, exitType, code = os.execute("nonexistent_command_12345 2>/dev/null")

@@ -161,13 +161,13 @@ func execute(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		cmd = exec.Command("sh", "-c", cmdStr)
 	}
 
-	// Pipe to Runtime.Stdout (fall back to os.Stdout if nil)
+	// Pipe stdout to Runtime.Stdout (fall back to os.Stdout if nil)
+	// Note: stderr is not redirected, matching C system() behavior
 	stdout := t.Runtime.Stdout
 	if stdout == nil {
 		stdout = os.Stdout
 	}
 	cmd.Stdout = stdout
-	cmd.Stderr = stdout
 
 	// Run synchronously
 	runErr := cmd.Run()

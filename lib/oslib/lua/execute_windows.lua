@@ -4,18 +4,18 @@
 print(os.execute())
 --> =true
 
--- Test successful command (use cmd /c with no output)
-local ok, exitType, code = os.execute("cmd /c echo. >nul")
+-- Test successful command (produces no output)
+local ok, exitType, code = os.execute("echo. >nul")
 print(ok, exitType, code)
 --> =true	exit	0
 
 -- Test command with non-zero exit code
-ok, exitType, code = os.execute("cmd /c exit /b 42")
+ok, exitType, code = os.execute("exit /b 42")
 print(ok, exitType, code)
 --> =nil	exit	42
 
 -- Test command with exit 0
-ok, exitType, code = os.execute("cmd /c exit /b 0")
+ok, exitType, code = os.execute("exit /b 0")
 print(ok, exitType, code)
 --> =true	exit	0
 
