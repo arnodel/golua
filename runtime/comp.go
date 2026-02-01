@@ -1,6 +1,9 @@
 package runtime
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // RawEqual returns two values.  The second one is true if raw equality makes
 // sense for x and y.  The first one returns whether x and y are raw equal.
@@ -129,36 +132,80 @@ func Lt(t *Thread, x, y Value) (bool, error) {
 	return false, compareError(x, y)
 }
 
+// Define exact boundaries of int64 in float64 space.
+const (
+	// int64LowerBound is exactly -2^63.
+	int64LowerBound = float64(math.MinInt64)
+
+	// int64UpperBound is 2^63.
+	// math.MaxInt64 is 2^63 - 1. When converted to float64, it rounds UP to 2^63.
+	int64UpperBound = float64(math.MaxInt64)
+)
+
+// ltIntAndFloat returns true if n < f
 func ltIntAndFloat(n int64, f float64) bool {
-	nf := int64(f)
-	if float64(nf) == f {
-		return n < nf
+	if f != f || f < int64LowerBound {
+		return false
 	}
-	return float64(n) < f
+	if f >= int64UpperBound {
+		return true
+	}
+
+	fi := int64(f)
+	// n is less if:
+	// 1. n < fi (Integer part is strictly smaller)
+	// 2. n == fi (Integers match) AND f > 0 with a fraction (e.g., 5 < 5.1)
+	return n < fi || (n == fi && f > 0 && f != math.Trunc(f))
 }
 
+// ltFloatAndInt returns true if f < n
 func ltFloatAndInt(f float64, n int64) bool {
-	nf := int64(f)
-	if float64(nf) == f {
-		return nf < n
+	if f != f || f >= int64UpperBound {
+		return false
 	}
-	return f < float64(n)
+	if f < int64LowerBound {
+		return true
+	}
+
+	fi := int64(f)
+	// f is less if:
+	// 1. fi < n (Integer part is strictly smaller)
+	// 2. fi == n (Integers match) AND f < 0 with a fraction (e.g., -5.1 < -5)
+	return fi < n || (fi == n && f < 0 && f != math.Trunc(f))
 }
 
+// leIntAndFloat returns true if n <= f
 func leIntAndFloat(n int64, f float64) bool {
-	nf := int64(f)
-	if float64(nf) == f {
-		return n <= nf
+	if f != f || f < int64LowerBound {
+		return false
 	}
-	return float64(n) <= f
+	if f >= int64UpperBound {
+		return true
+	}
+
+	fi := int64(f)
+	// n is <= if:
+	// 1. n < fi
+	// 2. n == fi AND f is "larger or equal" (Positive or Exact)
+	//    (e.g., 5 <= 5.0 is True; 5 <= 5.1 is True; -5 <= -5.1 is False)
+	return n < fi || (n == fi && (f >= 0 || f == math.Trunc(f)))
 }
 
+// leFloatAndInt returns true if f <= n
 func leFloatAndInt(f float64, n int64) bool {
-	nf := int64(f)
-	if float64(nf) == f {
-		return nf <= n
+	if f != f || f >= int64UpperBound {
+		return false
 	}
-	return f <= float64(n)
+	if f < int64LowerBound {
+		return true
+	}
+
+	fi := int64(f)
+	// f is <= if:
+	// 1. fi < n
+	// 2. fi == n AND f is "smaller or equal" (Negative or Exact)
+	//    (e.g., -5.0 <= -5 is True; -5.1 <= -5 is True; 5.1 <= 5 is False)
+	return fi < n || (fi == n && (f < 0 || f == math.Trunc(f)))
 }
 
 func le(t *Thread, x, y Value) (bool, error) {
