@@ -3,6 +3,9 @@ package oslib
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
+	"syscall"
 	"time"
 
 	"github.com/arnodel/golua/lib/packagelib"
@@ -36,6 +39,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	// put them in.
 	r.SetEnvGoFunc(pkg, "setlocale", setlocale, 2, false)
 	r.SetEnvGoFunc(pkg, "exit", exit, 2, false)
+	r.SetEnvGoFunc(pkg, "execute", execute, 1, false)
 	return rt.TableValue(pkg), nil
 }
 
@@ -129,6 +133,80 @@ func exit(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	}
 	os.Exit(code)
 	return nil, nil
+}
+
+func execute(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	// No args = check if shell is available
+	if c.NArgs() == 0 {
+		var shell string
+		if runtime.GOOS == "windows" {
+			shell = "cmd.exe"
+		} else {
+			shell = "sh"
+		}
+		_, err := exec.LookPath(shell)
+		return c.PushingNext1(t.Runtime, rt.BoolValue(err == nil)), nil
+	}
+
+	cmdStr, err := c.StringArg(0)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build shell command
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("cmd.exe", "/c", cmdStr)
+	} else {
+		cmd = exec.Command("sh", "-c", cmdStr)
+	}
+
+	// Pipe to Runtime.Stdout (fall back to os.Stdout if nil)
+	stdout := t.Runtime.Stdout
+	if stdout == nil {
+		stdout = os.Stdout
+	}
+	cmd.Stdout = stdout
+	cmd.Stderr = stdout
+
+	// Run synchronously
+	runErr := cmd.Run()
+
+	// Return values per Lua spec
+	next := c.Next()
+	ps := cmd.ProcessState
+
+	if ps != nil && ps.Success() {
+		// Success: true, "exit", 0
+		t.Runtime.Push(next, rt.BoolValue(true))
+		t.Runtime.Push(next, rt.StringValue("exit"))
+		t.Runtime.Push(next, rt.IntValue(0))
+	} else if ps != nil {
+		// Process ran but failed
+		t.Runtime.Push(next, rt.NilValue)
+
+		// Determine exit type and code
+		exitType := rt.StringValue("exit")
+		exitCode := rt.IntValue(int64(ps.ExitCode()))
+
+		if !ps.Exited() {
+			// Terminated by signal
+			exitType = rt.StringValue("signal")
+			if runtime.GOOS != "windows" {
+				ws := ps.Sys().(syscall.WaitStatus)
+				exitCode = rt.IntValue(int64(ws.Signal()))
+			}
+		}
+
+		t.Runtime.Push(next, exitType)
+		t.Runtime.Push(next, exitCode)
+	} else {
+		// Command couldn't be started (ps is nil)
+		t.Runtime.Push(next, rt.NilValue)
+		t.Runtime.Push(next, rt.StringValue(runErr.Error()))
+		t.Runtime.Push(next, rt.IntValue(1))
+	}
+	return next, nil
 }
 
 func timef(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
