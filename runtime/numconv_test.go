@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"math"
 	"reflect"
 	"testing"
 )
@@ -306,5 +307,32 @@ func TestToFloat(t *testing.T) {
 				t.Errorf("ToFloat() got1 = %v, want %v", got1, tt.ok)
 			}
 		})
+	}
+}
+
+func TestFloatToInt(t *testing.T) {
+	tests := []struct {
+		input   float64
+		wantVal int64
+		wantTyp NumberType
+	}{
+		{123.0, 123, IsInt},
+		{-123.0, -123, IsInt},
+		{0.0, 0, IsInt},
+		{123.456, 0, NaI},                              // Fraction
+		{math.NaN(), 0, NaI},                           // NaN
+		{math.Inf(1), 0, NaI},                          // Infinity
+		{9.23e18, 0, NaI},                              // Overflow (> MaxInt64)
+		{-9.23e18, 0, NaI},                             // Underflow (< MinInt64)
+		{9223372036854775807.0, 0, NaI},                // MaxInt64 rounds to 2^63 (Too big)
+		{-9223372036854775808.0, math.MinInt64, IsInt}, // MinInt64 is exact
+	}
+
+	for _, tt := range tests {
+		val, typ := FloatToInt(tt.input)
+		if val != tt.wantVal || typ != tt.wantTyp {
+			t.Errorf("FloatToInt(%g) = (%d, %d), want (%d, %d)",
+				tt.input, val, typ, tt.wantVal, tt.wantTyp)
+		}
 	}
 }

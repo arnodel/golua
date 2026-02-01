@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"math"
 	"strconv"
 	"strings"
 )
@@ -114,11 +115,13 @@ func ToFloat(v Value) (float64, bool) {
 
 // FloatToInt turns a float64 into an int64 if possible.
 func FloatToInt(f float64) (int64, NumberType) {
-	n := int64(f)
-	if float64(n) == f {
-		return n, IsInt
+	if math.Trunc(f) != f {
+		return 0, NaI
 	}
-	return 0, NaI
+	if f < float64(math.MinInt64) || f >= float64(math.MaxInt64) {
+		return 0, NaI
+	}
+	return int64(f), IsInt
 }
 
 //
