@@ -1,7 +1,7 @@
 // Package luagc implements weak refs and weak ref pools to be used by the
 // Golua runtime.
 //
-// Two interfaces WeakRef and Pool are defined and the packages provides three
+// Two interfaces WeakRef and Pool are defined and the packages provides several
 // implementations of Pool.  The Golua runtime has a Pool instance that
 // it uses to help with finalizing of Lua values and making sure finalizers do
 // not run after the runtime has finished.
@@ -16,6 +16,9 @@
 // ClonePool also lets values be GCed when they are unreachable outside of the
 // pool and does so on any compliant Go implementation.  However it does not
 // support WeakRefs (i.e. Get(v) always returns nil).
+//
+// WeakPool (Go 1.24+, in the runtime package) uses Go's official weak.Pointer
+// API for proper weak references without unsafe tricks.
 package luagc
 
 // Value is the interface that must be implemented by values managed by a Pool.

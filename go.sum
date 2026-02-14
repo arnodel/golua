@@ -1,6 +1,5 @@
 github.com/arnodel/edit v0.0.0-20220202110212-dfc8d7a13890 h1:8ykH+u3lD7oYS1PfGD9YE7iv6K3IojBV71Bi9nxkE4k=
 github.com/arnodel/edit v0.0.0-20220202110212-dfc8d7a13890/go.mod h1:AcpttpuZBaL9xl8/CX+Em4fBTUbwIkJ66RiAsJlNrBk=
-github.com/arnodel/golua v0.0.0-20220121091306-866962c51982/go.mod h1:d8hJbh/X80uQdSGMu5HZ64LrIgPh1jQxcNhnAqggpWE=
 github.com/arnodel/strftime v0.1.6 h1:0hc0pUvk8KhEMXE+htyaOUV42zNcf/csIbjzEFCJqsw=
 github.com/arnodel/strftime v0.1.6/go.mod h1:5NbK5XqYK8QpRZpqKNt4OlxLtIB8cotkLk4KTKzJfWs=
 github.com/atotto/clipboard v0.1.4 h1:EH0zSVneZPSuFR11BlR9YppQTVDbh5+16AmcJi4g1z4=

@@ -7,6 +7,10 @@ import (
 	"unsafe"
 )
 
+func init() {
+	RegisterPool("unsafe", func() Pool { return NewUnsafePool() })
+}
+
 //
 // Unsafe Pool implementation
 //

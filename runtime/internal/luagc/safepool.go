@@ -1,5 +1,9 @@
 package luagc
 
+func init() {
+	RegisterPool("safe", func() Pool { return NewSafePool() })
+}
+
 //
 // Safe Pool implementation
 //

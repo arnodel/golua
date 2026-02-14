@@ -15,12 +15,13 @@ type runtimeContextManager struct {
 	messageHandler Callable
 	parent         *runtimeContextManager
 	weakRefPool    luagc.Pool
+	poolFactory    func() luagc.Pool
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
 
 func (m *runtimeContextManager) initRoot() {
-	m.weakRefPool = luagc.NewDefaultPool()
+	m.weakRefPool = m.poolFactory()
 }
 
 func (m *runtimeContextManager) HardLimits() (r RuntimeResources) {
@@ -133,9 +134,6 @@ func (m *runtimeContextManager) LinearUnused(cpuFactor uint64) uint64 {
 }
 
 func (m *runtimeContextManager) LinearRequire(cpuFactor uint64, amt uint64) {
-}
-
-func (m *runtimeContextManager) ResetQuota() {
 }
 
 func (m *runtimeContextManager) TerminateContext(format string, args ...interface{}) {
