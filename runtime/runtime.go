@@ -48,6 +48,7 @@ type runtimeOptions struct {
 	regPoolSize       uint
 	regSetMaxAge      uint
 	runtimeContextDef *RuntimeContextDef
+	poolFactory       func() luagc.Pool
 }
 
 var defaultRuntimeOptions = runtimeOptions{
@@ -80,6 +81,15 @@ func WithRuntimeContext(def RuntimeContextDef) RuntimeOption {
 	}
 }
 
+// WithPoolFactory sets the factory function used to create weak reference
+// pools. Each isolated runtime context gets its own pool via this factory.
+// If not specified, the best available pool is chosen automatically.
+func WithPoolFactory(f func() luagc.Pool) RuntimeOption {
+	return func(rtOpts *runtimeOptions) {
+		rtOpts.poolFactory = f
+	}
+}
+
 // New returns a new pointer to a Runtime with the given stdout.
 func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 	rtOpts := defaultRuntimeOptions
@@ -104,6 +114,11 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 	gcThread.status = ThreadOK
 	r.gcThread = gcThread
 
+	if rtOpts.poolFactory != nil {
+		r.poolFactory = rtOpts.poolFactory
+	} else {
+		r.poolFactory = luagc.DefaultPoolFactory()
+	}
 	r.runtimeContextManager.initRoot()
 
 	if rtOpts.runtimeContextDef != nil {

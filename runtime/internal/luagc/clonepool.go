@@ -5,6 +5,10 @@ import (
 	"sync"
 )
 
+func init() {
+	RegisterPool("clone", func() Pool { return NewClonePool() })
+}
+
 //
 // Clone-based Pool implementation
 //
@@ -201,7 +205,7 @@ func (c *cloneEntry) clearFlag(flag wrStatusFlags) {
 
 type sortablePendingClones []cloneEntry
 
-var _ sort.Interface = sortableVals(nil)
+var _ sort.Interface = sortablePendingClones{}
 
 func (vs sortablePendingClones) Len() int {
 	return len(vs)

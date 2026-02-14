@@ -6,18 +6,81 @@ on:
 
 jobs:
 
-  build:
-    runs-on: ${{ matrix.os }}
+  # Full testing on Ubuntu with all build tags and pool combinations
+  test-ubuntu:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
+        pool:
+          - ''           # default (WeakPool on Go 1.24)
+          - 'clone'
+          - 'unsafe'
         build_tags:
-          - 'dummytagforwindows' # Non existent tag because windows shell drops empty arguments
+          - ''
           - 'noquotas'
           - 'nocontpool noregpool'
           - 'noquotas nocontpool noregpool'
-          - 'safepool'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: All tests
+      env:
+        GOLUA_POOL: ${{ matrix.pool }}
+      run: go test -tags "${{ matrix.build_tags }}" -coverprofile="coverage.txt" -covermode=atomic ./...
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v2
+      with:
+        files: ./coverage.txt
+        name: codecov-ubuntu-${{ matrix.pool || 'default' }}-${{ matrix.build_tags || 'notags' }}
+        verbose: true
+
+    - name: Build CLI
+      run: go build -tags "${{ matrix.build_tags }}"
+
+    - name: Check out Lua Test Suite 5.5
+      uses: actions/checkout@v4
+      with:
+        repository: arnodel/golua-tests
+        ref: golua-5.5
+        path: ./lua-test-suite
+
+    - name: Run Lua Test Suite
+      env:
+        GOLUA_POOL: ${{ matrix.pool }}
+      run: ../golua -u -e "_U=true" -e "_port=true" all.lua
+      working-directory: ./lua-test-suite
+
+  # Backward compatibility test with older Go (WeakPool excluded by build tag)
+  test-compat:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+
+    - name: All tests
+      run: go test -coverprofile="coverage.txt" -covermode=atomic ./...
+
+    - name: Build CLI
+      run: go build
+
+  # Testing on macOS and Windows with default pool and no build tags
+  test-other:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
         os:
-          - ubuntu-latest
           - macOS-latest
           - windows-latest
 
@@ -27,20 +90,20 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: 1.23
+        go-version: '1.24'
 
     - name: All tests
-      run: go test -tags "${{ matrix.build_tags }}" -coverprofile="coverage.txt" -covermode=atomic ./...
+      run: go test -coverprofile="coverage.txt" -covermode=atomic ./...
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       with:
         files: ./coverage.txt
-        name: codecov-all-tests
+        name: codecov-${{ matrix.os }}
         verbose: true
-    
+
     - name: Build CLI
-      run: go build -tags "${{ matrix.build_tags }}"
+      run: go build
 
     - name: Check out Lua Test Suite 5.5
       uses: actions/checkout@v4
