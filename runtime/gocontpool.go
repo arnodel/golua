@@ -1,6 +1,3 @@
-//go:build !nocontpool
-// +build !nocontpool
-
 package runtime
 
 // Size of the GoCont pool. The value of 10 was reached by trial-and-error but

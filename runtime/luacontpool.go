@@ -1,6 +1,3 @@
-//go:build !nocontpool
-// +build !nocontpool
-
 package runtime
 
 // Size of the LuaCont pool.  Setting it to 0 makes luaContPool.get() behave

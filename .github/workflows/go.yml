@@ -18,8 +18,6 @@ jobs:
         build_tags:
           - ''
           - 'noquotas'
-          - 'nocontpool noregpool'
-          - 'noquotas nocontpool noregpool'
 
     steps:
     - uses: actions/checkout@v4

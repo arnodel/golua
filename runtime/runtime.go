@@ -33,15 +33,11 @@ type Runtime struct {
 	runtimeContextManager
 
 	// Object pools used to minimise the overhead of Go memory management.
-
-	// Register pools, disabled with the noregpool build tag.
-	regPool  valuePool
-	argsPool valuePool
-	cellPool cellPool
-
-	// Continuation pools, disable with the nocontpool build tag.
-	luaContPool luaContPool
-	goContPool  goContPool
+	regPool     valuePool   // Reuses register arrays ([]Value).
+	argsPool    valuePool   // Reuses argument arrays ([]Value).
+	cellPool    cellPool    // Reuses upvalue cells ([]Cell).
+	luaContPool luaContPool // Reuses Lua continuations.
+	goContPool  goContPool  // Reuses Go continuations.
 }
 
 type runtimeOptions struct {
@@ -52,14 +48,14 @@ type runtimeOptions struct {
 }
 
 var defaultRuntimeOptions = runtimeOptions{
-	regPoolSize:  10,
-	regSetMaxAge: 10,
+	regPoolSize:  regPoolSize,
+	regSetMaxAge: regSetMaxAge,
 }
 
 // A RuntimeOption configures the Runtime.
 type RuntimeOption func(*runtimeOptions)
 
-// WithRegPoolSize set the size of register pool when creating a new Runtime.
+// WithRegPoolSize sets the size of register pools when creating a new Runtime.
 // The default register pool size is 10.
 func WithRegPoolSize(sz uint) RuntimeOption {
 	return func(rtOpts *runtimeOptions) {
@@ -68,7 +64,7 @@ func WithRegPoolSize(sz uint) RuntimeOption {
 }
 
 // WithRegSetMaxAge sets the max age of a register set when creating a new
-// Runtime.  The default max age is 10.
+// Runtime. The default max age is 10.
 func WithRegSetMaxAge(age uint) RuntimeOption {
 	return func(rtOpts *runtimeOptions) {
 		rtOpts.regSetMaxAge = age
@@ -101,9 +97,9 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 		Stdout:    stdout,
 		registry:  NewTable(),
 		warner:    NewLogWarner(os.Stderr, "Lua warning: "),
-		regPool:   mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
-		argsPool:  mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
-		cellPool:  mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		regPool:  mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		argsPool: mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		cellPool: mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
 	}
 
 	mainThread := NewThread(r)

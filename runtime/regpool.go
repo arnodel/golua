@@ -1,6 +1,3 @@
-//go:build !noregpool
-// +build !noregpool
-
 package runtime
 
 const (
