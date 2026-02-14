@@ -136,9 +136,6 @@ func (m *runtimeContextManager) LinearUnused(cpuFactor uint64) uint64 {
 func (m *runtimeContextManager) LinearRequire(cpuFactor uint64, amt uint64) {
 }
 
-func (m *runtimeContextManager) ResetQuota() {
-}
-
 func (m *runtimeContextManager) TerminateContext(format string, args ...interface{}) {
 	// I don't know if it should do it?
 	panic(ContextTerminationError{

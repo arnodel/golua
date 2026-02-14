@@ -38,7 +38,7 @@ func Test_runtimeContextManager_RuntimeContext(t *testing.T) {
 	}
 	m2 := m
 	m2.SetStopLevel(HardStop | SoftStop)
-	if m != m2 {
+	if m.Status() != m2.Status() {
 		t.Fail()
 	}
 }
@@ -59,15 +59,6 @@ func Test_runtimeContextManager_UnusedResources(t *testing.T) {
 		t.Fail()
 	}
 	if m.UnusedCPU() != 0 {
-		t.Fail()
-	}
-}
-
-func Test_runtimeContextManager_ResetQuota(t *testing.T) {
-	var m runtimeContextManager
-	var m1 = m
-	m.ResetQuota()
-	if m != m1 {
 		t.Fail()
 	}
 }
