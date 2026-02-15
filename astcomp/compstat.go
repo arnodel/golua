@@ -254,6 +254,7 @@ func (c *compiler) ProcessLocalStat(s ast.LocalStat) {
 
 // ProcessGlobalFunctionStat compiles a GlobalFunctionStat.
 func (c *compiler) ProcessGlobalFunctionStat(s ast.GlobalFunctionStat) {
+	checkGlobalName(s.Name)
 	// First, declare the global (as mutable, since function values can be reassigned)
 	c.DeclareGlobal(ir.Name(s.Name.Val), ir.MutableGlobal)
 
@@ -279,6 +280,11 @@ func (c *compiler) ProcessGlobalStat(s ast.GlobalStat) {
 	if len(s.Values) > 0 {
 		valueRegs = make([]ir.Register, len(s.NameAttribs))
 		c.compileExpList(s.Values, valueRegs)
+	}
+
+	// Check that _ENV is not being declared as a global
+	for _, nameAttrib := range s.NameAttribs {
+		checkGlobalName(nameAttrib.Name)
 	}
 
 	// Now register the global declarations
@@ -466,4 +472,12 @@ func (c *compiler) getTailCall(rtn []ast.ExpNode) (ast.FunctionCall, bool) {
 	}
 	fc, ok := rtn[0].(ast.FunctionCall)
 	return fc, ok
+}
+
+// checkGlobalName panics with a compile error if name is not valid for a
+// global declaration.
+func checkGlobalName(name ast.Name) {
+	if name.Val == "_ENV" {
+		panic(Error{Where: name, Message: "'_ENV' cannot be declared as a global variable"})
+	}
 }
