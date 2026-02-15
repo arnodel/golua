@@ -5,7 +5,7 @@ local n = 0
 local ctx = runtime.callcontext({kill={millis=100}}, function()
     local ctx = runtime.context()
     print(ctx.kill.millis, ctx.kill.seconds)
-    --> =100	0.1
+    --> =100.0	0.1
     while true do
         n = n + 1
     end
@@ -43,7 +43,7 @@ print(ctx.used.millis >= 30)
 local ctx = runtime.callcontext({kill={millis=10}}, function()
         runtime.callcontext({}, function ()
             print(runtime.context().kill.millis)
-            --> =10
+            --> =10.0
         end)
         runtime.callcontext({kill={seconds=1}}, function()
             print(runtime.context().kill.millis <= 10)

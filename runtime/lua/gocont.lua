@@ -24,7 +24,7 @@ print(type(string.dump(apply)))
 --> =string
 
 print(math.sin(0))
---> =0
+--> =0.0
 
 print(string.byte("A", 1))
 --> =65

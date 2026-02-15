@@ -62,7 +62,7 @@ do
     --> =ok
 
     print(math.exp(0))
-    --> =1
+    --> =1.0
     
 end
 
@@ -91,10 +91,10 @@ do
     --> =ok
 
     print(math.log(1))
-    --> =0
+    --> =0.0
 
     print(math.log(8, 2))
-    --> =3
+    --> =3.0
 
     print(pcall(math.log, 3, {}))
     --> ~false\t.*#2 must be a number
@@ -126,19 +126,19 @@ do
     --> =ok
 
     print(math.modf(23))
-    --> =23	0
+    --> =23	0.0
 
     print(math.modf(1.5))
-    --> =1	0.5
+    --> =1.0	0.5
 
     print(math.modf(-1.5))
-    --> =-1	-0.5
+    --> =-1.0	-0.5
 
     print(math.modf(1/0))
-    --> =+Inf	0
+    --> =+Inf	0.0
 
     print(math.modf(-1/0))
-    --> =-Inf	0
+    --> =-Inf	0.0
 
 end
 
@@ -259,10 +259,10 @@ do
     local tan = toz(math.tan)
 
     print(sin(0), sin(pi/2), sin(pi), sin(3*pi/2))
-    --> =0	1	0	-1
+    --> =0	1.0	0	-1.0
 
     print(cos(0), cos(pi/2), cos(pi), cos(3*pi/2))
-    --> =1	0	-1	0
+    --> =1.0	0	-1.0	0
 
     print(tan(0), tan(pi/2), tan(pi), tan(3*pi/2))
     --> =0	+Inf	0	+Inf
@@ -299,13 +299,13 @@ do
     local atan = top(math.atan)
 
     print(acos(-1), acos(0), acos(1))
-    --> =4	2	0
+    --> =4.0	2.0	0.0
 
     print(asin(-1), asin(0), asin(1))
-    --> =-2	0	2
+    --> =-2.0	0.0	2.0
 
     print(atan(-1), atan(0), atan(1))
-    --> =-1	0	1
+    --> =-1.0	0.0	1.0
 
     print(math.atan(1, 0) == math.pi/2)
     --> =true
@@ -389,11 +389,11 @@ do
     for _, n in ipairs({1, 10, 1000, 0.5, -1}) do
         print(math.ldexp(math.frexp(n)))
     end
-    --> =1
-    --> =10
-    --> =1000
+    --> =1.0
+    --> =10.0
+    --> =1000.0
     --> =0.5
-    --> =-1
+    --> =-1.0
 
     print(math.frexp(64))
     --> ~0.5\t7

@@ -37,7 +37,7 @@ end
 
 do
     print("1" // "2", 7 // "2", "2.4" // 2)
-    --> =0	3	1
+    --> =0	3	1.0
 
     print(pcall(function() return "a" // "1" end))
     --> ~false\t.*attempt to perform arithmetic on a string value
@@ -74,7 +74,7 @@ do
     --> =0
 
     print("3" * 5, 0.1 * "10")
-    --> =15	1
+    --> =15	1.0
 
     print("7" / 2, "5" / "10")
     --> =3.5	0.5
@@ -83,5 +83,5 @@ do
     --> =1
 
     print(2 ^ "3", "5" ^ 2, "6" ^ "3")
-    --> =8	25	216
+    --> =8.0	25.0	216.0
 end

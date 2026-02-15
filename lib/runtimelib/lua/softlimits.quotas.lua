@@ -37,7 +37,7 @@ print(runtime.callcontext({stop={millis=20}}, function()
     --> =false
     local ctx = runtime.context()
     print(ctx.stop.millis)
-    --> =20
+    --> =20.0
     while not runtime.contextdue() do end
     print(ctx.used.millis >= 20, ctx.used.millis <= 30)
     --> =true	true
