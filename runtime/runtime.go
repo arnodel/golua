@@ -249,6 +249,7 @@ func (r *Runtime) runFinalizers(refs []luagc.Value) {
 func (t *Thread) CollectGarbage() {
 	if t != t.gcThread {
 		runtime.GC()
+		runtime.GC() // Ensure AddCleanup callbacks from the first cycle have run
 		t.runPendingFinalizers()
 	}
 }
