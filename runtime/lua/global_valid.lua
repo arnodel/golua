@@ -41,6 +41,7 @@ do
   a, b, c = 1, 2, 3
   print("a, b, c =", a, b, c)
   --> =a, b, c =	1	2	3
+  a, b, c = nil, nil, nil  -- cleanup to avoid "already defined" error in later tests
 end
 
 -- Test 6: Global with value assignment
@@ -73,6 +74,7 @@ do
     print("X, Y =", X, Y)
     --> =X, Y =	30	40
   end
+  X, Y = nil, nil  -- cleanup to avoid "already defined" error in later tests
 end
 
 -- Test 9: Nested scopes - outer has wildcard, inner has explicit

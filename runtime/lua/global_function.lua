@@ -98,6 +98,7 @@ do
   end
   print("foo() after reassign =", foo())
   --> =foo() after reassign =	reassigned
+  _ENV.foo = nil  -- cleanup to avoid "already defined" error in later tests
 end
 
 -- Test 9: Global function declaration is scope-limited (like local)

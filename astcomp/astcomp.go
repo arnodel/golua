@@ -8,7 +8,7 @@ import (
 )
 
 // CompileLuaChunk compiles the given block statement to IR code and returns a
-// slice or ir.Contant values and the index to the main code constant.
+// slice or ir.Constant values and the index to the main code constant.
 func CompileLuaChunk(source string, s ast.BlockStat) (kidx uint, consts []ir.Constant, err error) {
 	defer func() {
 		if r := recover(); r != nil {

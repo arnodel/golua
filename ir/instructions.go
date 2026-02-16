@@ -360,10 +360,14 @@ func (s Lookup) String() string {
 }
 
 // SetIndex associates Index with Src in the table Table.
+// If CheckNotDefined is true, a runtime check is performed first: if
+// Table[Index] is already non-nil, a "global 'name' already defined" error
+// is raised.  This implements Lua 5.5's global redefinition check.
 type SetIndex struct {
-	Table Register
-	Index Register
-	Src   Register
+	Table           Register
+	Index           Register
+	Src             Register
+	CheckNotDefined bool
 }
 
 // ProcessInstr makes the InstrProcessor process this instruction.

@@ -263,9 +263,9 @@ func (c *compiler) ProcessGlobalFunctionStat(s ast.GlobalFunctionStat) {
 	c.compileExpInto(s.Function, fReg)
 	c.TakeRegister(fReg)
 
-	// Assign the function value to the global variable via _ENV
+	// Check that the global is not already defined, then assign via _ENV
 	lvals := []ast.Var{globalVar(s.Name)}
-	c.compileAssignments(lvals, []ir.Register{fReg})
+	c.compileDefineAssignments(lvals, []ir.Register{fReg})
 }
 
 // ProcessGlobalStat compiles a GlobalStat.
@@ -311,7 +311,7 @@ func (c *compiler) ProcessGlobalStat(s ast.GlobalStat) {
 		for i, nameAttrib := range s.NameAttribs {
 			lvals[i] = globalVar(nameAttrib.Name)
 		}
-		c.compileAssignments(lvals, valueRegs)
+		c.compileDefineAssignments(lvals, valueRegs)
 	}
 }
 

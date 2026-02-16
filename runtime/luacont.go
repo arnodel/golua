@@ -319,6 +319,18 @@ RunLoop:
 					continue RunLoop
 				case code.OpMkVarargTable:
 					res = TableValue(newVarargTable(val.AsArray()))
+				case code.OpCheckNotDefined:
+					// Lua 5.5: check that table[index] is not already defined.
+					// Used by "global x = value" declarations.
+					table := getReg(regs, cells, dst) // rA = table (_ENV)
+					// val is rB = index (name)
+					tbl := table.AsTable()
+					if tbl != nil && !tbl.Get(val).IsNil() {
+						c.pc = pc
+						return nil, fmt.Errorf("global '%s' already defined", val.AsString())
+					}
+					pc++
+					continue RunLoop
 				default:
 					panic("unsupported")
 				}

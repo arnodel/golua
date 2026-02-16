@@ -91,7 +91,8 @@ func (c Opcode) GetX() BinOp {
 }
 
 // This functions builds the opcode for
-//    rA <- op(rB, rC)
+//
+//	rA <- op(rB, rC)
 func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
 	return Type1Pfx | rA.toA() | rB.toB() | rC.toC() | op.encodeX()
 }
@@ -106,8 +107,9 @@ func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
 // - cCCCCCCCC encodes the register holding the index rC
 
 // This builds the opcode for
-//     rA <- rB[rC]  if f is Off
-//     rB[rC] <- rA  if f is On
+//
+//	rA <- rB[rC]  if f is Off
+//	rB[rC] <- rA  if f is On
 func mkType2(f Flag, rA, rB, rC Reg) Opcode {
 	return Type2Pfx | rA.toA() | rB.toB() | rC.toC() | f.encodeF()
 }
@@ -230,17 +232,18 @@ type UnOp uint8
 
 // Available unary operators
 const (
-	OpNeg           UnOp = iota // numerical negation
-	OpBitNot                    // bitwise negation
-	OpLen                       // length
-	OpCont                      // make a continuation for the closure
-	OpTailCont                  // make a "tail continuation" for the closure (its next is cc's next)
-	OpId                        // identity
-	OpTruth                     // Turn operand to boolean
-	OpNot                       // Added afterwards - why did I not have it in the first place?
-	OpUpvalue                   // get an upvalue
-	OpEtcId                     // etc identity
-	OpMkVarargTable             // create table from vararg data (Lua 5.5)
+	OpNeg             UnOp = iota // numerical negation
+	OpBitNot                      // bitwise negation
+	OpLen                         // length
+	OpCont                        // make a continuation for the closure
+	OpTailCont                    // make a "tail continuation" for the closure (its next is cc's next)
+	OpId                          // identity
+	OpTruth                       // Turn operand to boolean
+	OpNot                         // Added afterwards - why did I not have it in the first place?
+	OpUpvalue                     // get an upvalue
+	OpEtcId                       // etc identity
+	OpMkVarargTable               // create table from vararg data (Lua 5.5)
+	OpCheckNotDefined             // error if table[index] is non-nil (Lua 5.5 global redefinition check)
 )
 
 // encodeZ enocodes an UnOp into an opcode.
@@ -586,6 +589,8 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 				return fmt.Sprintf("upval %s, %s", rA, rB)
 			case OpMkVarargTable:
 				tpl = "mkvargtable(%s)"
+			case OpCheckNotDefined:
+				return fmt.Sprintf("checknotdef %s[%s]", rA, rB)
 			}
 			if f {
 				// It's a push
