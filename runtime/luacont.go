@@ -302,9 +302,13 @@ RunLoop:
 				case code.OpId:
 					res = val
 				case code.OpEtcId:
-					// We assume it's a push?
 					cont := getReg(regs, cells, dst).AsCont()
-					cont.PushEtc(t.Runtime, val.AsArray())
+					var etc []Value
+					etc, err = expandVarargs(val)
+					if err != nil {
+						break
+					}
+					cont.PushEtc(t.Runtime, etc)
 					pc++
 					continue RunLoop
 				case code.OpTruth:
@@ -318,7 +322,11 @@ RunLoop:
 					pc++
 					continue RunLoop
 				case code.OpMkVarargTable:
-					res = TableValue(newVarargTable(val.AsArray()))
+					tbl := TableValue(newVarargTable(val.AsArray()))
+					// Overwrite the etc register so ... expansion reads from
+					// the table (respecting t.n modifications).
+					setReg(regs, cells, opcode.GetB(), tbl)
+					res = tbl
 				case code.OpCheckNotDefined:
 					// Lua 5.5: check that table[index] is not already defined.
 					// Used by "global x = value" declarations.
@@ -448,18 +456,22 @@ RunLoop:
 			}
 		case code.Type6Pfx:
 			dst := opcode.GetA()
-			etc := getReg(regs, cells, opcode.GetB()).AsArray()
-			idx := int(opcode.GetM())
-			var val Value
-			if idx < len(etc) {
-				val = etc[idx]
+			etc, etcErr := expandVarargs(getReg(regs, cells, opcode.GetB()))
+			if etcErr != nil {
+				c.pc = pc
+				return nil, etcErr
 			}
+			idx := int(opcode.GetM())
 			if opcode.GetF() {
 				tbl := getReg(regs, cells, dst).AsTable()
 				for i, v := range etc {
 					t.SetTable(tbl, IntValue(int64(i+idx)), v)
 				}
 			} else {
+				var val Value
+				if idx < len(etc) {
+					val = etc[idx]
+				}
 				setReg(regs, cells, dst, val)
 			}
 			pc++
@@ -596,10 +608,4 @@ func getReg(regs []Value, cells []Cell, reg code.Reg) Value {
 	return regs[reg.Idx()]
 }
 
-// newVarargTable creates a vararg table (Lua 5.5) from a slice.
-// The table's array part references the slice directly, and t.n is set to the length.
-func newVarargTable(values []Value) *Table {
-	t := NewTableFromSlice(values)
-	t.Set(StringValue("n"), IntValue(int64(len(values))))
-	return t
-}
+

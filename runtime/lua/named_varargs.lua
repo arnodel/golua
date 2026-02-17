@@ -199,3 +199,112 @@ end
 --> =10	10
 --> =111	111
 --> =222	222
+
+-- Test 17: Modifying t.n shrinks ... expansion
+do
+  local function f(...t)
+    print(select('#', ...))
+    t.n = 2
+    print(select('#', ...))
+    print(...)
+  end
+  f(10, 20, 30, 40)
+end
+--> =4
+--> =2
+--> =10	20
+
+-- Test 18: Modifying t.n grows ... expansion
+do
+  local function f(...t)
+    t[4] = 40
+    t[5] = 50
+    t.n = 5
+    print(select('#', ...))
+    print(...)
+  end
+  f(10, 20, 30)
+end
+--> =5
+--> =10	20	30	40	50
+
+-- Test 19: t.n = 0 gives empty ...
+do
+  local function f(...t)
+    t.n = 0
+    print(select('#', ...))
+  end
+  f(10, 20, 30)
+end
+--> =0
+
+-- Test 20: {...} creates a new table using t.n
+do
+  local function f(...t)
+    t.n = 2
+    local copy = {...}
+    print(#copy, copy[1], copy[2], copy[3])
+  end
+  f(10, 20, 30)
+end
+--> =2	10	20	nil
+
+-- Test 21: Invalid t.n values give errors
+do
+  local function aux(n, ...t)
+    t.n = n
+    return ...
+  end
+  print(pcall(aux, -1, 1, 2))
+  print(pcall(aux, "hello", 1, 2))
+  print(pcall(aux, 1.5, 1, 2))
+  print(pcall(aux, nil, 1, 2))
+  print(pcall(aux, false, 1, 2))
+  print(pcall(aux, 1.0, 1, 2))
+end
+--> ~false.*no proper 'n'
+--> ~false.*no proper 'n'
+--> ~false.*no proper 'n'
+--> ~false.*no proper 'n'
+--> ~false.*no proper 'n'
+--> ~false.*no proper 'n'
+
+-- Test 22: Modifying elements beyond original range
+do
+  local function f(a, ...t)
+    for k, v in pairs(a) do t[k] = v end
+    return ...
+  end
+  local a, b, c, d, e = f({11, [5] = 24}, 1, 2, 3, nil, 4)
+  print(a, b, c, d, e)
+end
+--> =11	2	3	nil	24
+
+-- Test 23: Growing n beyond original size with hash-only elements
+do
+  local function f(...t)
+    t.n = 30
+    t[20] = "a"
+    t[30] = "b"
+    print(select('#', ...))
+    print(select(20, ...))
+    print(select(30, ...))
+  end
+  f(1)
+end
+--> =30
+--> =a	nil	nil	nil	nil	nil	nil	nil	nil	nil	b
+--> =b
+
+-- Test 24: Passing modified varargs to another function
+do
+  local function g(...)
+    print(select('#', ...), ...)
+  end
+  local function f(...t)
+    t.n = 2
+    g(...)
+  end
+  f(10, 20, 30, 40)
+end
+--> =2	10	20
