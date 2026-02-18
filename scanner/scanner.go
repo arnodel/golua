@@ -12,12 +12,13 @@ import (
 
 // Scanner holds the state of the scanner.
 type Scanner struct {
-	name             string // used only for error reports.
-	input            []byte // the string being scanned.
+	name             string           // used only for error reports.
+	input            []byte           // the string being scanned.
 	start, last, pos token.Pos
 	items            chan *token.Token // channel of scanned items.
 	state            stateFn
 	errorMsg         string
+	reservedGlobal   bool // when true, "global" is a reserved keyword
 }
 
 type Option func(*Scanner)
@@ -26,6 +27,14 @@ type Option func(*Scanner)
 func ForNumber() Option {
 	return func(s *Scanner) {
 		s.state = scanNumberPrefix
+	}
+}
+
+// WithReservedGlobal makes "global" a reserved keyword (emitted as
+// KwGlobal). By default "global" is a soft keyword handled by the parser.
+func WithReservedGlobal() Option {
+	return func(s *Scanner) {
+		s.reservedGlobal = true
 	}
 }
 

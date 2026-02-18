@@ -22,6 +22,7 @@ type luaCmd struct {
 	disFlag        bool
 	astFlag        bool
 	unbufferedFlag bool
+	reservedGlobal bool
 	cpuLimit       uint64
 	memLimit       uint64
 	flags          string
@@ -34,6 +35,7 @@ func (c *luaCmd) setFlags() {
 	flag.BoolVar(&c.disFlag, "dis", false, "Disassemble source instead of running it")
 	flag.BoolVar(&c.astFlag, "ast", false, "Print AST instead of running code")
 	flag.BoolVar(&c.unbufferedFlag, "u", false, "Force unbuffered output")
+	flag.BoolVar(&c.reservedGlobal, "G", false, "Make 'global' a reserved keyword")
 	flag.Var(&c.exec, "e", "statement to execute")
 
 	if rt.QuotasAvailable {
@@ -70,7 +72,11 @@ func (c *luaCmd) run() (retcode int) {
 	}
 
 	// Get a Lua runtime
-	r := rt.New(nil)
+	var rtOpts []rt.RuntimeOption
+	if c.reservedGlobal {
+		rtOpts = append(rtOpts, rt.WithReservedGlobal())
+	}
+	r := rt.New(nil, rtOpts...)
 	c.pushContext(r)
 
 	cleanup := lib.LoadAll(r)

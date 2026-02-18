@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -30,9 +30,10 @@ func RunSource(r *rt.Runtime, source []byte) {
 
 // RunLuaTest runs the lua test code in source, running setup if non-nil
 // beforehand (with the Runtime instance that will be used in the test).
-func RunLuaTest(source []byte, setup func(*rt.Runtime) func()) error {
+// Optional RuntimeOption values configure the runtime (e.g. from -- config: directives).
+func RunLuaTest(source []byte, setup func(*rt.Runtime) func(), opts ...rt.RuntimeOption) error {
 	outputBuf := new(bytes.Buffer)
-	r := rt.New(outputBuf)
+	r := rt.New(outputBuf, opts...)
 	r.SetWarner(rt.NewLogWarner(outputBuf, "Test warning: "))
 	if setup != nil {
 		cleanup := setup(r)
@@ -56,7 +57,7 @@ func RunLuaTestFile(t *testing.T, path string, setup func(*rt.Runtime) func()) {
 				return
 			}
 		}
-		src, err := ioutil.ReadFile(path)
+		src, err := os.ReadFile(path)
 		if err != nil {
 			t.Error(err)
 			return
@@ -72,7 +73,13 @@ func RunLuaTestFile(t *testing.T, path string, setup func(*rt.Runtime) func()) {
 			return
 		}
 
-		err = RunLuaTest(src, setup)
+		opts, err := extractConfig(src)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		err = RunLuaTest(src, setup, opts...)
 		if err != nil {
 			t.Error(err)
 		}

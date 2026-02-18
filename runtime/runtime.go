@@ -25,7 +25,8 @@ type Runtime struct {
 	gcThread   *Thread   // Thread for running Lua finalizers
 	registry   *Table    // The registry table can store data global to the runtime
 
-	warner Warner // Lua 5.4 introduces a warning system, implemented by this
+	warner         Warner // Lua 5.4 introduces a warning system, implemented by this
+	reservedGlobal bool   // when true, "global" is a reserved keyword (LUA_COMPAT_GLOBAL off)
 
 	// This has an almost empty implementation when the noquotas build tag is
 	// set.  It should allow the compiler to compile away almost all runtime
@@ -43,6 +44,7 @@ type Runtime struct {
 type runtimeOptions struct {
 	regPoolSize       uint
 	regSetMaxAge      uint
+	reservedGlobal    bool
 	runtimeContextDef *RuntimeContextDef
 	poolFactory       func() luagc.Pool
 }
@@ -77,6 +79,15 @@ func WithRuntimeContext(def RuntimeContextDef) RuntimeOption {
 	}
 }
 
+// WithReservedGlobal makes "global" a reserved keyword in the scanner.
+// By default "global" is a context-sensitive soft keyword handled by the
+// parser, matching Lua 5.5 with LUA_COMPAT_GLOBAL defined.
+func WithReservedGlobal() RuntimeOption {
+	return func(rtOpts *runtimeOptions) {
+		rtOpts.reservedGlobal = true
+	}
+}
+
 // WithPoolFactory sets the factory function used to create weak reference
 // pools. Each isolated runtime context gets its own pool via this factory.
 // If not specified, the best available pool is chosen automatically.
@@ -93,13 +104,14 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 		opt(&rtOpts)
 	}
 	r := &Runtime{
-		globalEnv: NewTable(),
-		Stdout:    stdout,
-		registry:  NewTable(),
-		warner:    NewLogWarner(os.Stderr, "Lua warning: "),
-		regPool:  mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
-		argsPool: mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
-		cellPool: mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		globalEnv:      NewTable(),
+		Stdout:         stdout,
+		registry:       NewTable(),
+		warner:         NewLogWarner(os.Stderr, "Lua warning: "),
+		reservedGlobal: rtOpts.reservedGlobal,
+		regPool:        mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		argsPool:       mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		cellPool:       mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
 	}
 
 	mainThread := NewThread(r)
@@ -282,7 +294,6 @@ func (r *Runtime) Close(err *error) {
 		}
 	}()
 	r.runFinalizers(r.weakRefPool.ExtractAllMarkedFinalize())
-	return
 }
 
 // Metatable returns the metatalbe of v (looking for '__metatable' in the raw

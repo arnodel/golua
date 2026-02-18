@@ -128,6 +128,9 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 		return p.FunctionStat(t)
 	case token.KwLocal:
 		return p.Local(t)
+	case token.KwGlobal:
+		// Reserved mode: scanner emitted KwGlobal, dispatch directly.
+		return p.Global(t, p.Scan())
 	case token.SgDoubleColon:
 		name, t := p.Name(p.Scan())
 		expectType(t, token.SgDoubleColon, "'::'")

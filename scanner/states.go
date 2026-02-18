@@ -257,6 +257,7 @@ var kwType = map[string]token.Type{
 	"true":     token.KwTrue,
 	"false":    token.KwFalse,
 	"return":   token.KwReturn,
+	"global":   token.KwGlobal,
 }
 
 var sgType = map[string]token.Type{
@@ -300,8 +301,11 @@ var sgType = map[string]token.Type{
 
 func scanIdent(l *Scanner) stateFn {
 	accept(l, isAlnum, -1)
-	tp, ok := kwType[string(l.lit())]
+	lit := string(l.lit())
+	tp, ok := kwType[lit]
 	if !ok {
+		tp = token.IDENT
+	} else if !l.reservedGlobal && tp == token.KwGlobal {
 		tp = token.IDENT
 	}
 	l.emit(tp)
