@@ -292,6 +292,14 @@ Go applications. It should be able to run any pure Lua code
 - The lexer is implemented in the package `scanner`.
 - The parser is hand-written and implemented in the `parsing` package.
 
+The Lua 5.5 `global` keyword is treated as a context-sensitive "soft" keyword by
+default (matching the reference Lua behavior when `LUA_COMPAT_GLOBAL` is
+defined). In this mode the scanner emits `global` as a regular identifier, and
+the parser recognizes it as a keyword only at the start of a statement when
+followed by a name, `function`, `*`, or `<`. This allows `global` to be used as
+a variable name in existing code. The scanner can be configured to treat
+`global` as a reserved keyword instead (see Runtime section).
+
 ### AST → IR Compilation
 
 The `ast` package defines all the AST nodes.  The `astcomp` package defines a
@@ -314,6 +322,20 @@ The runtime is implemented in the `runtime` package. This defines a
 resumed, the various runtime data types (e.g. `String`, `Int`...). The
 bytecode interpreter is implemented in the `RunInThread` method of the
 `LuaCont` data type.
+
+The `global` keyword can be made reserved (disallowing its use as a variable or
+function name) with the `WithReservedGlobal` runtime option. This propagates to
+`load()` and all other compilation paths automatically.
+
+```go
+r := rt.New(os.Stdout, rt.WithReservedGlobal())
+```
+
+On the command line, pass the `-G` flag:
+
+```sh
+$ golua -G myfile.lua
+```
 
 ### Test Suite
 
@@ -343,13 +365,13 @@ The `lua5.4` branch passes an adapted version of the 5.4.3 test suite, available
 [here](https://github.com/arnodel/golua-tests/pull/3). The adaptations are shown
 as a PR so the differences from the original suite can be seen easily.
 
-For the `lua5.5` branch (this branch), adapting the official Lua 5.5 test suite
-is planned future work. The challenges are:
-1. Some tests are C-specific and not applicable to a Go implementation
-2. Some tests verify implementation details of the reference C implementation rather than language semantics
-
-In the meantime, comprehensive Lua-based tests are included throughout the
-codebase (see Test Suite section above).
+The `lua5.5` branch (this branch) passes an adapted version of the Lua 5.5 test
+suite, available on the
+[`golua-5.5` branch](https://github.com/arnodel/golua-tests/tree/golua-5.5).
+Some tests are skipped or adapted because they are C-specific or verify
+implementation details of the reference C implementation rather than language
+semantics. See [CONFORMANCE.md](CONFORMANCE.md) for a detailed list of known
+behavioral differences and their status.
 
 ### Standard Library
 
