@@ -250,7 +250,6 @@ var kwType = map[string]token.Type{
 	"in":       token.KwIn,
 	"function": token.KwFunction,
 	"local":    token.KwLocal,
-	"global":   token.KwGlobal,
 	"and":      token.KwAnd,
 	"or":       token.KwOr,
 	"not":      token.KwNot,

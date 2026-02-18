@@ -97,7 +97,7 @@ func TestScanner(t *testing.T) {
 		{
 			`global x local y`,
 			[]tok{
-				{token.KwGlobal, "global", 0, 1, 1},
+				{token.IDENT, "global", 0, 1, 1},
 				{token.IDENT, "x", 7, 1, 8},
 				{token.KwLocal, "local", 9, 1, 10},
 				{token.IDENT, "y", 15, 1, 16},

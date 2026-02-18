@@ -58,7 +58,7 @@ func ParseExp(scanner Scanner) (exp ast.ExpNode, err error) {
 			}
 		}
 	}()
-	parser := &Parser{scanner}
+	parser := &Parser{scanner: scanner}
 	var t *token.Token
 	exp, t = parser.Exp(parser.Scan())
 	expectType(t, token.EOF, "<eof>")
@@ -78,7 +78,7 @@ func ParseChunk(scanner Scanner) (stat ast.BlockStat, err error) {
 			}
 		}
 	}()
-	parser := &Parser{scanner}
+	parser := &Parser{scanner: scanner}
 	var t *token.Token
 	stat, t = parser.Block(parser.Scan())
 	expectType(t, token.EOF, "<eof>")
@@ -128,37 +128,57 @@ func (p *Parser) Stat(t *token.Token) (ast.Stat, *token.Token) {
 		return p.FunctionStat(t)
 	case token.KwLocal:
 		return p.Local(t)
-	case token.KwGlobal:
-		return p.Global(t)
 	case token.SgDoubleColon:
 		name, t := p.Name(p.Scan())
 		expectType(t, token.SgDoubleColon, "'::'")
 		return ast.NewLabelStat(name), p.Scan()
 	default:
+		// Context-sensitive "global" keyword: "global" is a soft keyword
+		// that starts a declaration only when followed by a token that
+		// cannot continue a prefix expression statement (IDENT, function,
+		// *, or <). Otherwise it is treated as a regular variable name.
+		if t.Type == token.IDENT && string(t.Lit) == "global" {
+			next := p.Scan()
+			switch next.Type {
+			case token.IDENT, token.KwFunction, token.SgStar, token.SgLess:
+				return p.Global(t, next)
+			default:
+				// "global" is a variable name; continue as prefix expression
+				exp, t := p.prefixExpTail(ast.NewName(t), next)
+				return p.prefixExpStat(exp, t)
+			}
+		}
 		var exp ast.ExpNode
 		exp, t = p.PrefixExp(t)
-		switch e := exp.(type) {
-		case ast.Stat:
-			// This is a function call
-			return e, t
-		case ast.Var:
-			// This should be the start of 'varlist = explist'
-			vars := []ast.Var{e}
-			var pexp ast.ExpNode
-			for t.Type == token.SgComma {
-				pexp, t = p.PrefixExp(p.Scan())
-				if v, ok := pexp.(ast.Var); ok {
-					vars = append(vars, v)
-				} else {
-					tokenError(t, "expected variable")
-				}
+		return p.prefixExpStat(exp, t)
+	}
+	return nil, nil
+}
+
+// prefixExpStat finishes parsing a statement that started as a prefix
+// expression — either a function call or an assignment.
+func (p *Parser) prefixExpStat(exp ast.ExpNode, t *token.Token) (ast.Stat, *token.Token) {
+	switch e := exp.(type) {
+	case ast.Stat:
+		// This is a function call
+		return e, t
+	case ast.Var:
+		// This should be the start of 'varlist = explist'
+		vars := []ast.Var{e}
+		var pexp ast.ExpNode
+		for t.Type == token.SgComma {
+			pexp, t = p.PrefixExp(p.Scan())
+			if v, ok := pexp.(ast.Var); ok {
+				vars = append(vars, v)
+			} else {
+				tokenError(t, "expected variable")
 			}
-			expectType(t, token.SgAssign, "'='")
-			exps, t := p.ExpList(p.Scan())
-			return ast.NewAssignStat(vars, exps), t
-		default:
-			tokenError(t, "")
 		}
+		expectType(t, token.SgAssign, "'='")
+		exps, t := p.ExpList(p.Scan())
+		return ast.NewAssignStat(vars, exps), t
+	default:
+		tokenError(t, "")
 	}
 	return nil, nil
 }
@@ -266,10 +286,9 @@ func (p *Parser) Local(*token.Token) (ast.Stat, *token.Token) {
 }
 
 // Global parses a "global" statement (variable declaration or function definition).
-// It assumes that t is the "global" token.
-func (p *Parser) Global(globalTok *token.Token) (ast.Stat, *token.Token) {
-	t := p.Scan()
-
+// It assumes that globalTok is the "global" token and t is the next token
+// (already scanned by the caller for context-sensitive disambiguation).
+func (p *Parser) Global(globalTok *token.Token, t *token.Token) (ast.Stat, *token.Token) {
 	if t.Type == token.KwFunction {
 		name, t := p.Name(p.Scan())
 		fx, t := p.FunctionDef(t)
@@ -527,7 +546,7 @@ ParamsLoop:
 	return def, p.Scan()
 }
 
-// PrefixExp parses an expression made of a name or and expression in brackets
+// PrefixExp parses an expression made of a name or an expression in brackets
 // followed by zero or more indexing operations or function applications.
 func (p *Parser) PrefixExp(t *token.Token) (ast.ExpNode, *token.Token) {
 	var exp ast.ExpNode
@@ -543,7 +562,13 @@ func (p *Parser) PrefixExp(t *token.Token) (ast.ExpNode, *token.Token) {
 	default:
 		tokenError(t, "")
 	}
-	t = p.Scan()
+	return p.prefixExpTail(exp, p.Scan())
+}
+
+// prefixExpTail parses the suffix chain (indexing, method calls, function
+// calls) of a prefix expression. exp is the already-parsed head and t is the
+// first token after it.
+func (p *Parser) prefixExpTail(exp ast.ExpNode, t *token.Token) (ast.ExpNode, *token.Token) {
 	for {
 		switch t.Type {
 		case token.SgOpenSquareBkt:

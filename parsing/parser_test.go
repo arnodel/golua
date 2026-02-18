@@ -1523,7 +1523,8 @@ func TestParser_Global(t *testing.T) {
 				}
 			}()
 			p := &Parser{scanner: newTestScanner(tt.input)}
-			got, got1 := p.Global(p.Scan())
+			globalTok := p.Scan()
+			got, got1 := p.Global(globalTok, p.Scan())
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parser.Global() got = %v, want %v", got, tt.want)
 			}
