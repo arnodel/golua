@@ -96,7 +96,6 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(pkg, "lines", iolines, 1, true),
 		r.SetEnvGoFunc(pkg, "open", open, 2, false),
 		r.SetEnvGoFunc(pkg, "output", output, 1, false),
-		r.SetEnvGoFunc(pkg, "popen", popen, 2, false),
 		r.SetEnvGoFunc(pkg, "read", ioread, 0, true),
 		r.SetEnvGoFunc(pkg, "tmpfile", tmpfile, 0, false),
 		r.SetEnvGoFunc(pkg, "write", iowrite, 0, true),
@@ -107,6 +106,9 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 
 		r.SetEnvGoFunc(pkg, "type", typef, 1, false),
 	)
+
+	// popen executes a system command, so it is not safe in any restricted context.
+	r.SetEnvGoFunc(pkg, "popen", popen, 2, false)
 
 	// This function should make sure known buffers are flushed before quitting
 	var cleanup = func() {
