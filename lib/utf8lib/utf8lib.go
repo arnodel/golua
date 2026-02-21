@@ -97,7 +97,7 @@ func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		p += int64(n)
 		return next, nil
 	}
-	var iter = rt.NewGoFunction(iterF, "codesiterator", 0, false)
+	var iter = t.NewGoFunction(iterF, "codesiterator", 0, false)
 	iter.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyTimeSafe | rt.ComplyIoSafe)
 	return c.PushingNext1(t.Runtime, rt.FunctionValue(iter)), nil
 }

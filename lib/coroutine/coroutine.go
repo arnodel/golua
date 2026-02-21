@@ -139,7 +139,7 @@ func wrap(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	}
 	co := rt.NewThread(t.Runtime)
 	co.Start(f)
-	w := rt.NewGoFunction(func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	w := t.NewGoFunction(func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		res, err := co.Resume(t, c.Etc())
 		if err != nil {
 			return nil, err

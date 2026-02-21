@@ -345,7 +345,7 @@ func lines(r *rt.Runtime, f *File, readers []formatReader, flags int) *rt.GoFunc
 		}
 		return next, nil
 	}
-	iterGof := rt.NewGoFunction(iterator, "linesiterator", 0, false)
+	iterGof := r.NewGoFunction(iterator, "linesiterator", 0, false)
 	iterGof.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyIoSafe)
 	return iterGof
 

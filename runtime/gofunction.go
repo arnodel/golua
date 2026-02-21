@@ -1,5 +1,7 @@
 package runtime
 
+import "unsafe"
+
 type GoFunctionFunc func(*Thread, *GoCont) (Cont, error)
 
 // A GoFunction is a callable value implemented by a native Go function.
@@ -13,7 +15,9 @@ type GoFunction struct {
 
 var _ Callable = (*GoFunction)(nil)
 
-// NewGoFunction returns a new GoFunction.
+// NewGoFunction returns a new GoFunction without memory accounting.  It is
+// typically called at init time before any quota context is active.  For dynamic
+// creation within quota contexts, use the method (*Runtime).NewGoFunction.
 func NewGoFunction(f GoFunctionFunc, name string, nArgs int, hasEtc bool) *GoFunction {
 	return &GoFunction{
 		f:      f,
@@ -21,6 +25,14 @@ func NewGoFunction(f GoFunctionFunc, name string, nArgs int, hasEtc bool) *GoFun
 		nArgs:  nArgs,
 		hasEtc: hasEtc,
 	}
+}
+
+// NewGoFunction is like the package-level NewGoFunction but accounts for memory
+// via RequireSize.  Use this when creating GoFunctions dynamically at runtime
+// (e.g. iterators) where quota contexts may be active.
+func (r *Runtime) NewGoFunction(f GoFunctionFunc, name string, nArgs int, hasEtc bool) *GoFunction {
+	r.RequireSize(unsafe.Sizeof(GoFunction{}))
+	return NewGoFunction(f, name, nArgs, hasEtc)
 }
 
 // Continuation implements Callable.Continuation.
