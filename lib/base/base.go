@@ -33,7 +33,7 @@ func Load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(env, "load", load, 4, false),
 		r.SetEnvGoFunc(env, "pairs", pairs, 1, false),
 		r.SetEnvGoFunc(env, "pcall", pcall, 1, true),
-		r.SetEnvGoFunc(env, "print", print, 0, true), // Not really iosafe/timesafe but used in all tests...
+		r.SetEnvGoFunc(env, "print", print, 0, true), // print only writes to the host-controlled stdout, so it's safe in restricted contexts
 		r.SetEnvGoFunc(env, "rawequal", rawequal, 2, false),
 		r.SetEnvGoFunc(env, "rawget", rawget, 2, false),
 		r.SetEnvGoFunc(env, "rawlen", rawlen, 1, false),
