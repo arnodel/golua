@@ -1,6 +1,10 @@
 package runtime
 
-import "github.com/arnodel/golua/runtime/internal/luagc"
+import (
+	"unsafe"
+
+	"github.com/arnodel/golua/runtime/internal/luagc"
+)
 
 type ResourceReleaser interface {
 	ReleaseResources()
@@ -85,6 +89,7 @@ func (d *UserData) ReleaseResources() {
 // value and metatable.  It also registers a GC finalizer if the metadata has a
 // __gc field.
 func (r *Runtime) NewUserDataValue(iface interface{}, meta *Table) Value {
+	r.RequireSize(unsafe.Sizeof(UserData{}))
 	udata := NewUserData(iface, meta)
 	r.addFinalizer(udata, udata.MarkFlags())
 	return UserDataValue(udata)
