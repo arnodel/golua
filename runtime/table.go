@@ -107,7 +107,29 @@ func (t *Table) Next(k Value) (next Value, val Value, ok bool) {
 //   - Keys stored only in the map part do not affect the result.
 //   - An empty table always returns false.
 func (t *Table) IsArray() bool {
-	return t.mixedTable.array.itemCount() > 0
+	// this does not work because of the way
+	// the allocation is optimized
+	// ----------------------------------
+	// return t.mixedTable.array.itemCount() > 0
+	// ----------------------------------
+	// we resort to a full/partial table scan
+	var _k Value = NilValue
+	var _ok bool = true
+
+	for _ok {
+		_k, _, _ok = t.Next(_k)
+		if !_ok || _k.IsNil() {
+			break
+		}
+		// only if keys are integer numbers
+		if _k.TypeName() == "number" {
+			switch _k.iface.(type) {
+			case int64:
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // IsMap reports whether t contains a map part.
@@ -116,8 +138,28 @@ func (t *Table) IsArray() bool {
 //   - Values stored only in the array part do not affect the result.
 //   - An empty table always returns false.
 func (t *Table) IsMap() bool {
-	for _, s := range t.mixedTable.hashTable.slots {
-		if !s.isEmpty() {
+	// this does not work because of the way
+	// the allocation is optimized
+	// ----------------------------------
+	// for _, s := range t.mixedTable.hashTable.slots {
+	//		if !s.isEmpty() {
+	//			return true
+	//		}
+	//	}
+	//	return false
+	// ----------------------------------
+	// we resort to a full/partial table scan
+	var _k Value = NilValue
+	var _ok bool = true
+
+	for _ok {
+		_k, _, _ok = t.Next(_k)
+		if !_ok || _k.IsNil() {
+			break
+		}
+		switch _k.iface.(type) {
+		case int64:
+		default:
 			return true
 		}
 	}
@@ -148,17 +190,25 @@ func (t *Table) IsMapOnly() bool {
 	return !t.IsArray() && t.IsMap()
 }
 
-// MapKeys returns the keys stored in the map part of t.
+// MapKeys returns the keys stored in the conceptual map of t.
 //
-//   - Only keys stored in the map part are included.
-//   - Keys stored in the array part are never included.
-//   - If the map part of t is empty, MapKeys returns an empty slice.
-//   - The order of the returned keys is unspecified and should not be relied upon.
+// - Only non-integer keys stored in the map part are considered.
+// - The order of the returned keys is unspecified and should not be relied upon.
 func (t *Table) MapKeys() []Value {
+	// we resort to a full/partial table scan
 	keys := make([]Value, 0)
-	for _, s := range t.mixedTable.hashTable.slots {
-		if !s.isEmpty() {
-			keys = append(keys, s.key)
+	var _k Value = NilValue
+	var _ok bool = true
+
+	for _ok {
+		_k, _, _ok = t.Next(_k)
+		if !_ok || _k.IsNil() {
+			break
+		}
+		switch _k.iface.(type) {
+		case int64:
+		default:
+			keys = append(keys, _k)
 		}
 	}
 	return keys
@@ -166,59 +216,60 @@ func (t *Table) MapKeys() []Value {
 
 // MapGoKeys returns the string keys stored in the map part of t.
 //
-// - Only keys stored in the map part are considered.
-// - Only keys that can be converted to a Go string are included.
-// - Map keys that cannot be converted to a Go string are silently ignored.
-// - Keys stored in the array part are never included.
-// - If the map part of t contains no string keys, MapGoKeys returns an empty slice.
+// - Only non-integer keys stored in the map part are considered.
 // - The order of the returned keys is unspecified and should not be relied upon.
-func (t *Table) MapGoKeys() []string {
-	keys := make([]string, 0)
-	for _, s := range t.mixedTable.hashTable.slots {
-		if s.isEmpty() {
-			continue
+func (t *Table) MapGoKeys() []any {
+	vkeys := t.MapKeys()
+	keys := make([]any, 0)
+
+	for _, _k := range vkeys {
+		switch _k.iface.(type) {
+		case int64:
+		default:
+			keys = append(keys, _k.iface)
 		}
-		// only stringified key make sense
-		str, ok := s.key.ToString()
-		if !ok {
-			// we silently ignore non-string keys
-			continue
-		}
-		keys = append(keys, str)
 	}
+
 	return keys
 }
 
 // ArrayKeys returns the keys stored in the array part of t.
 //
-// - Only keys corresponding to non-nil values in the array part are included.
-// - Keys stored in the map part are never included.
-// - If the array part of t is empty, ArrayKeys returns an empty slice.
+// - Only keys corresponding to int values are included.
 // - The order of the returned keys is unspecified and should not be relied upon.
 func (t *Table) ArrayKeys() []Value {
+	// we resort to a full/partial table scan
 	keys := make([]Value, 0)
-	for i, s := range t.mixedTable.array.values {
-		if s.IsNil() {
-			continue
+	var _k Value = NilValue
+	var _ok bool = true
+
+	for _ok {
+		_k, _, _ok = t.Next(_k)
+		if !_ok || _k.IsNil() {
+			break
 		}
-		keys = append(keys, IntValue(int64(i)))
+		switch _k.iface.(type) {
+		case int64:
+			keys = append(keys, _k)
+		}
 	}
 	return keys
 }
 
 // ArrayGoKeys returns the integer keys stored in the array part of t.
 //
-// - Only keys corresponding to non-nil values in the array part are included.
-// - Keys stored in the map part are never included.
-// - If the array part of t is empty, ArrayGoKeys returns an empty slice.
+// - Only integer keys are included.
 // - The order of the returned keys is unspecified and should not be relied upon.
 func (t *Table) ArrayGoKeys() []int64 {
+	vkeys := t.ArrayKeys()
 	keys := make([]int64, 0)
-	for i, s := range t.mixedTable.array.values {
-		if s.IsNil() {
-			continue
+
+	for _, _k := range vkeys {
+		switch _k.iface.(type) {
+		case int64:
+			keys = append(keys, _k.AsInt())
 		}
-		keys = append(keys, int64(i))
 	}
+
 	return keys
 }

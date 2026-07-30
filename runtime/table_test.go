@@ -53,3 +53,85 @@ func TestTable_Next(t *testing.T) {
 		t.Errorf("Expected (1, x) and (2, y) to be the items, got (%v, %v) and (%v, %v)", k1, v1, k2, v2)
 	}
 }
+
+func TestTable_IsArray(t *testing.T) {
+	tbl := NewTable()
+	tbl.Set(v(1), v("x"))
+	tbl.Set(v(2), v("y"))
+
+	ok1 := tbl.IsArray()
+	if !ok1 {
+		t.Fatal("expected that array part has values")
+	}
+
+	tbl = NewTable()
+	tbl.Set(v("1"), v("x"))
+	tbl.Set(v("2"), v("y"))
+
+	ok2 := !tbl.IsArray()
+	if !ok2 {
+		t.Fatal("expected that array part has no values")
+	}
+}
+
+func TestTable_IsArrayOnly(t *testing.T) {
+	tbl := NewTable()
+	tbl.Set(v(1), v("x"))
+	tbl.Set(v(2), v("y"))
+
+	ok1 := tbl.IsArrayOnly()
+	if !ok1 {
+		t.Fatal("expected that only array part has values")
+	}
+
+	tbl = NewTable()
+	tbl.Set(v("1"), v("x"))
+	tbl.Set(v("2"), v("y"))
+
+	ok2 := !tbl.IsArrayOnly()
+	if !ok2 {
+		t.Fatal("expected that array part has no values")
+	}
+}
+
+func TestTable_IsMap(t *testing.T) {
+	tbl := NewTable()
+	tbl.Set(v(1), v("x"))
+	tbl.Set(v(2), v("y"))
+
+	ok1 := !tbl.IsMap()
+	if !ok1 {
+		t.Fatal("expected that map part has no values")
+	}
+
+	tbl = NewTable()
+	tbl.Set(v("1"), v("x"))
+	tbl.Set(v("2"), v("y"))
+
+	ok2 := tbl.IsMap()
+	if !ok2 {
+		t.Fatal("expected that map part has values")
+	}
+}
+
+func TestTable_IsMapOnly(t *testing.T) {
+	tbl := NewTable()
+	tbl.Set(v(1), v("x"))
+	tbl.Set(v(2), v("y"))
+	tbl.Set(v("1"), v("x"))
+	tbl.Set(v("2"), v("y"))
+
+	ok1 := !tbl.IsMapOnly()
+	if !ok1 {
+		t.Fatal("expected that map part has no values")
+	}
+
+	tbl = NewTable()
+	tbl.Set(v("1"), v("x"))
+	tbl.Set(v("2"), v("y"))
+
+	ok2 := tbl.IsMapOnly()
+	if !ok2 {
+		t.Fatal("expected that map part has values")
+	}
+}
