@@ -73,6 +73,25 @@ jobs:
     - name: Build CLI
       run: go build
 
+  # Forward compatibility test with the latest Go release. Catches breakage from
+  # tightened linker rules around //go:linkname (see issue #128).
+  test-latest:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 'stable'
+
+    - name: All tests
+      run: go test ./...
+
+    - name: Build CLI (default linker checks)
+      run: go build
+
   # Testing on macOS and Windows with default pool and no build tags
   test-other:
     runs-on: ${{ matrix.os }}
