@@ -117,9 +117,9 @@ func (v Value) Equals(v2 Value) bool {
 // Hash returns a hash for the value.
 func (v Value) Hash() uintptr {
 	if v.scalar != 0 {
-		return goRuntimeInt64Hash(v.scalar, 0)
+		return hashScalar(v.scalar, 0)
 	}
-	return goRuntimeEfaceHash(v.iface, 0)
+	return hashInterface(v.iface, 0)
 }
 
 // IntValue returns a Value holding the given arg.
