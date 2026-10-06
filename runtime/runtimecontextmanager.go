@@ -175,9 +175,15 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 	if mCopy.status == StatusLive {
 		mCopy.status = StatusDone
 	}
-	m.parent.RequireCPU(m.usedResources.Cpu)
-	m.parent.RequireMem(m.usedResources.Memory)
+	// Restore the parent before charging it with what the child used.
+	// Charging can terminate the parent, and terminating panics out of
+	// PopContext: if the parent were not current yet, the enclosing
+	// CallContext would pop the wrong level, leaving a killed context
+	// current, where TerminateContext does nothing and code that should have
+	// stopped keeps running.
 	*m = *m.parent
+	m.RequireCPU(mCopy.usedResources.Cpu)
+	m.RequireMem(mCopy.usedResources.Memory)
 	if m.trackTime {
 		m.updateTimeUsed()
 	}
