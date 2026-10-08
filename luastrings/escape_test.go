@@ -31,10 +31,10 @@ func TestQuote(t *testing.T) {
 		{
 			name: "named escapes",
 			args: args{
-				s:     "\a\b\t\n\v\f",
+				s:     "\a\b\t\n\v\f\r",
 				quote: '"',
 			},
-			want: `"\a\b\t\n\v\f"`,
+			want: `"\a\b\t\n\v\f\r"`,
 		},
 		{
 			name: "ascii escapes",
@@ -51,5 +51,14 @@ func TestQuote(t *testing.T) {
 				t.Errorf("Quote() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestQuoteAllBytes(t *testing.T) {
+	for c := 0; c < 256; c++ {
+		got := Quote(string([]byte{byte(c)}), '"')
+		if len(got) < 3 {
+			t.Errorf("Quote(%#x) = %q, too short", c, got)
+		}
 	}
 }

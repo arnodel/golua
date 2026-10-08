@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/arnodel/golua/scanner"
@@ -88,5 +89,18 @@ func TestSetIndexNoNewIndex(t *testing.T) {
 	}
 	if err := SetIndex(r.MainThread(), udValue, intValue, intValue); err == nil {
 		t.Error("expected error indexing userdata value")
+	}
+}
+
+func TestRuntime_CompileUnterminatedStringWithCR(t *testing.T) {
+	r := New(os.Stdout)
+	for _, src := range []string{"\"\r", "\"abc\r", "x = \"\r\"\r"} {
+		_, err := r.CompileAndLoadLuaChunk("x", []byte(src), TableValue(r.GlobalEnv()))
+		if err == nil {
+			t.Fatalf("%q: expected a syntax error", src)
+		}
+		if msg := err.Error(); strings.Contains(msg, "PANIC") {
+			t.Errorf("%q: Error() panicked: %s", src, msg)
+		}
 	}
 }
