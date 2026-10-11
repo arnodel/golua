@@ -63,17 +63,19 @@ end
 do
     -- table.move consumes memory
 
-    local ctx = runtime.callcontext({kill={memory=10000}}, table.move, mk("x", 100), 1, 100, 101)
+    local ctx = runtime.callcontext({kill={memory=20000}}, table.move, mk("x", 100), 1, 100, 101)
     print(ctx)
     --> =done
 
-    print(runtime.callcontext({kill={memory=10000}}, table.move, mk("x", 1000), 1, 1000, 1001))
+    print(runtime.callcontext({kill={memory=20000}}, table.move, mk("x", 1000), 1, 1000, 1001))
     --> =killed
 
-    -- consumes less memory when ranges overlap
-    ctx = runtime.callcontext({kill={memory=10000}}, table.move, mk("x", 1000), 1, 1000, 101)
+    -- consumes no memory when the destination is already in the table
+    ctx = runtime.callcontext({kill={memory=20000}}, table.move, mk("x", 1000), 1, 900, 101)
     print(ctx)
     --> =done
+    print(ctx.used.memory < 1000)
+    --> =true
 
     -- table.move consumes cpu
 

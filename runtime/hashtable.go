@@ -23,6 +23,47 @@ type mixedTable struct {
 	*array
 }
 
+// tableStorage identifies the memory a mixedTable currently holds: its
+// hash and array parts and their backing slices.  Comparing two snapshots
+// tells what was allocated in between.
+type tableStorage struct {
+	hash   *hashTable
+	slots  *hashTableSlot
+	nSlots int
+	arr    *array
+	values *Value
+	nVals  int
+}
+
+func (t *mixedTable) storage() (s tableStorage) {
+	if s.hash = t.hashTable; s.hash != nil && len(s.hash.slots) > 0 {
+		s.slots, s.nSlots = &s.hash.slots[0], len(s.hash.slots)
+	}
+	if s.arr = t.array; s.arr != nil && len(s.arr.values) > 0 {
+		s.values, s.nVals = &s.arr.values[0], len(s.arr.values)
+	}
+	return
+}
+
+// allocatedSince returns the bytes allocated to go from storage before to
+// storage s: new hash or array parts, and every new backing slice (growing
+// copies the old slice into a new one, so the whole new slice is counted).
+func (s tableStorage) allocatedSince(before tableStorage) (n uint64) {
+	if s.hash != before.hash {
+		n += uint64(unsafe.Sizeof(hashTable{}))
+	}
+	if s.slots != before.slots {
+		n += uint64(s.nSlots) * uint64(unsafe.Sizeof(hashTableSlot{}))
+	}
+	if s.arr != before.arr {
+		n += uint64(unsafe.Sizeof(array{}))
+	}
+	if s.values != before.values {
+		n += uint64(s.nVals) * uint64(unsafe.Sizeof(Value{}))
+	}
+	return n
+}
+
 // newMixedTableWithCapacity creates a mixedTable with preallocated capacity.
 // nseq: capacity hint for array part (sequence elements)
 // nrec: capacity hint for hash part (record/key-value pairs)

@@ -1,6 +1,7 @@
--- Filling a table consumes memory
+-- Filling a table consumes memory (each growth of its storage is charged
+-- what it allocates: 10000 bytes hold a little over 100 integers)
 local t = {}
-print(runtime.callcontext({kill={memory=1000}}, function()
+print(runtime.callcontext({kill={memory=10000}}, function()
     local i = 1
     while true do
         t[i] = i
@@ -9,7 +10,7 @@ print(runtime.callcontext({kill={memory=1000}}, function()
 end))
 --> =killed
 
-print(#t > 10, #t < 100)
+print(#t > 50, #t < 500)
 --> =true	true
 
 -- Replacing scalar elements in a table doesn't consume memory

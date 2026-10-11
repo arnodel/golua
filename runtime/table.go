@@ -69,15 +69,21 @@ func (t *Table) Get(k Value) Value {
 	return t.get(k)
 }
 
-// Set implements t[k] = v (doesn't check if k is nil).
+// Set implements t[k] = v (doesn't check if k is nil). It returns the number
+// of bytes the table allocated to store v: zero when v fits in storage the
+// table already has, the size of the new storage when the table had to grow.
 func (t *Table) Set(k, v Value) uint64 {
 	if v.IsNil() {
 		t.mixedTable.remove(k)
 		return 0
 	}
+	before := t.mixedTable.storage()
 	t.mixedTable.insert(k, v)
-	return 16
+	return t.mixedTable.storage().allocatedSince(before)
 }
+
+// TableHeaderSize is the memory a new empty table takes.
+const TableHeaderSize = uint64(unsafe.Sizeof(Table{}) + unsafe.Sizeof(mixedTable{}))
 
 // Reset implements t[k] = v only if t[k] was already non-nil.
 func (t *Table) Reset(k, v Value) (wasSet bool) {

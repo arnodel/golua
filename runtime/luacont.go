@@ -348,6 +348,7 @@ RunLoop:
 				case code.OpCC:
 					res = ContValue(c)
 				case code.OpTable:
+					t.RequireMem(TableHeaderSize)
 					res = TableValue(NewTable())
 				case code.OpStr0:
 					res = StringValue("")
