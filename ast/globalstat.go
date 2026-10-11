@@ -49,7 +49,7 @@ func (s GlobalStat) HWrite(w HWriter) {
 	w.Indent()
 	for i, nameAttrib := range s.NameAttribs {
 		w.Next()
-		w.Writef("name_%d: %s", i, nameAttrib)
+		w.Writef("name_%d: %s", i, nameAttrib.hwriteString())
 	}
 	for i, val := range s.Values {
 		w.Next()

@@ -37,7 +37,7 @@ func (f Function) ProcessExp(p ExpProcessor) {
 func (f Function) HWrite(w HWriter) {
 	w.Writef("(")
 	for i, param := range f.Params {
-		w.Writef(param.Val)
+		w.Writef("%s", param.Val)
 		if i < len(f.Params)-1 || f.HasDots {
 			w.Writef(", ")
 		}
@@ -45,7 +45,7 @@ func (f Function) HWrite(w HWriter) {
 	if f.HasDots {
 		w.Writef("...")
 		if f.VarargName != nil {
-			w.Writef(f.VarargName.Val)
+			w.Writef("%s", f.VarargName.Val)
 		}
 	}
 	w.Writef(")")

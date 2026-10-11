@@ -32,7 +32,7 @@ func (n Name) ProcessVar(p VarProcessor) {
 
 // HWrite prints a tree representation of the node.
 func (n Name) HWrite(w HWriter) {
-	w.Writef(n.Val)
+	w.Writef("%s", n.Val)
 }
 
 // FunctionName returns the string associated with the name.

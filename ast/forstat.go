@@ -30,7 +30,7 @@ func NewForStat(startTok, endTok *token.Token, itervar Name, params []ExpNode, b
 
 // HWrite prints a tree representation of the node.
 func (s ForStat) HWrite(w HWriter) {
-	w.Writef("for %s", s.Var)
+	w.Writef("for %s", s.Var.Val)
 	w.Indent()
 	if s.Start != nil {
 		w.Next()

@@ -96,7 +96,7 @@ func (f BFunctionCall) HWrite(w HWriter) {
 	// w.Dedent()
 	if f.Method.Val != "" {
 		w.Next()
-		w.Writef("method: %s", f.Method)
+		w.Writef("method: %s", f.Method.Val)
 	}
 	for i, arg := range f.Args {
 		w.Next()

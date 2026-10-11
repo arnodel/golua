@@ -27,5 +27,5 @@ func (s GotoStat) ProcessStat(p StatProcessor) {
 
 // HWrite prints a tree representation of the node.
 func (s GotoStat) HWrite(w HWriter) {
-	w.Writef("goto %s", s.Label)
+	w.Writef("goto %s", s.Label.Val)
 }
