@@ -236,3 +236,19 @@ do
     pgs("abc", "b*", "Z")
     --> =ZaZcZ	4
 end
+
+do
+    -- An initial position beyond the platform's int range clamps; it must not
+    -- wrap to a small position.
+    print(string.find("abc", "b", math.mininteger))
+    --> =2	2
+
+    print(string.find("abc", "b", math.maxinteger))
+    --> =nil
+
+    print(string.match("abc", "b", math.maxinteger))
+    --> =nil
+
+    print(string.gmatch("abc", "b", math.maxinteger)())
+    --> =nil
+end

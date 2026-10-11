@@ -114,7 +114,7 @@ func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err == nil && c.NArgs() >= 3 {
 		n, err = c.IntArg(2)
 	}
-	i := luastrings.StringNormPos(pack, int(n)) - 1
+	i := luastrings.StringNormPos(pack, rt.ClampToInt(n)) - 1
 	if i < 0 || i > len(pack) {
 		err = errors.New("#3 out of string")
 	}

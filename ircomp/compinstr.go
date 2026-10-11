@@ -82,7 +82,7 @@ func (ic instrCompiler) ProcessLoadConstInstr(l ir.LoadConst) {
 	// Short strings and small integers are inlined.
 	switch kk := k.(type) {
 	case ir.Int:
-		opcode, inlined = code.LoadSmallInt(dst, int(kk))
+		opcode, inlined = code.LoadSmallInt(dst, int64(kk))
 	case ir.String:
 		opcode, inlined = code.LoadShortString(dst, []byte(kk))
 	case ir.Bool:

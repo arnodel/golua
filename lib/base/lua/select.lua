@@ -29,3 +29,10 @@ print(pcall(select, 'hello', 1, 2, 3))
 
 print(select(-1, 1, 2 , 3, 4))
 --> =4
+
+-- Positions beyond the platform's int range select nothing; they must not wrap.
+print(select(math.maxinteger, 1, 2))
+--> =
+
+print(pcall(select, math.mininteger, 1, 2))
+--> ~^false\t.*out of range

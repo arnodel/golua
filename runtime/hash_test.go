@@ -49,7 +49,8 @@ func TestHashScalarSeeded(t *testing.T) {
 }
 
 // hashScalar should have decent avalanche behaviour: flipping a single input
-// bit should change roughly half the output bits on average.
+// bit should change roughly half the output bits on average. The output is a
+// uintptr, so half is 32 bits on 64-bit platforms and 16 on 32-bit ones.
 func TestHashScalarAvalanche(t *testing.T) {
 	const samples = 4096
 	var total, count int
@@ -63,8 +64,9 @@ func TestHashScalarAvalanche(t *testing.T) {
 		}
 	}
 	avg := float64(total) / float64(count)
-	if avg < 28 || avg > 36 {
-		t.Errorf("poor avalanche: average %.2f changed bits (want ~32)", avg)
+	half := float64(bits.UintSize) / 2
+	if avg < half*7/8 || avg > half*9/8 {
+		t.Errorf("poor avalanche: average %.2f changed bits (want ~%.0f)", avg, half)
 	}
 }
 

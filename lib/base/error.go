@@ -29,7 +29,7 @@ func errorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	}
 	err = rt.NewError(errObj)
 	if level != 1 {
-		err = err.AddContext(c.Next(), int(level))
+		err = err.AddContext(c.Next(), rt.ClampToInt(level))
 	}
 	return nil, err
 }

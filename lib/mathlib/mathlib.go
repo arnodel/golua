@@ -497,8 +497,26 @@ func ldexp(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := math.Ldexp(x, int(e))
-	return c.PushingNext1(t.Runtime, rt.FloatValue(m)), nil
+	return c.PushingNext1(t.Runtime, rt.FloatValue(ldexpSaturating(x, e))), nil
+}
+
+// maxLdexpExp bounds the exponent passed to math.Ldexp. It is far beyond the
+// 2098 binary orders of magnitude between the smallest subnormal and the
+// largest float64, so any larger exponent gives the same 0 or Inf result.
+const maxLdexpExp = 1 << 16
+
+// ldexpSaturating is math.Ldexp for a Lua integer exponent. The exponent is
+// bounded first because math.Ldexp's own exponent arithmetic overflows near
+// math.MaxInt and math.MinInt (math.Ldexp(2, math.MaxInt) returns 0, not
+// +Inf), and because int(e) would wrap where int is 32 bits.
+func ldexpSaturating(x float64, e int64) float64 {
+	if e > maxLdexpExp {
+		return math.Ldexp(x, maxLdexpExp)
+	}
+	if e < -maxLdexpExp {
+		return math.Ldexp(x, -maxLdexpExp)
+	}
+	return math.Ldexp(x, int(e))
 }
 
 //

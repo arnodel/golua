@@ -1,5 +1,7 @@
 package code
 
+import "math"
+
 // Combine encodes r1 <- op(r2, r3)
 func Combine(op BinOp, r1, r2, r3 Reg) Opcode {
 	return mkType1(op, r1, r2, r3)
@@ -27,12 +29,11 @@ func LoadInt16(r Reg, n int16) Opcode {
 
 // LoadSmallInt attempts to load a small integer (atm it has to be representable
 // as an int16).
-func LoadSmallInt(r Reg, n int) (Opcode, bool) {
-	sn := int16(n)
-	if int(sn) != n {
+func LoadSmallInt(r Reg, n int64) (Opcode, bool) {
+	if n < math.MinInt16 || n > math.MaxInt16 {
 		return 0, false
 	}
-	return LoadInt16(r, sn), true
+	return LoadInt16(r, int16(n)), true
 }
 
 // LoadStr0 encodes r <- ""

@@ -24,3 +24,11 @@ print("1e99999" + 0)
 
 print("-2" + 0, "+2" + 0, "100000000000000000000" / "10000000000000000000")
 --> =-2	2	10.0
+
+-- Integer literals beyond 32 bits keep their value on every platform; on
+-- 32-bit platforms they used to be inlined as their low 16 bits.
+print(4294967296, 4294967301, 4611686018427387904, -4294967296)
+--> =4294967296	4294967301	4611686018427387904	-4294967296
+
+print(4294967296 == 1 << 32, 4611686018427387904 == 1 << 62)
+--> =true	true

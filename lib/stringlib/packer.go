@@ -48,23 +48,19 @@ func PackValues(format string, values []rt.Value, budget uint64) (string, uint64
 		case 'b':
 			_ = p.align(0) &&
 				p.nextIntValue() &&
-				p.checkBounds(math.MinInt8, math.MaxInt8) &&
-				p.write(1, int8(p.intVal))
+				p.writeInt8()
 		case 'B':
 			_ = p.align(0) &&
 				p.nextIntValue() &&
-				p.checkBounds(0, math.MaxUint8) &&
-				p.write(1, uint8(p.intVal))
+				p.writeUint8()
 		case 'h':
 			_ = p.align(2) &&
 				p.nextIntValue() &&
-				p.checkBounds(math.MinInt16, math.MaxInt16) &&
-				p.write(2, int16(p.intVal))
+				p.writeInt16()
 		case 'H':
 			_ = p.align(2) &&
 				p.nextIntValue() &&
-				p.checkBounds(0, math.MaxUint16) &&
-				p.write(2, uint16(p.intVal))
+				p.writeUint16()
 		case 'l', 'j':
 			_ = p.align(8) &&
 				p.nextIntValue() &&
@@ -195,6 +191,58 @@ func (p *packer) checkBounds(min, max int64) bool {
 	return ok
 }
 
+// The writers below compare the value with constant bounds immediately
+// before each narrowing conversion, so the range check and the conversion
+// cannot drift apart. Out of range values set errOutOfBounds, as checkBounds
+// does.
+
+func (p *packer) writeInt8() bool {
+	if v := p.intVal; v >= math.MinInt8 && v <= math.MaxInt8 {
+		return p.write(1, int8(v))
+	}
+	return p.outOfBounds()
+}
+
+func (p *packer) writeUint8() bool {
+	if v := p.intVal; v >= 0 && v <= math.MaxUint8 {
+		return p.write(1, uint8(v))
+	}
+	return p.outOfBounds()
+}
+
+func (p *packer) writeInt16() bool {
+	if v := p.intVal; v >= math.MinInt16 && v <= math.MaxInt16 {
+		return p.write(2, int16(v))
+	}
+	return p.outOfBounds()
+}
+
+func (p *packer) writeUint16() bool {
+	if v := p.intVal; v >= 0 && v <= math.MaxUint16 {
+		return p.write(2, uint16(v))
+	}
+	return p.outOfBounds()
+}
+
+func (p *packer) writeInt32() bool {
+	if v := p.intVal; v >= math.MinInt32 && v <= math.MaxInt32 {
+		return p.write(4, int32(v))
+	}
+	return p.outOfBounds()
+}
+
+func (p *packer) writeUint32() bool {
+	if v := p.intVal; v >= 0 && v <= math.MaxUint32 {
+		return p.write(4, uint32(v))
+	}
+	return p.outOfBounds()
+}
+
+func (p *packer) outOfBounds() bool {
+	p.err = errOutOfBounds
+	return false
+}
+
 func (p *packer) checkFloatSize(max float64) bool {
 	ok := (p.floatVal >= -max && p.floatVal <= max) || math.IsInf(p.floatVal, 0)
 	if !ok {
@@ -284,7 +332,7 @@ func (p *packer) packInt() bool {
 	switch n := p.optSize; {
 	case n == 4:
 		// It's an int32
-		return p.checkBounds(math.MinInt32, math.MaxInt32) && p.write(4, int32(p.intVal))
+		return p.writeInt32()
 	case n == 8:
 		// It's an int64
 		return p.write(8, p.intVal)
@@ -332,7 +380,7 @@ func (p *packer) packUint() bool {
 	switch n := p.optSize; {
 	case n == 4:
 		// It's an uint32
-		return p.checkBounds(0, math.MaxUint32) && p.write(4, uint32(p.intVal))
+		return p.writeUint32()
 	case n == 8:
 		// It's an uint64
 		return p.checkBounds(0, math.MaxInt64) && p.write(8, uint64(p.intVal))

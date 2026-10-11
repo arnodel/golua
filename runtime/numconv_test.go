@@ -336,3 +336,43 @@ func TestFloatToInt(t *testing.T) {
 		}
 	}
 }
+
+func TestClampToInt(t *testing.T) {
+	// On 64-bit platforms every case is the identity; on 32-bit platforms the
+	// values outside the int range saturate instead of wrapping.
+	tests := []struct {
+		name string
+		n    int64
+		want int
+	}{
+		{name: "zero", n: 0, want: 0},
+		{name: "small positive", n: 42, want: 42},
+		{name: "small negative", n: -42, want: -42},
+		{name: "max int32", n: math.MaxInt32, want: math.MaxInt32},
+		{name: "min int32", n: math.MinInt32, want: math.MinInt32},
+		{name: "max int64", n: math.MaxInt64, want: math.MaxInt},
+		{name: "min int64", n: math.MinInt64, want: math.MinInt},
+		{name: "just above max int32", n: math.MaxInt32 + 1, want: clampWant(math.MaxInt32 + 1)},
+		{name: "just below min int32", n: math.MinInt32 - 1, want: clampWant(math.MinInt32 - 1)},
+		{name: "2^32+1 does not wrap to 1", n: 1<<32 + 1, want: clampWant(1<<32 + 1)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ClampToInt(tt.n); got != tt.want {
+				t.Errorf("ClampToInt(%d) = %d, want %d", tt.n, got, tt.want)
+			}
+		})
+	}
+}
+
+// clampWant is the expected result for a value that fits in an int on 64-bit
+// platforms but not on 32-bit ones.
+func clampWant(n int64) int {
+	if math.MaxInt == math.MaxInt32 {
+		if n > 0 {
+			return math.MaxInt
+		}
+		return math.MinInt
+	}
+	return int(n)
+}

@@ -73,7 +73,8 @@ OuterLoop:
 					if !ok {
 						return "", errors.New("invalid value for integer format")
 					}
-					arg = []byte{byte(n)}
+					// Like C's printf, %c keeps the low byte of the value.
+					arg = []byte{byte(n & 0xff)}
 					tmpMem += t.RequireBytes(1)
 					outFormat[i] = 's'
 					break ArgLoop
@@ -222,7 +223,7 @@ func quote(v rt.Value) (string, bool) {
 	}
 	switch v.Type() {
 	case rt.IntType:
-		return strconv.Itoa(int(v.AsInt())), true
+		return strconv.FormatInt(v.AsInt(), 10), true
 	case rt.FloatType:
 		x := v.AsFloat()
 		if math.IsInf(x, 0) {

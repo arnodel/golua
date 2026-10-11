@@ -82,7 +82,9 @@ func replaceEscapeSeq(e []byte) []byte {
 	case 'z':
 		return []byte{}
 	case 'x', 'X':
-		b, err := strconv.ParseInt(string(e[2:]), 16, 64)
+		// The scanner accepts exactly two hex digits, so the value fits in
+		// a byte.
+		b, err := strconv.ParseUint(string(e[2:]), 16, 8)
 		if err != nil {
 			panic(err)
 		}

@@ -266,3 +266,16 @@ do
     print(start, endpos)
     --> =10	10
 end
+
+do
+    -- Positions beyond the platform's int range are out of range; they must
+    -- not wrap to small positions.
+    print(pcall(utf8.len, "abc", math.mininteger))
+    --> ~false\t.*out of range
+
+    print(pcall(utf8.codepoint, "abc", 1, math.maxinteger))
+    --> ~false\t.*out of range
+
+    print(pcall(utf8.offset, "abc", 1, math.maxinteger))
+    --> ~false\t.*out of range
+end

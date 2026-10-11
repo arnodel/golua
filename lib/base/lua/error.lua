@@ -73,3 +73,10 @@ do
     print(err == "<no error object>")
     --> =true
 end
+
+do
+    -- A level beyond the stack adds no position information; it must not wrap
+    -- to a small level.
+    print(pcall(error, "msg", math.maxinteger))
+    --> =false	msg
+end

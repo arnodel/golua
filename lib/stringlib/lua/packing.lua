@@ -258,3 +258,35 @@ do
     --> ~1	2	3	
 
 end
+
+do
+    -- Every narrow integer option accepts exactly its own range.
+    print(string.unpack("b", string.pack("b", -128)), string.unpack("b", string.pack("b", 127)))
+    --> =-128	127	2
+
+    print(string.unpack("B", string.pack("B", 255)), string.unpack("H", string.pack("H", 65535)))
+    --> =255	65535	3
+
+    print(string.unpack("h", string.pack("h", -32768)), string.unpack("i4", string.pack("i4", -2^31)))
+    --> =-32768	-2147483648	5
+
+    print(string.unpack("I4", string.pack("I4", 2^32 - 1)))
+    --> =4294967295	5
+
+    for _, case in ipairs({{"b", -129}, {"b", 128}, {"B", -1}, {"B", 256}, {"h", 32768}, {"H", 65536}, {"i4", 2^31}, {"I4", 2^32}}) do
+        print(pcall(string.pack, case[1], case[2]))
+    end
+    --> ~false\t.*overflow
+    --> ~false\t.*overflow
+    --> ~false\t.*overflow
+    --> ~false\t.*overflow
+    --> ~false\t.*overflow
+    --> ~false\t.*overflow
+    --> ~false\t.*overflow
+    --> ~false\t.*overflow
+
+    -- A position beyond the platform's int range is out of the string; it
+    -- must not wrap to a small position.
+    print(pcall(string.unpack, "b", "\1", math.maxinteger))
+    --> ~false\t.*out of string
+end

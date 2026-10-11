@@ -296,3 +296,19 @@ func TestNonPowerOf2ArrayDenseGrowth(t *testing.T) {
 	}
 }
 
+
+// TestMixedTablePowerOfTwoKeys inserts the keys 2^i for i = 61 down to 0,
+// like the reference suite's "attack on table length" test. Growing the table
+// classifies every integer key; on 32-bit platforms keys above 2^31 used to
+// produce a bucket index one past the end and panic.
+func TestMixedTablePowerOfTwoKeys(t *testing.T) {
+	mt := &mixedTable{}
+	for i := 61; i >= 0; i-- {
+		mt.insert(IntValue(1<<i), BoolValue(true))
+	}
+	for i := 0; i <= 61; i++ {
+		if got := mt.get(IntValue(1 << i)); got != BoolValue(true) {
+			t.Errorf("mt[2^%d] = %v, want true", i, got)
+		}
+	}
+}

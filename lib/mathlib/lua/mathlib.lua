@@ -404,3 +404,16 @@ do
     print(math.frexp(-inf))
     --> ~\-Inf\t0
 end
+
+do
+    -- Extreme exponents saturate: the result is the same 0 or inf that any
+    -- exponent past the float64 range gives.
+    print(math.ldexp(2.0, math.maxinteger), math.ldexp(-2.0, math.maxinteger))
+    --> =+Inf	-Inf
+
+    print(math.ldexp(0.5, math.mininteger), math.ldexp(4.0, -100000))
+    --> =0.0	0.0
+
+    print(math.ldexp(1.0, 1023) == 2.0^1023, math.ldexp(1.0, 1024))
+    --> =true	+Inf
+end
