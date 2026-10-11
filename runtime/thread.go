@@ -20,6 +20,15 @@ const (
 // order to avoid irrecoverable Go stack overflows.
 const maxGoFunctionCallDepth = 1000
 
+// The number of nested continuation loops (RunContinuation) active in one
+// thread is limited by this number, for the same reason. A Lua function that
+// the VM calls directly as a metamethod (__index, __newindex, __eq, __lt,
+// __le, arithmetic, __len, __concat, __close) runs in a nested loop on the Go
+// stack without going through a GoFunction, so maxGoFunctionCallDepth alone
+// does not bound it: a metamethod that triggers itself would otherwise grow
+// the Go stack until the process aborts.
+const maxRunContinuationDepth = 1000
+
 // Data passed between Threads via their resume channel (Thread.resumeCh).
 //
 // Supported types for exception are ContextTerminationError (which means
@@ -51,6 +60,10 @@ type Thread struct {
 	// cannot be recovered from (note that this does not limit recursion for Lua
 	// functions).
 	goFunctionCallDepth int
+
+	// Depth of nested RunContinuation loops in the thread.  This should not
+	// exceed maxRunContinuationDepth.
+	runContinuationDepth int
 
 	// Depth of __call metamethod chain (Lua 5.5).  This should not exceed
 	// maxCallChainLength to prevent infinite loops through chained __call metamethods.
@@ -91,6 +104,12 @@ var errErrorInMessageHandler = StringValue("error in error handling")
 // the next continuation is nil or an error occurs, in which case it returns the
 // error.
 func (t *Thread) RunContinuation(c Cont) (err error) {
+	if t.runContinuationDepth >= maxRunContinuationDepth {
+		return errors.New("stack overflow")
+	}
+	t.runContinuationDepth++
+	defer func() { t.runContinuationDepth-- }()
+
 	var next Cont
 	var errContCount = 0
 	_ = t.triggerCall(t, c)
