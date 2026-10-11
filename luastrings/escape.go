@@ -6,7 +6,7 @@ import (
 	"unicode"
 )
 
-var names = []byte("abtnvf")
+var names = []byte("abtnvfr")
 
 // Quote a string so that it is a valid Lua string literal
 func Quote(s string, quote byte) string {
