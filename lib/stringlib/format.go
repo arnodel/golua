@@ -148,6 +148,9 @@ OuterLoop:
 					break ArgLoop
 				case 'p':
 					// Pointer address, new in Lua 5.4
+					if len(args) <= j {
+						return "", errNotEnoughValues
+					}
 					switch v := values[j]; v.Type() {
 					case rt.BoolType, rt.FloatType, rt.IntType, rt.NilType:
 						outFormat[i] = 's'

@@ -318,6 +318,12 @@ do
     pf("=%p=", coroutine.running())
     --> ~=0x[0-9a-f]+=
 
+    errf("%p")
+    --> ~not enough values
+
+    errf("%s %p", "x")
+    --> ~not enough values
+
     print(ps(coroutine.running()) == ps(coroutine.running()))
     --> =true
 
