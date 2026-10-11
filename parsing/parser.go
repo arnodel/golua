@@ -13,6 +13,28 @@ import (
 // Parser can parse lua statements or expressions
 type Parser struct {
 	scanner Scanner
+
+	// levels counts the syntax levels open at the current point: nested
+	// expressions, blocks, table constructors and function bodies, plus the
+	// links of the operator or suffix chain being parsed.  Recursion in the
+	// parser, and the depth of the tree it builds (which the compiler walks
+	// recursively), both grow with it.
+	levels int
+}
+
+// maxSyntaxLevels bounds Parser.levels.  Without a bound, deeply nested
+// source makes the parser and the compiler recurse until the Go stack is
+// exhausted, which aborts the whole process rather than failing the parse.
+// As with the reference implementation, 100 levels of any construct parse
+// and 500 do not.
+const maxSyntaxLevels = 400
+
+// enter opens one syntax level at t, failing the parse past the limit.
+func (p *Parser) enter(t *token.Token) {
+	if p.levels >= maxSyntaxLevels {
+		panic(Error{Got: t, Message: "too many syntax levels"})
+	}
+	p.levels++
 }
 
 type Scanner interface {
@@ -23,11 +45,15 @@ type Scanner interface {
 type Error struct {
 	Got      *token.Token
 	Expected string
+	// Message, when set, replaces the "expected ..." text.
+	Message string
 }
 
 func (e Error) Error() string {
 	expected := e.Expected
-	if e.Got.Type == token.INVALID {
+	if e.Message != "" {
+		expected = e.Message
+	} else if e.Got.Type == token.INVALID {
 		expected = "invalid token: " + expected
 	} else if e.Got.Type == token.UNFINISHED {
 		expected = "unexpected <eof>"
@@ -349,6 +375,8 @@ func (p *Parser) FunctionStat(*token.Token) (ast.Stat, *token.Token) {
 // consumed. Returns the token that closes the block (e.g. "end"). So the caller
 // should check that this is the right kind of closing token.
 func (p *Parser) Block(t *token.Token) (ast.BlockStat, *token.Token) {
+	p.enter(t)
+	defer func() { p.levels-- }()
 	var stats []ast.Stat
 	var next ast.Stat
 	for {
@@ -397,6 +425,11 @@ func mergepop(stack []item, it item) ([]item, item) {
 
 // Exp parses any expression.
 func (p *Parser) Exp(t *token.Token) (ast.ExpNode, *token.Token) {
+	// One level for the expression, and one per operator: operands build a
+	// tree as deep as the chain, whatever the associativity.
+	p.enter(t)
+	opened := 1
+	defer func() { p.levels -= opened }()
 	var exp ast.ExpNode
 	exp, t = p.ShortExp(t)
 	var op ops.Op
@@ -406,6 +439,8 @@ func (p *Parser) Exp(t *token.Token) (ast.ExpNode, *token.Token) {
 	for t.Type.IsBinOp() {
 		op = binopMap[t.Type]
 		opTok = t
+		p.enter(opTok)
+		opened++
 		exp, t = p.ShortExp(p.Scan())
 		for len(stack) > 0 {
 			pdiff := op.Precedence() - last.op.Precedence()
@@ -428,6 +463,8 @@ func (p *Parser) Exp(t *token.Token) (ast.ExpNode, *token.Token) {
 // a prefix expression or a power operation (right associatively composed). In
 // other words, any expression that doesn't contain a binary operator.
 func (p *Parser) ShortExp(t *token.Token) (ast.ExpNode, *token.Token) {
+	p.enter(t)
+	defer func() { p.levels-- }()
 	var exp ast.ExpNode
 	switch t.Type {
 	case token.KwNil:
@@ -512,6 +549,8 @@ var binopMap = map[token.Type]ops.Op{
 
 // FunctionDef parses a function definition expression.
 func (p *Parser) FunctionDef(startTok *token.Token) (ast.Function, *token.Token) {
+	p.enter(startTok)
+	defer func() { p.levels-- }()
 	expectType(startTok, token.SgOpenBkt, "'('")
 	t := p.Scan()
 	var names []ast.Name
@@ -572,7 +611,12 @@ func (p *Parser) PrefixExp(t *token.Token) (ast.ExpNode, *token.Token) {
 // calls) of a prefix expression. exp is the already-parsed head and t is the
 // first token after it.
 func (p *Parser) prefixExpTail(exp ast.ExpNode, t *token.Token) (ast.ExpNode, *token.Token) {
+	// Each suffix nests the expression one level deeper.
+	opened := 0
+	defer func() { p.levels -= opened }()
 	for {
+		p.enter(t)
+		opened++
 		switch t.Type {
 		case token.SgOpenSquareBkt:
 			var idxExp ast.ExpNode
@@ -645,6 +689,8 @@ func (p *Parser) ExpList(t *token.Token) ([]ast.ExpNode, *token.Token) {
 
 // TableConstructor parses a table constructor.
 func (p *Parser) TableConstructor(opTok *token.Token) (ast.TableConstructor, *token.Token) {
+	p.enter(opTok)
+	defer func() { p.levels-- }()
 	t := p.Scan()
 	var fields []ast.TableField
 	if t.Type != token.SgCloseBrace {
