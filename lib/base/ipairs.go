@@ -27,6 +27,18 @@ func ipairsIteratorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 
 var ipairsIterator = rt.NewGoFunction(ipairsIteratorF, "ipairsiterator", 2, false)
 
+// ipairsIterator and nextGoFunc are shared by every runtime, so their
+// compliance is declared once here rather than in Load: declaring it in Load
+// writes to them each time a runtime is created, which is a data race when
+// runtimes are created concurrently or while another runtime iterates.
+func init() {
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
+		ipairsIterator,
+		nextGoFunc,
+	)
+}
+
 func ipairs(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err

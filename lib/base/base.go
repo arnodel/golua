@@ -24,8 +24,6 @@ func Load(r *rt.Runtime) (rt.Value, func()) {
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
-		ipairsIterator,
-		nextGoFunc,
 		r.SetEnvGoFunc(env, "assert", assert, 1, true),
 		r.SetEnvGoFunc(env, "error", errorF, 2, false),
 		r.SetEnvGoFunc(env, "getmetatable", getmetatable, 1, false),
