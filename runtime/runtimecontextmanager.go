@@ -43,6 +43,10 @@ type runtimeContextManager struct {
 	weakRefPool luagc.Pool
 	poolFactory func() luagc.Pool
 	gcPolicy    GCPolicy
+
+	// interrupt, when set, is checked on each CPU requirement (CPU tracking
+	// is switched on while it is set).
+	interrupt *Interrupt
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
@@ -123,8 +127,11 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	if ctx.HardLimits.Millis > 0 {
 		m.requiredFlags |= ComplyTimeSafe
 	}
+	if ctx.Interrupt != nil {
+		m.interrupt = ctx.Interrupt
+	}
 	m.trackTime = m.hardLimits.Millis > 0 || m.softLimits.Millis > 0
-	m.trackCpu = m.hardLimits.Cpu > 0 || m.softLimits.Cpu > 0 || m.trackTime
+	m.trackCpu = m.hardLimits.Cpu > 0 || m.softLimits.Cpu > 0 || m.trackTime || m.interrupt != nil
 	m.trackMem = m.hardLimits.Memory > 0 || m.softLimits.Memory > 0
 	m.status = StatusLive
 	m.messageHandler = ctx.MessageHandler
@@ -154,9 +161,15 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 	if mCopy.status == StatusLive {
 		mCopy.status = StatusDone
 	}
-	m.parent.RequireCPU(m.usedResources.Cpu)
-	m.parent.RequireMem(m.usedResources.Memory)
+	// Restore the parent before charging it with what the child used.
+	// Charging can terminate the parent, and terminating panics out of
+	// PopContext: if the parent were not current yet, the enclosing
+	// CallContext would pop the wrong level, leaving a killed context
+	// current, where TerminateContext does nothing and code that should have
+	// stopped keeps running.
 	*m = *m.parent
+	m.RequireCPU(mCopy.usedResources.Cpu)
+	m.RequireMem(mCopy.usedResources.Memory)
 	if m.trackTime {
 		m.updateTimeUsed()
 	}
@@ -175,6 +188,11 @@ func (m *runtimeContextManager) RequireCPU(cpuAmount uint64) {
 func (m *runtimeContextManager) requireCPU(cpuAmount uint64) {
 	if m.stopLevel&HardStop != 0 {
 		m.KillContext()
+	}
+	if m.interrupt != nil {
+		if reason, ok := m.interrupt.Triggered(); ok {
+			m.TerminateContext("%s", reason)
+		}
 	}
 	cpuUsed := m.usedResources.Cpu + cpuAmount
 	if atLimit(cpuUsed, m.hardLimits.Cpu) {

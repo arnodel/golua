@@ -7,6 +7,9 @@ type RuntimeContextDef struct {
 	RequiredFlags  ComplianceFlags
 	MessageHandler Callable
 	GCPolicy
+	// Interrupt, when not nil, lets another goroutine terminate the context
+	// (see Interrupt). Contexts pushed inside it inherit it.
+	Interrupt *Interrupt
 }
 
 // RuntimeContext is an interface implemented by Runtime.RuntimeContext().  It

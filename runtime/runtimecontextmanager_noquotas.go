@@ -16,6 +16,7 @@ type runtimeContextManager struct {
 	parent         *runtimeContextManager
 	weakRefPool    luagc.Pool
 	poolFactory    func() luagc.Pool
+	interrupt      *Interrupt
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
@@ -73,6 +74,9 @@ func (m *runtimeContextManager) RuntimeContext() RuntimeContext {
 func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	parent := *m
 	m.messageHandler = ctx.MessageHandler
+	if ctx.Interrupt != nil {
+		m.interrupt = ctx.Interrupt
+	}
 	m.parent = &parent
 }
 
@@ -92,6 +96,11 @@ func (m *runtimeContextManager) CallContext(def RuntimeContextDef, f func() erro
 }
 
 func (m *runtimeContextManager) RequireCPU(cpuAmount uint64) {
+	if m.interrupt != nil {
+		if reason, ok := m.interrupt.Triggered(); ok {
+			m.TerminateContext("%s", reason)
+		}
+	}
 }
 
 func (m *runtimeContextManager) UnusedCPU() uint64 {
