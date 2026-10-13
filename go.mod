@@ -1,6 +1,6 @@
 module github.com/arnodel/golua
 
-go 1.18
+go 1.25
 
 require (
 	github.com/arnodel/edit v0.0.0-20220202110212-dfc8d7a13890 // Only needed when building cmd/golua-repl

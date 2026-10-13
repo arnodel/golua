@@ -1,11 +1,19 @@
 package runtime
 
+import "github.com/arnodel/golua/safeio"
+
 // RuntimeContextDef contains the data necessary to create an new runtime context.
 type RuntimeContextDef struct {
 	HardLimits     RuntimeResources
 	SoftLimits     RuntimeResources
 	RequiredFlags  ComplianceFlags
 	MessageHandler Callable
+
+	// FSAccess restricts access to the filesystem.  It must have been obtained
+	// by calling Restrict() on the FSAccess of the current context.  The new
+	// context takes ownership of it and closes it when it is popped.  If it is
+	// non-nil, ComplyIoSafe is required in the new context.
+	FSAccess *safeio.FSAccess
 	GCPolicy
 }
 
@@ -92,8 +100,8 @@ const (
 	// computation.
 	ComplyCpuSafe
 
-	// Only execute code that complies with IO restrictions (currently only
-	// functions that do no IO comply with this)
+	// Only execute code that complies with IO restrictions, i.e. functions
+	// that do no IO or only access the filesystem via the safeio package.
 	ComplyIoSafe
 
 	// Only execute code that is time safe (i.e. it will not block on long

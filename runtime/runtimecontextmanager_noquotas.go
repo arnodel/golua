@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/arnodel/golua/runtime/internal/luagc"
+	"github.com/arnodel/golua/safeio"
 )
 
 const QuotasAvailable = false
@@ -71,6 +72,8 @@ func (m *runtimeContextManager) RuntimeContext() RuntimeContext {
 }
 
 func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
+	// Restrictions are not enforced so the context's FSAccess is not needed.
+	_ = ctx.FSAccess.Close()
 	parent := *m
 	m.messageHandler = ctx.MessageHandler
 	m.parent = &parent
@@ -134,6 +137,10 @@ func (m *runtimeContextManager) LinearUnused(cpuFactor uint64) uint64 {
 }
 
 func (m *runtimeContextManager) LinearRequire(cpuFactor uint64, amt uint64) {
+}
+
+func (m *runtimeContextManager) FSAccess() *safeio.FSAccess {
+	return safeio.Unrestricted
 }
 
 func (m *runtimeContextManager) TerminateContext(format string, args ...interface{}) {
