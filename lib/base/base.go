@@ -44,8 +44,9 @@ func Load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(env, "warn", warn, 0, true), // Added in Lua 5.4
 		r.SetEnvGoFunc(env, "xpcall", xpcall, 2, true),
 	)
+	// These functions only access the filesystem via safeio.
 	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe,
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 		r.SetEnvGoFunc(env, "dofile", dofile, 1, false),
 		r.SetEnvGoFunc(env, "loadfile", loadfile, 3, false),
 	)

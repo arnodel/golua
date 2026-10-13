@@ -3,11 +3,12 @@ package packagelib
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
+	"github.com/arnodel/golua/safeio"
 )
 
 var (
@@ -68,8 +69,12 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	r.SetTable(pkg, pathKey, rt.StringValue(defaultPath))
 	r.SetTable(pkg, configKey, rt.StringValue(defaultConfig.String()))
 
-	r.SetEnvGoFunc(pkg, "searchpath", searchpath, 4, false)
-	r.SetEnvGoFunc(env, "require", require, 1, false)
+	// These functions only access the filesystem via safeio.
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyIoSafe,
+		r.SetEnvGoFunc(pkg, "searchpath", searchpath, 4, false),
+		r.SetEnvGoFunc(env, "require", require, 1, false),
+	)
 
 	return pkgVal, nil
 }
@@ -199,7 +204,7 @@ func searchpath(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		return nil, err
 	}
 	conf.dirSep = string(rep)
-	found, templates := searchPath(string(name), string(path), string(sep), &conf)
+	found, templates := searchPath(t.Runtime, string(name), string(path), string(sep), &conf)
 	next := c.Next()
 	if found != "" {
 		t.Push1(next, rt.StringValue(found))
@@ -209,14 +214,14 @@ func searchpath(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	return next, nil
 }
 
-func searchPath(name, path, dot string, conf *config) (string, []string) {
+func searchPath(r *rt.Runtime, name, path, dot string, conf *config) (string, []string) {
 	namePath := strings.Replace(name, dot, conf.dirSep, -1)
 	templates := strings.Split(path, conf.pathSep)
 	for i, template := range templates {
 		searchpath := strings.Replace(template, conf.placeholder, namePath, -1)
-		f, err := os.Open(searchpath)
-		f.Close()
+		f, err := safeio.OpenFile(r, searchpath, os.O_RDONLY, 0)
 		if err == nil {
+			f.Close()
 			return searchpath, nil
 		}
 		templates[i] = searchpath
@@ -250,7 +255,7 @@ func searchLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		return nil, errors.New("package.path must be a string")
 	}
 	conf := getConfig(pkg)
-	found, templates := searchPath(string(s), string(path), ".", conf)
+	found, templates := searchPath(t.Runtime, string(s), string(path), ".", conf)
 	next := c.Next()
 	if found == "" {
 		t.Push1(next, rt.StringValue(strings.Join(templates, "\n")))
@@ -267,6 +272,16 @@ var (
 	searchPreloadGoFunc = rt.NewGoFunction(searchPreload, "searchpreload", 1, false)
 )
 
+func init() {
+	// These functions only access the filesystem via safeio.
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyIoSafe,
+		loadLuaGoFunc,
+		searchLuaGoFunc,
+		searchPreloadGoFunc,
+	)
+}
+
 func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.CheckNArgs(2); err != nil {
 		return nil, err
@@ -276,7 +291,7 @@ func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err != nil {
 		return nil, err
 	}
-	src, readErr := ioutil.ReadFile(string(filePath))
+	src, readErr := readFile(t.Runtime, string(filePath))
 	if readErr != nil {
 		return nil, fmt.Errorf("error reading file: %s", readErr)
 	}
@@ -285,6 +300,15 @@ func loadLua(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		return nil, fmt.Errorf("error compiling file: %s", compErr)
 	}
 	return rt.Continue(t, rt.FunctionValue(clos), c.Next())
+}
+
+func readFile(r *rt.Runtime, name string) ([]byte, error) {
+	f, err := safeio.OpenFile(r, name, os.O_RDONLY, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return io.ReadAll(f)
 }
 
 func pkgTable(r *rt.Runtime) *rt.Table {

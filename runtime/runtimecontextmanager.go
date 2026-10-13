@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/arnodel/golua/runtime/internal/luagc"
+	"github.com/arnodel/golua/safeio"
 )
 
 const QuotasAvailable = true
@@ -43,6 +44,8 @@ type runtimeContextManager struct {
 	weakRefPool luagc.Pool
 	poolFactory func() luagc.Pool
 	gcPolicy    GCPolicy
+
+	fsAccess *safeio.FSAccess
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
@@ -50,6 +53,7 @@ var _ RuntimeContext = (*runtimeContextManager)(nil)
 func (m *runtimeContextManager) initRoot() {
 	m.gcPolicy = IsolateGCPolicy
 	m.weakRefPool = m.poolFactory()
+	m.fsAccess = safeio.Unrestricted
 }
 
 func (m *runtimeContextManager) HardLimits() RuntimeResources {
@@ -123,6 +127,15 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	if ctx.HardLimits.Millis > 0 {
 		m.requiredFlags |= ComplyTimeSafe
 	}
+	if ctx.FSAccess != nil {
+		if ctx.FSAccess.Parent() != m.fsAccess {
+			panic("RuntimeContextDef.FSAccess must be derived from the current context's FSAccess")
+		}
+		m.fsAccess = ctx.FSAccess
+		m.requiredFlags |= ComplyIoSafe
+	} else if m.requiredFlags&ComplyIoSafe != 0 && m.fsAccess.IsUnrestricted() {
+		m.fsAccess = safeio.NoAccess
+	}
 	m.trackTime = m.hardLimits.Millis > 0 || m.softLimits.Millis > 0
 	m.trackCpu = m.hardLimits.Cpu > 0 || m.softLimits.Cpu > 0 || m.trackTime
 	m.trackMem = m.hardLimits.Memory > 0 || m.softLimits.Memory > 0
@@ -149,6 +162,9 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 	if m.gcPolicy == IsolateGCPolicy {
 		m.weakRefPool.ExtractAllMarkedFinalize()
 		releaseResources(m.weakRefPool.ExtractAllMarkedRelease())
+	}
+	if m.fsAccess != m.parent.fsAccess {
+		_ = m.fsAccess.Close()
 	}
 	mCopy := *m
 	if mCopy.status == StatusLive {
@@ -304,6 +320,11 @@ func (m *runtimeContextManager) TerminateContext(format string, args ...interfac
 	panic(ContextTerminationError{
 		message: fmt.Sprintf(format, args...),
 	})
+}
+
+// FSAccess returns the filesystem access allowed in the current context.
+func (m *runtimeContextManager) FSAccess() *safeio.FSAccess {
+	return m.fsAccess
 }
 
 // Current unix time in ms

@@ -7,6 +7,7 @@ import (
 
 	"github.com/arnodel/golua/lib/packagelib"
 	rt "github.com/arnodel/golua/runtime"
+	"github.com/arnodel/golua/safeio"
 )
 
 var LibLoader = packagelib.Loader{
@@ -49,6 +50,7 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr error) {
 		flagsV      = quotas.Get(rt.StringValue("flags"))
 		limitsV     = quotas.Get(rt.StringValue("kill"))
 		softLimitsV = quotas.Get(rt.StringValue("stop"))
+		fsV         = quotas.Get(rt.StringValue("fs"))
 		hardLimits  rt.RuntimeResources
 		softLimits  rt.RuntimeResources
 		f           = c.Arg(1)
@@ -82,6 +84,18 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr error) {
 		}
 	}
 
+	var fsAccess *safeio.FSAccess
+	if !fsV.IsNil() {
+		grants, err := getFSGrants(t, fsV)
+		if err != nil {
+			return nil, err
+		}
+		fsAccess, err = t.FSAccess().Restrict(grants)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	next = c.Next()
 	res := rt.NewTerminationWith(c, 0, true)
 
@@ -89,6 +103,7 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr error) {
 		HardLimits:    hardLimits,
 		SoftLimits:    softLimits,
 		RequiredFlags: flags,
+		FSAccess:      fsAccess,
 	}, func() error {
 		return rt.Call(t, f, fArgs, res)
 	})
@@ -171,11 +186,58 @@ func validateTimeVal(val rt.Value, factor float64, name string) (uint64, error) 
 	return uint64(s * factor), nil
 }
 
+// getFSGrants reads a list of grants of the form {dir="path", allowed="rw"}.
+func getFSGrants(t *rt.Thread, val rt.Value) ([]safeio.FSGrant, error) {
+	sz, err := rt.IntLen(t, val)
+	if err != nil {
+		return nil, err
+	}
+	var grants []safeio.FSGrant
+	for i := int64(1); i <= sz; i++ {
+		grantV, err := rt.Index(t, val, rt.IntValue(i))
+		if err != nil {
+			return nil, err
+		}
+		grant, err := getFSGrant(t, grantV)
+		if err != nil {
+			return nil, fmt.Errorf("fs grant #%d: %w", i, err)
+		}
+		grants = append(grants, grant)
+	}
+	return grants, nil
+}
+
+func getFSGrant(t *rt.Thread, val rt.Value) (g safeio.FSGrant, err error) {
+	dirV, err := rt.Index(t, val, dirString)
+	if err != nil {
+		return
+	}
+	dir, ok := dirV.TryString()
+	if !ok || dir == "" {
+		return g, fmt.Errorf("%s must be a non-empty string", dirName)
+	}
+	allowedV, err := rt.Index(t, val, allowedString)
+	if err != nil {
+		return
+	}
+	allowed, ok := allowedV.TryString()
+	if !ok {
+		return g, fmt.Errorf("%s must be a string", allowedName)
+	}
+	actions, err := safeio.ParseFSActions(allowed)
+	if err != nil {
+		return
+	}
+	return safeio.FSGrant{Dir: dir, Actions: actions}, nil
+}
+
 const (
 	secondsName = "seconds"
 	millisName  = "millis"
 	cpuName     = "cpu"
 	memoryName  = "memory"
+	dirName     = "dir"
+	allowedName = "allowed"
 )
 
 var (
@@ -183,4 +245,6 @@ var (
 	millisString  = rt.StringValue(millisName)
 	cpuString     = rt.StringValue(cpuName)
 	memoryString  = rt.StringValue(memoryName)
+	dirString     = rt.StringValue(dirName)
+	allowedString = rt.StringValue(allowedName)
 )

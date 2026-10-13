@@ -5,6 +5,7 @@
     - [Meaning of limiting CPU](#meaning-of-limiting-cpu)
     - [Meaning of limiting memory](#meaning-of-limiting-memory)
     - [Other restrictions](#other-restrictions)
+    - [Restricting file access](#restricting-file-access)
   - [Safe Execution Interface](#safe-execution-interface)
     - [In the standalone golua interpreter](#in-the-standalone-golua-interpreter)
     - [Within a Lua program](#within-a-lua-program)
@@ -42,7 +43,7 @@ It can be useful to be able to run untrusted code safely. This is why Golua
 allows code to be run in a restricted execution environment. This means the following:
 - the "amount of CPU" available to the code can be limited
 - the "amount of memory" available to the code can be limited
-- file IO can be disabled
+- file IO can be disabled, or restricted to some directories
 - unsafe Go functions accessible via modules can be disabled
 
 ### Meaning of limiting CPU
@@ -87,6 +88,44 @@ The program is required to terminate before the limit is reached.
 
 When these restricitions are in place, trying to call a function that perform IO
 access (or runs unsafe) should return an error, but not terminate the program.
+
+### Restricting file access
+
+Rather than disabling file IO altogether, a context can be given access to some
+directories only.  Each directory is granted a set of actions:
+
+- `r`: read a file
+- `w`: write to an existing file
+- `c`: create a file
+- `d`: delete or rename a file
+- `*`: all of the above
+
+Files outside the granted directories cannot be accessed at all.  This is
+enforced using Go's [`os.Root`](https://pkg.go.dev/os#Root), so a file cannot
+escape a granted directory via `..`, symbolic links or alternative spellings of
+its path.  Note that hard links and mount points inside a granted directory are
+not detected.
+
+The rules are as follows.
+- An action on a file is allowed if any granted directory containing the file
+  allows it.  So a grant cannot restrict access to part of another granted
+  directory.  E.g. `{dir=".", allowed="r"}, {dir="out", allowed="*"}` allows
+  reading anything in the current directory but writing only in `out`.
+- Relative paths are resolved against the process's current directory.
+- Opening an existing file with a mode that may create it (e.g. `"w"` or `"a"`)
+  does not require `c`.
+- Renaming a file requires `d` and `c` on a single granted directory containing
+  both the old and new names.
+- Temporary files (`io.tmpfile()`, `os.tmpname()`) are created in the system
+  temporary directory, so they are only available if that directory is granted
+  with `c`.
+- In a nested context, each directory must be inside a directory granted by the
+  parent context, and its actions are narrowed to those the parent allows.
+
+Restricting file access requires the `iosafe` flag in the context, so functions
+that cannot be restricted (e.g. `io.popen`, `os.execute`) are unavailable.  If
+the `iosafe` flag is required without granting any directories, no file can be
+accessed.
 
 ## Safe Execution Interface
 
@@ -175,6 +214,17 @@ of the following attributes.
 - `stop`: same format as `kill` but describes soft limits.  It will be used to
   set the context's soft resource limits.
 - `flags`: same format as for a context definition (e.g. `"cpusafe memsafe"`)
+- `fs`: if set, it should be a list of tables of the form `{dir="path/to/dir",
+  allowed="rw"}`, granting access to directories as described in [Restricting
+  file access](#restricting-file-access).  An empty list means no file can be
+  accessed.  It is an error to grant a directory that the current context cannot
+  access.
+
+E.g. to call `f` with read-only access to the `data` directory and full access
+to the `out` directory:
+```lua
+runtime.callcontext({fs={{dir="data", allowed="r"}, {dir="out", allowed="*"}}}, f)
+```
 
 Here is a simple example of using this function in the golua repl:
 ```lua
@@ -244,9 +294,26 @@ to specify the properties of a new execution context to create.
 type RuntimeContextDef struct {
 	HardLimits     RuntimeResources
 	SoftLimits     RuntimeResources
-	RequiredFlags    ComplianceFlags
+	RequiredFlags  ComplianceFlags
 	MessageHandler Callable
+	FSAccess       *safeio.FSAccess
 }
+```
+
+`FSAccess` restricts file access as described in [Restricting file
+access](#restricting-file-access).  It must be obtained from the current
+context's `FSAccess()` (`safeio.Unrestricted` for a new runtime) and the new
+context takes ownership of it, i.e. it is closed when the context is popped.
+
+```golang
+access, err := r.FSAccess().Restrict([]safeio.FSGrant{
+    {Dir: "data", Actions: safeio.ReadAction},
+    {Dir: "out", Actions: safeio.AllActions},
+})
+if err != nil {
+    // e.g. a directory does not exist
+}
+r.PushContext(rt.RuntimeContextDef{FSAccess: access})
 ```
 
 As mentioned above, a Lua runtime is of type `*runtime.Runtime` and implements
@@ -508,11 +575,16 @@ const (
 	// computation.
 	ComplyCpuSafe
 
-	// Only execute code that complies with IO restrictions (currently only
-	// functions that do no IO comply with this)
+	// Only execute code that complies with IO restrictions, i.e. functions
+	// that do no IO or only access the filesystem via the safeio package.
 	ComplyIoSafe
 )
 ```
+
+A Go function declaring `ComplyIoSafe` must access files only via the functions
+in the `safeio` package (`safeio.OpenFile`, `safeio.RemoveFile`,
+`safeio.RenameFile`, `safeio.TempFile`), passing them the `*rt.Runtime`, so that
+the current context's file access restrictions are enforced.
 
 #### `(*GoFunction).SolemnlyDeclareCompliance(ComplianceFlags)`
 

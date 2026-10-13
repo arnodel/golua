@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         pool:
-          - ''           # default (WeakPool on Go 1.24)
+          - ''           # default (WeakPool)
           - 'clone'
           - 'unsafe'
         build_tags:
@@ -25,7 +25,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.25'
 
     - name: All tests
       env:
@@ -54,24 +54,6 @@ jobs:
         GOLUA_POOL: ${{ matrix.pool }}
       run: ../golua -u -e "_U=true" -e "_port=true" all.lua
       working-directory: ./lua-test-suite
-
-  # Backward compatibility test with older Go (WeakPool excluded by build tag)
-  test-compat:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.22'
-
-    - name: All tests
-      run: go test -coverprofile="coverage.txt" -covermode=atomic ./...
-
-    - name: Build CLI
-      run: go build
 
   # Forward compatibility test with the latest Go release. Catches breakage from
   # tightened linker rules around //go:linkname (see issue #128).
@@ -107,7 +89,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.25'
 
     - name: All tests
       run: go test -coverprofile="coverage.txt" -covermode=atomic ./...
