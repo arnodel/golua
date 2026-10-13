@@ -83,7 +83,9 @@ func TestUnsafePoolFinalize(t *testing.T) {
 	}
 
 	// In the "GC thread", go collect all the objs in reverse index order.
+	gcDone := make(chan struct{})
 	go func() {
+		defer close(gcDone)
 		for j := nObjs - 1; j >= 0; j-- {
 			c.GC(objs[j])
 		}
@@ -100,6 +102,11 @@ func TestUnsafePoolFinalize(t *testing.T) {
 			j -= 2
 		}
 	}
+
+	// The last object extracted is objs[1], but the GC thread may not have
+	// processed objs[0] yet.  Wait for it so that it doesn't interfere with the
+	// collections below.
+	<-gcDone
 
 	// All weakrefs are still alive because the pool cleared their resurrected
 	// and reinstalled a finalizer for them.
@@ -175,7 +182,9 @@ func TestUnsafePoolRelease(t *testing.T) {
 	}
 
 	// In the "GC thread", go collect all the objs in reverse index order.
+	gcDone := make(chan struct{})
 	go func() {
+		defer close(gcDone)
 		for j := nObjs - 1; j >= 0; j-- {
 			c.GC(objs[j])
 		}
@@ -192,6 +201,11 @@ func TestUnsafePoolRelease(t *testing.T) {
 			j -= 2
 		}
 	}
+
+	// The last object extracted is objs[1], but the GC thread may not have
+	// processed objs[0] yet.  Wait for it so that it doesn't interfere with the
+	// collections below.
+	<-gcDone
 
 	// All weakrefs are still alive because the pool cleared their resurrected
 	// and reinstalled a finalizer for them.
