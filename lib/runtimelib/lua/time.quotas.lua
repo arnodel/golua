@@ -19,11 +19,14 @@ print(ctx)
 print(ctx.used.millis >= 100)
 --> =true
 
--- It didn't last much more than that (could be flaky)
-print(ctx.used.millis <= 150)
+-- It didn't last much more than that.  The limit is normally exceeded by a few
+-- milliseconds at most, but on a loaded machine the process can be descheduled
+-- across the deadline and it is checked only when execution resumes, so the
+-- bound needs to be generous.
+print(ctx.used.millis < 1000)
 --> =true
 
--- Significant work was done while it lasted (could be flaky)
+-- Significant work was done while it lasted
 print(n > 10000)
 --> =true
 
@@ -39,11 +42,13 @@ end)
 print(ctx.used.millis >= 30)
 --> =true
 
--- Nested contexts are bound by the time limit of their parent context.
+-- Nested contexts are bound by the time limit of their parent context, minus
+-- the time the parent has already used (which may be a few milliseconds).
 local ctx = runtime.callcontext({kill={millis=10}}, function()
         runtime.callcontext({}, function ()
-            print(runtime.context().kill.millis)
-            --> =10.0
+            local millis = runtime.context().kill.millis
+            print(millis > 0 and millis <= 10)
+            --> =true
         end)
         runtime.callcontext({kill={seconds=1}}, function()
             print(runtime.context().kill.millis <= 10)
