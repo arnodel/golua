@@ -173,14 +173,18 @@ Command line flags allow running the interpreter with restrictions.  Here is the
 relevant extract from `golua -help`:
 ```
   -cpulimit uint
-        CPU limit
+    	CPU limit
+  -cwd string
+    	run as if started in this directory (the script path is relative to it too)
+  -flags string
+    	compliance flags turned on
   -memlimit uint
-        memory limit
-  -nogolib
-        disable Go bridge
-  -noio
-        disable file IO
+    	memory limit
 ```
+
+E.g. `golua -flags iosafe script.lua` runs `script.lua` with no file access, and
+`golua -cwd stories/cellar main.lua` runs `stories/cellar/main.lua` with
+`stories/cellar` as its [working directory](#working-directory).
 
 ### Within a Lua program
 
