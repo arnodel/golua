@@ -8,9 +8,13 @@ import (
 	"testing"
 )
 
-type accessor struct{ a *FSAccess }
+type accessor struct {
+	a  *FSAccess
+	wd string
+}
 
 func (a accessor) FSAccess() *FSAccess { return a.a }
+func (a accessor) WorkDir() string     { return a.wd }
 
 // setupDirs creates the following tree in a temporary directory and makes it
 // the current directory.
@@ -49,7 +53,7 @@ func restrict(t *testing.T, parent *FSAccess, grants ...FSGrant) accessor {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { a.Close() })
-	return accessor{a}
+	return accessor{a: a}
 }
 
 func checkOpen(t *testing.T, a accessor, name string, flag int, wantErr error) {
@@ -77,7 +81,7 @@ func checkOpenFails(t *testing.T, a accessor, name string, flag int) {
 
 func TestUnrestricted(t *testing.T) {
 	setupDirs(t)
-	a := accessor{Unrestricted}
+	a := accessor{a: Unrestricted}
 	checkOpen(t, a, "other/s.txt", os.O_RDONLY, nil)
 	checkOpen(t, a, "other/new.txt", os.O_WRONLY|os.O_CREATE, nil)
 	if err := RenameFile(a, "other/new.txt", "sandbox/new.txt"); err != nil {
@@ -90,7 +94,7 @@ func TestUnrestricted(t *testing.T) {
 
 func TestNoAccess(t *testing.T) {
 	setupDirs(t)
-	a := accessor{NoAccess}
+	a := accessor{a: NoAccess}
 	checkOpen(t, a, "sandbox/a.txt", os.O_RDONLY, ErrNotAllowed)
 	if _, err := TempFile(a, "", ""); !errors.Is(err, ErrNotAllowed) {
 		t.Errorf("TempFile: expected ErrNotAllowed, got %v", err)
@@ -254,6 +258,87 @@ func TestParseFSActions(t *testing.T) {
 		got, err := ParseFSActions(tt.s)
 		if (err != nil) != tt.err || got != tt.want {
 			t.Errorf("ParseFSActions(%q) = %v, %v", tt.s, got, err)
+		}
+	}
+}
+
+func TestWorkDirUnrestricted(t *testing.T) {
+	dir := setupDirs(t)
+	a := accessor{a: Unrestricted, wd: filepath.Join(dir, "sandbox")}
+
+	checkOpen(t, a, "a.txt", os.O_RDONLY, nil)
+	checkOpen(t, a, "sub/b.txt", os.O_RDONLY, nil)
+	checkOpen(t, a, "../other/s.txt", os.O_RDONLY, nil)
+	// Absolute paths are not affected
+	checkOpen(t, a, filepath.Join(dir, "other", "s.txt"), os.O_RDONLY, nil)
+
+	// Errors report the name as written
+	_, err := OpenFile(a, "missing.txt", os.O_RDONLY, 0)
+	var pe *fs.PathError
+	if !errors.As(err, &pe) || pe.Path != "missing.txt" {
+		t.Errorf("expected a PathError for %q, got %v", "missing.txt", err)
+	}
+
+	checkOpen(t, a, "new.txt", os.O_WRONLY|os.O_CREATE, nil)
+	if err := RenameFile(a, "new.txt", "renamed.txt"); err != nil {
+		t.Error(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "sandbox", "renamed.txt")); err != nil {
+		t.Errorf("rename did not happen in the working directory: %v", err)
+	}
+	var le *os.LinkError
+	if err := RenameFile(a, "missing.txt", "x.txt"); !errors.As(err, &le) || le.Old != "missing.txt" || le.New != "x.txt" {
+		t.Errorf("expected a LinkError with names as written, got %v", err)
+	}
+	if err := RemoveFile(a, "renamed.txt"); err != nil {
+		t.Error(err)
+	}
+	f, err := TempFile(a, "sub", "tmp*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if filepath.Dir(f.Name()) != filepath.Join(dir, "sandbox", "sub") {
+		t.Errorf("temp file %q not in the working directory", f.Name())
+	}
+}
+
+func TestWorkDirRestricted(t *testing.T) {
+	dir := setupDirs(t)
+	r := restrict(t, Unrestricted, FSGrant{Dir: "sandbox", Actions: ReadAction})
+	a := accessor{a: r.a, wd: filepath.Join(dir, "sandbox", "sub")}
+
+	// Resolved against the working directory, then checked against the grants
+	checkOpen(t, a, "b.txt", os.O_RDONLY, nil)
+	checkOpen(t, a, "../a.txt", os.O_RDONLY, nil)
+	checkOpen(t, a, "../../other/s.txt", os.O_RDONLY, ErrNotAllowed)
+	checkOpen(t, a, "../../sandbox-evil/e.txt", os.O_RDONLY, ErrNotAllowed)
+
+	// A working directory outside every grant is not an error, but relative
+	// paths there are not allowed.
+	outside := accessor{a: r.a, wd: filepath.Join(dir, "other")}
+	checkOpen(t, outside, "s.txt", os.O_RDONLY, ErrNotAllowed)
+	checkOpen(t, outside, "../sandbox/a.txt", os.O_RDONLY, nil)
+
+	// Errors report the name as written, not relative to the granted directory
+	_, err := OpenFile(a, "missing.txt", os.O_RDONLY, 0)
+	var pe *fs.PathError
+	if !errors.As(err, &pe) || pe.Path != "missing.txt" {
+		t.Errorf("expected a PathError for %q, got %v", "missing.txt", err)
+	}
+}
+
+func TestInWorkDir(t *testing.T) {
+	abs, _ := filepath.Abs("x")
+	tests := []struct{ wd, name, want string }{
+		{"", "a.txt", "a.txt"},
+		{filepath.Dir(abs), "a.txt", filepath.Join(filepath.Dir(abs), "a.txt")},
+		{filepath.Dir(abs), abs, abs},
+		{filepath.Dir(abs), "", ""},
+	}
+	for _, tt := range tests {
+		if got := InWorkDir(accessor{wd: tt.wd}, tt.name); got != tt.want {
+			t.Errorf("InWorkDir(%q, %q) = %q, want %q", tt.wd, tt.name, got, tt.want)
 		}
 	}
 }

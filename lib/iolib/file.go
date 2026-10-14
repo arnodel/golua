@@ -102,7 +102,11 @@ func OpenFile(r *rt.Runtime, name, mode string) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewFile(f, options), nil
+	file := NewFile(f, options)
+	// Report the name as given rather than as resolved against the working
+	// directory.
+	file.name = name
+	return file, nil
 }
 
 // TempFile tries to make a temporary file, and if successful schedules the file

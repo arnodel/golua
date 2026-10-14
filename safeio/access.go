@@ -65,9 +65,14 @@ var (
 var ErrNotAllowed = errors.New("safeio: operation not allowed")
 
 // FSAccessor is implemented by types that can tell what file system access is
-// currently allowed (e.g. *runtime.Runtime).
+// currently allowed and what relative paths are relative to (e.g.
+// *runtime.Runtime).
 type FSAccessor interface {
 	FSAccess() *FSAccess
+
+	// WorkDir returns the directory relative paths resolve against, or the
+	// empty string for the process's working directory.
+	WorkDir() string
 }
 
 // IsUnrestricted returns true if a allows any action on any file.
