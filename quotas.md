@@ -221,9 +221,17 @@ Additionally there are two methods that allow mutation of the context.
 
 - `ctx:killnow()` updates the context's state so that its hard limits are
   considered exhausted.  The effect on a running context will be to be
-  terminated immediately.
+  terminated immediately.  If `ctx` is not the current context but one of its
+  ancestors, the current context is terminated immediately, and so is every
+  context between it and `ctx` (including `ctx`) as control returns to it, so no
+  more code runs in any of them.
 - `ctx:stopnow()` update the context's state so that its soft limits are
   considered exhausted.  The effect is that `ctx.due` returns true.
+
+A context object keeps referring to the same context: one obtained with
+`runtime.context()` and used inside a nested context still describes (and
+acts on) the context it was obtained in, and once that context has finished it
+describes its final state.
 
 #### `runtime.callcontext(ctxdef, f, [arg1, ...])`
 
@@ -282,9 +290,11 @@ This function terminates the current context immediately, returning to the
 parent context.  It is as if a hard resource limit had been hit. It can be used
 when a soft resource limit has been hit and the program decides to stop.
 
-Alternatively contexts have a method to achieve the same: `ctx:killnow()`.  On a
-context that is not currently running, the effect is to kill it as soon at it is
-resumed.
+Alternatively contexts have a method to achieve the same: `ctx:killnow()`, also
+available as `runtime.killcontext(ctx)`.  On an ancestor of the current context,
+it terminates the current context and every context up to and including `ctx`
+(see `ctx:killnow()` above).
+
 #### `runtime.contextdue()`
 
 This function returns true if any of the soft resource limits has been hit on
@@ -303,9 +313,13 @@ Alternatively contexts have a method to achieve the same: `ctx:stopnow()`.
 
 ### When embedding a runtime in Go
 
-There is a `RuntimeContext` interface in the `runtime` package.  It is
-implemented by `*runtime.Runtime` and allows inspection of the current execution
-context.  We will see further down that contexts that are terminated are also
+There is a `RuntimeContext` interface in the `runtime` package.
+`(*Runtime).RuntimeContext()` returns the current execution context, which
+allows inspecting it.  The value returned keeps referring to that context while
+other contexts are pushed and popped, as does the value returned by `Parent()`.
+Calling `SetStopLevel(HardStop)` on an ancestor of the current context
+terminates the current context, and each context up to and including the
+ancestor as control returns to it.  We will see further down that contexts that are terminated are also
 available via this interface.
 
 ```golang

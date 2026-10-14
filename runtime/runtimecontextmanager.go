@@ -50,6 +50,15 @@ type runtimeContextManager struct {
 	// workDir is the directory relative paths resolve against, or empty for
 	// the process's working directory.
 	workDir string
+
+	// root is the live manager, whose value is the current context.  Other
+	// values of this type are copies: the ancestors of the current context
+	// (in the parent chain) and contexts that have finished.
+	root *runtimeContextManager
+
+	// handle is the stable RuntimeContext for this context, created on
+	// demand by RuntimeContext() and Parent().
+	handle *contextHandle
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
@@ -58,6 +67,7 @@ func (m *runtimeContextManager) initRoot() {
 	m.gcPolicy = IsolateGCPolicy
 	m.weakRefPool = m.poolFactory()
 	m.fsAccess = safeio.Unrestricted
+	m.root = m
 }
 
 func (m *runtimeContextManager) HardLimits() RuntimeResources {
@@ -93,22 +103,64 @@ func (m *runtimeContextManager) CheckRequiredFlags(flags ComplianceFlags) error 
 }
 
 func (m *runtimeContextManager) Parent() RuntimeContext {
-	return m.parent
+	if m.parent == nil {
+		return nil
+	}
+	if m.status != StatusLive {
+		// m has finished so its parent copy is stale.
+		return m.parent
+	}
+	return m.parent.getHandle()
 }
 
 func (m *runtimeContextManager) SetStopLevel(stopLevel StopLevel) {
 	m.stopLevel |= stopLevel
-	if stopLevel&HardStop != 0 && m.status == StatusLive {
-		m.KillContext()
+	if stopLevel&HardStop == 0 || m.status != StatusLive {
+		return
 	}
+	if m == m.root {
+		m.KillContext()
+		return
+	}
+	// m is not the current context.  If it is one of its ancestors, the
+	// current context and every context between it and m are stopped too: the
+	// current one now, and each of the others as soon as it becomes current
+	// again (see PopContext).  Killing m directly would instead panic out of
+	// the current context, leaving m killed but running.
+	if !m.root.hasAncestor(m) {
+		return
+	}
+	for c := m.root; c != m; c = c.parent {
+		c.stopLevel |= HardStop
+	}
+	m.root.KillContext()
+}
+
+// hasAncestor returns true if a is in m's parent chain.
+func (m *runtimeContextManager) hasAncestor(a *runtimeContextManager) bool {
+	for c := m.parent; c != nil; c = c.parent {
+		if c == a {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *runtimeContextManager) Due() bool {
 	return m.stopLevel&SoftStop != 0 || !m.softLimits.Dominates(m.usedResources)
 }
 
+// RuntimeContext returns the current context.  The value returned keeps
+// referring to the same context after other contexts are pushed or popped.
 func (m *runtimeContextManager) RuntimeContext() RuntimeContext {
-	return m
+	return m.getHandle()
+}
+
+func (m *runtimeContextManager) getHandle() *contextHandle {
+	if m.handle == nil {
+		m.handle = &contextHandle{live: m.root}
+	}
+	return m.handle
 }
 
 func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
@@ -116,6 +168,7 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 		m.updateTimeUsed()
 	}
 	parent := *m
+	m.handle = nil // m is now a new context
 	m.startTime = now()
 	m.hardLimits = m.hardLimits.Remove(m.usedResources).Merge(ctx.HardLimits)
 	m.softLimits = m.hardLimits.Merge(m.softLimits).Merge(ctx.SoftLimits)
@@ -175,6 +228,9 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 	if mCopy.status == StatusLive {
 		mCopy.status = StatusDone
 	}
+	if mCopy.handle != nil {
+		mCopy.handle.final = &mCopy
+	}
 	// Restore the parent before charging it with what the child used.
 	// Charging can terminate the parent, and terminating panics out of
 	// PopContext: if the parent were not current yet, the enclosing
@@ -182,6 +238,10 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 	// current, where TerminateContext does nothing and code that should have
 	// stopped keeps running.
 	*m = *m.parent
+	if m.stopLevel&HardStop != 0 {
+		// The parent was stopped while it was not current (see SetStopLevel).
+		m.KillContext()
+	}
 	m.RequireCPU(mCopy.usedResources.Cpu)
 	m.RequireMem(mCopy.usedResources.Memory)
 	if m.trackTime {
