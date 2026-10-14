@@ -160,6 +160,8 @@ func execute(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	} else {
 		cmd = exec.Command("sh", "-c", cmdStr)
 	}
+	// Run in the context's working directory (empty means the process's).
+	cmd.Dir = t.WorkDir()
 
 	// Pipe stdout to Runtime.Stdout (fall back to os.Stdout if nil)
 	// Note: stderr is not redirected, matching C system() behavior

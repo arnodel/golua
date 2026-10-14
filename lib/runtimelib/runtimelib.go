@@ -51,6 +51,8 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr error) {
 		limitsV     = quotas.Get(rt.StringValue("kill"))
 		softLimitsV = quotas.Get(rt.StringValue("stop"))
 		fsV         = quotas.Get(rt.StringValue("fs"))
+		cwdV        = quotas.Get(rt.StringValue("cwd"))
+		workDir     string
 		hardLimits  rt.RuntimeResources
 		softLimits  rt.RuntimeResources
 		f           = c.Arg(1)
@@ -84,6 +86,14 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr error) {
 		}
 	}
 
+	if !cwdV.IsNil() {
+		var ok bool
+		workDir, ok = cwdV.TryString()
+		if !ok || workDir == "" {
+			return nil, errors.New("cwd must be a non-empty string")
+		}
+	}
+
 	var fsAccess *safeio.FSAccess
 	if !fsV.IsNil() {
 		grants, err := getFSGrants(t, fsV)
@@ -104,6 +114,7 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr error) {
 		SoftLimits:    softLimits,
 		RequiredFlags: flags,
 		FSAccess:      fsAccess,
+		WorkDir:       workDir,
 	}, func() error {
 		return rt.Call(t, f, fArgs, res)
 	})
@@ -228,7 +239,9 @@ func getFSGrant(t *rt.Thread, val rt.Value) (g safeio.FSGrant, err error) {
 	if err != nil {
 		return
 	}
-	return safeio.FSGrant{Dir: dir, Actions: actions}, nil
+	// Like cwd, a relative dir is relative to the current context's working
+	// directory.
+	return safeio.FSGrant{Dir: safeio.InWorkDir(t.Runtime, dir), Actions: actions}, nil
 }
 
 const (

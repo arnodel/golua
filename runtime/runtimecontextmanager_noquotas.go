@@ -17,6 +17,7 @@ type runtimeContextManager struct {
 	parent         *runtimeContextManager
 	weakRefPool    luagc.Pool
 	poolFactory    func() luagc.Pool
+	workDir        string
 }
 
 var _ RuntimeContext = (*runtimeContextManager)(nil)
@@ -76,6 +77,9 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	_ = ctx.FSAccess.Close()
 	parent := *m
 	m.messageHandler = ctx.MessageHandler
+	// The working directory changes what paths mean, not what is allowed, so
+	// it applies even though restrictions are not enforced.
+	m.workDir = resolveWorkDir(m.workDir, ctx.WorkDir)
 	m.parent = &parent
 }
 
@@ -137,6 +141,10 @@ func (m *runtimeContextManager) LinearUnused(cpuFactor uint64) uint64 {
 }
 
 func (m *runtimeContextManager) LinearRequire(cpuFactor uint64, amt uint64) {
+}
+
+func (m *runtimeContextManager) WorkDir() string {
+	return m.workDir
 }
 
 func (m *runtimeContextManager) FSAccess() *safeio.FSAccess {

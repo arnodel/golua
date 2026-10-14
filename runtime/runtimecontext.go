@@ -14,6 +14,12 @@ type RuntimeContextDef struct {
 	// context takes ownership of it and closes it when it is popped.  If it is
 	// non-nil, ComplyIoSafe is required in the new context.
 	FSAccess *safeio.FSAccess
+
+	// WorkDir is the directory relative paths resolve against in the
+	// context.  If empty, it is the parent context's; a relative WorkDir
+	// resolves against the parent's.  The root context's working directory
+	// is the process's.
+	WorkDir string
 	GCPolicy
 }
 

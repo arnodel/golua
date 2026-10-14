@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/arnodel/golua/ast"
@@ -26,6 +27,7 @@ type luaCmd struct {
 	cpuLimit       uint64
 	memLimit       uint64
 	flags          string
+	workDir        string
 	exec           execFlags
 
 	complianceFlags rt.ComplianceFlags
@@ -37,6 +39,7 @@ func (c *luaCmd) setFlags() {
 	flag.BoolVar(&c.unbufferedFlag, "u", false, "Force unbuffered output")
 	flag.BoolVar(&c.reservedGlobal, "G", false, "Make 'global' a reserved keyword")
 	flag.Var(&c.exec, "e", "statement to execute")
+	flag.StringVar(&c.workDir, "cwd", "", "run as if started in this directory (the script path is relative to it too)")
 
 	if rt.QuotasAvailable {
 		flag.Uint64Var(&c.cpuLimit, "cpulimit", 0, "CPU limit")
@@ -71,6 +74,12 @@ func (c *luaCmd) run() (retcode int) {
 		}
 	}
 
+	if c.workDir != "" {
+		if info, err := os.Stat(c.workDir); err != nil || !info.IsDir() {
+			return fatal("Invalid -cwd: %q is not a directory", c.workDir)
+		}
+	}
+
 	// Get a Lua runtime
 	var rtOpts []rt.RuntimeOption
 	if c.reservedGlobal {
@@ -92,7 +101,11 @@ func (c *luaCmd) run() (retcode int) {
 	}
 	if flag.NArg() > 0 {
 		chunkName = flag.Arg(0)
-		chunk, err = ioutil.ReadFile(chunkName)
+		chunkPath := chunkName
+		if c.workDir != "" && !filepath.IsAbs(chunkPath) {
+			chunkPath = filepath.Join(c.workDir, chunkPath)
+		}
+		chunk, err = ioutil.ReadFile(chunkPath)
 		if err != nil {
 			return fatal("Error reading '%s': %s", chunkName, err)
 		}
@@ -261,6 +274,7 @@ func (c *luaCmd) pushContext(r *rt.Runtime) {
 		},
 		RequiredFlags:  c.complianceFlags,
 		MessageHandler: debuglib.Traceback,
+		WorkDir:        c.workDir,
 	})
 }
 

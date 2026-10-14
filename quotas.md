@@ -6,6 +6,7 @@
     - [Meaning of limiting memory](#meaning-of-limiting-memory)
     - [Other restrictions](#other-restrictions)
     - [Restricting file access](#restricting-file-access)
+    - [Working directory](#working-directory)
   - [Safe Execution Interface](#safe-execution-interface)
     - [In the standalone golua interpreter](#in-the-standalone-golua-interpreter)
     - [Within a Lua program](#within-a-lua-program)
@@ -111,7 +112,8 @@ The rules are as follows.
   allows it.  So a grant cannot restrict access to part of another granted
   directory.  E.g. `{dir=".", allowed="r"}, {dir="out", allowed="*"}` allows
   reading anything in the current directory but writing only in `out`.
-- Relative paths are resolved against the process's current directory.
+- Relative paths are resolved against the context's [working
+  directory](#working-directory) first, then checked against the grants.
 - Opening an existing file with a mode that may create it (e.g. `"w"` or `"a"`)
   does not require `c`.
 - Renaming a file requires `d` and `c` on a single granted directory containing
@@ -126,6 +128,33 @@ Restricting file access requires the `iosafe` flag in the context, so functions
 that cannot be restricted (e.g. `io.popen`, `os.execute`) are unavailable.  If
 the `iosafe` flag is required without granting any directories, no file can be
 accessed.
+
+### Working directory
+
+Each context has a working directory, which relative paths resolve against.
+The root context's is the process's working directory.  A new context inherits
+its parent's unless it sets one, and a relative working directory is relative to
+the parent's.
+
+The working directory changes what paths mean, not what is allowed, so:
+- it applies to every path golua resolves: `io.open`, `io.lines`, `io.input`,
+  `io.output`, `dofile`, `loadfile`, `require`, `os.remove`, `os.rename`,
+  `os.tmpname`, `io.tmpfile`;
+- `io.popen` and `os.execute` run their command in it;
+- it applies even when file access is not restricted, including in `noquotas`
+  builds;
+- it can be outside every granted directory: relative paths there are simply not
+  allowed.
+
+Paths are reported as written, e.g. in error messages and `tostring(file)`,
+rather than as resolved, so they don't reveal the host's directory layout.
+
+E.g. to run a script with read access to its document's directory, and that
+directory as its working directory, so that `dofile`, `io.open` and `require`
+(with the default `package.path`) work relative to the document:
+```lua
+runtime.callcontext({cwd="stories/cellar", fs={{dir="stories/cellar", allowed="r"}}}, f)
+```
 
 ## Safe Execution Interface
 
@@ -144,14 +173,18 @@ Command line flags allow running the interpreter with restrictions.  Here is the
 relevant extract from `golua -help`:
 ```
   -cpulimit uint
-        CPU limit
+    	CPU limit
+  -cwd string
+    	run as if started in this directory (the script path is relative to it too)
+  -flags string
+    	compliance flags turned on
   -memlimit uint
-        memory limit
-  -nogolib
-        disable Go bridge
-  -noio
-        disable file IO
+    	memory limit
 ```
+
+E.g. `golua -flags iosafe script.lua` runs `script.lua` with no file access, and
+`golua -cwd stories/cellar main.lua` runs `stories/cellar/main.lua` with
+`stories/cellar` as its [working directory](#working-directory).
 
 ### Within a Lua program
 
@@ -218,7 +251,11 @@ of the following attributes.
   allowed="rw"}`, granting access to directories as described in [Restricting
   file access](#restricting-file-access).  An empty list means no file can be
   accessed.  It is an error to grant a directory that the current context cannot
-  access.
+  access.  A relative `dir` is relative to the current context's working
+  directory.
+- `cwd`: if set, a non-empty string giving the new context's [working
+  directory](#working-directory).  A relative `cwd` is relative to the current
+  context's working directory.
 
 E.g. to call `f` with read-only access to the `data` directory and full access
 to the `out` directory:
@@ -297,8 +334,12 @@ type RuntimeContextDef struct {
 	RequiredFlags  ComplianceFlags
 	MessageHandler Callable
 	FSAccess       *safeio.FSAccess
+	WorkDir        string
 }
 ```
+
+`WorkDir` sets the context's [working directory](#working-directory).  If empty,
+the parent context's is used; if relative, it is relative to the parent's.
 
 `FSAccess` restricts file access as described in [Restricting file
 access](#restricting-file-access).  It must be obtained from the current
@@ -315,6 +356,10 @@ if err != nil {
 }
 r.PushContext(rt.RuntimeContextDef{FSAccess: access})
 ```
+
+`Restrict` resolves relative grant directories against the process's working
+directory.  To resolve them against the current context's, use
+`safeio.InWorkDir(r, dir)`.
 
 As mentioned above, a Lua runtime is of type `*runtime.Runtime` and implements
 the `RuntimeContext` interface.  It also implements two methods.
@@ -584,7 +629,8 @@ const (
 A Go function declaring `ComplyIoSafe` must access files only via the functions
 in the `safeio` package (`safeio.OpenFile`, `safeio.RemoveFile`,
 `safeio.RenameFile`, `safeio.TempFile`), passing them the `*rt.Runtime`, so that
-the current context's file access restrictions are enforced.
+the current context's file access restrictions are enforced, and relative paths
+are resolved against its working directory.
 
 #### `(*GoFunction).SolemnlyDeclareCompliance(ComplianceFlags)`
 

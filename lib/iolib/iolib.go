@@ -402,6 +402,7 @@ func popen(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	cmd := exec.Cmd{
 		Path: cmdArgs[0],
 		Args: cmdArgs,
+		Dir:  t.WorkDir(), // the context's working directory (empty means the process's)
 	}
 
 	outDummy, inDummy, err := os.Pipe()
