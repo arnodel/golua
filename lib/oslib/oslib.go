@@ -83,7 +83,7 @@ func date(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	switch format {
 	case "*t":
 		{
-			tbl := rt.NewTable()
+			tbl := t.NewTable()
 			setTableFields(t.Runtime, tbl, now)
 			date = rt.TableValue(tbl)
 		}

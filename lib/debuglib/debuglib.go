@@ -86,7 +86,7 @@ func getinfo(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	} else if info := cont.DebugInfo(); info == nil {
 		t.Push1(next, rt.NilValue)
 	} else {
-		res := rt.NewTable()
+		res := t.NewTable()
 		t.SetEnv(res, "name", rt.StringValue(info.Name))
 		t.SetEnv(res, "currentline", rt.IntValue(int64(info.CurrentLine)))
 		t.SetEnv(res, "source", rt.StringValue(info.Source))

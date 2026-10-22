@@ -322,7 +322,7 @@ RunLoop:
 					pc++
 					continue RunLoop
 				case code.OpMkVarargTable:
-					tbl := TableValue(newVarargTable(val.AsArray()))
+					tbl := TableValue(t.newVarargTable(val.AsArray()))
 					// Overwrite the etc register so ... expansion reads from
 					// the table (respecting t.n modifications).
 					setReg(regs, cells, opcode.GetB(), tbl)
@@ -348,8 +348,7 @@ RunLoop:
 				case code.OpCC:
 					res = ContValue(c)
 				case code.OpTable:
-					t.RequireMem(TableHeaderSize)
-					res = TableValue(NewTable())
+					res = TableValue(t.NewTable())
 				case code.OpStr0:
 					res = StringValue("")
 				case code.OpStr1:
@@ -608,5 +607,3 @@ func getReg(regs []Value, cells []Cell, reg code.Reg) Value {
 	}
 	return regs[reg.Idx()]
 }
-
-

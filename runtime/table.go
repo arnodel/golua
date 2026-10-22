@@ -14,9 +14,16 @@ type Table struct {
 	meta *Table
 }
 
-// NewTable returns a new Table.
+// NewTable returns a new Table without memory accounting. Use the method
+// (*Runtime).NewTable for tables created within a quota context.
 func NewTable() *Table {
 	return &Table{mixedTable: &mixedTable{}}
+}
+
+// NewTable returns an empty table, charging its header to the current context.
+func (r *Runtime) NewTable() *Table {
+	r.RequireMem(TableHeaderSize)
+	return NewTable()
 }
 
 // NewTableFromSlice creates a table whose array part references the given slice.

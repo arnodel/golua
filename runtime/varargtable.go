@@ -1,6 +1,9 @@
 package runtime
 
-import "errors"
+import (
+	"errors"
+	"unsafe"
+)
 
 // varargN is the key used to store the element count in a vararg table.
 var varargN = StringValue("n")
@@ -13,9 +16,12 @@ const maxVarargN = 1<<30 - 1
 
 // newVarargTable creates a vararg table (Lua 5.5) from a slice.
 // The table's array part references the slice directly, and t.n is set to the length.
-func newVarargTable(values []Value) *Table {
+func (r *Runtime) newVarargTable(values []Value) *Table {
+	// The backing slice is already accounted for by the varargs. Only the
+	// table and its new array wrapper are allocated here.
+	r.RequireMem(TableHeaderSize + uint64(unsafe.Sizeof(array{})))
 	t := NewTableFromSlice(values)
-	t.Set(varargN, IntValue(int64(len(values))))
+	r.RequireMem(t.Set(varargN, IntValue(int64(len(values)))))
 	return t
 }
 
