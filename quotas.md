@@ -25,6 +25,7 @@
     - [CPU limits](#cpu-limits)
       - [`(*Runtime).RequireCPU(n uint64)`](#runtimerequirecpun-uint64)
     - [Memory limits](#memory-limits)
+      - [`(*Runtime).NewTable() *Table`](#runtimenewtable-table)
       - [`(*Runtime).RequireMem(n uint64)`](#runtimerequirememn-uint64)
       - [`(*Runtime).ReleaseMem(n uint64)`](#runtimereleasememn-uint64)
       - [`(*Runtime).RequireBytes(n int) uint64`](#runtimerequirebytesn-int-uint64)
@@ -524,6 +525,18 @@ The approach is to call `RequireCPU` before a unit of work is done.
 ### Memory limits
 
 The basic means of enforcing memory limits are the following.  
+
+#### `(*Runtime).NewTable() *Table`
+
+Use `r.NewTable()` for tables created by Go functions while a quota context is
+active. It checks and charges the table header before creating the empty table.
+Use `r.SetTable` (or `r.SetEnv` for string keys) to charge subsequent storage
+growth. The package-level `runtime.NewTable()` is an unaccounted constructor
+for initialization or other allocation outside a quota context.
+
+Vararg tables also charge their new wrappers and the storage for `n`, but do not
+charge their shared argument slice again. These are allocation-accounting
+charges, not a measurement of resident memory or garbage collection.
 
 #### `(*Runtime).RequireMem(n uint64)`
 

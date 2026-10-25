@@ -258,7 +258,7 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 }
 
 func pack(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
-	tbl := rt.NewTable()
+	tbl := t.NewTable()
 	// We can use t.SetTable() because tbl has no metatable
 	for i, v := range c.Etc() {
 		// SetTable always consumes CPU so the loop is protected.
@@ -521,7 +521,7 @@ func create(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	softLimits := t.Runtime.SoftLimits()
 	if hardLimits.Memory > 0 || softLimits.Memory > 0 {
 		// Memory quotas are active - don't preallocate to avoid security issue
-		tbl = rt.NewTable()
+		tbl = t.NewTable()
 	} else {
 		// No memory quotas - preallocate for performance
 		tbl = rt.NewTableWithCapacity(int(nseq), int(nrec))

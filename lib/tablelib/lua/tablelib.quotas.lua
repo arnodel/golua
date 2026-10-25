@@ -7,6 +7,14 @@ local function mk(s, n)
     return t
 end
 
+-- Memory charged by calling f 10 times
+local function used(f)
+    local ctx = runtime.callcontext({kill={memory=100000}}, function()
+        for i = 1, 10 do f() end
+    end)
+    return ctx.used.memory or 0
+end
+
 do
     s1000 = ("a"):rep(1000)
 
@@ -110,6 +118,21 @@ do
 
     print(runtime.callcontext({kill={cpu=200}}, table.pack, table.unpack(mk("x", 200))))
     --> =killed
+
+    -- table.pack charges the header of the table it creates, like a table
+    -- constructor does
+    print(used(function() return table.pack() end) == used(function() return {n=0} end))
+    --> =true
+end
+
+-- table.create
+do
+    -- table.create charges the header of the table it creates, like a table
+    -- constructor does (with memory limits it doesn't preallocate)
+    print(used(function() return table.create(0, 0) end) == used(function() return {} end))
+    --> =true
+    print(used(function() return table.create(100, 100) end) == used(function() return {} end))
+    --> =true
 end
 
 -- table.remove
