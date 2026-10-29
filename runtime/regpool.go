@@ -39,12 +39,10 @@ func mkCellPool(max uint) cellPool {
 
 // poolClass returns the class of slices with capacity for n items and that
 // capacity, or a negative class and n itself if n is too large to be pooled.
-// The class is the smallest power of two not below n, from bits.Len.
+// The class is the smallest power of two not below n, from bits.Len; the
+// inner max keeps n-1 from wrapping when n is 0.
 func poolClass(n int) (class, size int) {
-	if n <= 1<<minPoolClass {
-		return 0, 1 << minPoolClass
-	}
-	class = bits.Len(uint(n-1)) - minPoolClass
+	class = max(0, bits.Len(uint(max(n, 1)-1))-minPoolClass)
 	if class >= poolClasses {
 		return -1, n
 	}
