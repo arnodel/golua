@@ -12,10 +12,6 @@ import (
 	"github.com/arnodel/golua/runtime/internal/luagc"
 )
 
-func init() {
-	luagc.RegisterPool("weak", func() luagc.Pool { return NewWeakPool() })
-}
-
 // WeakPool is an implementation of luagc.Pool that uses Go 1.24's weak.Pointer
 // for proper weak references and runtime.AddCleanup for GC notifications.
 // Unlike UnsafePool, this implementation uses official Go APIs and will not
