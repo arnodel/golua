@@ -39,7 +39,7 @@ func Index(t *Thread, coll Value, k Value) (Value, error) {
 				return val, nil
 			}
 		}
-		metaIdx := t.metaGetS(coll, "__index")
+		metaIdx := t.metaGet(coll, metaIndex)
 		if metaIdx.IsNil() {
 			if ok {
 				return NilValue, nil
@@ -79,7 +79,7 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) error {
 		if isTable && tbl.Reset(idx, val) {
 			return nil
 		}
-		metaNewIndex := t.metaGetS(coll, "__newindex")
+		metaNewIndex := t.metaGet(coll, metaNewindex)
 		if metaNewIndex.IsNil() {
 			if isTable {
 				// No need to call SetTableCheck
@@ -110,7 +110,13 @@ func Truth(v Value) bool {
 // Metacall calls the metamethod called method on obj with the given arguments
 // args, pushing the result to the continuation next.
 func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (error, bool) {
-	if f := t.metaGetS(obj, method); !f.IsNil() {
+	return metacall(t, obj, StringValue(method), args, next)
+}
+
+// metacall is Metacall with the method's name as a Value, one of those built
+// once in metatables.go.
+func metacall(t *Thread, obj Value, method Value, args []Value, next Cont) (error, bool) {
+	if f := t.metaGet(obj, method); !f.IsNil() {
 		return Call(t, f, args, next), true
 	}
 	return nil, false
@@ -133,7 +139,7 @@ func Continue(t *Thread, f Value, next Cont) (Cont, error) {
 	t.metacallChainDepth++
 	defer func() { t.metacallChainDepth-- }()
 
-	cont, err, ok := metacont(t, f, "__call", next)
+	cont, err, ok := metacont(t, f, metaCall, next)
 	if !ok {
 		return nil, fmt.Errorf("attempt to call a %s value", f.CustomTypeName())
 	}
@@ -162,7 +168,7 @@ func Call(t *Thread, f Value, args []Value, next Cont) error {
 	t.metacallChainDepth++
 	defer func() { t.metacallChainDepth-- }()
 
-	err, ok := Metacall(t, f, "__call", append([]Value{f}, args...), next)
+	err, ok := metacall(t, f, metaCall, append([]Value{f}, args...), next)
 	if ok {
 		return err
 	}
@@ -189,7 +195,7 @@ func Concat(t *Thread, x, y Value) (Value, error) {
 			return StringValue(sx + sy), nil
 		}
 	}
-	res, err, ok := metabin(t, "__concat", x, y)
+	res, err, ok := metabin(t, metaConcat, x, y)
 	if ok {
 		return res, err
 	}
@@ -216,7 +222,7 @@ func IntLen(t *Thread, v Value) (int64, error) {
 		return int64(len(s)), nil
 	}
 	res := NewTerminationWith(t.CurrentCont(), 1, false)
-	err, ok := Metacall(t, v, "__len", []Value{v}, res)
+	err, ok := metacall(t, v, metaLen, []Value{v}, res)
 	if ok {
 		if err != nil {
 			return 0, err
@@ -239,7 +245,7 @@ func Len(t *Thread, v Value) (Value, error) {
 		return IntValue(int64(len(s))), nil
 	}
 	res := NewTerminationWith(t.CurrentCont(), 1, false)
-	err, ok := Metacall(t, v, "__len", []Value{v}, res)
+	err, ok := metacall(t, v, metaLen, []Value{v}, res)
 	if ok {
 		if err != nil {
 			return NilValue, err
@@ -497,8 +503,8 @@ func stripFirstLineComment(chunk []byte) ([]byte, bool) {
 	return nil, true
 }
 
-func metacont(t *Thread, obj Value, method string, next Cont) (Cont, error, bool) {
-	f := t.metaGetS(obj, method)
+func metacont(t *Thread, obj Value, method Value, next Cont) (Cont, error, bool) {
+	f := t.metaGet(obj, method)
 	if f.IsNil() {
 		return nil, nil, false
 	}
@@ -509,12 +515,12 @@ func metacont(t *Thread, obj Value, method string, next Cont) (Cont, error, bool
 	return cont, nil, true
 }
 
-func metabin(t *Thread, f string, x Value, y Value) (Value, error, bool) {
+func metabin(t *Thread, f Value, x Value, y Value) (Value, error, bool) {
 	xy := []Value{x, y}
 	res := NewTerminationWith(t.CurrentCont(), 1, false)
-	err, ok := Metacall(t, x, f, xy, res)
+	err, ok := metacall(t, x, f, xy, res)
 	if !ok {
-		err, ok = Metacall(t, y, f, xy, res)
+		err, ok = metacall(t, y, f, xy, res)
 	}
 	if ok {
 		return res.Get(0), err, true
@@ -522,9 +528,9 @@ func metabin(t *Thread, f string, x Value, y Value) (Value, error, bool) {
 	return NilValue, nil, false
 }
 
-func metaun(t *Thread, f string, x Value) (Value, error, bool) {
+func metaun(t *Thread, f Value, x Value) (Value, error, bool) {
 	res := NewTerminationWith(t.CurrentCont(), 1, false)
-	err, ok := Metacall(t, x, f, []Value{x}, res)
+	err, ok := metacall(t, x, f, []Value{x}, res)
 	if ok {
 		return res.Get(0), err, true
 	}

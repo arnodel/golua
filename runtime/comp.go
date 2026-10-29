@@ -106,7 +106,7 @@ func eq(t *Thread, x, y Value) (bool, error) {
 	} else {
 		return false, nil
 	}
-	res, err, ok := metabin(t, "__eq", x, y)
+	res, err, ok := metabin(t, metaEq, x, y)
 	if ok {
 		return Truth(res), err
 	}
@@ -125,7 +125,7 @@ func Lt(t *Thread, x, y Value) (bool, error) {
 			return sx < sy, nil
 		}
 	}
-	res, err, ok := metabin(t, "__lt", x, y)
+	res, err, ok := metabin(t, metaLt, x, y)
 	if ok {
 		return Truth(res), err
 	}
@@ -230,7 +230,7 @@ func le(t *Thread, x, y Value) (bool, error) {
 			return sx <= sy, nil
 		}
 	}
-	res, err, ok := metabin(t, "__le", x, y)
+	res, err, ok := metabin(t, metaLe, x, y)
 	if ok {
 		return Truth(res), err
 	}

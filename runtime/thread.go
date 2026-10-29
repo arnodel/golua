@@ -397,7 +397,7 @@ func (t *Thread) cleanupCloseStack(c Cont, h int, err error) error {
 			} else {
 				args = []Value{v, ErrorValue(err)}
 			}
-			closeErr, ok := Metacall(t, v, "__close", args, NewTerminationWith(c, 0, false))
+			closeErr, ok := metacall(t, v, metaClose, args, NewTerminationWith(c, 0, false))
 			if !ok {
 				return errors.New("to be closed value missing a __close metamethod")
 			}

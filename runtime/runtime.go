@@ -236,7 +236,7 @@ func (r *Runtime) runFinalizers(refs []luagc.Value) {
 	for _, ref := range refs {
 		term := NewTerminationWith(nil, 0, false)
 		v := AsValue(ref)
-		err, _ := Metacall(r.gcThread, v, MetaFieldGcString, []Value{v}, term)
+		err, _ := metacall(r.gcThread, v, MetaFieldGcValue, []Value{v}, term)
 		if err != nil {
 			r.Warn(fmt.Sprintf("error in finalizer: %s", err))
 		}
@@ -288,7 +288,7 @@ func (r *Runtime) Metatable(v Value) Value {
 	if meta == nil {
 		return NilValue
 	}
-	metam := RawGet(meta, StringValue("__metatable"))
+	metam := RawGet(meta, metaMetatable)
 	if metam != NilValue {
 		return metam
 	}
@@ -319,6 +319,11 @@ func (r *Runtime) SetTableCheck(t *Table, k, v Value) error {
 }
 
 func (r *Runtime) metaGetS(v Value, k string) Value {
-	meta := r.RawMetatable(v)
-	return RawGet(meta, StringValue(k))
+	return r.metaGet(v, StringValue(k))
+}
+
+// metaGet returns the field k of v's metatable, or nil.  k is one of the
+// metamethod names built once in metatables.go.
+func (r *Runtime) metaGet(v Value, k Value) Value {
+	return RawGet(r.RawMetatable(v), k)
 }
