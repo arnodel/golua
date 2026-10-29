@@ -12,6 +12,12 @@ import (
 )
 
 // A Value is a runtime value.
+//
+// Values must be built with the constructor functions (IntValue, StringValue,
+// TableValue, ...), as Equals and Hash depend on the scalar field they set: a
+// string Value in particular carries its bytes or a hash of them there, so
+// two Values made from equal strings are only equal if both were made by
+// StringValue.
 type Value struct {
 	scalar uint64
 	iface  interface{}
@@ -104,8 +110,9 @@ func (v Value) Equals(v2 Value) bool {
 	case int64, float64:
 		return true
 	case string:
-		// Short strings are equal if their scalar are
-		if v.scalar != 0 {
+		// Equal scalars holding the strings' bytes mean equal strings.  Equal
+		// scalars holding their hashes mean the bytes must be compared.
+		if v.scalar < hashedStringTag {
 			return true
 		}
 	case *Closure:
@@ -141,18 +148,24 @@ func BoolValue(b bool) Value {
 	return Value{s, dummyBool}
 }
 
+// The scalar of a string Value holds the string's bytes if it has at most 7,
+// with the length in the top byte, and otherwise a hash of the string in the
+// low 56 bits with the top byte set to hashedStringTag.  Either way Hash can
+// use the scalar, and Equals can tell unequal strings apart by their scalars
+// without comparing their bytes.  The empty string's scalar is 0.
+const hashedStringTag = 0xFF << 56
+
 // StringValue returns a Value holding the given arg.
 func StringValue(s string) (v Value) {
 	v.iface = s
 	ls := len(s)
 	if ls <= 7 {
-		// Put a scalar value for short strings.  This speeds up hashing
-		// (because it uses the scalar value) and equality tests for unequal
-		// strings.
-		bs := make([]byte, 8)
-		copy(bs, s)
+		var bs [8]byte
+		copy(bs[:], s)
 		bs[7] = byte(ls)
 		v.scalar = *(*uint64)(unsafe.Pointer(&bs[0]))
+	} else {
+		v.scalar = hashedStringTag | uint64(hashInterface(v.iface, 0))&(hashedStringTag-1)
 	}
 	return
 }

@@ -5,9 +5,10 @@ import "unsafe"
 // This file provides the two hashing primitives used by Value.Hash():
 //
 //   - hashScalar hashes the 64-bit "scalar" representation of a Value (integers,
-//     floats, booleans and strings of up to 7 bytes).
+//     floats, booleans and strings; a string of 8 bytes or more has a hash of
+//     its bytes as its scalar, computed once by StringValue).
 //   - hashInterface hashes the interface representation of a Value (everything
-//     else: longer strings, tables, functions, userdata, ...).
+//     else: tables, functions, userdata, ...).
 //
 // History: we originally reached into the Go runtime for both, via
 //
