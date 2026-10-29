@@ -2,16 +2,23 @@
 
 ## What the pools do
 
-### contpool (disabled with `nocontpool`)
+### contpool
 
 Reuses continuation structs to avoid heap allocations on every Lua function call:
 
 - **LuaCont pool**: Fixed 100-slot stack of `*LuaCont` structs. On tail calls, the current continuation is released back to the pool and immediately reused by the next call. Non-tail calls also benefit during the unwinding phase.
 - **GoCont pool**: Fixed 10-slot stack of `*GoCont` structs. Reuses Go continuation wrappers when calling Go-implemented functions from Lua.
 
-### regpool (disabled with `noregpool`)
+### regpool
 
-Reuses `[]Value` and `[]Cell` slices using generation-based aging (default pool size 10, max age 10):
+Reuses `[]Value` and `[]Cell` slices.  Since October 2026 the pool keeps
+released slices in size classes (powers of two from 8 to 1024), each a small
+LIFO of at most 16 slices, so a request is served by the most recently
+released slice of the class with enough capacity.  Before that it kept 10
+slices matched on exact length, with generation-based aging, which missed
+constantly on programs whose functions have varied register counts (richards:
+64,000 misses per iteration).  The varargs buffer of Go functions comes from
+the same pool.
 
 - **Register arrays** (`[]Value`): Each Lua function frame needs a register array sized to its max stack usage. The pool reuses arrays of matching or larger capacity.
 - **Argument arrays** (`[]Value`): Reuses slices used to pass arguments between function calls.
@@ -97,30 +104,17 @@ The ManyLocals benchmark is interesting: with 20 locals per call, register array
 
 ## Reproducing
 
-Install `benchstat` if you don't have it:
+The results above were measured when each pool could be disabled with a
+build tag (`nocontpool`, `noregpool`).  Those tags were removed when the
+pools were made permanent, following the recommendation below, so the
+comparison can no longer be rerun as it was.  The benchmarks themselves
+remain, and report allocations:
 
 ```bash
-go install golang.org/x/perf/cmd/benchstat@latest
+go test ./runtime/ -bench=BenchmarkPool -benchmem -count=6 -run='^$'
 ```
 
-Run benchmarks for each of the 4 build-tag combinations (6 iterations each for statistical significance):
-
-```bash
-go test ./runtime/ -bench=BenchmarkPool -benchmem -count=6 -run='^$' > bench_default.txt
-go test ./runtime/ -bench=BenchmarkPool -benchmem -count=6 -run='^$' -tags=noregpool > bench_noregpool.txt
-go test ./runtime/ -bench=BenchmarkPool -benchmem -count=6 -run='^$' -tags=nocontpool > bench_nocontpool.txt
-go test ./runtime/ -bench=BenchmarkPool -benchmem -count=6 -run='^$' -tags="nocontpool noregpool" > bench_nopools.txt
-```
-
-Compare results:
-
-```bash
-benchstat bench_default.txt bench_nopools.txt
-benchstat bench_default.txt bench_noregpool.txt
-benchstat bench_default.txt bench_nocontpool.txt
-```
-
-## Recommendation
+## Recommendation (done)
 
 **Both pools should be made permanent (remove `nocontpool` and `noregpool` build tags).**
 
