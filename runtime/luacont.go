@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"math"
 	"unsafe"
 
 	"github.com/arnodel/golua/code"
@@ -484,6 +485,26 @@ RunLoop:
 			if opcode.GetF() {
 				// Advance for loop.  All registers are assumed to contain
 				// numeric values because they have been prepared previously.
+				if ifaceType(start.iface) == int64IfaceType && ifaceType(step.iface) == int64IfaceType {
+					// An integer loop: preparation made the limit an integer
+					// too.  The loop is done when the next value passes the
+					// limit, or wraps around.
+					s, st, lim := start.AsInt(), step.AsInt(), stop.AsInt()
+					next := s + st
+					var done bool
+					if st > 0 {
+						done = next > lim || next < s
+					} else {
+						done = next < lim || next > s
+					}
+					if done {
+						setReg(regs, cells, startReg, NilValue)
+					} else {
+						setReg(regs, cells, startReg, IntValue(next))
+					}
+					pc++
+					continue RunLoop
+				}
 				nextStart, _ := Add(start, step)
 
 				// Check if the loop is done.  It can be done if we have gone
@@ -520,6 +541,9 @@ RunLoop:
 					}
 					return nil, fmt.Errorf("'for' %s: expected number, got %s", role, val.CustomTypeName())
 				}
+				// The loop is done with integers if start and step are
+				// both integers, whatever the limit.
+				intLoop := tstart == IsInt && tstep == IsInt
 				// Make sure start and step have the same numeric type
 				if tstart != tstep {
 					// One is a float, one is an int, turn them both to floats
@@ -537,7 +561,20 @@ RunLoop:
 				// Check the loop is not already finished. If so, startReg is
 				// set to nil.
 				var done bool
-				if isPositive(step) {
+				if intLoop {
+					// Make the limit an integer too, so that advancing the
+					// loop only deals with integers.
+					var ok bool
+					stop, ok = forLimit(stop, tstop, step.AsInt())
+					done = !ok
+					if ok {
+						if step.AsInt() > 0 {
+							done = stop.AsInt() < start.AsInt()
+						} else {
+							done = start.AsInt() < stop.AsInt()
+						}
+					}
+				} else if isPositive(step) {
 					done, _ = isLessThan(stop, start)
 				} else {
 					done, _ = isLessThan(start, stop)
@@ -554,6 +591,37 @@ RunLoop:
 		}
 	}
 	// return nil, errors.New("Invalid PC")
+}
+
+// forLimit returns the limit of an integer for loop with the given step as
+// an integer, as Lua 5.4's forlimit does: a float limit is rounded towards
+// the start, down for a positive step and up for a negative one.  A limit
+// beyond the integer range is clipped to it when the loop runs towards it,
+// and means no iteration when the loop runs away from it, in which case ok is
+// false.  NaN counts as beyond the range on the negative side.
+func forLimit(limit Value, tlimit NumberType, step int64) (Value, bool) {
+	if tlimit == IsInt {
+		return limit, true
+	}
+	f := limit.AsFloat()
+	if step > 0 {
+		f = math.Floor(f)
+	} else {
+		f = math.Ceil(f)
+	}
+	if f >= -1<<63 && f < 1<<63 {
+		return IntValue(int64(f)), true
+	}
+	if f > 0 {
+		if step < 0 {
+			return limit, false
+		}
+		return IntValue(math.MaxInt64), true
+	}
+	if step > 0 {
+		return limit, false
+	}
+	return IntValue(math.MinInt64), true
 }
 
 // DebugInfo implements Cont.DebugInfo.
