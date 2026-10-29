@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"weak"
 
 	"github.com/arnodel/golua/runtime/internal/luagc"
@@ -29,6 +30,14 @@ type WeakPool struct {
 	pendingFinalize sortableWeakEntries
 	pendingRelease  sortableWeakEntries
 	lastMarkOrder   int
+
+	// pending is false only when both pending lists are empty.  The
+	// ExtractPending methods are called before every continuation runs, so
+	// they read it to skip taking the mutex in the usual case that there is
+	// nothing to do.  It is set while holding the mutex, after a cleanup
+	// appends to a list, and cleared while holding the mutex, once both lists
+	// are empty.
+	pending atomic.Bool
 }
 
 var _ luagc.Pool = &WeakPool{}
@@ -154,10 +163,14 @@ func weakEntryCleanup(entry *weakEntry) {
 		p.pendingRelease = append(p.pendingRelease, ev)
 	}
 	delete(p.entries, entry.key)
+	p.pending.Store(true)
 }
 
 // ExtractPendingFinalize returns values needing Lua finalization.
 func (p *WeakPool) ExtractPendingFinalize() []luagc.Value {
+	if !p.pending.Load() {
+		return nil
+	}
 	p.mx.Lock()
 	pending := p.pendingFinalize
 	if pending == nil {
@@ -168,6 +181,9 @@ func (p *WeakPool) ExtractPendingFinalize() []luagc.Value {
 	for _, ev := range pending {
 		ev.e.setFlag(weFinalized)
 	}
+	if p.pendingRelease == nil {
+		p.pending.Store(false)
+	}
 	p.mx.Unlock()
 
 	sort.Sort(pending)
@@ -177,6 +193,9 @@ func (p *WeakPool) ExtractPendingFinalize() []luagc.Value {
 // ExtractPendingRelease returns values needing resource release.
 // Only returns values whose finalization is already done (weFinalized is set).
 func (p *WeakPool) ExtractPendingRelease() []luagc.Value {
+	if !p.pending.Load() {
+		return nil
+	}
 	p.mx.Lock()
 	if p.pendingRelease == nil {
 		p.mx.Unlock()
@@ -192,6 +211,9 @@ func (p *WeakPool) ExtractPendingRelease() []luagc.Value {
 		}
 	}
 	p.pendingRelease = remaining
+	if remaining == nil && p.pendingFinalize == nil {
+		p.pending.Store(false)
+	}
 	p.mx.Unlock()
 
 	if ready == nil {
