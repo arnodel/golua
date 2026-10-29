@@ -165,7 +165,7 @@ func StringValue(s string) (v Value) {
 		bs[7] = byte(ls)
 		v.scalar = *(*uint64)(unsafe.Pointer(&bs[0]))
 	} else {
-		v.scalar = hashedStringTag | uint64(hashInterface(v.iface, 0))&(hashedStringTag-1)
+		v.scalar = hashedStringTag | uint64(hashInterface(v.iface, 0))
 	}
 	return
 }
