@@ -6,7 +6,6 @@ package runtime
 import (
 	"fmt"
 
-	"github.com/arnodel/golua/runtime/internal/luagc"
 	"github.com/arnodel/golua/safeio"
 )
 
@@ -15,7 +14,7 @@ const QuotasAvailable = false
 type runtimeContextManager struct {
 	messageHandler Callable
 	parent         *runtimeContextManager
-	weakRefPool    luagc.Pool
+	weakRefPool    *WeakPool
 	workDir        string
 }
 

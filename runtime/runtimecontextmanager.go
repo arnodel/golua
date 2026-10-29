@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arnodel/golua/runtime/internal/luagc"
 	"github.com/arnodel/golua/safeio"
 )
 
@@ -41,7 +40,7 @@ type runtimeContextManager struct {
 	startTime        uint64
 	nextCpuThreshold uint64
 
-	weakRefPool luagc.Pool
+	weakRefPool *WeakPool
 	gcPolicy    GCPolicy
 
 	fsAccess *safeio.FSAccess

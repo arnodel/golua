@@ -1,5 +1,3 @@
-//go:build go1.24
-
 package runtime
 
 import (
@@ -12,10 +10,21 @@ import (
 	"github.com/arnodel/golua/runtime/internal/luagc"
 )
 
-// WeakPool is an implementation of luagc.Pool that uses Go 1.24's weak.Pointer
-// for proper weak references and runtime.AddCleanup for GC notifications.
-// Unlike UnsafePool, this implementation uses official Go APIs and will not
-// break if Go's GC implementation changes.
+// WeakPool maintains a set of weak references to values, using Go's
+// weak.Pointer for the references and runtime.AddCleanup to be notified when
+// a value becomes unreachable.  Each isolated runtime context has one, to
+// help it manage weak references and finalizers.  Its methods are safe to
+// call concurrently with the cleanups Go runs when values are collected.
+//
+// Mark indicates that the pool should keep a copy of a value when it becomes
+// unreachable, so that the runtime can run its __gc metamethod (the Finalize
+// flag) or release its resources (the Release flag).  "Mark" is the
+// terminology of the Lua docs; it is unrelated to mark and sweep.  The
+// ExtractPending methods, which the runtime calls before running each
+// continuation, return the marked values that have become unreachable since
+// the last call, in reverse order of marking.  The ExtractAllMarked methods,
+// called when the runtime closes, return every marked value whether or not
+// it is still reachable, and clear the pool.
 //
 // This pool lives in the runtime package (rather than luagc) because it needs
 // to type-switch on concrete types (*Table, *UserData) to create weak pointers
@@ -35,8 +44,6 @@ type WeakPool struct {
 	// are empty.
 	pending atomic.Bool
 }
-
-var _ luagc.Pool = &WeakPool{}
 
 // NewWeakPool returns a new *WeakPool ready to be used.
 func NewWeakPool() *WeakPool {
