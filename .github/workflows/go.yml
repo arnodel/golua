@@ -6,15 +6,11 @@ on:
 
 jobs:
 
-  # Full testing on Ubuntu with all build tags and pool combinations
+  # Full testing on Ubuntu with all build tags
   test-ubuntu:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        pool:
-          - ''           # default (WeakPool)
-          - 'clone'
-          - 'unsafe'
         build_tags:
           - ''
           - 'noquotas'
@@ -28,15 +24,13 @@ jobs:
         go-version: '1.25'
 
     - name: All tests
-      env:
-        GOLUA_POOL: ${{ matrix.pool }}
       run: go test -tags "${{ matrix.build_tags }}" -coverprofile="coverage.txt" -covermode=atomic ./...
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       with:
         files: ./coverage.txt
-        name: codecov-ubuntu-${{ matrix.pool || 'default' }}-${{ matrix.build_tags || 'notags' }}
+        name: codecov-ubuntu-${{ matrix.build_tags || 'notags' }}
         verbose: true
 
     - name: Build CLI
@@ -50,8 +44,6 @@ jobs:
         path: ./lua-test-suite
 
     - name: Run Lua Test Suite
-      env:
-        GOLUA_POOL: ${{ matrix.pool }}
       run: ../golua -u -e "_U=true" -e "_port=true" all.lua
       working-directory: ./lua-test-suite
 

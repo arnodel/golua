@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arnodel/golua/runtime/internal/luagc"
 	"github.com/arnodel/golua/safeio"
 )
 
@@ -41,8 +40,7 @@ type runtimeContextManager struct {
 	startTime        uint64
 	nextCpuThreshold uint64
 
-	weakRefPool luagc.Pool
-	poolFactory func() luagc.Pool
+	weakRefPool *WeakPool
 	gcPolicy    GCPolicy
 
 	fsAccess *safeio.FSAccess
@@ -56,7 +54,7 @@ var _ RuntimeContext = (*runtimeContextManager)(nil)
 
 func (m *runtimeContextManager) initRoot() {
 	m.gcPolicy = IsolateGCPolicy
-	m.weakRefPool = m.poolFactory()
+	m.weakRefPool = NewWeakPool()
 	m.fsAccess = safeio.Unrestricted
 }
 
@@ -148,7 +146,7 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	m.messageHandler = ctx.MessageHandler
 	m.parent = &parent
 	if ctx.GCPolicy == IsolateGCPolicy || ctx.HardLimits.Millis > 0 || ctx.HardLimits.Cpu > 0 || ctx.HardLimits.Memory > 0 {
-		m.weakRefPool = m.poolFactory()
+		m.weakRefPool = NewWeakPool()
 		m.gcPolicy = IsolateGCPolicy
 	} else {
 		m.weakRefPool = parent.weakRefPool
