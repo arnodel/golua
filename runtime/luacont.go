@@ -142,37 +142,37 @@ RunLoop:
 			case code.OpAdd:
 				res, ok = Add(x, y)
 				if !ok {
-					res, err = binaryArithFallback(t, "__add", x, y)
+					res, err = binaryArithFallback(t, metaAdd, x, y)
 				}
 			case code.OpSub:
 				res, ok = Sub(x, y)
 				if !ok {
-					res, err = binaryArithFallback(t, "__sub", x, y)
+					res, err = binaryArithFallback(t, metaSub, x, y)
 				}
 			case code.OpMul:
 				res, ok = Mul(x, y)
 				if !ok {
-					res, err = binaryArithFallback(t, "__mul", x, y)
+					res, err = binaryArithFallback(t, metaMul, x, y)
 				}
 			case code.OpDiv:
 				res, ok = Div(x, y)
 				if !ok {
-					res, err = binaryArithFallback(t, "__div", x, y)
+					res, err = binaryArithFallback(t, metaDiv, x, y)
 				}
 			case code.OpFloorDiv:
 				res, ok, err = Idiv(x, y)
 				if !ok {
-					res, err = binaryArithFallback(t, "__idiv", x, y)
+					res, err = binaryArithFallback(t, metaIdiv, x, y)
 				}
 			case code.OpMod:
 				res, ok, err = Mod(x, y)
 				if !ok {
-					res, err = binaryArithFallback(t, "__mod", x, y)
+					res, err = binaryArithFallback(t, metaMod, x, y)
 				}
 			case code.OpPow:
 				res, ok = Pow(x, y)
 				if !ok {
-					res, err = binaryArithFallback(t, "__pow", x, y)
+					res, err = binaryArithFallback(t, metaPow, x, y)
 				}
 
 			// Bitwise
@@ -285,7 +285,7 @@ RunLoop:
 				case code.OpNeg:
 					res, ok = Unm(val)
 					if !ok {
-						res, err = unaryArithFallback(t, "__unm", val)
+						res, err = unaryArithFallback(t, metaUnm, val)
 					}
 				case code.OpBitNot:
 					res, err = bnot(t, val)
@@ -436,7 +436,7 @@ RunLoop:
 				if opcode.GetF() {
 					// Push to close stack
 					v := getReg(regs, cells, opcode.GetA())
-					if Truth(v) && t.metaGetS(v, "__close").IsNil() {
+					if Truth(v) && t.metaGet(v, metaClose).IsNil() {
 						c.pc = pc
 						return nil, errors.New("to be closed value missing a __close metamethod")
 					}

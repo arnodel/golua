@@ -8,7 +8,7 @@ func band(t *Thread, x, y Value) (Value, error) {
 	if okx && oky {
 		return IntValue(ix & iy), nil
 	}
-	res, err, ok := metabin(t, "__band", x, y)
+	res, err, ok := metabin(t, metaBand, x, y)
 	if ok {
 		return res, err
 	}
@@ -21,7 +21,7 @@ func bor(t *Thread, x, y Value) (Value, error) {
 	if okx && oky {
 		return IntValue(ix | iy), nil
 	}
-	res, err, ok := metabin(t, "__bor", x, y)
+	res, err, ok := metabin(t, metaBor, x, y)
 	if ok {
 		return res, err
 	}
@@ -34,7 +34,7 @@ func bxor(t *Thread, x, y Value) (Value, error) {
 	if okx && oky {
 		return IntValue(ix ^ iy), nil
 	}
-	res, err, ok := metabin(t, "__bxor", x, y)
+	res, err, ok := metabin(t, metaBxor, x, y)
 	if ok {
 		return res, err
 	}
@@ -53,7 +53,7 @@ func shl(t *Thread, x, y Value) (Value, error) {
 		}
 		return IntValue(int64(uint64(ix) << uint64(iy))), nil
 	}
-	res, err, ok := metabin(t, "__shl", x, y)
+	res, err, ok := metabin(t, metaShl, x, y)
 	if ok {
 		return res, err
 	}
@@ -72,7 +72,7 @@ func shr(t *Thread, x, y Value) (Value, error) {
 		}
 		return IntValue(int64(uint64(ix) >> uint64(iy))), nil
 	}
-	res, err, ok := metabin(t, "__shr", x, y)
+	res, err, ok := metabin(t, metaShr, x, y)
 	if ok {
 		return res, err
 	}
@@ -84,7 +84,7 @@ func bnot(t *Thread, x Value) (Value, error) {
 	if okx {
 		return IntValue(^ix), nil
 	}
-	res, err, ok := metaun(t, "__bnot", x)
+	res, err, ok := metaun(t, metaBnot, x)
 	if ok {
 		return res, err
 	}

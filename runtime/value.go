@@ -321,7 +321,7 @@ func (v Value) ToString() (string, bool) {
 }
 
 func getName(defaultName string, meta *Table) string {
-	if v := RawGet(meta, StringValue("__name")); !v.IsNil() {
+	if v := RawGet(meta, metaName); !v.IsNil() {
 		s, ok := v.ToString()
 		if ok {
 			return s
