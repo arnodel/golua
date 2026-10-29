@@ -170,10 +170,18 @@ func weakEntryCleanup(entry *weakEntry) {
 }
 
 // ExtractPendingFinalize returns values needing Lua finalization.
+//
+// It is called before every continuation runs, so the usual case, nothing
+// pending, is kept small enough to inline and the work is in a separate
+// function.
 func (p *WeakPool) ExtractPendingFinalize() []luagc.Value {
 	if !p.pending.Load() {
 		return nil
 	}
+	return p.extractPendingFinalize()
+}
+
+func (p *WeakPool) extractPendingFinalize() []luagc.Value {
 	p.mx.Lock()
 	pending := p.pendingFinalize
 	if pending == nil {
@@ -195,10 +203,17 @@ func (p *WeakPool) ExtractPendingFinalize() []luagc.Value {
 
 // ExtractPendingRelease returns values needing resource release.
 // Only returns values whose finalization is already done (weFinalized is set).
+//
+// Like ExtractPendingFinalize, it is small enough to inline when nothing is
+// pending.
 func (p *WeakPool) ExtractPendingRelease() []luagc.Value {
 	if !p.pending.Load() {
 		return nil
 	}
+	return p.extractPendingRelease()
+}
+
+func (p *WeakPool) extractPendingRelease() []luagc.Value {
 	p.mx.Lock()
 	if p.pendingRelease == nil {
 		p.mx.Unlock()
