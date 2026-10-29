@@ -7,6 +7,9 @@ import "math/bits"
 // slices in size classes, powers of two from 8 to 1024, each a small LIFO, so
 // that a request is served by the most recently released slice of the class
 // with enough capacity.  Larger slices are allocated exactly and not pooled.
+// Every class may hold the same number of values, so the class of 8 keeps
+// regPoolSize slices, the next half as many, and so on down to one slice of
+// 1024: small frames, which are most of them, get the deepest pool.
 //
 // A pooled slice is zero beyond its length: a slice is cleared up to its
 // length when released, and nothing writes beyond a slice's length while it
@@ -17,13 +20,13 @@ const (
 	minPoolClass = 3  // Smallest class holds slices of capacity 8
 	maxPoolClass = 10 // Largest class holds slices of capacity 1024
 	poolClasses  = maxPoolClass - minPoolClass + 1
-	regPoolSize  = 16 // Default number of slices kept per class
+	regPoolSize  = 64 // Default number of slices kept in the smallest class
 )
 
 // A slicePool reuses slices of T, by size class.
 type slicePool[T any] struct {
 	free [poolClasses][][]T
-	max  int // Number of slices kept per class
+	max  int // Number of slices kept in the smallest class
 }
 
 type valuePool = slicePool[Value]
@@ -68,7 +71,7 @@ func (p *slicePool[T]) get(n int) []T {
 func (p *slicePool[T]) release(s []T) {
 	clear(s)
 	class, size := poolClass(cap(s))
-	if class < 0 || cap(s) != size || len(p.free[class]) >= p.max {
+	if class < 0 || cap(s) != size || len(p.free[class]) >= max(p.max>>class, 1) {
 		return
 	}
 	p.free[class] = append(p.free[class], s[:0])

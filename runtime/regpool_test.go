@@ -38,7 +38,8 @@ func TestSlicePoolReuse(t *testing.T) {
 	if cap(s3) != 16 {
 		t.Errorf("get(9) has cap %d, want 16", cap(s3))
 	}
-	// The pool keeps at most max slices per class.
+	// The pool keeps at most max slices in the smallest class, and half as
+	// many in each class above.
 	a, b, c := p.get(1), p.get(1), p.get(1)
 	p.release(a)
 	p.release(b)
@@ -46,11 +47,17 @@ func TestSlicePoolReuse(t *testing.T) {
 	if n := len(p.free[0]); n != 2 {
 		t.Errorf("class 0 holds %d slices, want 2", n)
 	}
+	d, e := p.get(9), p.get(9)
+	p.release(d)
+	p.release(e)
+	if n := len(p.free[1]); n != 1 {
+		t.Errorf("class 1 holds %d slices, want 1", n)
+	}
 	// A slice whose capacity is not a class's, or is too large, is not kept.
 	p.release(make([]Value, 3, 5))
 	p.release(make([]Value, 0, 2000))
 	for class, free := range p.free {
-		if want := map[int]int{0: 2, 1: 0}[class]; len(free) != want {
+		if want := map[int]int{0: 2, 1: 1}[class]; len(free) != want {
 			t.Errorf("class %d holds %d slices, want %d", class, len(free), want)
 		}
 	}

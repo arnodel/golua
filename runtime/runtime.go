@@ -55,7 +55,8 @@ var defaultRuntimeOptions = runtimeOptions{
 type RuntimeOption func(*runtimeOptions)
 
 // WithRegPoolSize sets how many released register, argument and cell slices
-// of each size class a new Runtime keeps for reuse.  The default is 16.
+// of the smallest size class (capacity 8) a new Runtime keeps for reuse; each
+// larger class keeps half as many as the one before.  The default is 64.
 func WithRegPoolSize(sz uint) RuntimeOption {
 	return func(rtOpts *runtimeOptions) {
 		rtOpts.regPoolSize = sz
