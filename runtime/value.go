@@ -330,11 +330,28 @@ func getName(defaultName string, meta *Table) string {
 	return defaultName
 }
 
-// FloatToString formats a float64 for Lua, ensuring whole numbers include
-// ".0" to distinguish them from integers.
+// FloatToString formats a float64 for Lua as Lua 5.5 does
+// (tostringbuffFloat in lobject.c): "%.15g", or "%.17g" when that does not
+// read back as x, with ".0" added when the result looks like an integer so
+// that floats are distinguished from integers.  Infinities and NaNs are
+// spelled as C's printf spells them: "inf", "-inf", "nan" and "-nan".
 func FloatToString(x float64) string {
-	s := strconv.FormatFloat(x, 'g', -1, 64)
-	if !strings.ContainsAny(s, ".eEnN") {
+	switch {
+	case math.IsInf(x, 1):
+		return "inf"
+	case math.IsInf(x, -1):
+		return "-inf"
+	case math.IsNaN(x):
+		if math.Signbit(x) {
+			return "-nan"
+		}
+		return "nan"
+	}
+	s := strconv.FormatFloat(x, 'g', 15, 64)
+	if y, _ := strconv.ParseFloat(s, 64); y != x {
+		s = strconv.FormatFloat(x, 'g', 17, 64)
+	}
+	if strings.Trim(s, "-0123456789") == "" {
 		s += ".0"
 	}
 	return s
