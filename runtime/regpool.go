@@ -1,5 +1,7 @@
 package runtime
 
+import "math/bits"
+
 // Slices of registers, arguments and cells are reused across continuations so
 // that calling a function does not allocate.  A slicePool keeps released
 // slices in size classes, powers of two from 8 to 1024, each a small LIFO, so
@@ -37,15 +39,16 @@ func mkCellPool(max uint) cellPool {
 
 // poolClass returns the class of slices with capacity for n items and that
 // capacity, or a negative class and n itself if n is too large to be pooled.
+// The class is the smallest power of two not below n, from bits.Len.
 func poolClass(n int) (class, size int) {
-	size = 1 << minPoolClass
-	for class = 0; class < poolClasses; class++ {
-		if n <= size {
-			return class, size
-		}
-		size <<= 1
+	if n <= 1<<minPoolClass {
+		return 0, 1 << minPoolClass
 	}
-	return -1, n
+	class = bits.Len(uint(n-1)) - minPoolClass
+	if class >= poolClasses {
+		return -1, n
+	}
+	return class, 1 << (class + minPoolClass)
 }
 
 // get returns a zeroed slice of length n.
