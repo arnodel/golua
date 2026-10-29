@@ -11,7 +11,14 @@ Reuses continuation structs to avoid heap allocations on every Lua function call
 
 ### regpool (disabled with `noregpool`)
 
-Reuses `[]Value` and `[]Cell` slices using generation-based aging (default pool size 10, max age 10):
+Reuses `[]Value` and `[]Cell` slices.  Since October 2026 the pool keeps
+released slices in size classes (powers of two from 8 to 1024), each a small
+LIFO of at most 16 slices, so a request is served by the most recently
+released slice of the class with enough capacity.  Before that it kept 10
+slices matched on exact length, with generation-based aging, which missed
+constantly on programs whose functions have varied register counts (richards:
+64,000 misses per iteration).  The varargs buffer of Go functions comes from
+the same pool.
 
 - **Register arrays** (`[]Value`): Each Lua function frame needs a register array sized to its max stack usage. The pool reuses arrays of matching or larger capacity.
 - **Argument arrays** (`[]Value`): Reuses slices used to pass arguments between function calls.

@@ -11,7 +11,7 @@ type GoCont struct {
 	*GoFunction
 	next  Cont
 	args  []Value
-	etc   *[]Value
+	etc   []Value // Only for functions with hasEtc; from argsPool, released with c
 	nArgs int
 }
 
@@ -19,14 +19,13 @@ var _ Cont = (*GoCont)(nil)
 
 // NewGoCont returns a new pointer to GoCont for the given GoFunction and Cont.
 func NewGoCont(t *Thread, f *GoFunction, next Cont) *GoCont {
-	var args []Value
-	var etc *[]Value
+	var args, etc []Value
 	if f.nArgs > 0 {
 		t.RequireArrSize(unsafe.Sizeof(Value{}), f.nArgs)
 		args = t.argsPool.get(f.nArgs)
 	}
 	if f.hasEtc {
-		etc = new([]Value)
+		etc = t.argsPool.get(0)
 	}
 	t.RequireSize(unsafe.Sizeof(GoCont{}))
 	cont := t.goContPool.get()
@@ -44,9 +43,9 @@ func (c *GoCont) Push(r *Runtime, v Value) {
 	if c.nArgs < len(c.args) {
 		c.args[c.nArgs] = v
 		c.nArgs++
-	} else if c.etc != nil {
+	} else if c.hasEtc {
 		r.RequireSize(unsafe.Sizeof(Value{}))
-		*c.etc = append(*c.etc, v)
+		c.etc = append(c.etc, v)
 	}
 }
 
@@ -80,11 +79,11 @@ func (c *GoCont) PushEtc(r *Runtime, etc []Value) {
 		return
 	}
 FillEtc:
-	if c.etc == nil {
+	if !c.hasEtc {
 		return
 	}
 	r.RequireArrSize(unsafe.Sizeof(Value{}), len(etc))
-	*c.etc = append(*c.etc, etc...)
+	c.etc = append(c.etc, etc...)
 }
 
 // RunInThread implements Cont.RunInThread.
@@ -112,6 +111,10 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
 	if c.args != nil {
 		t.ReleaseArrSize(unsafe.Sizeof(Value{}), c.nArgs)
 		t.argsPool.release(c.args)
+	}
+	if c.hasEtc {
+		t.ReleaseArrSize(unsafe.Sizeof(Value{}), len(c.etc))
+		t.argsPool.release(c.etc)
 	}
 	t.ReleaseSize(unsafe.Sizeof(GoCont{}))
 	t.goContPool.release(c)
@@ -156,12 +159,11 @@ func (c *GoCont) Args() []Value {
 	return c.args[:c.nArgs]
 }
 
-// Etc returns the etc args pushed to the continuation they exist.
+// Etc returns the etc args pushed to the continuation, if the function takes
+// them.  The slice is reused once the function returns, so it must not be
+// kept beyond that.
 func (c *GoCont) Etc() []Value {
-	if c.etc == nil {
-		return nil
-	}
-	return *c.etc
+	return c.etc
 }
 
 // Check1Arg returns a non-nil error if the continuation doesn't have at least

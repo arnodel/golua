@@ -43,33 +43,31 @@ type Runtime struct {
 
 type runtimeOptions struct {
 	regPoolSize       uint
-	regSetMaxAge      uint
 	reservedGlobal    bool
 	runtimeContextDef *RuntimeContextDef
 }
 
 var defaultRuntimeOptions = runtimeOptions{
-	regPoolSize:  regPoolSize,
-	regSetMaxAge: regSetMaxAge,
+	regPoolSize: regPoolSize,
 }
 
 // A RuntimeOption configures the Runtime.
 type RuntimeOption func(*runtimeOptions)
 
-// WithRegPoolSize sets the size of register pools when creating a new Runtime.
-// The default register pool size is 10.
+// WithRegPoolSize sets how many released register, argument and cell slices
+// of each size class a new Runtime keeps for reuse.  The default is 16.
 func WithRegPoolSize(sz uint) RuntimeOption {
 	return func(rtOpts *runtimeOptions) {
 		rtOpts.regPoolSize = sz
 	}
 }
 
-// WithRegSetMaxAge sets the max age of a register set when creating a new
-// Runtime. The default max age is 10.
+// WithRegSetMaxAge does nothing: released register sets are kept until
+// reused, by size class, and no longer age.
+//
+// Deprecated: it is kept so that existing callers still compile.
 func WithRegSetMaxAge(age uint) RuntimeOption {
-	return func(rtOpts *runtimeOptions) {
-		rtOpts.regSetMaxAge = age
-	}
+	return func(rtOpts *runtimeOptions) {}
 }
 
 func WithRuntimeContext(def RuntimeContextDef) RuntimeOption {
@@ -99,9 +97,9 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 		registry:       NewTable(),
 		warner:         NewLogWarner(os.Stderr, "Lua warning: "),
 		reservedGlobal: rtOpts.reservedGlobal,
-		regPool:        mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
-		argsPool:       mkValuePool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
-		cellPool:       mkCellPool(rtOpts.regPoolSize, rtOpts.regSetMaxAge),
+		regPool:        mkValuePool(rtOpts.regPoolSize),
+		argsPool:       mkValuePool(rtOpts.regPoolSize),
+		cellPool:       mkCellPool(rtOpts.regPoolSize),
 	}
 
 	mainThread := NewThread(r)

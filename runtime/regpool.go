@@ -1,104 +1,74 @@
 package runtime
 
+// Slices of registers, arguments and cells are reused across continuations so
+// that calling a function does not allocate.  A slicePool keeps released
+// slices in size classes, powers of two from 8 to 1024, each a small LIFO, so
+// that a request is served by the most recently released slice of the class
+// with enough capacity.  Larger slices are allocated exactly and not pooled.
+//
+// A pooled slice is zero beyond its length: a slice is cleared up to its
+// length when released, and nothing writes beyond a slice's length while it
+// is in use, so this holds from allocation on.  A slice the pool hands out is
+// therefore all zeros, as a fresh allocation would be.
+
 const (
-	regPoolSize  = 10 // Size of a pool of cell of value register sets.
-	regSetMaxAge = 10 // Age at which it's OK to discard a register set in the pool.
+	minPoolClass = 3  // Smallest class holds slices of capacity 8
+	maxPoolClass = 10 // Largest class holds slices of capacity 1024
+	poolClasses  = maxPoolClass - minPoolClass + 1
+	regPoolSize  = 16 // Default number of slices kept per class
 )
 
-// This is an experimental pool for re-using allocated sets of registers across
-// different Lua continuations.  Profiling showed allocating register sets for
-// each continuation is costly, and it can easily be avoided in the case of e.g.
-// a function repeatedly called in a loop, or a tail recursive function (or
-// mutually tail recursive functions).
-//
-// The pool keeps up to regPoolSize register sets of each type (plain values and
-// cells).  A register set can be released into the pool and it will replace an
-// old (> maxAge) register set if there is one. Age increase each time a new
-// register set is requested.  The idea is that in the common case where the
-// same function keeps being called, the same register set can be re-used.
-//
-// Setting regPoolSize to 0 makes cellPool.get / valuePool.get allocate
-// a new register set each time, and cellPool.release / valuePool.release
-// be no-ops.
-
-type cellPool struct {
-	cells  [][]Cell // Pool of cell sets
-	exps   []uint   // Expiry generation of cell sets
-	gen    uint     // Current cell register set generation
-	maxAge uint
+// A slicePool reuses slices of T, by size class.
+type slicePool[T any] struct {
+	free [poolClasses][][]T
+	max  int // Number of slices kept per class
 }
 
-func mkCellPool(size, maxAge uint) cellPool {
-	return cellPool{
-		cells:  make([][]Cell, size),
-		exps:   make([]uint, size),
-		maxAge: maxAge,
+type valuePool = slicePool[Value]
+type cellPool = slicePool[Cell]
+
+func mkValuePool(max uint) valuePool {
+	return valuePool{max: int(max)}
+}
+
+func mkCellPool(max uint) cellPool {
+	return cellPool{max: int(max)}
+}
+
+// poolClass returns the class of slices with capacity for n items and that
+// capacity, or a negative class and n itself if n is too large to be pooled.
+func poolClass(n int) (class, size int) {
+	size = 1 << minPoolClass
+	for class = 0; class < poolClasses; class++ {
+		if n <= size {
+			return class, size
+		}
+		size <<= 1
 	}
+	return -1, n
 }
 
-func (p *cellPool) get(sz int) []Cell {
-	p.gen++
-	for i := 0; i < regPoolSize; i++ {
-		c := p.cells[i]
-		if len(c) == sz {
-			p.cells[i] = nil
-			p.exps[i] = 0
-			return c
+// get returns a zeroed slice of length n.
+func (p *slicePool[T]) get(n int) []T {
+	class, size := poolClass(n)
+	if class >= 0 {
+		if free := p.free[class]; len(free) > 0 {
+			s := free[len(free)-1]
+			free[len(free)-1] = nil
+			p.free[class] = free[:len(free)-1]
+			return s[:n]
 		}
 	}
-	return make([]Cell, sz)
+	return make([]T, n, size)
 }
 
-func (p *cellPool) release(c []Cell) {
-	for i := 0; i < regPoolSize; i++ {
-		if p.exps[i] < p.gen {
-			for i := range c {
-				c[i] = Cell{}
-			}
-			p.cells[i] = c
-			p.exps[i] = p.gen + p.maxAge
-			return
-		}
+// release clears s and keeps it for reuse, unless its capacity is not that
+// of a class (it was grown, or is too large) or the class has enough already.
+func (p *slicePool[T]) release(s []T) {
+	clear(s)
+	class, size := poolClass(cap(s))
+	if class < 0 || cap(s) != size || len(p.free[class]) >= p.max {
+		return
 	}
-}
-
-type valuePool struct {
-	values [][]Value // Pool of value sets
-	exps   []uint    // Expiry generation of value sets
-	gen    uint      // Current cell register set generation
-	maxAge uint
-}
-
-func mkValuePool(size, maxAge uint) valuePool {
-	return valuePool{
-		values: make([][]Value, size),
-		exps:   make([]uint, size),
-		maxAge: maxAge,
-	}
-}
-
-func (p *valuePool) get(sz int) []Value {
-	p.gen++
-	for i := 0; i < regPoolSize; i++ {
-		v := p.values[i]
-		if len(v) == sz {
-			p.values[i] = nil
-			p.exps[i] = 0
-			return v
-		}
-	}
-	return make([]Value, sz)
-}
-
-func (p *valuePool) release(v []Value) {
-	for i := 0; i < regPoolSize; i++ {
-		if p.exps[i] < p.gen {
-			for i := range v {
-				v[i] = Value{}
-			}
-			p.values[i] = v
-			p.exps[i] = p.gen + p.maxAge
-			return
-		}
-	}
+	p.free[class] = append(p.free[class], s[:0])
 }
