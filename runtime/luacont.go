@@ -593,12 +593,16 @@ RunLoop:
 	// return nil, errors.New("Invalid PC")
 }
 
-// forLimit returns the limit of an integer for loop with the given step as
-// an integer, as Lua 5.4's forlimit does: a float limit is rounded towards
-// the start, down for a positive step and up for a negative one.  A limit
-// beyond the integer range is clipped to it when the loop runs towards it,
-// and means no iteration when the loop runs away from it, in which case ok is
-// false.  NaN counts as beyond the range on the negative side.
+// forLimit returns the limit of an integer for loop as an integer.  The loop
+// runs while its variable has not passed the limit, which may be a float, and
+// stops rather than wrap around, so a float limit can be replaced by the
+// nearest integer on the loop's side of it: rounded down for a positive step,
+// up for a negative one.  A limit beyond the integer range in the direction
+// of the loop is replaced by the end of the range, as the loop stops at
+// overflow anyway; one beyond the range in the other direction can never be
+// reached, so ok is false and the loop does not run.  NaN compares false
+// with everything and is treated as below the range, which matches the
+// reference interpreter.
 func forLimit(limit Value, tlimit NumberType, step int64) (Value, bool) {
 	if tlimit == IsInt {
 		return limit, true
