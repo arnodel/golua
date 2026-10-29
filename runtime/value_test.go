@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -204,6 +205,45 @@ func TestValue_ToString(t *testing.T) {
 				t.Errorf("Value.ToString() got1 = %v, want %v", got1, tt.ok)
 			}
 		})
+	}
+}
+
+func TestFloatToString(t *testing.T) {
+	// The expected strings are the output of PUC Lua 5.5.1's tostring().
+	tests := []struct {
+		x    float64
+		want string
+	}{
+		{0, "0.0"},
+		{math.Copysign(0, -1), "-0.0"},
+		{-1.5, "-1.5"},
+		{999999, "999999.0"},
+		{1234567, "1234567.0"},
+		{-1234567, "-1234567.0"},
+		{4294967294, "4294967294.0"},
+		{1e14, "100000000000000.0"},
+		{1e15, "1e+15"},
+		{1e100, "1e+100"},
+		{0.1, "0.1"},
+		{123.456, "123.456"},
+		{1e-4, "0.0001"},
+		{1e-5, "1e-05"},
+		{3.14159265358979, "3.14159265358979"},
+		{1.0 / 3, "0.33333333333333331"},
+		{0.30000000000000004, "0.30000000000000004"},
+		{110.00000000000001, "110.00000000000001"},
+		{1 << 53, "9007199254740992.0"},
+		{1 << 63, "9.2233720368547758e+18"},
+		{18446744073709551614, "1.8446744073709552e+19"},
+		{math.Inf(1), "inf"},
+		{math.Inf(-1), "-inf"},
+		{math.NaN(), "nan"},
+		{math.Copysign(math.NaN(), -1), "-nan"},
+	}
+	for _, tt := range tests {
+		if got := FloatToString(tt.x); got != tt.want {
+			t.Errorf("FloatToString(%v) = %q, want %q", tt.x, got, tt.want)
+		}
 	}
 }
 
