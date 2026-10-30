@@ -19,6 +19,14 @@ Time them:
 go test -run '^$' -bench . -count 6 ./benchmarks/ > new.txt
 ```
 
+The default build keeps account of CPU and memory use so that quotas can be
+enforced, which costs a few percent.  Performance work targets the build
+without it; add `-tags noquotas` to time that one:
+
+```sh
+go test -tags noquotas -run '^$' -bench . -count 6 ./benchmarks/ > new.txt
+```
+
 Each benchmark has a sub-benchmark per implementation, named `impl=golua` and
 `impl=lua`.  Set `GOLUA_BENCH_LUA` to the path of a reference Lua interpreter
 to add `impl=lua`, and to have the test check its results too:
