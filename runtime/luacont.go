@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"math"
 	"unsafe"
 
 	"github.com/arnodel/golua/code"
@@ -484,21 +485,28 @@ RunLoop:
 			if opcode.GetF() {
 				// Advance for loop.  All registers are assumed to contain
 				// numeric values because they have been prepared previously.
-				nextStart, _ := Add(start, step)
-
-				// Check if the loop is done.  It can be done if we have gone
-				// over the stop value or if there has been overflow /
-				// underflow.
-				var done bool
-				if isPositive(step) {
-					done = numIsLessThan(stop, nextStart) || numIsLessThan(nextStart, start)
+				// The loop is done if the next value has passed the limit, or
+				// if the start has passed the next value, which means the
+				// addition wrapped around.
+				var (
+					next Value
+					done bool
+				)
+				if ifaceType(start.iface) == int64IfaceType && ifaceType(step.iface) == int64IfaceType {
+					// An integer loop: preparation made the limit an integer
+					// too, so this is all integer arithmetic.
+					s, st, lim := start.AsInt(), step.AsInt(), stop.AsInt()
+					n := s + st
+					done = forPassedInt(n, lim, st) || forPassedInt(s, n, st)
+					next = IntValue(n)
 				} else {
-					done = numIsLessThan(nextStart, stop) || numIsLessThan(start, nextStart)
+					next, _ = Add(start, step)
+					done = forPassed(next, stop, step) || forPassed(start, next, step)
 				}
 				if done {
-					nextStart = NilValue
+					next = NilValue
 				}
-				setReg(regs, cells, startReg, nextStart)
+				setReg(regs, cells, startReg, next)
 			} else {
 				// Prepare for loop
 				start, tstart := ToNumberValue(start)
@@ -520,6 +528,9 @@ RunLoop:
 					}
 					return nil, fmt.Errorf("'for' %s: expected number, got %s", role, val.CustomTypeName())
 				}
+				// The loop is done with integers if start and step are
+				// both integers, whatever the limit.
+				intLoop := tstart == IsInt && tstep == IsInt
 				// Make sure start and step have the same numeric type
 				if tstart != tstep {
 					// One is a float, one is an int, turn them both to floats
@@ -534,13 +545,16 @@ RunLoop:
 					c.pc = pc
 					return nil, errors.New("'for' step is zero")
 				}
-				// Check the loop is not already finished. If so, startReg is
-				// set to nil.
+				// If the loop is already finished, startReg is set to nil.
 				var done bool
-				if isPositive(step) {
-					done, _ = isLessThan(stop, start)
+				if intLoop {
+					// Make the limit an integer too, so that advancing the
+					// loop only deals with integers.
+					var ok bool
+					stop, ok = forLimit(stop, tstop, step.AsInt())
+					done = !ok || forPassedInt(start.AsInt(), stop.AsInt(), step.AsInt())
 				} else {
-					done, _ = isLessThan(start, stop)
+					done = forPassed(start, stop, step)
 				}
 				if done {
 					start = NilValue
@@ -554,6 +568,59 @@ RunLoop:
 		}
 	}
 	// return nil, errors.New("Invalid PC")
+}
+
+// forPassed returns whether v has passed the limit of a for loop with the
+// given step: it is beyond the limit in the direction of the step.  The
+// values must be numbers.
+func forPassed(v, limit, step Value) bool {
+	if isPositive(step) {
+		return numIsLessThan(limit, v)
+	}
+	return numIsLessThan(v, limit)
+}
+
+// forPassedInt is forPassed for an integer loop.
+func forPassedInt(v, limit, step int64) bool {
+	if step > 0 {
+		return v > limit
+	}
+	return v < limit
+}
+
+// forLimit returns the limit of an integer for loop as an integer.  The loop
+// runs while its variable has not passed the limit, which may be a float, and
+// stops rather than wrap around, so a float limit can be replaced by the
+// nearest integer on the loop's side of it: rounded down for a positive step,
+// up for a negative one.  A limit beyond the integer range in the direction
+// of the loop is replaced by the end of the range, as the loop stops at
+// overflow anyway; one beyond the range in the other direction can never be
+// reached, so ok is false and the loop does not run.  NaN compares false
+// with everything and is treated as below the range, which matches the
+// reference interpreter.
+func forLimit(limit Value, tlimit NumberType, step int64) (Value, bool) {
+	if tlimit == IsInt {
+		return limit, true
+	}
+	f := limit.AsFloat()
+	if step > 0 {
+		f = math.Floor(f)
+	} else {
+		f = math.Ceil(f)
+	}
+	if f >= -1<<63 && f < 1<<63 {
+		return IntValue(int64(f)), true
+	}
+	if f > 0 {
+		if step < 0 {
+			return limit, false
+		}
+		return IntValue(math.MaxInt64), true
+	}
+	if step > 0 {
+		return limit, false
+	}
+	return IntValue(math.MinInt64), true
 }
 
 // DebugInfo implements Cont.DebugInfo.

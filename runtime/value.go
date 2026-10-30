@@ -88,6 +88,7 @@ func ifacePtr(iface interface{}) uintptr {
 }
 
 var float64IfaceType = ifaceType(float64(1))
+var int64IfaceType = ifaceType(int64(1))
 
 // Equals returns true if v is equal to v2.  Provided that v and v2 have been
 // built with the official constructor functions, it is equivalent to but
