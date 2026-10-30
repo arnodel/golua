@@ -2,16 +2,18 @@ package code
 
 import "fmt"
 
-// RegType represents the type of a register
+// RegType is the kind of a register: value or cell.
 type RegType uint8
 
-// ValueRegType types
+// The two kinds of registers.  A value register holds a Value; a cell register
+// holds a reference to a Value that a closure and its enclosing function
+// share.
 const (
 	ValueRegType RegType = 0
 	CellRegType          = 1
 )
 
-// Reg is a register
+// Reg names a register of a frame: its kind and its 8-bit index.
 type Reg struct {
 	tp  RegType
 	idx uint8
@@ -48,6 +50,7 @@ func (r Reg) IsCell() bool {
 	return r.tp == CellRegType
 }
 
+// toA, toB and toC encode r at the A, B and C positions of an opcode.
 func (r Reg) toA() Opcode {
 	return Opcode(r.Idx())<<16 | Opcode(r.RegType())<<26
 }

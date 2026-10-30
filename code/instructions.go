@@ -177,7 +177,7 @@ func Cont(r1, r2 Reg) Opcode {
 
 // TailCont encodes r1 <- tailcont(r2)
 //
-// r2 must contain a closure, r1 then contains a new continuatino for that
+// r2 must contain a closure, r1 then contains a new continuation for that
 // closure, whose next continuation is the cc's next continuation.
 func TailCont(r1, r2 Reg) Opcode {
 	return mkType4a(Off, OpTailCont, r1, r2)
