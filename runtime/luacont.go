@@ -16,6 +16,7 @@ type LuaCont struct {
 	registers      []Value
 	cells          []Cell
 	pc             int32
+	lastLine       int32 // last line the line hook was called for
 	acc            []Value
 	running        bool
 	borrowedCells  bool
@@ -109,25 +110,30 @@ func (c *LuaCont) Parent() Cont {
 func (c *LuaCont) RunInThread(t *Thread) (Cont, error) {
 	pc := c.pc
 	consts := c.consts
-	lines := c.lines
-	var lastLine int32
+	c.lastLine = 0
 	c.running = true
 	opcodes := c.code
 	regs := c.registers
 	cells := c.cells
 RunLoop:
 	for {
-		t.RequireCPU(1)
-
+		// When the line hook is enabled and the instruction starts a new
+		// line, call the hook and then start the instruction over.  Going
+		// back to the top rather than falling through keeps the hook call
+		// on a path of its own: if it rejoined the common path here, the
+		// compiler would have to assume registers were clobbered by the
+		// call and reload all the loop state from the stack on every
+		// instruction (see notes/run-loop.md).
 		if t.DebugHooks.areFlagsEnabled(HookFlagLine) {
-			line := lines[pc]
-			if line > 0 && line != lastLine {
-				lastLine = line
+			if line := c.lines[pc]; line > 0 && line != c.lastLine {
+				c.lastLine = line
 				if err := t.triggerLine(t, c, line); err != nil {
 					return nil, err
 				}
+				continue RunLoop
 			}
 		}
+		t.RequireCPU(1)
 		opcode := opcodes[pc]
 		if opcode.HasType1() {
 			dst := opcode.GetA()
