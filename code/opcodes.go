@@ -6,14 +6,16 @@ import (
 	"math"
 )
 
-// Opcode is the type of opcodes
+// Opcode is one 32-bit bytecode instruction.  The package documentation
+// describes the encoding and the meaning of each type of opcode; the comments
+// in this file give the bit layout of each type next to the code that encodes
+// and decodes it.
 type Opcode uint32
 
-// There are 7 types of opcodes (Typ0 - Type7).  The type of opcode is defined
-// by the most significant 4 bits of the opcode.
-
-// Prefixes for the different types of opcodes.  Note: there is an unused prefix
-// (0001).
+// There are 8 types of opcodes (Type0 to Type7), identified by the most
+// significant 4 bits of the opcode, except that Type1 is identified by the
+// most significant bit alone, leaving the next 4 bits for its operator.  The
+// prefix 0001 is unused.
 const (
 	Type1Pfx Opcode = 1 << 31 // 1......
 	Type2Pfx Opcode = 7 << 28 // 0111...
@@ -27,8 +29,9 @@ const (
 	type4aFlag Opcode = 1 << 24
 )
 
-// TypePfx returns the type prefix of the opcode. (valid for all types apart
-// from Type1, which has MSB 1).
+// TypePfx returns the type prefix of the opcode, that is its most significant
+// 4 bits.  It identifies the type of every opcode but Type1, which is
+// recognised with HasType1.
 func (c Opcode) TypePfx() Opcode {
 	return Opcode(c) & 0xf0000000
 }
@@ -43,7 +46,7 @@ func (c Opcode) HasType4a() bool {
 	return c&type4aFlag != 0
 }
 
-// HasType0 returns true if the opcdoe is Type0.
+// HasType0 returns true if the opcode is Type0.
 func (c Opcode) HasType0() bool {
 	return c&(0xf<<28) == 0
 }
@@ -51,16 +54,17 @@ func (c Opcode) HasType0() bool {
 // ==================================================================
 // Type1:  1XXXXabc AAAAAAAA BBBBBBBB CCCCCCCC
 //
-// Opcodes for binary operations.
-// - XXXX encodes the operator op
-// - aAAAAAAAA encodes the destination register rA
-// - bBBBBBBBB encodes the left operand register rB
-// - cCCCCCCCC encodes the right operand register rC
+// Binary operations: rA <- rB op rC.
+//
+//   - XXXX is the operator (a BinOp)
+//   - aAAAAAAAA is the destination register rA
+//   - bBBBBBBBB is the left operand register rB
+//   - cCCCCCCCC is the right operand register rC
 
-// BinOp is the type of binary operator available int Type1 opcodes.
+// BinOp is the operator of a Type1 opcode.
 type BinOp uint8
 
-// Here is the list of available binary operators.
+// The binary operators.  The comparisons produce a boolean.
 const (
 	OpAdd BinOp = iota
 	OpSub
@@ -90,9 +94,7 @@ func (c Opcode) GetX() BinOp {
 	return BinOp((c >> 27) & 0xf)
 }
 
-// This functions builds the opcode for
-//
-//	rA <- op(rB, rC)
+// mkType1 builds the opcode for rA <- op(rB, rC).
 func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
 	return Type1Pfx | rA.toA() | rB.toB() | rC.toC() | op.encodeX()
 }
@@ -100,16 +102,14 @@ func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
 // ==================================================================
 // Type2:  0111Fabc AAAAAAAA BBBBBBBB CCCCCCCC
 //
-// Opcodes for table lookup / setting
-// - F encodes the flag f (On / Off)
-// - aAAAAAAAA encodes the register rA (source or destination depending on f)
-// - bBBBBBBBB encodes the register holding the table rB
-// - cCCCCCCCC encodes the register holding the index rC
-
-// This builds the opcode for
+// Table access: rA <- rB[rC] when F is Off, rB[rC] <- rA when F is On.
 //
-//	rA <- rB[rC]  if f is Off
-//	rB[rC] <- rA  if f is On
+//   - F selects between loading and storing
+//   - aAAAAAAAA is the register rA (destination or source, depending on F)
+//   - bBBBBBBBB is the register rB holding the table
+//   - cCCCCCCCC is the register rC holding the key
+
+// mkType2 builds the opcode for rA <- rB[rC] (f Off) or rB[rC] <- rA (f On).
 func mkType2(f Flag, rA, rB, rC Reg) Opcode {
 	return Type2Pfx | rA.toA() | rB.toB() | rC.toC() | f.encodeF()
 }
@@ -117,17 +117,23 @@ func mkType2(f Flag, rA, rB, rC Reg) Opcode {
 // ==================================================================
 // Type3:  0110FaYY AAAAAAAA NNNNNNNN NNNNNNNN
 //
-// Setting reg from constant
+// Loading a 16-bit literal or a constant: rA <- value(N) when F is Off, or
+// push the value into the continuation rA when F is On.
+//
+//   - F selects between storing in rA and pushing into rA
+//   - aAAAAAAAA is the register rA
+//   - YY says how N is read (an UnOpK16)
+//   - N is a 16-bit literal or an index into the constant table
 
-// UnOpK16 is the type of operator available in Type3 opcodes.
+// UnOpK16 says how a Type3 opcode reads its 16-bit N field.
 type UnOpK16 uint8
 
-// Here is the list of available UnOpK16 operators.
+// The ways of reading the N field of a Type3 opcode.
 const (
-	OpInt16 UnOpK16 = iota
-	OpK
-	OpClosureK
-	OpStr2
+	OpInt16    UnOpK16 = iota // the integer int16(N)
+	OpK                       // constant number N
+	OpClosureK                // a new closure of the function constant number N
+	OpStr2                    // the 2-byte string whose bytes are N (little-endian)
 )
 
 // encodeY encodes an UnOpK16 into an opcode.
@@ -149,7 +155,7 @@ type encoderToN interface {
 // constant values, offsets or indexes into the constants table.
 type Lit16 uint16
 
-// ToN encodes l into an opcode at N position.
+// encodeN encodes l into an opcode at the N position.
 func (l Lit16) encodeN() Opcode {
 	return Opcode(l)
 }
@@ -181,9 +187,10 @@ func Lit16FromInt16(n int16) Lit16 {
 	return Lit16(n)
 }
 
-// KIndex is an index into the constants table
+// KIndex is an index into the constant table.
 type KIndex uint16
 
+// encodeN encodes i into an opcode at the N position.
 func (i KIndex) encodeN() Opcode {
 	return Opcode(i)
 }
@@ -217,7 +224,7 @@ func (c Opcode) GetY() UnOpK16 {
 	return UnOpK16(c.getYorJ())
 }
 
-// Build a Type3 opcode from its constituents.
+// mkType3 builds a Type3 opcode from its constituents.
 func mkType3(f Flag, op UnOpK16, rA Reg, k encoderToN) Opcode {
 	return Type3Pfx | f.encodeF() | op.encodeY() | rA.toA() | k.encodeN()
 }
@@ -225,28 +232,37 @@ func mkType3(f Flag, op UnOpK16, rA Reg, k encoderToN) Opcode {
 // ==================================================================
 // Type4a: 0101Fab1 AAAAAAAA BBBBBBBB ZZZZZZZZ
 //
-// Unary ops + upvalues
+// Unary operations and continuations: rA <- op(rB) when F is Off, or push
+// op(rB) into the continuation rA when F is On.  A few operations (OpEtcId,
+// OpUpvalue, OpCheckNotDefined) act on rA and rB in their own way, see the
+// package documentation.
+//
+//   - F selects between storing in rA and pushing into rA
+//   - aAAAAAAAA is the register rA
+//   - bBBBBBBBB is the operand register rB
+//   - bit 24 is 1 (0 means Type4b)
+//   - ZZZZZZZZ is the operation (an UnOp)
 
-// UnOp is the type of operators available in Type4a opcodes.
+// UnOp is the operation of a Type4a opcode.
 type UnOp uint8
 
-// Available unary operators
+// The Type4a operations.
 const (
-	OpNeg             UnOp = iota // numerical negation
-	OpBitNot                      // bitwise negation
-	OpLen                         // length
-	OpCont                        // make a continuation for the closure
-	OpTailCont                    // make a "tail continuation" for the closure (its next is cc's next)
-	OpId                          // identity
-	OpTruth                       // Turn operand to boolean
-	OpNot                         // Added afterwards - why did I not have it in the first place?
-	OpUpvalue                     // get an upvalue
-	OpEtcId                       // etc identity
-	OpMkVarargTable               // create table from vararg data (Lua 5.5)
-	OpCheckNotDefined             // error if table[index] is non-nil (Lua 5.5 global redefinition check)
+	OpNeg             UnOp = iota // -rB
+	OpBitNot                      // ~rB
+	OpLen                         // #rB
+	OpCont                        // a continuation for the closure rB, returning to the current frame
+	OpTailCont                    // a continuation for the closure rB, returning where the current frame returns
+	OpId                          // rB itself; with F On this is "push rA, rB"
+	OpTruth                       // rB as a boolean
+	OpNot                         // not rB
+	OpUpvalue                     // add the cell uB to the upvalues of the closure rA
+	OpEtcId                       // push all the values of the etc rB into the continuation rA
+	OpMkVarargTable               // a table sharing the values of the etc rB, which also replaces rB (Lua 5.5)
+	OpCheckNotDefined             // error if rA[rB] is not nil (Lua 5.5 global redefinition check)
 )
 
-// encodeZ enocodes an UnOp into an opcode.
+// encodeZ encodes an UnOp into an opcode.
 func (op UnOp) encodeZ() Opcode {
 	return Opcode(op)
 }
@@ -256,6 +272,7 @@ func (c Opcode) GetUnOp() UnOp {
 	return UnOp(c & 0xff)
 }
 
+// mkType4a builds a Type4a opcode from its constituents.
 func mkType4a(f Flag, op UnOp, rA, rB Reg) Opcode {
 	return Type4Pfx | type4aFlag | f.encodeF() | op.encodeZ() | rA.toA() | rB.toB()
 }
@@ -263,23 +280,30 @@ func mkType4a(f Flag, op UnOp, rA, rB Reg) Opcode {
 // ==================================================================
 // Type4b: 0101Fa00 AAAAAAAA LLLLLLLL ZZZZZZZZ
 //
-// Setting reg from constant (2)
+// Loading a small constant: rA <- value when F is Off, or push the value into
+// the continuation rA when F is On.
+//
+//   - F selects between storing in rA and pushing into rA
+//   - aAAAAAAAA is the register rA
+//   - bits 25 and 24 are 0 (bit 24 set means Type4a)
+//   - LLLLLLLL is an 8-bit payload for the constants that need one
+//   - ZZZZZZZZ says which constant (an UnOpK)
 
-// UnOpK is the type of operators available in Type4b opcodes.
+// UnOpK says which constant a Type4b opcode loads.
 type UnOpK uint8
 
-// Available Constant operators
+// The Type4b constants.
 const (
-	OpNil UnOpK = iota
-	OpStr0
-	OpTable
-	OpStr1
-	OpBool
-	OpCC
-	OpClear
-	OpInt   // Extra 64 bits (2 opcodes)
-	OpFloat // Extra 64 bits (2 opcodes)
-	OpStrN  // Extra [n / 4] opcodes
+	OpNil   UnOpK = iota // nil
+	OpStr0               // ""
+	OpTable              // a new empty table
+	OpStr1               // the 1-byte string L
+	OpBool               // the boolean L != 0
+	OpCC                 // the current continuation
+	OpClear              // not a load: resets rA, giving a cell register a fresh cell
+	OpInt                // unused: meant to carry an int64 in the next 2 words
+	OpFloat              // unused: meant to carry a float64 in the next 2 words
+	OpStrN               // unused: meant to carry a string in the following words
 )
 
 // encodeZ encodes an UnOpK into an opcode.
@@ -287,9 +311,10 @@ func (op UnOpK) encodeZ() Opcode {
 	return Opcode(op)
 }
 
-// Lit8 is an 8 bit literal that can encode different types of constants inline.
+// Lit8 is the 8-bit payload of a Type4b opcode.
 type Lit8 uint8
 
+// encodeL encodes l into an opcode at the L position.
 func (l Lit8) encodeL() Opcode {
 	return Opcode(l) << 8
 }
@@ -328,7 +353,7 @@ func (c Opcode) GetUnOpK() UnOpK {
 	return UnOpK(c & 0xff)
 }
 
-// Build a Type4b opcode from its constituents
+// mkType4b builds a Type4b opcode from its constituents.
 func mkType4b(f Flag, op UnOpK, rA Reg, k Lit8) Opcode {
 	return Type4Pfx | f.encodeF() | rA.toA() | k.encodeL() | op.encodeZ()
 }
@@ -336,17 +361,24 @@ func mkType4b(f Flag, op UnOpK, rA Reg, k Lit8) Opcode {
 // ==================================================================
 // Type5:  0100FaJJ AAAAAAAA DDDDDDDD DDDDDDDD
 //
-// Jump / call
+// Jumps, calls and the close stack.
+//
+//   - F: for OpJumpIf, jump on a truthy (On) or falsy (Off) rA; for OpCall,
+//     On makes it a tail call; for OpClStack, On pushes rA and Off truncates
+//   - aAAAAAAAA is the register rA (unused by OpJump and the truncation)
+//   - JJ is the operation (a JumpOp)
+//   - D is a signed 16-bit offset from the jump itself (OpJump, OpJumpIf) or
+//     a height of the close stack (OpClStack truncation); 0 for OpCall
 
-// JumpOp is the type of jump supported by Type5 opcode.
+// JumpOp is the operation of a Type5 opcode.
 type JumpOp uint8
 
-// Here are the types of jumps
+// The Type5 operations.
 const (
-	OpCall JumpOp = iota
-	OpJump
-	OpJumpIf
-	OpClStack // Operate on the Close Stack
+	OpCall    JumpOp = iota // transfer control to the continuation rA; "call r0" is a return
+	OpJump                  // pc <- pc + D
+	OpJumpIf                // pc <- pc + D if rA is truthy (F On) or falsy (F Off)
+	OpClStack               // push rA onto the close stack (F On) or truncate it to height D (F Off)
 )
 
 // encodeJ encodes a jump type into and opcode.
@@ -354,20 +386,23 @@ func (op JumpOp) encodeJ() Opcode {
 	return Opcode(op) << 24
 }
 
-// An Offset is a relative position in the code for jumping to.
+// An Offset is the distance of a jump, counted from the jump opcode itself.
 type Offset int16
 
+// encodeD encodes d into an opcode at the D position.
 func (d Offset) encodeD() Opcode {
 	return Opcode(uint16(d))
 }
 
-// ClStackOffset is an offset from the bottom of the close stack
+// ClStackOffset is a height of the close stack, counted from its bottom.
 type ClStackOffset uint16
 
+// encodeD encodes d into an opcode at the D position.
 func (d ClStackOffset) encodeD() Opcode {
 	return Opcode(d)
 }
 
+// encoderToD is implemented by the types that can fill the D field.
 type encoderToD interface {
 	encodeD() Opcode
 }
@@ -382,6 +417,7 @@ func (c Opcode) GetOffset() Offset {
 	return Offset(uint16(c))
 }
 
+// GetClStackOffset decodes the ClStackOffset from the opcode.
 func (c Opcode) GetClStackOffset() ClStackOffset {
 	return ClStackOffset(uint16(c))
 }
@@ -391,6 +427,7 @@ func (c Opcode) SetOffset(n Offset) Opcode {
 	return c&0xffff0000 | n.encodeD()
 }
 
+// mkType5 builds a Type5 opcode from its constituents.
 func mkType5(f Flag, op JumpOp, rA Reg, k encoderToD) Opcode {
 	return Type5Pfx | f.encodeF() | op.encodeJ() | rA.toA() | k.encodeD()
 }
@@ -398,9 +435,16 @@ func mkType5(f Flag, op JumpOp, rA Reg, k encoderToD) Opcode {
 // ==================================================================
 // Type6:  0011Fab0 AAAAAAAA BBBBBBBB MMMMMMMM
 //
-// Load from etc
+// Reading an etc: rA <- the M-th value of the etc rB when F is Off (nil if
+// there is none); rA[M+i] <- the i-th value of the etc rB for every i when F
+// is On.
+//
+//   - F selects between loading one value and filling a table
+//   - aAAAAAAAA is the register rA
+//   - bBBBBBBBB is the register rB holding the etc
+//   - MMMMMMMM is an index (an Index8), counted from 0
 
-// Index8 is an 8 bit index (0 - 255).
+// Index8 is an 8-bit index (0 to 255).
 type Index8 uint8
 
 // encodeM encodes an Index8 into an Opcode.
@@ -422,6 +466,7 @@ func (c Opcode) GetM() Index8 {
 	return Index8(c)
 }
 
+// mkType6 builds a Type6 opcode from its constituents.
 func mkType6(f Flag, rA, rB Reg, i Index8) Opcode {
 	return Type6Pfx | f.encodeF() | rA.toA() | rB.toB() | i.encodeM()
 }
@@ -429,28 +474,46 @@ func mkType6(f Flag, rA, rB Reg, i Index8) Opcode {
 // ==================================================================
 // Type7:  0010Fabc AAAAAAAA BBBBBBBB CCCCCCCC
 //
-// For loop opcodes
+// Numeric for loops, over the variable rA with limit rB and step rC.  F Off
+// prepares the loop (checks the values are numbers, gives rA and rC the same
+// numeric type, sets rA to nil if the loop must not run); F On advances it
+// (rA <- rA + rC, then sets rA to nil if the limit is passed or the addition
+// wrapped around).  A conditional jump on rA follows.
+//
+//   - F selects between preparing and advancing
+//   - aAAAAAAAA is the loop variable rA
+//   - bBBBBBBBB is the limit rB
+//   - cCCCCCCCC is the step rC
 
+// mkType7 builds a Type7 opcode from its constituents.
 func mkType7(f Flag, rA, rB, rC Reg) Opcode {
 	return Type7Pfx | f.encodeF() | rA.toA() | rB.toB() | rC.toC()
 }
 
 // ==================================================================
-// Type0:  0000Fabc AAAAAAAA BBBBBBBB CCCCCCCC
+// Type0:  0000Fa00 AAAAAAAA 00000000 00000000
 //
-// Receiving args
+// Receiving arguments: the next value pushed into this continuation goes to
+// rA when F is Off; all the remaining pushed values go to rA as an etc when F
+// is On.  When the continuation runs, a Type0 opcode that has not received a
+// value sets rA to nil (or to an empty etc).
+//
+//   - F selects between receiving one value and receiving the rest
+//   - aAAAAAAAA is the register rA
 
+// mkType0 builds a Type0 opcode from its constituents.
 func mkType0(f Flag, rA Reg) Opcode {
 	return f.encodeF() | rA.toA()
 }
 
 // ==================================================================
-// Types that are used in several opcodes.
+// Fields shared by several types of opcodes.
 
-// Flag is an On / Off switch that can be used in several types of opcodes.
+// Flag is the On / Off switch at bit 27 of every opcode but Type1.  Its
+// meaning depends on the type.
 type Flag uint8
 
-// Flags have two values: On or Off
+// The two values of a Flag.
 const (
 	On  Flag = 1
 	Off Flag = 0
@@ -466,9 +529,9 @@ func (c Opcode) GetF() bool {
 	return c&(1<<27) != 0
 }
 
-//
-// Methods on opcodes to registers.
-//
+// Register operands.  Each is an 8-bit index in one of the three low bytes
+// of the opcode, with a kind bit (0 value register, 1 cell register) at bit
+// 26 (A), 25 (B) or 24 (C).
 
 // GetA returns the register rA encoded in the opcode.
 func (c Opcode) GetA() Reg {
@@ -494,6 +557,8 @@ func (c Opcode) GetC() Reg {
 	}
 }
 
+// getYorJ decodes the 2-bit field at bits 25-24, which is Y in Type3 and J in
+// Type5.
 func (c Opcode) getYorJ() uint8 {
 	return uint8((c >> 24) & 3)
 }
