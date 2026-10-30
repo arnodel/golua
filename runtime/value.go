@@ -94,6 +94,16 @@ var int64IfaceType = ifaceType(int64(1))
 // built with the official constructor functions, it is equivalent to but
 // slightly faster than '=='.
 func (v Value) Equals(v2 Value) bool {
+	// Different scalars mean different values, except for the floats 0.0 and
+	// -0.0, whose scalars differ only by the sign bit.  This test is kept
+	// small enough to inline; the rest of the comparison is in equalsSlow.
+	if v.scalar != v2.scalar && (v.scalar|v2.scalar)<<1 != 0 {
+		return false
+	}
+	return v.equalsSlow(v2)
+}
+
+func (v Value) equalsSlow(v2 Value) bool {
 	ift := ifaceType(v.iface)
 	if ift != ifaceType(v2.iface) {
 		return false
