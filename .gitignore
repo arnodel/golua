@@ -18,6 +18,7 @@
 
 # test files written
 writetest*.txt
+lib/iolib/files/popenwrite.txt
 
 # MacOS thingy
 .DS_Store
