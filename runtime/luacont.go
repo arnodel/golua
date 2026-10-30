@@ -491,13 +491,7 @@ RunLoop:
 					// limit, or wraps around.
 					s, st, lim := start.AsInt(), step.AsInt(), stop.AsInt()
 					next := s + st
-					var done bool
-					if st > 0 {
-						done = next > lim || next < s
-					} else {
-						done = next < lim || next > s
-					}
-					if done {
+					if forPassedInt(next, lim, st) || forPassedInt(s, next, st) {
 						setReg(regs, cells, startReg, NilValue)
 					} else {
 						setReg(regs, cells, startReg, IntValue(next))
@@ -507,16 +501,10 @@ RunLoop:
 				}
 				nextStart, _ := Add(start, step)
 
-				// Check if the loop is done.  It can be done if we have gone
-				// over the stop value or if there has been overflow /
-				// underflow.
-				var done bool
-				if isPositive(step) {
-					done = numIsLessThan(stop, nextStart) || numIsLessThan(nextStart, start)
-				} else {
-					done = numIsLessThan(nextStart, stop) || numIsLessThan(start, nextStart)
-				}
-				if done {
+				// The loop is done if the next value has passed the limit, or
+				// if the start has passed the next value, which means the
+				// addition wrapped around.
+				if forPassed(nextStart, stop, step) || forPassed(start, nextStart, step) {
 					nextStart = NilValue
 				}
 				setReg(regs, cells, startReg, nextStart)
@@ -558,26 +546,16 @@ RunLoop:
 					c.pc = pc
 					return nil, errors.New("'for' step is zero")
 				}
-				// Check the loop is not already finished. If so, startReg is
-				// set to nil.
+				// If the loop is already finished, startReg is set to nil.
 				var done bool
 				if intLoop {
 					// Make the limit an integer too, so that advancing the
 					// loop only deals with integers.
 					var ok bool
 					stop, ok = forLimit(stop, tstop, step.AsInt())
-					done = !ok
-					if ok {
-						if step.AsInt() > 0 {
-							done = stop.AsInt() < start.AsInt()
-						} else {
-							done = start.AsInt() < stop.AsInt()
-						}
-					}
-				} else if isPositive(step) {
-					done, _ = isLessThan(stop, start)
+					done = !ok || forPassedInt(start.AsInt(), stop.AsInt(), step.AsInt())
 				} else {
-					done, _ = isLessThan(start, stop)
+					done = forPassed(start, stop, step)
 				}
 				if done {
 					start = NilValue
@@ -591,6 +569,24 @@ RunLoop:
 		}
 	}
 	// return nil, errors.New("Invalid PC")
+}
+
+// forPassed returns whether v has passed the limit of a for loop with the
+// given step: it is beyond the limit in the direction of the step.  The
+// values must be numbers.
+func forPassed(v, limit, step Value) bool {
+	if isPositive(step) {
+		return numIsLessThan(limit, v)
+	}
+	return numIsLessThan(v, limit)
+}
+
+// forPassedInt is forPassed for an integer loop.
+func forPassedInt(v, limit, step int64) bool {
+	if step > 0 {
+		return v > limit
+	}
+	return v < limit
 }
 
 // forLimit returns the limit of an integer for loop as an integer.  The loop
