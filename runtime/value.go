@@ -126,6 +126,7 @@ func (v Value) equalsSlow(v2 Value) bool {
 		if v.scalar < hashedStringTag {
 			return true
 		}
+		return x == v2.iface.(string)
 	case *Closure:
 		return x.Equals(v2.iface.(*Closure))
 	}
