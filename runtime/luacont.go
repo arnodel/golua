@@ -485,29 +485,28 @@ RunLoop:
 			if opcode.GetF() {
 				// Advance for loop.  All registers are assumed to contain
 				// numeric values because they have been prepared previously.
-				if ifaceType(start.iface) == int64IfaceType && ifaceType(step.iface) == int64IfaceType {
-					// An integer loop: preparation made the limit an integer
-					// too.  The loop is done when the next value passes the
-					// limit, or wraps around.
-					s, st, lim := start.AsInt(), step.AsInt(), stop.AsInt()
-					next := s + st
-					if forPassedInt(next, lim, st) || forPassedInt(s, next, st) {
-						setReg(regs, cells, startReg, NilValue)
-					} else {
-						setReg(regs, cells, startReg, IntValue(next))
-					}
-					pc++
-					continue RunLoop
-				}
-				nextStart, _ := Add(start, step)
-
 				// The loop is done if the next value has passed the limit, or
 				// if the start has passed the next value, which means the
 				// addition wrapped around.
-				if forPassed(nextStart, stop, step) || forPassed(start, nextStart, step) {
-					nextStart = NilValue
+				var (
+					next Value
+					done bool
+				)
+				if ifaceType(start.iface) == int64IfaceType && ifaceType(step.iface) == int64IfaceType {
+					// An integer loop: preparation made the limit an integer
+					// too, so this is all integer arithmetic.
+					s, st, lim := start.AsInt(), step.AsInt(), stop.AsInt()
+					n := s + st
+					done = forPassedInt(n, lim, st) || forPassedInt(s, n, st)
+					next = IntValue(n)
+				} else {
+					next, _ = Add(start, step)
+					done = forPassed(next, stop, step) || forPassed(start, next, step)
 				}
-				setReg(regs, cells, startReg, nextStart)
+				if done {
+					next = NilValue
+				}
+				setReg(regs, cells, startReg, next)
 			} else {
 				// Prepare for loop
 				start, tstart := ToNumberValue(start)
