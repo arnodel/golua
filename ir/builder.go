@@ -297,6 +297,12 @@ func (c *CodeBuilder) getConstantIndex(k Constant) uint {
 	return c.constantPool.GetConstantIndex(k)
 }
 
+// GetConstantIndex returns the index of k in the constant table, adding it if
+// needed.
+func (c *CodeBuilder) GetConstantIndex(k Constant) uint {
+	return c.getConstantIndex(k)
+}
+
 func (c *CodeBuilder) getCode() *Code {
 	return &Code{
 		Instructions: c.code,

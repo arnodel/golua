@@ -12,13 +12,13 @@ import (
 // and decodes it.
 type Opcode uint32
 
-// There are 8 types of opcodes (Type0 to Type7), identified by the most
+// There are 9 types of opcodes (Type0 to Type8), identified by the most
 // significant 4 bits of the opcode, except that Type1 is identified by the
-// most significant bit alone, leaving the next 4 bits for its operator.  The
-// prefix 0001 is unused.
+// most significant bit alone, leaving the next 4 bits for its operator.
 const (
 	Type1Pfx Opcode = 1 << 31 // 1......
 	Type2Pfx Opcode = 7 << 28 // 0111...
+	Type8Pfx Opcode = 1 << 28 // 0001...
 	Type3Pfx Opcode = 6 << 28 // 0110...
 	Type4Pfx Opcode = 5 << 28 // 0101...
 	Type5Pfx Opcode = 4 << 28 // 0100...
@@ -112,6 +112,56 @@ func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
 // mkType2 builds the opcode for rA <- rB[rC] (f Off) or rB[rC] <- rA (f On).
 func mkType2(f Flag, rA, rB, rC Reg) Opcode {
 	return Type2Pfx | rA.toA() | rB.toB() | rC.toC() | f.encodeF()
+}
+
+// ==================================================================
+// Type8:  0001Fab0 AAAAAAAA BBBBBBBB KKKKKKKK
+//
+// Table access by constant key: rA <- rB[K] when F is Off, rB[K] <- rA when F
+// is On.  This is what Type2 does when the key is a constant, without the
+// opcode to load the key into a register first; the compiler uses it for
+// field access and only when the constant index fits in 8 bits.
+//
+//   - F selects between loading and storing
+//   - aAAAAAAAA is the register rA (destination or source, depending on F)
+//   - bBBBBBBBB is the register rB holding the table
+//   - KKKKKKKK is the index of the key in the constant table (a KIndex8)
+
+// KIndex8 is the index of a constant that fits in 8 bits (0 to 255).
+type KIndex8 uint8
+
+// encodeK8 encodes a KIndex8 into an Opcode.
+func (i KIndex8) encodeK8() Opcode {
+	return Opcode(i)
+}
+
+// ToKIndex converts the index to a KIndex.
+func (i KIndex8) ToKIndex() KIndex {
+	return KIndex(i)
+}
+
+// KIndex8FromInt returns a KIndex8 encoding the given int, which must fit in
+// an uint8.
+func KIndex8FromInt(i int) KIndex8 {
+	if i < 0 || i > math.MaxUint8 {
+		panic("constant index out of range")
+	}
+	return KIndex8(i)
+}
+
+// GetK8 decodes the KIndex8 from the opcode.
+func (c Opcode) GetK8() KIndex8 {
+	return KIndex8(c)
+}
+
+// SetK8 returns a copy of the opcode with a new KIndex8.
+func (c Opcode) SetK8(i KIndex8) Opcode {
+	return c&0xffffff00 | i.encodeK8()
+}
+
+// mkType8 builds the opcode for rA <- rB[K] (f Off) or rB[K] <- rA (f On).
+func mkType8(f Flag, rA, rB Reg, k KIndex8) Opcode {
+	return Type8Pfx | rA.toA() | rB.toB() | k.encodeK8() | f.encodeF()
 }
 
 // ==================================================================
@@ -623,6 +673,16 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 			return fmt.Sprintf("%s <- %s[%s]", rA, rB, rC)
 		}
 		return fmt.Sprintf("%s[%s] <- %s", rB, rC, rA)
+	case Type8Pfx:
+		rA := c.GetA()
+		f := c.GetF()
+		rB := c.GetB()
+		k := c.GetK8()
+		key := fmt.Sprintf("K%d (%s)", k, d.ShortKString(k.ToKIndex()))
+		if !f {
+			return fmt.Sprintf("%s <- %s[%s]", rA, rB, key)
+		}
+		return fmt.Sprintf("%s[%s] <- %s", rB, key, rA)
 	case Type4Pfx:
 		rA := c.GetA()
 		f := c.GetF()

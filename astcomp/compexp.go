@@ -127,6 +127,15 @@ func (c *expCompiler) ProcessFunctionCallExp(f ast.FunctionCall) {
 // ProcessIndexExp compiles a IndexExp.
 func (c *expCompiler) ProcessIndexExp(e ast.IndexExp) {
 	tReg := c.compileExpNoDestHint(e.Coll)
+	if s, ok := e.Idx.(ast.String); ok {
+		// A constant key (e.g. a field name) needs no register.
+		c.emitInstr(e, ir.LookupK{
+			Dst:   c.dst,
+			Table: tReg,
+			Kidx:  c.GetConstantIndex(ir.String(s.Val)),
+		})
+		return
+	}
 	c.TakeRegister(tReg)
 	iReg := c.compileExpNoDestHint(e.Idx)
 	c.emitInstr(e, ir.Lookup{
@@ -203,12 +212,20 @@ func (c *expCompiler) ProcessTableConstructorExp(t ast.TableConstructor) {
 			keyExp = ast.Int{Val: uint64(currImplicitKey)}
 			currImplicitKey++
 		}
-		keyReg := c.compileExpNoDestHint(keyExp)
-		c.emitInstr(field.Value, ir.SetIndex{
-			Table: c.dst,
-			Index: keyReg,
-			Src:   valReg,
-		})
+		if s, ok := keyExp.(ast.String); ok {
+			c.emitInstr(field.Value, ir.SetIndexK{
+				Table: c.dst,
+				Kidx:  c.GetConstantIndex(ir.String(s.Val)),
+				Src:   valReg,
+			})
+		} else {
+			keyReg := c.compileExpNoDestHint(keyExp)
+			c.emitInstr(field.Value, ir.SetIndex{
+				Table: c.dst,
+				Index: keyReg,
+				Src:   valReg,
+			})
+		}
 		c.ReleaseRegister(valReg)
 	}
 	c.ReleaseRegister(c.dst)
@@ -424,12 +441,10 @@ func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
 		self := fReg
 		c.TakeRegister(self)
 		fReg = c.GetFreeRegister()
-		mReg := c.GetFreeRegister()
-		c.emitLoadConst(f.Method, ir.String(f.Method.Val), mReg)
-		c.emitInstr(f.Target, ir.Lookup{
+		c.emitInstr(f.Target, ir.LookupK{
 			Dst:   fReg,
 			Table: self,
-			Index: mReg,
+			Kidx:  c.GetConstantIndex(ir.String(f.Method.Val)),
 		})
 		contReg = c.GetFreeRegister()
 		c.emitInstr(f, ir.MkCont{

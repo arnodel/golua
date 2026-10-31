@@ -37,7 +37,9 @@ type InstrProcessor interface {
 	ProcessMkTableInstr(MkTable)
 	ProcessMkVarargTableInstr(MkVarargTable)
 	ProcessLookupInstr(Lookup)
+	ProcessLookupKInstr(LookupK)
 	ProcessSetIndexInstr(SetIndex)
+	ProcessSetIndexKInstr(SetIndexK)
 	ProcessReceiveInstr(Receive)
 	ProcessReceiveEtcInstr(ReceiveEtc)
 	ProcessEtcLookupInstr(EtcLookup)
@@ -359,6 +361,35 @@ func (s Lookup) String() string {
 	return fmt.Sprintf("%s := %s[%s]", s.Dst, s.Table, s.Index)
 }
 
+// LookupK finds the value associated with the constant key Kidx in Table and
+// puts it in Dst.  It is Lookup for a key known at compile time, saving the
+// instruction that would load the key into a register.
+type LookupK struct {
+	Dst   Register
+	Table Register
+	Kidx  uint // Index of the key in the constant table
+}
+
+// DestReg returns the destination register of this instruction.
+func (s LookupK) DestReg() Register {
+	return s.Dst
+}
+
+// WithDestReg returns the same isntruction with a new destination register.
+func (s LookupK) WithDestReg(r Register) Instruction {
+	s.Dst = r
+	return s
+}
+
+// ProcessInstr makes the InstrProcessor process this instruction.
+func (s LookupK) ProcessInstr(p InstrProcessor) {
+	p.ProcessLookupKInstr(s)
+}
+
+func (s LookupK) String() string {
+	return fmt.Sprintf("%s := %s[K%d]", s.Dst, s.Table, s.Kidx)
+}
+
 // SetIndex associates Index with Src in the table Table.
 // If CheckNotDefined is true, a runtime check is performed first: if
 // Table[Index] is already non-nil, a "global 'name' already defined" error
@@ -377,6 +408,23 @@ func (s SetIndex) ProcessInstr(p InstrProcessor) {
 
 func (s SetIndex) String() string {
 	return fmt.Sprintf("%s[%s] := %s", s.Table, s.Index, s.Src)
+}
+
+// SetIndexK associates the constant key Kidx with Src in the table Table.  It
+// is SetIndex for a key known at compile time.
+type SetIndexK struct {
+	Table Register
+	Kidx  uint // Index of the key in the constant table
+	Src   Register
+}
+
+// ProcessInstr makes the InstrProcessor process this instruction.
+func (s SetIndexK) ProcessInstr(p InstrProcessor) {
+	p.ProcessSetIndexKInstr(s)
+}
+
+func (s SetIndexK) String() string {
+	return fmt.Sprintf("%s[K%d] := %s", s.Table, s.Kidx, s.Src)
 }
 
 // Receive will put the result of pushes in the given registers.

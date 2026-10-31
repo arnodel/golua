@@ -92,6 +92,16 @@ func SetIndex(r1, r2, r3 Reg) Opcode {
 	return mkType2(On, r1, r2, r3)
 }
 
+// LoadLookupK encodes r1 <- r2[K]
+func LoadLookupK(r1, r2 Reg, k KIndex8) Opcode {
+	return mkType8(Off, r1, r2, k)
+}
+
+// SetIndexK encodes r2[K] <- r1
+func SetIndexK(r1, r2 Reg, k KIndex8) Opcode {
+	return mkType8(On, r1, r2, k)
+}
+
 // Push encodes push r1, r2
 //
 // r1 must contain a continuation.
