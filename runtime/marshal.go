@@ -184,6 +184,9 @@ func (r *breader) readConst() (v Value) {
 	case CodeType:
 		x := new(Code)
 		r.readCode(x)
+		if r.err == nil {
+			r.err = x.verify()
+		}
 		v = CodeValue(x)
 	// Booleans and nil are inlined so this shouldn't be needed.  Keeping around
 	// in case this is reversed.

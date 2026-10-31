@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/arnodel/golua/code"
@@ -92,7 +93,7 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 			if unit.Lines != nil {
 				lines = unit.Lines[k.StartOffset:k.EndOffset]
 			}
-			constants[i] = CodeValue(&Code{
+			c := &Code{
 				source:       unit.Source,
 				name:         k.Name,
 				code:         unit.Code[k.StartOffset:k.EndOffset],
@@ -102,7 +103,13 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 				UpNames:      k.UpNames,
 				RegCount:     k.RegCount,
 				CellCount:    k.CellCount,
-			})
+			}
+			// The compiler is trusted to produce code that passes, so a
+			// failure here is a bug in it rather than an error to report.
+			if err := c.verify(); err != nil {
+				panic(fmt.Sprintf("golua: compiled function %s is invalid: %s", k.Name, err))
+			}
+			constants[i] = CodeValue(c)
 		default:
 			panic("Unsupported constant type")
 		}
