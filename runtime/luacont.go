@@ -234,16 +234,30 @@ RunLoop:
 			reg := opcode.GetA()
 			coll := getReg(regs, cells, opcode.GetB())
 			idx := getReg(regs, cells, opcode.GetC())
+			// Common case first: an integer key in the array part of a
+			// table, with a non-nil value there.  Anything else goes the
+			// general way.
+			slot := arraySlot(coll, idx)
 			if !opcode.GetF() {
-				val, err := Index(t, coll, idx)
-				if err != nil {
-					c.pc = pc
-					return nil, err
+				var val Value
+				if slot != nil && !slot.IsNil() {
+					t.RequireCPU(1)
+					val = *slot
+				} else {
+					var err error
+					val, err = Index(t, coll, idx)
+					if err != nil {
+						c.pc = pc
+						return nil, err
+					}
 				}
 				setReg(regs, cells, reg, val)
 			} else {
-				err := SetIndex(t, coll, idx, getReg(regs, cells, reg))
-				if err != nil {
+				val := getReg(regs, cells, reg)
+				if slot != nil && !slot.IsNil() && !val.IsNil() {
+					t.RequireCPU(1)
+					*slot = val
+				} else if err := SetIndex(t, coll, idx, val); err != nil {
 					c.pc = pc
 					return nil, err
 				}

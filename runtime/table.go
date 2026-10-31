@@ -76,6 +76,22 @@ func (t *Table) Get(k Value) Value {
 	return t.get(k)
 }
 
+// arraySlot is the fast path of the index and setindex opcodes: when coll
+// is a table and k an integer within its array part, it returns a pointer to
+// the slot for coll[k], else nil.  It is small enough to inline into the run
+// loop, which falls back to Index or SetIndex when it returns nil.
+func arraySlot(coll, k Value) *Value {
+	tbl, ok := coll.TryTable()
+	if !ok || tbl.array == nil {
+		return nil
+	}
+	i, ok := k.TryInt()
+	if !ok || uint64(i-1) >= uint64(len(tbl.array.values)) {
+		return nil
+	}
+	return &tbl.array.values[i-1]
+}
+
 // getString returns t[k] for a key known to be a string: a string is never
 // in the array part, and the key comparison needs no call.
 func (t *Table) getString(k Value) Value {
