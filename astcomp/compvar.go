@@ -21,10 +21,22 @@ var _ ast.VarProcessor = (*assignCompiler)(nil)
 // localOperand returns the register of e if e is a local variable whose
 // register can be read directly when the store happens: a non-cell local that
 // this statement does not assign to.  Nothing can change such a register
-// between now and the store, so there is no need to copy it.  A cell could be
-// changed by a function called while compiling the other l-values, and a
-// local assigned by this statement must keep its old value for the store (in
-// "i, a[i] = i+1, 20" the store goes to the old a[i]).
+// between now and the store, so there is no need to copy it.  With q, i and j
+// locals in r3, r4 and r5, "q[i], q[j] = q[j], q[i]" compiles to
+//
+//	r7 <- r3[r5]; r8 <- r3[r4]; r3[r4] <- r7; r3[r5] <- r8
+//
+// where before the table and the keys were copied first:
+//
+//	r7 <- r3[r5]; r8 <- r3[r4]; r9 <- r3; r10 <- r4; r11 <- r3; r12 <- r5;
+//	r9[r10] <- r7; r11[r12] <- r8
+//
+// A cell could be changed by a function called while compiling the other
+// l-values, so it is still copied.  So is a local assigned by this statement,
+// which must keep its old value for the store: in "i, a[i] = i+1, 20" the
+// store goes to the old a[i], so i is copied (r9 <- r4 below) while a is not:
+//
+//	r7 <- 1; r7 <- r4 + r7; r8 <- 20; r9 <- r4; r4 <- r7; r6[r9] <- r8
 func (c *assignCompiler) localOperand(e ast.ExpNode) (ir.Register, bool) {
 	n, ok := e.(ast.Name)
 	if !ok {

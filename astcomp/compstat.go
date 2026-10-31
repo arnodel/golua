@@ -36,8 +36,14 @@ func (c *compiler) ProcessAssignStat(s ast.AssignStat) {
 
 // singleLocalValue returns the register of the value of s when s assigns one
 // non-cell local variable to one l-value, in which case the store can read
-// the local directly.  With several values a local could be assigned by the
-// same statement before being read ("a, b = b, a"), so they are copied.
+// the local directly: with o and v in r1 and r2, "o.x = v" compiles to the
+// single opcode
+//
+//	r1[K2 ("x")] <- r2
+//
+// where before both were copied first: r7 <- r2; r8 <- r1; r8[K2 ("x")] <- r7.
+// With several values a local could be assigned by the same statement before
+// being read ("a, b = b, a"), so they are all copied.
 func (c *compiler) singleLocalValue(s ast.AssignStat) (ir.Register, bool) {
 	if len(s.Dest) != 1 || len(s.Src) != 1 {
 		return 0, false
