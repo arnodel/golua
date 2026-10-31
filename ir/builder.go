@@ -280,6 +280,12 @@ func (c *CodeBuilder) IsConstantReg(reg Register) bool {
 	return c.registers[reg].IsConstant
 }
 
+// IsCellReg returns true if reg is a cell register (a local captured by a
+// closure, or an upvalue).
+func (c *CodeBuilder) IsCellReg(reg Register) bool {
+	return c.registers[reg].IsCell
+}
+
 func (c *CodeBuilder) EmitNoLine(instr Instruction) {
 	c.Emit(instr, 0)
 }

@@ -12,21 +12,53 @@ type assignFunc func(ir.Register)
 type assignCompiler struct {
 	*compiler
 	assigns         []assignFunc
-	checkNotDefined bool // when true, IndexExp assignments emit CheckNotDefined
+	checkNotDefined bool                 // when true, IndexExp assignments emit CheckNotDefined
+	assigned        map[ir.Register]bool // local registers this statement assigns to
 }
 
 var _ ast.VarProcessor = (*assignCompiler)(nil)
 
+// localOperand returns the register of e if e is a local variable whose
+// register can be read directly when the store happens: a non-cell local that
+// this statement does not assign to.  Nothing can change such a register
+// between now and the store, so there is no need to copy it.  A cell could be
+// changed by a function called while compiling the other l-values, and a
+// local assigned by this statement must keep its old value for the store (in
+// "i, a[i] = i+1, 20" the store goes to the old a[i]).
+func (c *assignCompiler) localOperand(e ast.ExpNode) (ir.Register, bool) {
+	n, ok := e.(ast.Name)
+	if !ok {
+		return 0, false
+	}
+	reg, ok := c.GetRegister(ir.Name(n.Val))
+	if !ok || c.IsCellReg(reg) || c.assigned[reg] {
+		return 0, false
+	}
+	return reg, true
+}
+
+// operandReg returns a register holding the value of e for a store, and
+// whether that register was taken and must be released after the store.
+func (c *assignCompiler) operandReg(e ast.ExpNode) (reg ir.Register, taken bool) {
+	if reg, ok := c.localOperand(e); ok {
+		return reg, false
+	}
+	reg = c.GetFreeRegister()
+	c.compileExpInto(e, reg)
+	c.TakeRegister(reg)
+	return reg, true
+}
+
 // ProcessIndexExpVar compiles the expression as an L-value.
 func (c *assignCompiler) ProcessIndexExpVar(e ast.IndexExp) {
-	tReg := c.GetFreeRegister()
-	c.compileExpInto(e.Coll, tReg)
-	c.TakeRegister(tReg)
+	tReg, tTaken := c.operandReg(e.Coll)
 	if s, ok := e.Idx.(ast.String); ok && !c.checkNotDefined {
 		// A constant key (e.g. a field name) needs no register.
 		kidx := c.GetConstantIndex(ir.String(s.Val))
 		c.assigns = append(c.assigns, func(src ir.Register) {
-			c.ReleaseRegister(tReg)
+			if tTaken {
+				c.ReleaseRegister(tReg)
+			}
 			c.emitInstr(e, ir.SetIndexK{
 				Table: tReg,
 				Kidx:  kidx,
@@ -35,13 +67,15 @@ func (c *assignCompiler) ProcessIndexExpVar(e ast.IndexExp) {
 		})
 		return
 	}
-	iReg := c.GetFreeRegister()
-	c.compileExpInto(e.Idx, iReg)
-	c.TakeRegister(iReg)
+	iReg, iTaken := c.operandReg(e.Idx)
 	checkNotDefined := c.checkNotDefined
 	c.assigns = append(c.assigns, func(src ir.Register) {
-		c.ReleaseRegister(tReg)
-		c.ReleaseRegister(iReg)
+		if tTaken {
+			c.ReleaseRegister(tReg)
+		}
+		if iTaken {
+			c.ReleaseRegister(iReg)
+		}
 		c.emitInstr(e, ir.SetIndex{
 			Table:           tReg,
 			Index:           iReg,
@@ -97,6 +131,18 @@ func (c *compiler) compileDefineAssignments(lvals []ast.Var, dsts []ir.Register)
 
 func (c *compiler) compileAssignmentsWithCheck(lvals []ast.Var, dsts []ir.Register, checkNotDefined bool) {
 	ac := assignCompiler{compiler: c, assigns: make([]assignFunc, 0, len(lvals)), checkNotDefined: checkNotDefined}
+	// The locals assigned by this statement must be read before they are
+	// assigned, see localOperand.
+	for _, lval := range lvals {
+		if n, ok := lval.(ast.Name); ok {
+			if reg, ok := c.GetRegister(ir.Name(n.Val)); ok {
+				if ac.assigned == nil {
+					ac.assigned = map[ir.Register]bool{}
+				}
+				ac.assigned[reg] = true
+			}
+		}
+	}
 	for _, lval := range lvals {
 		lval.ProcessVar(&ac)
 	}

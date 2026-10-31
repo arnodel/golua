@@ -20,10 +20,37 @@ func (c *compiler) ProcessAssignStat(s ast.AssignStat) {
 
 	// Evaluate the right hand side
 	resultRegs := make([]ir.Register, len(s.Dest))
-	c.compileExpList(s.Src, resultRegs)
+	if reg, ok := c.singleLocalValue(s); ok {
+		// "x.f = v" with v a local: v's register is read directly by the
+		// store, no copy needed.  The take balances the release in
+		// compileAssignments.
+		c.TakeRegister(reg)
+		resultRegs[0] = reg
+	} else {
+		c.compileExpList(s.Src, resultRegs)
+	}
 
 	// Compile the lvalues and assignments
 	c.compileAssignments(s.Dest, resultRegs)
+}
+
+// singleLocalValue returns the register of the value of s when s assigns one
+// non-cell local variable to one l-value, in which case the store can read
+// the local directly.  With several values a local could be assigned by the
+// same statement before being read ("a, b = b, a"), so they are copied.
+func (c *compiler) singleLocalValue(s ast.AssignStat) (ir.Register, bool) {
+	if len(s.Dest) != 1 || len(s.Src) != 1 {
+		return 0, false
+	}
+	n, ok := s.Src[0].(ast.Name)
+	if !ok {
+		return 0, false
+	}
+	reg, ok := c.GetRegister(ir.Name(n.Val))
+	if !ok || c.IsCellReg(reg) {
+		return 0, false
+	}
+	return reg, true
 }
 
 // ProcessBlockStat compiles a BlockStat.
