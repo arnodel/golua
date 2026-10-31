@@ -659,18 +659,33 @@ func (c *LuaCont) clearReg(reg code.Reg) {
 	}
 }
 
+// setReg and getReg are the run loop's register accessors.  They index the
+// frame without a bounds check: every register operand of a loaded function
+// has been checked against its register counts (see Code.verify), and
+// NewLuaCont sizes the frame from those same counts.
 func setReg(regs []Value, cells []Cell, reg code.Reg, val Value) {
 	idx := reg.Idx()
 	if reg.IsCell() {
-		cells[idx].set(val)
+		*cellAt(cells, idx).ref = val
 	} else {
-		regs[idx] = val
+		*regAt(regs, idx) = val
 	}
 }
 
 func getReg(regs []Value, cells []Cell, reg code.Reg) Value {
+	idx := reg.Idx()
 	if reg.IsCell() {
-		return *cells[reg.Idx()].ref
+		return *cellAt(cells, idx).ref
 	}
-	return regs[reg.Idx()]
+	return *regAt(regs, idx)
+}
+
+// regAt is &regs[idx] without the bounds check.
+func regAt(regs []Value, idx uint8) *Value {
+	return (*Value)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(regs)), uintptr(idx)*unsafe.Sizeof(Value{})))
+}
+
+// cellAt is &cells[idx] without the bounds check.
+func cellAt(cells []Cell, idx uint8) *Cell {
+	return (*Cell)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(cells)), uintptr(idx)*unsafe.Sizeof(Cell{})))
 }
