@@ -41,52 +41,47 @@ func (c *Code) verify() error {
 // is a jump.  Which of the fields A, B and C name registers depends on the
 // type of the opcode; the others hold literals or operators.
 func (c *Code) verifyOpcode(pc int, op code.Opcode) error {
-	regs := [3]code.Reg{op.GetA(), op.GetB(), op.GetC()}
-	n := 1 // Every type has a register in A
-	switch {
-	case op.HasType1():
-		n = 3
+	if op.HasType1() {
+		return c.verifyRegisters(op.GetA(), op.GetB(), op.GetC())
+	}
+	switch op.TypePfx() {
+	case code.Type2Pfx, code.Type7Pfx:
+		return c.verifyRegisters(op.GetA(), op.GetB(), op.GetC())
+	case code.Type6Pfx:
+		return c.verifyRegisters(op.GetA(), op.GetB())
+	case code.Type4Pfx:
+		if !op.HasType4a() {
+			return c.verifyRegisters(op.GetA())
+		}
+		if op.GetUnOp() == code.OpUpvalue && !op.GetB().IsCell() {
+			return errors.New("upval needs a cell register")
+		}
+		return c.verifyRegisters(op.GetA(), op.GetB())
+	case code.Type5Pfx:
+		switch op.GetJ() {
+		case code.OpJump, code.OpJumpIf:
+			target := pc + int(op.GetOffset())
+			if target < 0 || target >= len(c.code) {
+				return fmt.Errorf("jump to %d, outside the code", target)
+			}
+		}
+		return c.verifyRegisters(op.GetA())
+	case code.Type3Pfx, code.Type0Pfx:
+		return c.verifyRegisters(op.GetA())
 	default:
-		switch op.TypePfx() {
-		case code.Type2Pfx, code.Type7Pfx:
-			n = 3
-		case code.Type6Pfx:
-			n = 2
-		case code.Type4Pfx:
-			if op.HasType4a() {
-				n = 2
-				if op.GetUnOp() == code.OpUpvalue && !op.GetB().IsCell() {
-					return errors.New("upval needs a cell register")
-				}
-			}
-		case code.Type5Pfx:
-			switch op.GetJ() {
-			case code.OpJump, code.OpJumpIf:
-				target := pc + int(op.GetOffset())
-				if target < 0 || target >= len(c.code) {
-					return fmt.Errorf("jump to %d, outside the code", target)
-				}
-			}
-		case code.Type3Pfx, code.Type0Pfx:
-		default:
-			return errors.New("unknown opcode type")
-		}
+		return errors.New("unknown opcode type")
 	}
-	for _, r := range regs[:n] {
-		if err := c.verifyReg(r); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
-func (c *Code) verifyReg(r code.Reg) error {
-	if r.IsCell() {
-		if int(r.Idx()) >= int(c.CellCount) {
+// verifyRegisters checks that each register is within the frame.
+func (c *Code) verifyRegisters(regs ...code.Reg) error {
+	for _, r := range regs {
+		switch {
+		case !r.IsCell() && int(r.Idx()) >= int(c.RegCount):
+			return fmt.Errorf("register %s outside the frame (%d registers)", r, c.RegCount)
+		case r.IsCell() && int(r.Idx()) >= int(c.CellCount):
 			return fmt.Errorf("register %s outside the frame (%d cells)", r, c.CellCount)
 		}
-	} else if int(r.Idx()) >= int(c.RegCount) {
-		return fmt.Errorf("register %s outside the frame (%d registers)", r, c.RegCount)
 	}
 	return nil
 }
