@@ -31,11 +31,28 @@ const maxCallChainLength = 15 // Lua 5.5: limit __call metamethod chain
 // '__index' metamethod if appropriate.
 // Index always consumes CPU.
 func Index(t *Thread, coll Value, k Value) (Value, error) {
+	return index(t, coll, k, false)
+}
+
+// IndexString is Index for a key known to be a string, as in field access.
+// The table lookup then skips the array part and compares keys without a
+// call.
+func IndexString(t *Thread, coll Value, k Value) (Value, error) {
+	return index(t, coll, k, true)
+}
+
+func index(t *Thread, coll Value, k Value, str bool) (Value, error) {
 	for i := 0; i < maxIndexChainLength; i++ {
 		t.RequireCPU(1)
 		tbl, ok := coll.TryTable()
 		if ok {
-			if val := RawGet(tbl, k); !val.IsNil() {
+			var val Value
+			if str {
+				val = tbl.getString(k)
+			} else {
+				val = tbl.Get(k)
+			}
+			if !val.IsNil() {
 				return val, nil
 			}
 		}
@@ -67,17 +84,36 @@ func indexError(coll Value) error {
 // '__newindex' metamethod if appropriate.  SetIndex always consumes CPU if it
 // doesn't return an error.
 func SetIndex(t *Thread, coll Value, idx Value, val Value) error {
-	if idx.IsNil() {
+	return setIndex(t, coll, idx, val, false)
+}
+
+// SetIndexString is SetIndex for a key known to be a string, as in field
+// assignment.  A string is neither nil nor NaN and is never in the array
+// part, and the key comparison needs no call.
+func SetIndexString(t *Thread, coll Value, idx Value, val Value) error {
+	return setIndex(t, coll, idx, val, true)
+}
+
+func setIndex(t *Thread, coll Value, idx Value, val Value, str bool) error {
+	if !str && idx.IsNil() {
 		return errors.New("index is nil")
 	}
 	for i := 0; i < maxIndexChainLength; i++ {
 		t.RequireCPU(1)
 		tbl, isTable := coll.TryTable()
-		if isTable && idx.IsNaN() {
-			return errTableIndexIsNaN
-		}
-		if isTable && tbl.Reset(idx, val) {
-			return nil
+		if isTable {
+			if str {
+				if tbl.resetString(idx, val) {
+					return nil
+				}
+			} else {
+				if idx.IsNaN() {
+					return errTableIndexIsNaN
+				}
+				if tbl.Reset(idx, val) {
+					return nil
+				}
+			}
 		}
 		metaNewIndex := t.metaGet(coll, metaNewindex)
 		if metaNewIndex.IsNil() {
