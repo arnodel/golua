@@ -181,6 +181,43 @@ func (ic instrCompiler) ProcessLookupInstr(s ir.Lookup) {
 	ic.Emit(opcode)
 }
 
+// ProcessLookupKInstr compiles a LookupK instruction.  The constant index
+// must fit in 8 bits for the constant key opcode; otherwise the key is loaded
+// into a register first, as it would be for a Lookup.  That register is the
+// destination unless it also holds the table, in which case a scratch
+// register is used.
+func (ic instrCompiler) ProcessLookupKInstr(s ir.LookupK) {
+	dst := ic.codeReg(s.Dst)
+	tbl := ic.codeReg(s.Table)
+	ckidx := ic.QueueConstant(s.Kidx)
+	if ckidx <= math.MaxUint8 {
+		ic.Emit(code.LoadLookupK(dst, tbl, code.KIndex8FromInt(ckidx)))
+		return
+	}
+	key := dst
+	if key == tbl {
+		key = ic.scratchReg(tbl)
+	}
+	ic.Emit(code.LoadConst(key, code.KIndexFromInt(ckidx)))
+	ic.Emit(code.LoadLookup(dst, tbl, key))
+}
+
+// ProcessSetIndexKInstr compiles a SetIndexK instruction.  The constant index
+// must fit in 8 bits for the constant key opcode; otherwise the key is loaded
+// into a scratch register first, as it would be for a SetIndex.
+func (ic instrCompiler) ProcessSetIndexKInstr(s ir.SetIndexK) {
+	src := ic.codeReg(s.Src)
+	tbl := ic.codeReg(s.Table)
+	ckidx := ic.QueueConstant(s.Kidx)
+	if ckidx <= math.MaxUint8 {
+		ic.Emit(code.SetIndexK(src, tbl, code.KIndex8FromInt(ckidx)))
+		return
+	}
+	key := ic.scratchReg(src, tbl)
+	ic.Emit(code.LoadConst(key, code.KIndexFromInt(ckidx)))
+	ic.Emit(code.SetIndex(src, tbl, key))
+}
+
 // ProcessSetIndexInstr compiles a SetIndex instruction.
 func (ic instrCompiler) ProcessSetIndexInstr(s ir.SetIndex) {
 	tReg := ic.codeReg(s.Table)
@@ -244,7 +281,6 @@ func (ic instrCompiler) ProcessPrepForLoopInstr(i ir.PrepForLoop) {
 func (ic instrCompiler) ProcessAdvForLoopInstr(i ir.AdvForLoop) {
 	ic.Emit(code.AdvForLoop(ic.codeReg(i.Start), ic.codeReg(i.Stop), ic.codeReg(i.Step)))
 }
-
 
 func (ic instrCompiler) ProcessTakeRegisterInstr(t ir.TakeRegister) {
 	ic.takeRegister(t.Reg)
@@ -315,6 +351,31 @@ func (a *regAllocator) codeReg(r ir.Register) code.Reg {
 		r:    cr,
 	}
 	return cr
+}
+
+// scratchReg returns a value register that is not taken and is none of the
+// given registers (the operands of the current instruction, which may hold
+// untaken temporaries).  It stays free, so it can only be used until the next
+// register is allocated.
+func (a *regAllocator) scratchReg(avoid ...code.Reg) code.Reg {
+	for i, c := range a.regs {
+		r := code.ValueReg(uint8(i))
+		if c != 0 {
+			continue
+		}
+		free := true
+		for _, x := range avoid {
+			free = free && x != r
+		}
+		if free {
+			return r
+		}
+	}
+	if len(a.regs) == math.MaxUint8 {
+		panic(newPanic("not enough registers"))
+	}
+	a.regs = append(a.regs, 0)
+	return code.ValueReg(uint8(len(a.regs) - 1))
 }
 
 func allocReg(regs []int) ([]int, uint8) {

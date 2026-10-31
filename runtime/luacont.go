@@ -250,6 +250,26 @@ RunLoop:
 			}
 			pc++
 			continue RunLoop
+		case code.Type8Pfx:
+			reg := opcode.GetA()
+			coll := getReg(regs, cells, opcode.GetB())
+			key := consts[opcode.GetK8()]
+			if !opcode.GetF() {
+				val, err := Index(t, coll, key)
+				if err != nil {
+					c.pc = pc
+					return nil, err
+				}
+				setReg(regs, cells, reg, val)
+			} else {
+				err := SetIndex(t, coll, key, getReg(regs, cells, reg))
+				if err != nil {
+					c.pc = pc
+					return nil, err
+				}
+			}
+			pc++
+			continue RunLoop
 		case code.Type3Pfx:
 			n := opcode.GetN()
 			var val Value

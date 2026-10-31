@@ -37,9 +37,10 @@ func (c *Code) verify() error {
 	return nil
 }
 
-// verifyOpcode checks the register operands of op, and its jump target if it
-// is a jump.  Which of the fields A, B and C name registers depends on the
-// type of the opcode; the others hold literals or operators.
+// verifyOpcode checks the register operands of op, its jump target if it is
+// a jump, and its constant index if it has one.  Which of the fields A, B and
+// C name registers depends on the type of the opcode; the others hold
+// literals or operators.
 func (c *Code) verifyOpcode(pc int, op code.Opcode) error {
 	if op.HasType1() {
 		return c.verifyRegisters(op.GetA(), op.GetB(), op.GetC())
@@ -47,6 +48,11 @@ func (c *Code) verifyOpcode(pc int, op code.Opcode) error {
 	switch op.TypePfx() {
 	case code.Type2Pfx, code.Type7Pfx:
 		return c.verifyRegisters(op.GetA(), op.GetB(), op.GetC())
+	case code.Type8Pfx:
+		if err := c.verifyConstant(op.GetK8().ToKIndex()); err != nil {
+			return err
+		}
+		return c.verifyRegisters(op.GetA(), op.GetB())
 	case code.Type6Pfx:
 		return c.verifyRegisters(op.GetA(), op.GetB())
 	case code.Type4Pfx:
@@ -66,11 +72,24 @@ func (c *Code) verifyOpcode(pc int, op code.Opcode) error {
 			}
 		}
 		return c.verifyRegisters(op.GetA())
-	case code.Type3Pfx, code.Type0Pfx:
+	case code.Type3Pfx:
+		if op.GetY().LoadsK() {
+			if err := c.verifyConstant(op.GetKIndex()); err != nil {
+				return err
+			}
+		}
 		return c.verifyRegisters(op.GetA())
-	default:
-		return errors.New("unknown opcode type")
+	default: // Type0Pfx
+		return c.verifyRegisters(op.GetA())
 	}
+}
+
+// verifyConstant checks that k is an index into the constant table.
+func (c *Code) verifyConstant(k code.KIndex) error {
+	if int(k) >= len(c.consts) {
+		return fmt.Errorf("constant K%d outside the constant table (%d constants)", k, len(c.consts))
+	}
+	return nil
 }
 
 // verifyRegisters checks that each register is within the frame.

@@ -22,6 +22,19 @@ func (c *assignCompiler) ProcessIndexExpVar(e ast.IndexExp) {
 	tReg := c.GetFreeRegister()
 	c.compileExpInto(e.Coll, tReg)
 	c.TakeRegister(tReg)
+	if s, ok := e.Idx.(ast.String); ok && !c.checkNotDefined {
+		// A constant key (e.g. a field name) needs no register.
+		kidx := c.GetConstantIndex(ir.String(s.Val))
+		c.assigns = append(c.assigns, func(src ir.Register) {
+			c.ReleaseRegister(tReg)
+			c.emitInstr(e, ir.SetIndexK{
+				Table: tReg,
+				Kidx:  kidx,
+				Src:   src,
+			})
+		})
+		return
+	}
 	iReg := c.GetFreeRegister()
 	c.compileExpInto(e.Idx, iReg)
 	c.TakeRegister(iReg)

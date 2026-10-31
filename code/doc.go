@@ -40,7 +40,7 @@ that do not use B or C put a literal or an operator there instead.
 	      type        | F  | a  b  c  |    A     |    B    |   C
 
 Type 1 is the exception: it uses only bit 31 as its prefix and takes bits
-30-27 for the operator.  Prefix 0001 is unused.
+30-27 for the operator.
 
 The field names below (A, B, C, F, X, Y, Z, J, L, M, N, D) are the ones used
 in this package's accessor methods (GetA, GetF, GetX ...).
@@ -59,6 +59,18 @@ concatenation.  Metamethods apply as in the language.
 
 	F = Off    rA <- rB[rC]            (__index applies)
 	F = On     rB[rC] <- rA            (__newindex applies)
+
+# Type 8: table access by constant key
+
+	0001 F a b 0 | A | B | K (8 bits)
+
+	F = Off    rA <- rB[K]             (__index applies)
+	F = On     rB[K] <- rA             (__newindex applies)
+
+K is the index of the key in the constant table.  This is Type 2 for a
+constant key, saving the opcode that would load the key into a register; the
+compiler emits it for field access (obj.name, obj:method(), globals) when the
+constant's index fits in 8 bits, and falls back to Type 2 otherwise.
 
 # Type 3: load a 16-bit literal or a constant
 

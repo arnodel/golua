@@ -9,9 +9,9 @@ import (
 	"github.com/arnodel/golua/code"
 )
 
-// A frame with 2 value registers and 1 cell, and no upvalues.
+// A frame with 2 value registers and 1 cell, no upvalues, and 2 constants.
 func testCode(ops ...code.Opcode) *Code {
-	return &Code{code: ops, RegCount: 2, CellCount: 1}
+	return &Code{code: ops, RegCount: 2, CellCount: 1, consts: []Value{IntValue(1), StringValue("x")}}
 }
 
 var (
@@ -60,10 +60,19 @@ func TestVerifyOpcodes(t *testing.T) {
 		// Type2: A, B, C are registers.
 		{"type2 in range", code.LoadLookup(r1, r0, u0), true},
 		{"type2 bad C", code.SetIndex(r0, r0, r2), false},
-		// Type3: only A is a register; N is a literal.
+		// Type3: only A is a register; N is a literal or a constant index.
 		{"type3 in range", code.LoadInt16(r1, -1), true},
-		{"type3 large literal is not a register", code.LoadConst(r0, code.KIndex(0xffff)), true},
+		{"type3 large literal is not a register", code.LoadInt16(r0, 0x7fff), true},
 		{"type3 bad A", code.LoadInt16(r2, 0), false},
+		{"type3 constant in range", code.LoadConst(r0, code.KIndex(1)), true},
+		{"type3 constant out of range", code.LoadConst(r0, code.KIndex(2)), false},
+		{"type3 closure constant out of range", code.LoadClosure(r0, code.KIndex(0xffff)), false},
+		// Type8: A and B are registers; K is a constant index.
+		{"type8 in range", code.LoadLookupK(r1, u0, 1), true},
+		{"type8 set in range", code.SetIndexK(r0, r1, 0), true},
+		{"type8 bad A", code.LoadLookupK(r2, r0, 0), false},
+		{"type8 bad B", code.SetIndexK(r0, u1, 0), false},
+		{"type8 constant out of range", code.LoadLookupK(r0, r0, 2), false},
 		// Type4a: A and B are registers; upval needs a cell in B.
 		{"type4a in range", code.Transform(code.OpNeg, r1, r0), true},
 		{"type4a bad B", code.Transform(code.OpNeg, r0, r2), false},
@@ -91,8 +100,6 @@ func TestVerifyOpcodes(t *testing.T) {
 		// Type0: only A is a register.
 		{"type0 in range", code.Receive(r1), true},
 		{"type0 bad A", code.ReceiveEtc(r2), false},
-		// The unused prefix.
-		{"unknown type", code.Opcode(1 << 28), false},
 	}
 	for _, c := range cases {
 		err := testCode(c.op).verify()

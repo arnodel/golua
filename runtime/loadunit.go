@@ -29,11 +29,28 @@ func (r *Runtime) RefactorCodeConsts(c *Code) *Code {
 	var consts []Value
 	constMap := map[code.KIndex]code.KIndex{}
 
-	// Require CPU for the loop below
-	r.RequireCPU(uint64(len(c.code)))
+	// Require CPU for the loops below
+	r.RequireCPU(2 * uint64(len(c.code)))
+
+	// Constant keys are indexed with 8 bits, so they are numbered first: there
+	// are at most 256 distinct ones.
+	for _, op := range c.code {
+		if op.TypePfx() == code.Type8Pfx {
+			n := op.GetK8().ToKIndex()
+			if _, ok := constMap[n]; !ok {
+				constMap[n] = code.KIndexFromInt(len(consts))
+				r.RequireSize(unsafe.Sizeof(Value{}))
+				consts = append(consts, c.consts[n])
+			}
+		}
+	}
 
 	for i, op := range c.code {
-		if op.TypePfx() == code.Type3Pfx {
+		switch op.TypePfx() {
+		case code.Type8Pfx:
+			n := op.GetK8().ToKIndex()
+			op = op.SetK8(code.KIndex8FromInt(int(constMap[n])))
+		case code.Type3Pfx:
 			unop := op.GetY()
 			if unop.LoadsK() {
 				// We are loading a constant
