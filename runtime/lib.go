@@ -32,13 +32,29 @@ const maxCallChainLength = 15 // Lua 5.5: limit __call metamethod chain
 // Index always consumes CPU.
 func Index(t *Thread, coll Value, k Value) (Value, error) {
 	t.RequireCPU(1)
+	kind := keyKindOf(k)
 	tbl, ok := coll.TryTable()
 	if ok {
-		if val := tbl.Get(k); !val.IsNil() {
+		var val Value
+		if kind == stringKey {
+			val = tbl.getString(k)
+		} else {
+			val = tbl.Get(k)
+		}
+		if !val.IsNil() {
 			return val, nil
 		}
 	}
-	return indexChain(t, coll, k, tbl, anyKey)
+	return indexChain(t, coll, k, tbl, kind)
+}
+
+// keyKindOf says whether k is a string, which lets a lookup compare keys
+// without a call.  The test is one compare of the type word.
+func keyKindOf(k Value) keyKind {
+	if _, ok := k.iface.(string); ok {
+		return stringKey
+	}
+	return anyKey
 }
 
 // IndexString is Index for a key known to be a string, as in field access.
@@ -104,16 +120,23 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) error {
 		return errors.New("index is nil")
 	}
 	t.RequireCPU(1)
+	kind := keyKindOf(idx)
 	tbl, isTable := coll.TryTable()
 	if isTable {
-		if idx.IsNaN() {
-			return errTableIndexIsNaN
-		}
-		if tbl.Reset(idx, val) {
-			return nil
+		if kind == stringKey {
+			if tbl.resetString(idx, val) {
+				return nil
+			}
+		} else {
+			if idx.IsNaN() {
+				return errTableIndexIsNaN
+			}
+			if tbl.Reset(idx, val) {
+				return nil
+			}
 		}
 	}
-	return setIndexChain(t, coll, idx, val, tbl, anyKey)
+	return setIndexChain(t, coll, idx, val, tbl, kind)
 }
 
 // SetIndexString is SetIndex for a key known to be a string, as in field
