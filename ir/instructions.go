@@ -10,6 +10,7 @@ import (
 // Instruction is the interface that all ir instruction types must implement.
 type Instruction interface {
 	fmt.Stringer
+	Operands
 	ProcessInstr(InstrProcessor)
 }
 
