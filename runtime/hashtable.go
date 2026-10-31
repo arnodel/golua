@@ -98,13 +98,26 @@ func newMixedTableWithCapacity(nseq, nrec int) *mixedTable {
 }
 
 // Return v such that k => v, else return nil.
+//
+// The lookup depends on the type of the key: an integer may be in the array
+// part, a float with an integer value is looked up as that integer, and a
+// string is compared with equalsString, which needs no call.
 func (t *mixedTable) get(k Value) Value {
-	i, ok := ToIntNoString(k)
-	if ok {
-		if v, ok := t.array.get(i); ok {
+	// The key's value is in its scalar; the interface only tells its type.
+	switch k.iface.(type) {
+	case int64:
+		if v, ok := t.array.get(k.AsInt()); ok {
 			return v
 		}
-		k = IntValue(i)
+	case string:
+		return t.hashTable.findString(k)
+	case float64:
+		if i, tp := FloatToInt(k.AsFloat()); tp == IsInt {
+			if v, ok := t.array.get(i); ok {
+				return v
+			}
+			k = IntValue(i)
+		}
 	}
 	return t.hashTable.find(k)
 }
@@ -128,17 +141,22 @@ func (t *mixedTable) insert(k, v Value) {
 }
 
 // Set k => v only if there is already v1 such that k => v1.  Returns true if
-// that is the case.
+// that is the case.  The key is dispatched on its type as in get.
 func (t *mixedTable) reset(k, v Value) (wasSet bool) {
-	i, ok := ToIntNoString(k)
-	if ok {
-		ok, wasSet = t.array.resetValue(i, v)
-		if ok {
-			return
+	switch k.iface.(type) {
+	case int64:
+		if ok, wasSet := t.array.resetValue(k.AsInt(), v); ok {
+			return wasSet
 		}
-	}
-	if ok {
-		k = IntValue(i)
+	case string:
+		return t.hashTable.resetString(k, v)
+	case float64:
+		if i, tp := FloatToInt(k.AsFloat()); tp == IsInt {
+			if ok, wasSet := t.array.resetValue(i, v); ok {
+				return wasSet
+			}
+			k = IntValue(i)
+		}
 	}
 	return t.hashTable.reset(k, v)
 }

@@ -76,21 +76,6 @@ func (t *Table) Get(k Value) Value {
 	return t.get(k)
 }
 
-// getString returns t[k] for a key known to be a string: a string is never
-// in the array part, and the key comparison needs no call.
-func (t *Table) getString(k Value) Value {
-	return t.hashTable.findString(k)
-}
-
-// resetString implements t[k] = v only if t[k] was already non-nil, for a key
-// known to be a string.
-func (t *Table) resetString(k, v Value) (wasSet bool) {
-	if v.IsNil() {
-		return t.mixedTable.remove(k)
-	}
-	return t.hashTable.resetString(k, v)
-}
-
 // Set implements t[k] = v (doesn't check if k is nil). It returns the number
 // of bytes the table allocated to store v: zero when v fits in storage the
 // table already has, the size of the new storage when the table had to grow.

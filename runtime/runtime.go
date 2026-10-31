@@ -324,9 +324,5 @@ func (r *Runtime) metaGetS(v Value, k string) Value {
 // metaGet returns the field k of v's metatable, or nil.  k is one of the
 // metamethod names built once in metatables.go.
 func (r *Runtime) metaGet(v Value, k Value) Value {
-	meta := r.RawMetatable(v)
-	if meta == nil {
-		return NilValue
-	}
-	return meta.getString(k)
+	return RawGet(r.RawMetatable(v), k)
 }

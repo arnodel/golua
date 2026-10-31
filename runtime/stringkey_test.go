@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-// The string-key lookup must not confuse a string with another value whose
-// scalar has the same bits: a short string's scalar is its bytes, an integer
-// can have those bits too.
+// The string-key lookup, which Get and Reset take for a string key, must not
+// confuse a string with another value whose scalar has the same bits: a short
+// string's scalar is its bytes, an integer can have those bits too.
 func TestStringKeyLookup(t *testing.T) {
 	short := StringValue("ab")
 	twin := IntValue(int64(short.scalar))
@@ -35,29 +35,26 @@ func TestStringKeyLookup(t *testing.T) {
 		{"missing short string", StringValue("ac"), NilValue},
 		{"missing long string", StringValue("a longer string 3"), NilValue},
 	} {
-		if got := tbl.getString(c.k); got != c.want {
-			t.Errorf("%s: getString = %v, want %v", c.name, got, c.want)
-		}
 		if got := tbl.Get(c.k); got != c.want {
 			t.Errorf("%s: Get = %v, want %v", c.name, got, c.want)
 		}
 	}
 	// The integer twin is untouched by the string's lookups and resets.
-	if !tbl.resetString(short, StringValue("short2")) {
-		t.Error("resetString of an existing string key returned false")
+	if !tbl.Reset(short, StringValue("short2")) {
+		t.Error("Reset of an existing string key returned false")
 	}
 	if got := tbl.Get(twin); got != StringValue("twin") {
-		t.Errorf("twin after resetString = %v, want twin", got)
+		t.Errorf("twin after Reset = %v, want twin", got)
 	}
 	if got := tbl.Get(short); got != StringValue("short2") {
-		t.Errorf("short after resetString = %v, want short2", got)
+		t.Errorf("short after Reset = %v, want short2", got)
 	}
-	if tbl.resetString(StringValue("zz"), StringValue("x")) {
-		t.Error("resetString of a missing key returned true")
+	if tbl.Reset(StringValue("zz"), StringValue("x")) {
+		t.Error("Reset of a missing key returned true")
 	}
 	// Resetting to nil removes the key.
-	if !tbl.resetString(long1, NilValue) || tbl.Get(long1) != NilValue {
-		t.Error("resetString to nil did not remove the key")
+	if !tbl.Reset(long1, NilValue) || tbl.Get(long1) != NilValue {
+		t.Error("Reset to nil did not remove the key")
 	}
 }
 
@@ -70,11 +67,11 @@ func TestStringKeyLookupLargeTable(t *testing.T) {
 		tbl.Set(keys[i], IntValue(int64(i)))
 	}
 	for i, k := range keys {
-		if got := tbl.getString(k); got != IntValue(int64(i)) {
-			t.Errorf("%v: getString = %v, want %d", k, got, i)
+		if got := tbl.Get(k); got != IntValue(int64(i)) {
+			t.Errorf("%v: Get = %v, want %d", k, got, i)
 		}
 	}
-	if got := tbl.getString(StringValue("key number zz")); got != NilValue {
+	if got := tbl.Get(StringValue("key number zz")); got != NilValue {
 		t.Errorf("missing key: got %v", got)
 	}
 }

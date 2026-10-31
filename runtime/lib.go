@@ -38,28 +38,14 @@ func Index(t *Thread, coll Value, k Value) (Value, error) {
 			return val, nil
 		}
 	}
-	return indexChain(t, coll, k, tbl, anyKey)
-}
-
-// IndexString is Index for a key known to be a string, as in field access.
-// The table lookup then skips the array part and compares keys without a
-// call.
-func IndexString(t *Thread, coll Value, k Value) (Value, error) {
-	t.RequireCPU(1)
-	tbl, ok := coll.TryTable()
-	if ok {
-		if val := tbl.getString(k); !val.IsNil() {
-			return val, nil
-		}
-	}
-	return indexChain(t, coll, k, tbl, stringKey)
+	return indexChain(t, coll, k, tbl)
 }
 
 // indexChain is the uncommon part of Index: coll[k] was not found in coll
 // itself (tbl is coll as a table, or nil if coll is not one), so the
 // '__index' metamethod decides.  A table metamethod is looked up in turn, a
 // function one is called.
-func indexChain(t *Thread, coll Value, k Value, tbl *Table, kind keyKind) (Value, error) {
+func indexChain(t *Thread, coll Value, k Value, tbl *Table) (Value, error) {
 	for i := 1; i < maxIndexChainLength; i++ {
 		metaIdx := t.metaGet(coll, metaIndex)
 		if metaIdx.IsNil() {
@@ -79,13 +65,7 @@ func indexChain(t *Thread, coll Value, k Value, tbl *Table, kind keyKind) (Value
 		}
 		t.RequireCPU(1)
 		coll = metaIdx
-		var val Value
-		if kind == stringKey {
-			val = tbl.getString(k)
-		} else {
-			val = tbl.Get(k)
-		}
-		if !val.IsNil() {
+		if val := tbl.Get(k); !val.IsNil() {
 			return val, nil
 		}
 	}
@@ -113,26 +93,14 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) error {
 			return nil
 		}
 	}
-	return setIndexChain(t, coll, idx, val, tbl, anyKey)
-}
-
-// SetIndexString is SetIndex for a key known to be a string, as in field
-// assignment.  A string is neither nil nor NaN and is never in the array
-// part, and the key comparison needs no call.
-func SetIndexString(t *Thread, coll Value, idx Value, val Value) error {
-	t.RequireCPU(1)
-	tbl, isTable := coll.TryTable()
-	if isTable && tbl.resetString(idx, val) {
-		return nil
-	}
-	return setIndexChain(t, coll, idx, val, tbl, stringKey)
+	return setIndexChain(t, coll, idx, val, tbl)
 }
 
 // setIndexChain is the uncommon part of SetIndex: coll[idx] was not already
 // set in coll itself (tbl is coll as a table, or nil if coll is not one), so
 // the '__newindex' metamethod decides.  Without one the key is inserted into
 // the table; a table metamethod is tried in turn, a function one is called.
-func setIndexChain(t *Thread, coll Value, idx Value, val Value, tbl *Table, kind keyKind) error {
+func setIndexChain(t *Thread, coll Value, idx Value, val Value, tbl *Table) error {
 	for i := 1; i < maxIndexChainLength; i++ {
 		metaNewIndex := t.metaGet(coll, metaNewindex)
 		if metaNewIndex.IsNil() {
@@ -151,17 +119,11 @@ func setIndexChain(t *Thread, coll Value, idx Value, val Value, tbl *Table, kind
 		}
 		t.RequireCPU(1)
 		coll = metaNewIndex
-		if kind == stringKey {
-			if tbl.resetString(idx, val) {
-				return nil
-			}
-		} else {
-			if idx.IsNaN() {
-				return errTableIndexIsNaN
-			}
-			if tbl.Reset(idx, val) {
-				return nil
-			}
+		if idx.IsNaN() {
+			return errTableIndexIsNaN
+		}
+		if tbl.Reset(idx, val) {
+			return nil
 		}
 	}
 	return fmt.Errorf("'__newindex' chain too long; possible loop")

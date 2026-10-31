@@ -255,14 +255,14 @@ RunLoop:
 			coll := getReg(regs, cells, opcode.GetB())
 			key := consts[opcode.GetK8()]
 			if !opcode.GetF() {
-				val, err := IndexString(t, coll, key)
+				val, err := Index(t, coll, key)
 				if err != nil {
 					c.pc = pc
 					return nil, err
 				}
 				setReg(regs, cells, reg, val)
 			} else {
-				err := SetIndexString(t, coll, key, getReg(regs, cells, reg))
+				err := SetIndex(t, coll, key, getReg(regs, cells, reg))
 				if err != nil {
 					c.pc = pc
 					return nil, err
