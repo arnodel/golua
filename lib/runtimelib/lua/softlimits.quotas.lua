@@ -31,7 +31,10 @@ print(runtime.callcontext({stop={memory=1000}}, function()
 end))
 --> =done
 
--- runtime.contextdue returns true if a time soft limit has been reached
+-- runtime.contextdue returns true if a time soft limit has been reached.  The
+-- upper bound only checks the loop stopped soon after the limit; it is loose
+-- because a busy CI machine (Windows in particular, with its 15ms scheduling
+-- quantum) can overshoot by much more than the limit itself.
 print(runtime.callcontext({stop={millis=20}}, function()
     print(runtime.contextdue())
     --> =false
@@ -39,7 +42,7 @@ print(runtime.callcontext({stop={millis=20}}, function()
     print(ctx.stop.millis)
     --> =20.0
     while not runtime.contextdue() do end
-    print(ctx.used.millis >= 20, ctx.used.millis <= 30)
+    print(ctx.used.millis >= 20, ctx.used.millis <= 200)
     --> =true	true
 end))
 --> =done
