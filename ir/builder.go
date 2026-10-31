@@ -11,6 +11,7 @@ type Name string
 type RegData struct {
 	IsCell     bool
 	IsConstant bool
+	IsLocal    bool // the register holds a named local variable
 	refCount   int
 }
 
@@ -226,6 +227,7 @@ func (c *CodeBuilder) EmitJump(lblName Name, line int) bool {
 
 func (c *CodeBuilder) DeclareLocal(name Name, reg Register) {
 	c.TakeRegister(reg)
+	c.registers[reg].IsLocal = true
 	c.context.addToTop(name, reg)
 }
 

@@ -10,7 +10,32 @@ import (
 // Instruction is the interface that all ir instruction types must implement.
 type Instruction interface {
 	fmt.Stringer
+	Operands
 	ProcessInstr(InstrProcessor)
+}
+
+// Operands describes which registers an instruction reads and which it
+// writes, and lets a pass substitute one read register for another.  Every
+// instruction implements it; a register that an instruction both reads and
+// writes (a for loop's control registers, say) appears in both lists.
+//
+// A table being stored into or filled counts as read: the instruction reads
+// the register to find the table.  Upvalues captured by a closure count as
+// read too, although they are cells shared by reference; passes do not
+// substitute cells.
+type Operands interface {
+	Reads() []Register
+	Writes() []Register
+	// ReplaceRead returns the instruction with every read of from reading to
+	// instead.  Writes are not affected.
+	ReplaceRead(from, to Register) Instruction
+}
+
+func sub(r, from, to Register) Register {
+	if r == from {
+		return to
+	}
+	return r
 }
 
 // SetRegInstruction is the interface that instructions that set the value of a
@@ -97,6 +122,13 @@ func (c Combine) ProcessInstr(p InstrProcessor) {
 	p.ProcessCombineInstr(c)
 }
 
+func (c Combine) Reads() []Register  { return []Register{c.Lsrc, c.Rsrc} }
+func (c Combine) Writes() []Register { return []Register{c.Dst} }
+func (c Combine) ReplaceRead(from, to Register) Instruction {
+	c.Lsrc, c.Rsrc = sub(c.Lsrc, from, to), sub(c.Rsrc, from, to)
+	return c
+}
+
 func (c Combine) String() string {
 	return fmt.Sprintf("%s := %s(%s, %s)", c.Dst, c.Op, c.Lsrc, c.Rsrc)
 }
@@ -122,6 +154,13 @@ func (t Transform) WithDestReg(r Register) Instruction {
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (t Transform) ProcessInstr(p InstrProcessor) {
 	p.ProcessTransformInstr(t)
+}
+
+func (t Transform) Reads() []Register  { return []Register{t.Src} }
+func (t Transform) Writes() []Register { return []Register{t.Dst} }
+func (t Transform) ReplaceRead(from, to Register) Instruction {
+	t.Src = sub(t.Src, from, to)
+	return t
 }
 
 func (t Transform) String() string {
@@ -150,6 +189,10 @@ func (l LoadConst) ProcessInstr(p InstrProcessor) {
 	p.ProcessLoadConstInstr(l)
 }
 
+func (l LoadConst) Reads() []Register                         { return nil }
+func (l LoadConst) Writes() []Register                        { return []Register{l.Dst} }
+func (l LoadConst) ReplaceRead(from, to Register) Instruction { return l }
+
 func (l LoadConst) String() string {
 	return fmt.Sprintf("%s := k%d", l.Dst, l.Kidx)
 }
@@ -164,6 +207,13 @@ type Push struct {
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (p Push) ProcessInstr(ip InstrProcessor) {
 	ip.ProcessPushInstr(p)
+}
+
+func (p Push) Reads() []Register  { return []Register{p.Cont, p.Item} }
+func (p Push) Writes() []Register { return nil }
+func (p Push) ReplaceRead(from, to Register) Instruction {
+	p.Cont, p.Item = sub(p.Cont, from, to), sub(p.Item, from, to)
+	return p
 }
 
 func (p Push) String() string {
@@ -184,6 +234,10 @@ func (j Jump) ProcessInstr(p InstrProcessor) {
 	p.ProcessJumpInstr(j)
 }
 
+func (j Jump) Reads() []Register                         { return nil }
+func (j Jump) Writes() []Register                        { return nil }
+func (j Jump) ReplaceRead(from, to Register) Instruction { return j }
+
 // JumpIf jumps to the given label if the boolean value in Cond is different from Not.
 type JumpIf struct {
 	Cond  Register
@@ -194,6 +248,13 @@ type JumpIf struct {
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (j JumpIf) ProcessInstr(p InstrProcessor) {
 	p.ProcessJumpIfInstr(j)
+}
+
+func (j JumpIf) Reads() []Register  { return []Register{j.Cond} }
+func (j JumpIf) Writes() []Register { return nil }
+func (j JumpIf) ReplaceRead(from, to Register) Instruction {
+	j.Cond = sub(j.Cond, from, to)
+	return j
 }
 
 func (j JumpIf) String() string {
@@ -209,6 +270,13 @@ type Call struct {
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (c Call) ProcessInstr(p InstrProcessor) {
 	p.ProcessCallInstr(c)
+}
+
+func (c Call) Reads() []Register  { return []Register{c.Cont} }
+func (c Call) Writes() []Register { return nil }
+func (c Call) ReplaceRead(from, to Register) Instruction {
+	c.Cont = sub(c.Cont, from, to)
+	return c
 }
 
 func (c Call) String() string {
@@ -236,6 +304,17 @@ func (m MkClosure) WithDestReg(r Register) Instruction {
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (m MkClosure) ProcessInstr(p InstrProcessor) {
 	p.ProcessMkClosureInstr(m)
+}
+
+func (m MkClosure) Reads() []Register  { return m.Upvalues }
+func (m MkClosure) Writes() []Register { return []Register{m.Dst} }
+func (m MkClosure) ReplaceRead(from, to Register) Instruction {
+	ups := make([]Register, len(m.Upvalues))
+	for j, r := range m.Upvalues {
+		ups[j] = sub(r, from, to)
+	}
+	m.Upvalues = ups
+	return m
 }
 
 func (m MkClosure) String() string {
@@ -273,6 +352,13 @@ func (m MkCont) ProcessInstr(p InstrProcessor) {
 	p.ProcessMkContInstr(m)
 }
 
+func (m MkCont) Reads() []Register  { return []Register{m.Closure} }
+func (m MkCont) Writes() []Register { return []Register{m.Dst} }
+func (m MkCont) ReplaceRead(from, to Register) Instruction {
+	m.Closure = sub(m.Closure, from, to)
+	return m
+}
+
 func (m MkCont) String() string {
 	return fmt.Sprintf("%s := mkcont(%s, tail=%t)", m.Dst, m.Closure, m.Tail)
 }
@@ -288,6 +374,10 @@ func (i ClearReg) ProcessInstr(p InstrProcessor) {
 	p.ProcessClearRegInstr(i)
 }
 
+func (i ClearReg) Reads() []Register                         { return nil }
+func (i ClearReg) Writes() []Register                        { return []Register{i.Dst} }
+func (i ClearReg) ReplaceRead(from, to Register) Instruction { return i }
+
 func (i ClearReg) String() string {
 	return fmt.Sprintf("clrreg(%s)", i.Dst)
 }
@@ -301,6 +391,10 @@ type MkTable struct {
 func (m MkTable) ProcessInstr(p InstrProcessor) {
 	p.ProcessMkTableInstr(m)
 }
+
+func (m MkTable) Reads() []Register                         { return nil }
+func (m MkTable) Writes() []Register                        { return []Register{m.Dst} }
+func (m MkTable) ReplaceRead(from, to Register) Instruction { return m }
 
 func (m MkTable) String() string {
 	return fmt.Sprintf("%s := mktable()", m.Dst)
@@ -316,6 +410,13 @@ type MkVarargTable struct {
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (m MkVarargTable) ProcessInstr(p InstrProcessor) {
 	p.ProcessMkVarargTableInstr(m)
+}
+
+func (m MkVarargTable) Reads() []Register  { return []Register{m.Etc} }
+func (m MkVarargTable) Writes() []Register { return []Register{m.Dst, m.Etc} }
+func (m MkVarargTable) ReplaceRead(from, to Register) Instruction {
+	m.Etc = sub(m.Etc, from, to)
+	return m
 }
 
 func (m MkVarargTable) String() string {
@@ -357,6 +458,13 @@ func (s Lookup) ProcessInstr(p InstrProcessor) {
 	p.ProcessLookupInstr(s)
 }
 
+func (s Lookup) Reads() []Register  { return []Register{s.Table, s.Index} }
+func (s Lookup) Writes() []Register { return []Register{s.Dst} }
+func (s Lookup) ReplaceRead(from, to Register) Instruction {
+	s.Table, s.Index = sub(s.Table, from, to), sub(s.Index, from, to)
+	return s
+}
+
 func (s Lookup) String() string {
 	return fmt.Sprintf("%s := %s[%s]", s.Dst, s.Table, s.Index)
 }
@@ -386,6 +494,13 @@ func (s LookupK) ProcessInstr(p InstrProcessor) {
 	p.ProcessLookupKInstr(s)
 }
 
+func (s LookupK) Reads() []Register  { return []Register{s.Table} }
+func (s LookupK) Writes() []Register { return []Register{s.Dst} }
+func (s LookupK) ReplaceRead(from, to Register) Instruction {
+	s.Table = sub(s.Table, from, to)
+	return s
+}
+
 func (s LookupK) String() string {
 	return fmt.Sprintf("%s := %s[K%d]", s.Dst, s.Table, s.Kidx)
 }
@@ -406,6 +521,13 @@ func (s SetIndex) ProcessInstr(p InstrProcessor) {
 	p.ProcessSetIndexInstr(s)
 }
 
+func (s SetIndex) Reads() []Register  { return []Register{s.Table, s.Index, s.Src} }
+func (s SetIndex) Writes() []Register { return nil }
+func (s SetIndex) ReplaceRead(from, to Register) Instruction {
+	s.Table, s.Index, s.Src = sub(s.Table, from, to), sub(s.Index, from, to), sub(s.Src, from, to)
+	return s
+}
+
 func (s SetIndex) String() string {
 	return fmt.Sprintf("%s[%s] := %s", s.Table, s.Index, s.Src)
 }
@@ -423,6 +545,13 @@ func (s SetIndexK) ProcessInstr(p InstrProcessor) {
 	p.ProcessSetIndexKInstr(s)
 }
 
+func (s SetIndexK) Reads() []Register  { return []Register{s.Table, s.Src} }
+func (s SetIndexK) Writes() []Register { return nil }
+func (s SetIndexK) ReplaceRead(from, to Register) Instruction {
+	s.Table, s.Src = sub(s.Table, from, to), sub(s.Src, from, to)
+	return s
+}
+
 func (s SetIndexK) String() string {
 	return fmt.Sprintf("%s[K%d] := %s", s.Table, s.Kidx, s.Src)
 }
@@ -436,6 +565,10 @@ type Receive struct {
 func (r Receive) ProcessInstr(p InstrProcessor) {
 	p.ProcessReceiveInstr(r)
 }
+
+func (r Receive) Reads() []Register                         { return nil }
+func (r Receive) Writes() []Register                        { return r.Dst }
+func (r Receive) ReplaceRead(from, to Register) Instruction { return r }
 
 func (r Receive) String() string {
 	return fmt.Sprintf("recv(%s)", joinRegisters(r.Dst, ", "))
@@ -456,6 +589,10 @@ func (r ReceiveEtc) String() string {
 func (r ReceiveEtc) ProcessInstr(p InstrProcessor) {
 	p.ProcessReceiveEtcInstr(r)
 }
+
+func (r ReceiveEtc) Reads() []Register                         { return nil }
+func (r ReceiveEtc) Writes() []Register                        { return append(append([]Register{}, r.Dst...), r.Etc) }
+func (r ReceiveEtc) ReplaceRead(from, to Register) Instruction { return r }
 
 // EtcLookup finds the value at index Idx in the Etc register and puts it in
 // Dst.
@@ -485,6 +622,13 @@ func (l EtcLookup) ProcessInstr(p InstrProcessor) {
 	p.ProcessEtcLookupInstr(l)
 }
 
+func (l EtcLookup) Reads() []Register  { return []Register{l.Etc} }
+func (l EtcLookup) Writes() []Register { return []Register{l.Dst} }
+func (l EtcLookup) ReplaceRead(from, to Register) Instruction {
+	l.Etc = sub(l.Etc, from, to)
+	return l
+}
+
 // FillTable fills Dst (which must contain a table) with the contents of Etc
 // (which must be an etc value) starting from the given index.
 type FillTable struct {
@@ -500,6 +644,13 @@ func (f FillTable) String() string {
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (f FillTable) ProcessInstr(p InstrProcessor) {
 	p.ProcessFillTableInstr(f)
+}
+
+func (f FillTable) Reads() []Register  { return []Register{f.Etc, f.Dst} }
+func (f FillTable) Writes() []Register { return nil }
+func (f FillTable) ReplaceRead(from, to Register) Instruction {
+	f.Etc, f.Dst = sub(f.Etc, from, to), sub(f.Dst, from, to)
+	return f
 }
 
 // TruncateCloseStack truncates the close stack to Height (which should be >=
@@ -518,6 +669,10 @@ func (t TruncateCloseStack) ProcessInstr(p InstrProcessor) {
 	p.ProcessTruncateCloseStackInstr(t)
 }
 
+func (t TruncateCloseStack) Reads() []Register                         { return nil }
+func (t TruncateCloseStack) Writes() []Register                        { return nil }
+func (t TruncateCloseStack) ReplaceRead(from, to Register) Instruction { return t }
+
 // PushCloseStack truncates pushes the value Src to the close stack.  This
 // instruction was introduced to support to-be-closed variables which are part
 // of Lua 5.4
@@ -532,6 +687,13 @@ func (i PushCloseStack) String() string {
 // ProcessInstr makes the InstrProcessor process this instruction.
 func (i PushCloseStack) ProcessInstr(p InstrProcessor) {
 	p.ProcessPushCloseStackInstr(i)
+}
+
+func (i PushCloseStack) Reads() []Register  { return []Register{i.Src} }
+func (i PushCloseStack) Writes() []Register { return nil }
+func (i PushCloseStack) ReplaceRead(from, to Register) Instruction {
+	i.Src = sub(i.Src, from, to)
+	return i
 }
 
 // TakeRegister is not a real instruction.  It is a hint to the next stage that
@@ -550,6 +712,10 @@ func (t TakeRegister) ProcessInstr(p InstrProcessor) {
 	p.ProcessTakeRegisterInstr(t)
 }
 
+func (t TakeRegister) Reads() []Register                         { return nil }
+func (t TakeRegister) Writes() []Register                        { return nil }
+func (t TakeRegister) ReplaceRead(from, to Register) Instruction { return t }
+
 // ReleaseRegister is not a real instruction.  It is a hint to the next stage
 // that the value in this register no longer needs to be used, so can be
 // overwritten.  It should be preceded by a TakeRegister for the same register.
@@ -565,6 +731,10 @@ func (r ReleaseRegister) String() string {
 func (r ReleaseRegister) ProcessInstr(p InstrProcessor) {
 	p.ProcessReleaseRegisterInstr(r)
 }
+
+func (r ReleaseRegister) Reads() []Register                         { return nil }
+func (r ReleaseRegister) Writes() []Register                        { return nil }
+func (r ReleaseRegister) ReplaceRead(from, to Register) Instruction { return r }
 
 // DeclareLabel is not a real IR instruction.  It is a placeholder for the
 // destination location of a jump label.  Being an instruction makes it easier
@@ -582,6 +752,10 @@ func (l DeclareLabel) ProcessInstr(p InstrProcessor) {
 	p.ProcessDeclareLabelInstr(l)
 }
 
+func (l DeclareLabel) Reads() []Register                         { return nil }
+func (l DeclareLabel) Writes() []Register                        { return nil }
+func (l DeclareLabel) ReplaceRead(from, to Register) Instruction { return l }
+
 // PrepForLoop prepares a for loop
 type PrepForLoop struct {
 	Start, Stop, Step Register
@@ -593,6 +767,13 @@ func (i PrepForLoop) String() string {
 
 func (i PrepForLoop) ProcessInstr(p InstrProcessor) {
 	p.ProcessPrepForLoopInstr(i)
+}
+
+func (i PrepForLoop) Reads() []Register  { return []Register{i.Start, i.Stop, i.Step} }
+func (i PrepForLoop) Writes() []Register { return []Register{i.Start, i.Stop, i.Step} }
+func (i PrepForLoop) ReplaceRead(from, to Register) Instruction {
+	i.Start, i.Stop, i.Step = sub(i.Start, from, to), sub(i.Stop, from, to), sub(i.Step, from, to)
+	return i
 }
 
 // AdvForLoop advances a for loop
@@ -607,4 +788,11 @@ func (i AdvForLoop) String() string {
 
 func (i AdvForLoop) ProcessInstr(p InstrProcessor) {
 	p.ProcessAdvForLoopInstr(i)
+}
+
+func (i AdvForLoop) Reads() []Register  { return []Register{i.Start, i.Stop, i.Step} }
+func (i AdvForLoop) Writes() []Register { return []Register{i.Start, i.Stop, i.Step} }
+func (i AdvForLoop) ReplaceRead(from, to Register) Instruction {
+	i.Start, i.Stop, i.Step = sub(i.Start, from, to), sub(i.Stop, from, to), sub(i.Step, from, to)
+	return i
 }
