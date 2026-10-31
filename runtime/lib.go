@@ -31,29 +31,42 @@ const maxCallChainLength = 15 // Lua 5.5: limit __call metamethod chain
 // '__index' metamethod if appropriate.
 // Index always consumes CPU.
 func Index(t *Thread, coll Value, k Value) (Value, error) {
-	for i := 0; i < maxIndexChainLength; i++ {
-		t.RequireCPU(1)
-		tbl, ok := coll.TryTable()
-		if ok {
-			if val := RawGet(tbl, k); !val.IsNil() {
-				return val, nil
-			}
+	t.RequireCPU(1)
+	tbl, ok := coll.TryTable()
+	if ok {
+		if val := tbl.Get(k); !val.IsNil() {
+			return val, nil
 		}
+	}
+	return indexChain(t, coll, k, tbl)
+}
+
+// indexChain is the uncommon part of Index: coll[k] was not found in coll
+// itself (tbl is coll as a table, or nil if coll is not one), so the
+// '__index' metamethod decides.  A table metamethod is looked up in turn, a
+// function one is called.
+func indexChain(t *Thread, coll Value, k Value, tbl *Table) (Value, error) {
+	for i := 1; i < maxIndexChainLength; i++ {
 		metaIdx := t.metaGet(coll, metaIndex)
 		if metaIdx.IsNil() {
-			if ok {
+			if tbl != nil {
 				return NilValue, nil
 			}
 			return NilValue, indexError(coll)
 		}
-		if _, ok := metaIdx.TryTable(); ok {
-			coll = metaIdx
-		} else {
+		var ok bool
+		tbl, ok = metaIdx.TryTable()
+		if !ok {
 			res := NewTerminationWith(t.CurrentCont(), 1, false)
 			if err := Call(t, metaIdx, []Value{coll, k}, res); err != nil {
 				return NilValue, err
 			}
 			return res.Get(0), nil
+		}
+		t.RequireCPU(1)
+		coll = metaIdx
+		if val := tbl.Get(k); !val.IsNil() {
+			return val, nil
 		}
 	}
 	return NilValue, fmt.Errorf("'__index' chain too long; possible loop")
@@ -70,18 +83,28 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) error {
 	if idx.IsNil() {
 		return errors.New("index is nil")
 	}
-	for i := 0; i < maxIndexChainLength; i++ {
-		t.RequireCPU(1)
-		tbl, isTable := coll.TryTable()
-		if isTable && idx.IsNaN() {
+	t.RequireCPU(1)
+	tbl, isTable := coll.TryTable()
+	if isTable {
+		if idx.IsNaN() {
 			return errTableIndexIsNaN
 		}
-		if isTable && tbl.Reset(idx, val) {
+		if tbl.Reset(idx, val) {
 			return nil
 		}
+	}
+	return setIndexChain(t, coll, idx, val, tbl)
+}
+
+// setIndexChain is the uncommon part of SetIndex: coll[idx] was not already
+// set in coll itself (tbl is coll as a table, or nil if coll is not one), so
+// the '__newindex' metamethod decides.  Without one the key is inserted into
+// the table; a table metamethod is tried in turn, a function one is called.
+func setIndexChain(t *Thread, coll Value, idx Value, val Value, tbl *Table) error {
+	for i := 1; i < maxIndexChainLength; i++ {
 		metaNewIndex := t.metaGet(coll, metaNewindex)
 		if metaNewIndex.IsNil() {
-			if isTable {
+			if tbl != nil {
 				// No need to call SetTableCheck
 				t.SetTable(tbl, idx, val)
 				return nil
@@ -89,10 +112,18 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) error {
 			return fmt.Errorf(
 				"attempt to index %s value without __newindex", coll.TypeName())
 		}
-		if _, ok := metaNewIndex.TryTable(); ok {
-			coll = metaNewIndex
-		} else {
+		var ok bool
+		tbl, ok = metaNewIndex.TryTable()
+		if !ok {
 			return Call(t, metaNewIndex, []Value{coll, idx, val}, NewTermination(t.CurrentCont(), nil, nil))
+		}
+		t.RequireCPU(1)
+		coll = metaNewIndex
+		if idx.IsNaN() {
+			return errTableIndexIsNaN
+		}
+		if tbl.Reset(idx, val) {
+			return nil
 		}
 	}
 	return fmt.Errorf("'__newindex' chain too long; possible loop")

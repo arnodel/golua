@@ -98,13 +98,26 @@ func newMixedTableWithCapacity(nseq, nrec int) *mixedTable {
 }
 
 // Return v such that k => v, else return nil.
+//
+// The lookup depends on the type of the key: an integer may be in the array
+// part, a float with an integer value is looked up as that integer, and a
+// string is compared with equalsString, which needs no call.
 func (t *mixedTable) get(k Value) Value {
-	i, ok := ToIntNoString(k)
-	if ok {
-		if v, ok := t.array.get(i); ok {
+	// The key's value is in its scalar; the interface only tells its type.
+	switch k.iface.(type) {
+	case int64:
+		if v, ok := t.array.get(k.AsInt()); ok {
 			return v
 		}
-		k = IntValue(i)
+	case string:
+		return t.hashTable.findString(k)
+	case float64:
+		if i, tp := FloatToInt(k.AsFloat()); tp == IsInt {
+			if v, ok := t.array.get(i); ok {
+				return v
+			}
+			k = IntValue(i)
+		}
 	}
 	return t.hashTable.find(k)
 }
@@ -128,17 +141,22 @@ func (t *mixedTable) insert(k, v Value) {
 }
 
 // Set k => v only if there is already v1 such that k => v1.  Returns true if
-// that is the case.
+// that is the case.  The key is dispatched on its type as in get.
 func (t *mixedTable) reset(k, v Value) (wasSet bool) {
-	i, ok := ToIntNoString(k)
-	if ok {
-		ok, wasSet = t.array.resetValue(i, v)
-		if ok {
-			return
+	switch k.iface.(type) {
+	case int64:
+		if ok, wasSet := t.array.resetValue(k.AsInt(), v); ok {
+			return wasSet
 		}
-	}
-	if ok {
-		k = IntValue(i)
+	case string:
+		return t.hashTable.resetString(k, v)
+	case float64:
+		if i, tp := FloatToInt(k.AsFloat()); tp == IsInt {
+			if ok, wasSet := t.array.resetValue(i, v); ok {
+				return wasSet
+			}
+			k = IntValue(i)
+		}
 	}
 	return t.hashTable.reset(k, v)
 }
@@ -354,18 +372,46 @@ func (t *hashTable) set(k, v Value) {
 	}
 }
 
+// keyKind says what a lookup knows about its key.
+type keyKind bool
+
+const (
+	anyKey    keyKind = false // nothing: compare keys with Equals
+	stringKey keyKind = true  // the key is a string: compare with equalsString
+)
+
 func (t *hashTable) reset(k, v Value) bool {
 	if t == nil {
 		return false
 	}
-	return resetKeyValue(t.slots, (1<<t.base)-1, k, v)
+	return resetKeyValue(t.slots, (1<<t.base)-1, k, v, anyKey)
+}
+
+// resetString is reset for a key known to be a string.
+func (t *hashTable) resetString(k, v Value) bool {
+	if t == nil {
+		return false
+	}
+	return resetKeyValue(t.slots, (1<<t.base)-1, k, v, stringKey)
 }
 
 func (t *hashTable) find(k Value) Value {
 	if t == nil {
 		return NilValue
 	}
-	it, _ := findSlot(t.slots, (1<<t.base)-1, k)
+	it, _ := findSlot(t.slots, (1<<t.base)-1, k, anyKey)
+	if it == nil {
+		return NilValue
+	}
+	return it.value
+}
+
+// findString is find for a key known to be a string.
+func (t *hashTable) findString(k Value) Value {
+	if t == nil {
+		return NilValue
+	}
+	it, _ := findSlot(t.slots, (1<<t.base)-1, k, stringKey)
 	if it == nil {
 		return NilValue
 	}
@@ -422,7 +468,7 @@ func (t *hashTable) next(k Value) (next Value, v Value, ok bool) {
 	var i uintptr
 	if !k.IsNil() {
 		var it *hashTableSlot
-		it, i = findSlot(t.slots, (1<<t.base)-1, k)
+		it, i = findSlot(t.slots, (1<<t.base)-1, k, anyKey)
 		if it == nil {
 			return
 		}
@@ -497,15 +543,15 @@ func copyItems(items, from []hashTableSlot, mask uintptr, nextFree uintptr) uint
 }
 
 func setKeyValue(items []hashTableSlot, mask uintptr, k, v Value, nextFree uintptr) bool {
-	if it, _ := findSlot(items, mask, k); it != nil {
+	if it, _ := findSlot(items, mask, k, anyKey); it != nil {
 		it.value = v
 		return false
 	}
 	return insertNewKeyValue(items, mask, k, v, nextFree)
 }
 
-func resetKeyValue(items []hashTableSlot, mask uintptr, k, v Value) (wasSet bool) {
-	it, _ := findSlot(items, mask, k)
+func resetKeyValue(items []hashTableSlot, mask uintptr, k, v Value, kind keyKind) (wasSet bool) {
+	it, _ := findSlot(items, mask, k, kind)
 	wasSet = it != nil && !it.value.IsNil()
 	if wasSet {
 		it.value = v
@@ -559,12 +605,15 @@ func updateNextFree(slots []hashTableSlot, nextFree uintptr) uintptr {
 	return nextFree
 }
 
-func findSlot(slots []hashTableSlot, mask uintptr, k Value) (it *hashTableSlot, i uintptr) {
+// findSlot returns the slot holding k, or nil.  With kind stringKey the keys
+// are compared with equalsString, which needs no call; both comparisons are
+// written out so that they inline.
+func findSlot(slots []hashTableSlot, mask uintptr, k Value, kind keyKind) (it *hashTableSlot, i uintptr) {
 	// For a small table, it's cheaper not to calculate the hash
 	if mask < smallHashTableSize {
 		for j := int(mask); j >= 0; j-- {
 			it = &slots[j]
-			if it.key.Equals(k) {
+			if (kind == stringKey && it.key.equalsString(k)) || (kind == anyKey && it.key.Equals(k)) {
 				i = uintptr(j)
 				return
 			}
@@ -576,7 +625,7 @@ func findSlot(slots []hashTableSlot, mask uintptr, k Value) (it *hashTableSlot, 
 	if it.isChained() {
 		return nil, 0
 	}
-	for !it.key.Equals(k) {
+	for !((kind == stringKey && it.key.equalsString(k)) || (kind == anyKey && it.key.Equals(k))) {
 		if !it.hasNext() {
 			return nil, 0
 		}
@@ -587,7 +636,7 @@ func findSlot(slots []hashTableSlot, mask uintptr, k Value) (it *hashTableSlot, 
 }
 
 func removeKey(slots []hashTableSlot, mask uintptr, k Value) (wasSet bool) {
-	if it, _ := findSlot(slots, mask, k); it != nil {
+	if it, _ := findSlot(slots, mask, k, anyKey); it != nil {
 		wasSet = !it.value.IsNil()
 		it.value = NilValue
 	}

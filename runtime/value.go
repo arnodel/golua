@@ -103,6 +103,25 @@ func (v Value) Equals(v2 Value) bool {
 // signBit is the sign bit of a float64 held in a Value's scalar.
 const signBit = 1 << 63
 
+// equalsString reports whether v equals k, where k is known to be a string.
+// It is what Equals computes, without a call in the common case: unequal
+// scalars mean unequal values, and equal scalars mean equal strings when v is
+// a string too and the scalars hold the bytes (strings of up to 7 bytes).
+// Only equal hashes of longer strings need the bytes compared.
+func (v Value) equalsString(k Value) bool {
+	if v.scalar != k.scalar {
+		return false
+	}
+	if _, ok := v.iface.(string); !ok {
+		return false
+	}
+	return k.scalar < hashedStringTag || v.equalsLongString(k)
+}
+
+func (v Value) equalsLongString(k Value) bool {
+	return v.iface.(string) == k.iface.(string)
+}
+
 func (v Value) equalsSlow(v2 Value) bool {
 	ift := ifaceType(v.iface)
 	if ift != ifaceType(v2.iface) {
