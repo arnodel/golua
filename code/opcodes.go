@@ -417,8 +417,23 @@ func mkType4b(f Flag, op UnOpK, rA Reg, k Lit8) Opcode {
 //     On makes it a tail call; for OpClStack, On pushes rA and Off truncates
 //   - aAAAAAAAA is the register rA (unused by OpJump and the truncation)
 //   - JJ is the operation (a JumpOp)
-//   - D is a signed 16-bit offset from the jump itself (OpJump, OpJumpIf) or
-//     a height of the close stack (OpClStack truncation); 0 for OpCall
+//   - D is a signed 16-bit offset from the jump itself (OpJump, OpJumpIf), a
+//     height of the close stack (OpClStack truncation), or for OpCall the
+//     number of argument registers listed in the operand words that follow
+//
+// Operand words: a call with N > 0 arguments is followed by ArgWordCount(N)
+// words that are not opcodes but lists of registers, three per word in the
+// positions of A, B and C with their kind bits:
+//
+//	00xyzabc AAAAAAAA BBBBBBBB CCCCCCCC
+//
+// The call pushes the N registers in order into the continuation rA, then
+// calls it; execution resumes after the operand words.  Unused positions in
+// the last word are zero.  Nothing may jump into an operand word.
+//
+// x, y and z say that the register in A, B or C is a temporary that nothing
+// reads after the call: the call sets it to nil once pushed, so that the
+// value it held can be collected as soon as the callee is done with it.
 
 // JumpOp is the operation of a Type5 opcode.
 type JumpOp uint8
@@ -470,6 +485,91 @@ func (c Opcode) GetOffset() Offset {
 // GetClStackOffset decodes the ClStackOffset from the opcode.
 func (c Opcode) GetClStackOffset() ClStackOffset {
 	return ClStackOffset(uint16(c))
+}
+
+// ArgCount is the number of argument registers a call lists in the operand
+// words that follow it.
+type ArgCount uint16
+
+// encodeD encodes n into an opcode at the D position.
+func (n ArgCount) encodeD() Opcode {
+	return Opcode(n)
+}
+
+// GetArgCount decodes the number of arguments of a call from the opcode.
+func (c Opcode) GetArgCount() int {
+	return int(uint16(c))
+}
+
+// callArgCount returns the number of arguments the opcode lists in operand
+// words, if it is a call, else 0.
+func (c Opcode) callArgCount() int {
+	if c.HasType1() || c.TypePfx() != Type5Pfx || c.GetJ() != OpCall {
+		return 0
+	}
+	return c.GetArgCount()
+}
+
+// ArgWordCount returns the number of operand words needed to list n
+// registers.
+func ArgWordCount(n int) int {
+	return (n + 2) / 3
+}
+
+// The flags of an operand word saying which of its registers the call clears
+// after pushing them.
+const (
+	argClearA Opcode = 1 << 29
+	argClearB Opcode = 1 << 28
+	argClearC Opcode = 1 << 27
+)
+
+// ArgWords packs the registers into operand words, three per word.  clear,
+// if not nil, says for each register whether the call clears it after pushing
+// it (see ArgClears).
+func ArgWords(regs []Reg, clear []bool) []Opcode {
+	words := make([]Opcode, 0, ArgWordCount(len(regs)))
+	for i := 0; i < len(regs); i += 3 {
+		var w Opcode
+		w |= regs[i].toA()
+		if clear != nil && clear[i] {
+			w |= argClearA
+		}
+		if i+1 < len(regs) {
+			w |= regs[i+1].toB()
+			if clear != nil && clear[i+1] {
+				w |= argClearB
+			}
+		}
+		if i+2 < len(regs) {
+			w |= regs[i+2].toC()
+			if clear != nil && clear[i+2] {
+				w |= argClearC
+			}
+		}
+		words = append(words, w)
+	}
+	return words
+}
+
+// ArgClears says which of the three registers of an operand word the call
+// clears after pushing them.
+func (c Opcode) ArgClears() [3]bool {
+	return [3]bool{c&argClearA != 0, c&argClearB != 0, c&argClearC != 0}
+}
+
+// ArgRegs unpacks the first n registers listed in the operand words.
+func ArgRegs(words []Opcode, n int) []Reg {
+	regs := make([]Reg, 0, n)
+	for _, w := range words {
+		for _, r := range [3]Reg{w.GetA(), w.GetB(), w.GetC()} {
+			if len(regs) == n {
+				return regs
+			}
+			regs = append(regs, r)
+		}
+	}
+	return regs
 }
 
 // SetOffset returns a copy of the opcode with the given offset.

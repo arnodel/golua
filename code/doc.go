@@ -142,8 +142,9 @@ J selects the operation (JumpOp):
 
 	OpJump      pc <- pc + D (D is a signed offset from the jump itself)
 	OpJumpIf    jump if rA is truthy (F = On) or falsy (F = Off)
-	OpCall      transfer control to the continuation in rA, which has had
-	            its arguments pushed; F = On makes it a tail call, which
+	OpCall      push the D registers listed in the operand words that
+	            follow (see below) into the continuation in rA, then
+	            transfer control to it; F = On makes it a tail call, which
 	            releases the current frame.  "call r0" is a return.
 	OpClStack   F = On: "clpush rA", push rA onto the close stack (a value
 	            with a __close metamethod, or nil/false); F = Off: "cltrunc
@@ -151,7 +152,20 @@ J selects the operation (JumpOp):
 	            on the values removed.  These implement to-be-closed
 	            variables.
 
-For OpCall the offset is 0, and for OpJump the register is unused.
+For OpJump the register is unused.
+
+A call with D > 0 arguments is followed by ceil(D/3) operand words.  They
+are not opcodes: each lists up to three registers in the positions of A, B
+and C, with their kind bits, and zero in the top two bits:
+
+	00 x y z a b c | A | B | C
+
+The call pushes the D registers in order and execution resumes after the
+operand words.  Arguments that were pushed one by one before the call (an
+etc, for instance) come first.  The flags x, y and z mark a register as a
+temporary that nothing reads after the call: the call sets it to nil once it
+is pushed, so that the value can be collected as soon as the callee lets go
+of it.  No jump may land inside an operand word; the verifier checks it.
 
 # Type 6: etc vectors
 

@@ -3,6 +3,7 @@ package code
 import (
 	"fmt"
 	"io"
+	"strings"
 )
 
 // A Unit is a chunk of code with associated constants.
@@ -45,10 +46,29 @@ func (d *unitDisassembler) disassemble(w io.Writer) {
 	}
 	disCode := make([]string, len(d.unit.Code))
 	maxSpanLen := 10
-	for i, opcode := range d.unit.Code {
+	for i := 0; i < len(d.unit.Code); i++ {
+		opcode := d.unit.Code[i]
 		disCode[i] = opcode.Disassemble(d, i)
 		if l := len(d.spans[i]); l > maxSpanLen {
 			maxSpanLen = l
+		}
+		// A call's arguments are listed in the operand words that follow it;
+		// show them with the call and mark the words.
+		if n := opcode.callArgCount(); n > 0 {
+			words := ArgWordCount(n)
+			if i+words >= len(d.unit.Code) {
+				disCode[i] += " (truncated argument list)"
+				break
+			}
+			args := make([]string, n)
+			for j, r := range ArgRegs(d.unit.Code[i+1:i+1+words], n) {
+				args[j] = r.String()
+			}
+			disCode[i] += " (" + strings.Join(args, ", ") + ")"
+			for j := i + 1; j <= i+words; j++ {
+				disCode[j] = "  ^ arguments"
+			}
+			i += words
 		}
 	}
 	fmt.Fprintf(w, "\n==CODE==\n\n")
