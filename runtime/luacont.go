@@ -1,8 +1,6 @@
 package runtime
 
 import (
-	"errors"
-	"fmt"
 	"math"
 	"unsafe"
 
@@ -160,35 +158,6 @@ RunLoop:
 				if !ok {
 					res, err = binaryArithFallback(t, metaDiv, x, y)
 				}
-			case code.OpFloorDiv:
-				res, ok, err = Idiv(x, y)
-				if !ok {
-					res, err = binaryArithFallback(t, metaIdiv, x, y)
-				}
-			case code.OpMod:
-				res, ok, err = Mod(x, y)
-				if !ok {
-					res, err = binaryArithFallback(t, metaMod, x, y)
-				}
-			case code.OpPow:
-				res, ok = Pow(x, y)
-				if !ok {
-					res, err = binaryArithFallback(t, metaPow, x, y)
-				}
-
-			// Bitwise
-
-			case code.OpBitAnd:
-				res, err = band(t, x, y)
-			case code.OpBitOr:
-				res, err = bor(t, x, y)
-			case code.OpBitXor:
-				res, err = bxor(t, x, y)
-			case code.OpShiftL:
-				res, err = shl(t, x, y)
-			case code.OpShiftR:
-				res, err = shr(t, x, y)
-
 			// Comparison
 
 			case code.OpEq:
@@ -204,12 +173,8 @@ RunLoop:
 				r, err = le(t, x, y)
 				res = BoolValue(r)
 
-			// Concatenation
-
-			case code.OpConcat:
-				res, err = Concat(t, x, y)
 			default:
-				panic("unsupported")
+				res, err = rareBinOp(t, opcode.GetX(), x, y)
 			}
 			if err != nil {
 				c.pc = pc
@@ -402,14 +367,7 @@ RunLoop:
 				}
 
 				if t.areFlagsEnabled(HookFlagCall | HookFlagReturn) {
-					switch {
-					case contReg == code.ValueReg(0):
-						_ = t.triggerReturn(t, c)
-					case isTail:
-						_ = t.triggerTailCall(t, next)
-					default:
-						_ = t.triggerCall(t, next)
-					}
+					c.callHooks(t, contReg, isTail, next)
 				}
 
 				if isTail {
@@ -460,68 +418,15 @@ RunLoop:
 					done = forPassedInt(n, lim, st) || forPassedInt(s, n, st)
 					next = IntValue(n)
 				} else {
-					next, _ = Add(start, step)
-					done = forPassed(next, stop, step) || forPassed(start, next, step)
+					next, done = advForFloat(start, stop, step)
 				}
 				if done {
 					next = NilValue
 				}
 				setReg(regs, cells, startReg, next)
-			} else {
-				// Prepare for loop
-				start, tstart := ToNumberValue(start)
-				stop, tstop := ToNumberValue(stop)
-				step, tstep := ToNumberValue(step)
-				if tstart == NaN || tstop == NaN || tstep == NaN {
-					c.pc = pc
-					var (
-						role string
-						val  Value
-					)
-					switch {
-					case tstart == NaN:
-						role, val = "initial value", start
-					case tstop == NaN:
-						role, val = "limit", stop
-					default:
-						role, val = "step", step
-					}
-					return nil, fmt.Errorf("'for' %s: expected number, got %s", role, val.CustomTypeName())
-				}
-				// The loop is done with integers if start and step are
-				// both integers, whatever the limit.
-				intLoop := tstart == IsInt && tstep == IsInt
-				// Make sure start and step have the same numeric type
-				if tstart != tstep {
-					// One is a float, one is an int, turn them both to floats
-					if tstart == IsInt {
-						start = FloatValue(float64(start.AsInt()))
-					} else {
-						step = FloatValue(float64(step.AsInt()))
-					}
-				}
-				// A 0 step is an error
-				if isZero(step) {
-					c.pc = pc
-					return nil, errors.New("'for' step is zero")
-				}
-				// If the loop is already finished, startReg is set to nil.
-				var done bool
-				if intLoop {
-					// Make the limit an integer too, so that advancing the
-					// loop only deals with integers.
-					var ok bool
-					stop, ok = forLimit(stop, tstop, step.AsInt())
-					done = !ok || forPassedInt(start.AsInt(), stop.AsInt(), step.AsInt())
-				} else {
-					done = forPassed(start, stop, step)
-				}
-				if done {
-					start = NilValue
-				}
-				setReg(regs, cells, startReg, start)
-				setReg(regs, cells, stopReg, stop)
-				setReg(regs, cells, stepReg, step)
+			} else if err := c.prepFor(opcode); err != nil {
+				c.pc = pc
+				return nil, err
 			}
 			pc++
 			continue RunLoop
