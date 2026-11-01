@@ -141,14 +141,33 @@ func JumpIfNot(j Offset, r Reg) Opcode {
 //
 // r must contain a continuation that is ready to be called.
 func Call(r Reg) Opcode {
-	return mkType5(Off, OpCall, r, Offset(0))
+	return mkType5(Off, OpCall, r, ArgCount(0))
+}
+
+// CallArgs encodes call r with n arguments: the n registers listed in the
+// operand words that follow (see ArgWords) are pushed into r before it is
+// called.
+func CallArgs(r Reg, n int) Opcode {
+	return mkType5(Off, OpCall, r, argCountFromInt(n))
+}
+
+// TailCallArgs encodes tailcall r with n arguments (see CallArgs).
+func TailCallArgs(r Reg, n int) Opcode {
+	return mkType5(On, OpCall, r, argCountFromInt(n))
+}
+
+func argCountFromInt(n int) ArgCount {
+	if n < 0 || n > math.MaxUint8 {
+		panic("argument count out of range")
+	}
+	return ArgCount(n)
 }
 
 // TailCall encodes tailcall r
 //
 // r must contain a continuation that is ready to be called.
 func TailCall(r Reg) Opcode {
-	return mkType5(On, OpCall, r, Offset(0))
+	return mkType5(On, OpCall, r, ArgCount(0))
 }
 
 // ClTrunc encodes cltrunc h

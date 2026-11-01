@@ -427,12 +427,31 @@ RunLoop:
 				continue RunLoop
 			case code.OpCall:
 				pc++
-				c.pc = pc
-				c.acc = nil
-				c.running = false
 				contReg := opcode.GetA()
 				isTail := opcode.GetF() // Can mean tail call or simple return
 				next := getReg(regs, cells, contReg).AsCont()
+
+				// Push the arguments listed in the operand words, then skip
+				// the words.
+				if n := opcode.GetArgCount(); n > 0 {
+					for ; n > 0; pc++ {
+						w := opcodes[pc]
+						clear := w.ArgClears()
+						for k, reg := range [3]code.Reg{w.GetA(), w.GetB(), w.GetC()} {
+							if n == 0 {
+								break
+							}
+							next.Push(t.Runtime, getReg(regs, cells, reg))
+							if clear[k] {
+								setReg(regs, cells, reg, NilValue)
+							}
+							n--
+						}
+					}
+				}
+				c.pc = pc
+				c.acc = nil
+				c.running = false
 
 				// We clear the register containing the continuation to allow
 				// garbage collection.  A continuation can only be called once

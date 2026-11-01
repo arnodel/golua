@@ -403,15 +403,11 @@ func (c *compiler) compileBlockNoPop(s ast.BlockStat, complete bool) func() {
 			c.compileCall(*fc.BFunctionCall, true)
 		} else {
 			contReg := c.getCallerReg()
-			c.compilePushArgs(s.Return, contReg)
 			var loc ast.Locator
 			if len(s.Return) > 0 {
 				loc = s.Return[0]
 			}
-			c.emitInstr(loc, ir.Call{
-				Cont: contReg,
-				Tail: true,
-			})
+			c.compileCallWithArgs(loc, contReg, noRegister, s.Return, true)
 		}
 	}
 	return func() {
