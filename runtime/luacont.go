@@ -1,8 +1,6 @@
 package runtime
 
 import (
-	"errors"
-	"fmt"
 	"math"
 	"unsafe"
 
@@ -160,35 +158,6 @@ RunLoop:
 				if !ok {
 					res, err = binaryArithFallback(t, metaDiv, x, y)
 				}
-			case code.OpFloorDiv:
-				res, ok, err = Idiv(x, y)
-				if !ok {
-					res, err = binaryArithFallback(t, metaIdiv, x, y)
-				}
-			case code.OpMod:
-				res, ok, err = Mod(x, y)
-				if !ok {
-					res, err = binaryArithFallback(t, metaMod, x, y)
-				}
-			case code.OpPow:
-				res, ok = Pow(x, y)
-				if !ok {
-					res, err = binaryArithFallback(t, metaPow, x, y)
-				}
-
-			// Bitwise
-
-			case code.OpBitAnd:
-				res, err = band(t, x, y)
-			case code.OpBitOr:
-				res, err = bor(t, x, y)
-			case code.OpBitXor:
-				res, err = bxor(t, x, y)
-			case code.OpShiftL:
-				res, err = shl(t, x, y)
-			case code.OpShiftR:
-				res, err = shr(t, x, y)
-
 			// Comparison
 
 			case code.OpEq:
@@ -204,12 +173,8 @@ RunLoop:
 				r, err = le(t, x, y)
 				res = BoolValue(r)
 
-			// Concatenation
-
-			case code.OpConcat:
-				res, err = Concat(t, x, y)
 			default:
-				panic("unsupported")
+				res, err = rareBinOp(t, opcode.GetX(), x, y)
 			}
 			if err != nil {
 				c.pc = pc
@@ -290,14 +255,10 @@ RunLoop:
 			switch opcode.GetY() {
 			case code.OpInt16:
 				val = IntValue(int64(int16(n)))
-			case code.OpStr2:
-				val = StringValue(string(code.Lit16(n).ToStr2()))
 			case code.OpK:
 				val = consts[n]
-			case code.OpClosureK:
-				val = FunctionValue(NewClosure(t.Runtime, consts[n].AsCode()))
 			default:
-				panic("Unsupported opcode")
+				val = c.rareConst(t, opcode)
 			}
 			dst := opcode.GetA()
 			if opcode.GetF() {
@@ -312,18 +273,10 @@ RunLoop:
 		case code.Type4Pfx:
 			dst := opcode.GetA()
 			var res Value
-			var ok bool
 			var err error
 			if opcode.HasType4a() {
 				val := getReg(regs, cells, opcode.GetB())
 				switch opcode.GetUnOp() {
-				case code.OpNeg:
-					res, ok = Unm(val)
-					if !ok {
-						res, err = unaryArithFallback(t, metaUnm, val)
-					}
-				case code.OpBitNot:
-					res, err = bnot(t, val)
 				case code.OpLen:
 					res, err = Len(t, val)
 				case code.OpCont:
@@ -336,58 +289,23 @@ RunLoop:
 					res = ContValue(cont)
 				case code.OpId:
 					res = val
-				case code.OpEtcId:
-					cont := getReg(regs, cells, dst).AsCont()
-					var etc []Value
-					etc, err = expandVarargs(val)
-					if err != nil {
-						break
-					}
-					cont.PushEtc(t.Runtime, etc)
-					pc++
-					continue RunLoop
 				case code.OpTruth:
 					res = BoolValue(Truth(val))
 				case code.OpNot:
 					res = BoolValue(!Truth(val))
-				case code.OpUpvalue:
-					// TODO: wasteful as we already have got getReg
-					cell := c.getRegCell(opcode.GetB())
-					getReg(regs, cells, dst).AsClosure().AddUpvalue(cell)
-					pc++
-					continue RunLoop
-				case code.OpMkVarargTable:
-					tbl := TableValue(t.newVarargTable(val.AsArray()))
-					// Overwrite the etc register so ... expansion reads from
-					// the table (respecting t.n modifications).
-					setReg(regs, cells, opcode.GetB(), tbl)
-					res = tbl
-				case code.OpCheckNotDefined:
-					// Lua 5.5: check that table[index] is not already defined.
-					// Used by "global x = value" declarations.
-					table := getReg(regs, cells, dst) // rA = table (_ENV)
-					// val is rB = index (name)
-					tbl := table.AsTable()
-					if tbl != nil && !tbl.Get(val).IsNil() {
-						c.pc = pc
-						return nil, fmt.Errorf("global '%s' already defined", val.AsString())
-					}
-					pc++
-					continue RunLoop
 				default:
-					panic("unsupported")
+					var done bool
+					res, done, err = c.rareUnOp(t, opcode, val)
+					if done && err == nil {
+						pc++
+						continue RunLoop
+					}
 				}
 			} else {
 				// Type 4b
 				switch code.UnOpK(opcode.GetUnOp()) {
-				case code.OpCC:
-					res = ContValue(c)
 				case code.OpTable:
 					res = TableValue(t.NewTable())
-				case code.OpStr0:
-					res = StringValue("")
-				case code.OpStr1:
-					res = StringValue(string(opcode.GetL().ToStr1()))
 				case code.OpBool:
 					res = BoolValue(opcode.GetL().ToBool())
 				case code.OpNil:
@@ -398,7 +316,7 @@ RunLoop:
 					pc++
 					continue RunLoop
 				default:
-					panic("unsupported")
+					res = c.rareConstK(opcode)
 				}
 			}
 			if err != nil {
@@ -449,14 +367,7 @@ RunLoop:
 				}
 
 				if t.areFlagsEnabled(HookFlagCall | HookFlagReturn) {
-					switch {
-					case contReg == code.ValueReg(0):
-						_ = t.triggerReturn(t, c)
-					case isTail:
-						_ = t.triggerTailCall(t, next)
-					default:
-						_ = t.triggerCall(t, next)
-					}
+					c.callHooks(t, contReg, isTail, next)
 				}
 
 				if isTail {
@@ -468,21 +379,9 @@ RunLoop:
 				}
 				return next, nil
 			case code.OpClStack:
-				if opcode.GetF() {
-					// Push to close stack
-					v := getReg(regs, cells, opcode.GetA())
-					if Truth(v) && t.metaGet(v, metaClose).IsNil() {
-						c.pc = pc
-						return nil, errors.New("to be closed value missing a __close metamethod")
-					}
-					t.closeStack.push(v)
-				} else {
-					// Truncate close stack
-					h := c.closeStackBase + int(opcode.GetClStackOffset())
-					if err := t.cleanupCloseStack(c, h, nil); err != nil {
-						c.pc = pc
-						return nil, err
-					}
+				if err := c.clStack(t, opcode); err != nil {
+					c.pc = pc
+					return nil, err
 				}
 				pc++
 				continue RunLoop
@@ -490,24 +389,9 @@ RunLoop:
 				panic("unsupported")
 			}
 		case code.Type6Pfx:
-			dst := opcode.GetA()
-			etc, etcErr := expandVarargs(getReg(regs, cells, opcode.GetB()))
-			if etcErr != nil {
+			if err := c.etcOp(t, opcode); err != nil {
 				c.pc = pc
-				return nil, etcErr
-			}
-			idx := int(opcode.GetM())
-			if opcode.GetF() {
-				tbl := getReg(regs, cells, dst).AsTable()
-				for i, v := range etc {
-					t.SetTable(tbl, IntValue(int64(i+idx)), v)
-				}
-			} else {
-				var val Value
-				if idx < len(etc) {
-					val = etc[idx]
-				}
-				setReg(regs, cells, dst, val)
+				return nil, err
 			}
 			pc++
 			continue RunLoop
@@ -534,68 +418,15 @@ RunLoop:
 					done = forPassedInt(n, lim, st) || forPassedInt(s, n, st)
 					next = IntValue(n)
 				} else {
-					next, _ = Add(start, step)
-					done = forPassed(next, stop, step) || forPassed(start, next, step)
+					next, done = advForFloat(start, stop, step)
 				}
 				if done {
 					next = NilValue
 				}
 				setReg(regs, cells, startReg, next)
-			} else {
-				// Prepare for loop
-				start, tstart := ToNumberValue(start)
-				stop, tstop := ToNumberValue(stop)
-				step, tstep := ToNumberValue(step)
-				if tstart == NaN || tstop == NaN || tstep == NaN {
-					c.pc = pc
-					var (
-						role string
-						val  Value
-					)
-					switch {
-					case tstart == NaN:
-						role, val = "initial value", start
-					case tstop == NaN:
-						role, val = "limit", stop
-					default:
-						role, val = "step", step
-					}
-					return nil, fmt.Errorf("'for' %s: expected number, got %s", role, val.CustomTypeName())
-				}
-				// The loop is done with integers if start and step are
-				// both integers, whatever the limit.
-				intLoop := tstart == IsInt && tstep == IsInt
-				// Make sure start and step have the same numeric type
-				if tstart != tstep {
-					// One is a float, one is an int, turn them both to floats
-					if tstart == IsInt {
-						start = FloatValue(float64(start.AsInt()))
-					} else {
-						step = FloatValue(float64(step.AsInt()))
-					}
-				}
-				// A 0 step is an error
-				if isZero(step) {
-					c.pc = pc
-					return nil, errors.New("'for' step is zero")
-				}
-				// If the loop is already finished, startReg is set to nil.
-				var done bool
-				if intLoop {
-					// Make the limit an integer too, so that advancing the
-					// loop only deals with integers.
-					var ok bool
-					stop, ok = forLimit(stop, tstop, step.AsInt())
-					done = !ok || forPassedInt(start.AsInt(), stop.AsInt(), step.AsInt())
-				} else {
-					done = forPassed(start, stop, step)
-				}
-				if done {
-					start = NilValue
-				}
-				setReg(regs, cells, startReg, start)
-				setReg(regs, cells, stopReg, stop)
-				setReg(regs, cells, stepReg, step)
+			} else if err := c.prepFor(opcode); err != nil {
+				c.pc = pc
+				return nil, err
 			}
 			pc++
 			continue RunLoop
