@@ -96,13 +96,15 @@ Benchmarks Game.  See [`awfy/LICENSE.md`](awfy/LICENSE.md) and
 
 ## The Computer Language Benchmarks Game
 
-[`clbg/`](clbg) holds three of the
+[`clbg/`](clbg) holds seven of the
 [Benchmarks Game](https://benchmarksgame-team.pages.debian.net/benchmarksgame/)'s
-Lua programs by Mike Pall, which Are We Fast Yet lacks.  They come from
-[gligneul/Lua-Benchmarks](https://github.com/gligneul/Lua-Benchmarks) by way
-of [apogee](https://github.com/matjam/apogee), which changed each to return a
-function computing its result in place of printing it.  They are under the
-Benchmarks Game's revised BSD license, [`clbg/LICENSE`](clbg/LICENSE).
+Lua programs.  They are under the Benchmarks Game's revised BSD license,
+[`clbg/LICENSE`](clbg/LICENSE).
+
+Three of them, by Mike Pall, are numeric and Are We Fast Yet lacks them.
+They come from [gligneul/Lua-Benchmarks](https://github.com/gligneul/Lua-Benchmarks)
+by way of [apogee](https://github.com/matjam/apogee), which changed each to
+return a function computing its result in place of printing it.
 
 | Benchmark | What it does |
 |---|---|
@@ -110,9 +112,63 @@ Benchmarks Game's revised BSD license, [`clbg/LICENSE`](clbg/LICENSE).
 | fannkuch-redux | permutations of 9 elements in arrays |
 | spectral-norm | the spectral norm of a 200×200 matrix; calls and arithmetic |
 
+The other four cover what the rest of the suite leaves out (see
+[Coverage](#coverage)).  fasta, k-nucleotide and regex-dna come from
+gligneul/Lua-Benchmarks, and coroutine-ring, the Benchmarks Game's
+thread-ring, from [LuaJIT-test-cleanup](https://github.com/LuaJIT/LuaJIT-test-cleanup).
+Each was changed to return a function computing its output, in place of
+reading stdin and writing stdout; each file's header says how.
+
+| Benchmark | What it does |
+|---|---|
+| fasta | generating 250 KB of DNA sequences; `%`, string.sub, string.char with 2047 arguments, varargs, load |
+| k-nucleotide | counting the substrings of a sequence; string keys, an `__index` metamethod, table.sort with a comparison function |
+| regex-dna | matching and substituting patterns in a sequence; the string library's pattern matching |
+| coroutine-ring | passing a token around a ring of 503 coroutines 100,000 times; coroutine.resume and coroutine.yield |
+
+k-nucleotide and regex-dna read the output of fasta, which the test computes
+once before timing them.
+
+## Other programs
+
+[`extra/`](extra) holds two programs from neither suite.
+
+| Benchmark | What it does | From |
+|---|---|---|
+| md5 | hashing 16 KB of text 20 times; the bitwise operators | md5test.lua from [Lua BitOp](https://bitop.luajit.org/) 1.0.3, public domain |
+| life | 200 generations of Conway's Game of Life on 40×20 cells; building strings by concatenation, global variables | test/life.lua from Lua 5.1.5, MIT |
+
+md5 used the bit library, which Lua 5.3 replaced with operators.  It now
+uses the operators, and still passes the original's test vectors.  life drew
+each generation on a terminal; it now returns the last one.
+
+## Coverage
+
+Are We Fast Yet keeps to features that all its languages share: objects,
+closures, arrays and maps.  So it leaves out most of what is particular to
+Lua, and the three numeric Benchmarks Game programs add little of it.
+Counting the opcodes each benchmark executes showed that the first 17
+benchmarks never run string concatenation or floor division, hardly ever
+`^`, and run the bitwise operators and `%` at under 2% of their opcodes.
+They rarely call the string library, and never resume a coroutine.  A
+change that made those slower would not show.
+
+The last six benchmarks fill those gaps:
+
+| | in the first 17, at most | in the new ones |
+|---|---|---|
+| bitwise operators | 1.7% of opcodes (storage) | 21% (md5) |
+| `%` | 1.7% (storage) | 3.1% (fasta) |
+| concatenation | never | 1.7% (life), with strings growing to 820 bytes |
+| coroutines | never | 100,000 switches each way (coroutine-ring) |
+| string library | rarely | 70% of regex-dna's time, in pattern matching; string.sub on every step of k-nucleotide |
+
+Floor division, `^` and error handling with `pcall` are still not covered.
+
 ## Sizes
 
-The benchmarks run at the sizes apogee uses, so results can be set beside
-its own: cd with 10 aircraft, deltablue with chains of 1000 variables, havlak
-at its smallest size, mandelbrot at 500×500, and one inner iteration for the
-others.
+The first 17 benchmarks run at the sizes apogee uses, so results can be set
+beside its own: cd with 10 aircraft, deltablue with chains of 1000 variables,
+havlak at its smallest size, mandelbrot at 500×500, and one inner iteration
+for the others.  The last six have sizes chosen to take 10 to 50
+milliseconds in PUC Lua.
