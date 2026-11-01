@@ -2,8 +2,14 @@
 -- http://shootout.alioth.debian.org/
 -- contributed by Sam Roberts
 -- reviewed by Bruno Massa
+--
+-- From LuaJIT/LuaJIT-test-cleanup at 014708b (bench/), as a module: it
+-- returns a function of n that returns the id of the last thread, in place of
+-- writing it.  It closes the threads before returning: golua runs each
+-- coroutine on a goroutine, which a suspended coroutine keeps until it is
+-- closed, so each call would otherwise leave 503 goroutines behind.
 
-local n         = tonumber(arg and arg[1]) or 2e7
+return function(n)
 
 -- fixed size pool
 local poolsize  = 503
@@ -39,4 +45,9 @@ repeat
   ok, token = resume(threads[id], token)
 until token == n
 
-io.write(id, "\n")
+for id = 1, poolsize do
+  coroutine.close(threads[id])
+end
+
+return id
+end

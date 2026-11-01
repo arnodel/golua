@@ -4,8 +4,16 @@
 -- modified by Victor Tang
 -- optimized & replaced inefficient use of gsub with gmatch
 -- partitioned sequence to prevent extraneous redundant string copy
+--
+-- From gligneul/Lua-Benchmarks at e1b3f24, as a module: it returns a
+-- function of the input, the output of fasta, that returns the output as a
+-- string, in place of reading stdin and writing stdout.
 
-seq = io.read("*a")
+return function(input)
+local out = {}
+local function write(s) out[#out+1] = s end
+
+seq = input
 ilen, seq = #seq, seq:gsub('>[^%c]*%c*', ''):gsub('%c+', '')
 clen = #seq
 
@@ -32,7 +40,7 @@ function countmatches(variant)
 end
 
 for _, p in ipairs(variants) do
-   io.write( string.format('%s %d\n', p, countmatches(p)) )
+   write( string.format('%s %d\n', p, countmatches(p)) )
 end
 
 function partitionstring(seq)
@@ -55,5 +63,7 @@ for k, v in pairs(subst) do
   chunk_gsub(seq, k, v)
 end
 seq = table.concat(seq)
-io.write(string.format('\n%d\n%d\n%d\n', ilen, clen, #seq))
+write(string.format('\n%d\n%d\n%d\n', ilen, clen, #seq))
+return table.concat(out)
+end
 

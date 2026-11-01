@@ -2,8 +2,10 @@
 -- original by Dave Bollinger <DBollinger@compuserve.com> posted to lua-l
 -- modified to use ANSI terminal escape sequences
 -- modified to use for instead of while
-
-local write=io.write
+--
+-- test/life.lua from Lua 5.1.5, as a module: it returns LIFE, which returns
+-- the last generation it draws in place of writing each one to the terminal.
+-- It takes the number of generations, which was 2000.
 
 ALIVE="¥"	DEAD="þ"
 ALIVE="O"	DEAD="-"
@@ -60,7 +62,7 @@ function _CELLS:draw()
     end
     out=out.."\n"
   end
-  write(out)
+  return out
 end
 
 -- constructor
@@ -82,7 +84,7 @@ FISH = { 0,1,1,1,1,1,0,0,0,1,0,0,0,0,1,1,0,0,1,0; w=5,h=4 }
 BUTTERFLY = { 1,0,0,0,1,0,1,1,1,0,1,0,0,0,1,1,0,1,0,1,1,0,0,0,1; w=5,h=5 }
 
 -- the main routine
-function LIFE(w,h)
+function LIFE(w,h,gens)
   -- create two arrays
   local thisgen = CELLS(w,h)
   local nextgen = CELLS(w,h)
@@ -95,17 +97,16 @@ function LIFE(w,h)
 
   -- run until break
   local gen=1
-  write("\027[2J")	-- ANSI clear screen
+  local frame
   while 1 do
     thisgen:evolve(nextgen)
     thisgen,nextgen = nextgen,thisgen
-    write("\027[H")	-- ANSI home cursor
-    thisgen:draw()
-    write("Life - generation ",gen,"\n")
+    frame = thisgen:draw()
     gen=gen+1
-    if gen>2000 then break end
+    if gen>gens then break end
     --delay()		-- no delay
   end
+  return frame
 end
 
-LIFE(40,20)
+return LIFE

@@ -1,6 +1,11 @@
 -- The Computer Language Benchmarks Game
 -- http://benchmarksgame.alioth.debian.org/
 -- contributed by Mike Pall
+--
+-- From gligneul/Lua-Benchmarks at e1b3f24, as a module: it returns a
+-- function of N that returns the output as a string, in place of writing it.
+-- The output goes through write, which collects it, and the random number
+-- generator starts from the same seed in each call.
 
 -- Compability with Lua 5.3
 if not loadstring then
@@ -17,8 +22,17 @@ local function random(max)
   return (max * y) / 139968
 end
 
+local out, nout = {}, 0
+
+local function write(...)
+  for i = 1, select("#", ...) do
+    nout = nout + 1
+    out[nout] = (select(i, ...))
+  end
+end
+
 local function make_repeat_fasta(id, desc, s, n)
-  local write, sub = io.write, string.sub
+  local sub = string.sub
   write(">", id, " ", desc, "\n")
   local p, sn, s2 = 1, #s, s..s
   for i=60,n,60 do
@@ -30,9 +44,9 @@ local function make_repeat_fasta(id, desc, s, n)
 end
 
 local function make_random_fasta(id, desc, bs, n)
-  io.write(">", id, " ", desc, "\n")
+  write(">", id, " ", desc, "\n")
   loadstring([=[
-    local write, char, unpack, n, random = io.write, string.char, unpack, ...
+    local write, char, unpack, n, random = ...
     local buf, p = {}, 1
     for i=60,n,60 do
       for j=p,p+59 do ]=]..bs..[=[ end
@@ -45,7 +59,7 @@ local function make_random_fasta(id, desc, bs, n)
       p = p + tail; buf[p] = 10; p = p + 1
     end
     write(char(unpack(buf, 1, p-1)))
-  ]=], desc)(n, random)
+  ]=], desc)(write, string.char, unpack, n, random)
 end
 
 local function bisect(c, p, lo, hi)
@@ -100,7 +114,10 @@ local homosapiens = make_bisect{
   { "t", 0.3015094502008 },
 }
 
-local N = tonumber(arg and arg[1]) or 1000
-make_repeat_fasta('ONE', 'Homo sapiens alu', alu, N*2)
-make_random_fasta('TWO', 'IUB ambiguity codes', iub, N*3)
-make_random_fasta('THREE', 'Homo sapiens frequency', homosapiens, N*5)
+return function(N)
+  Last, out, nout = 42, {}, 0
+  make_repeat_fasta('ONE', 'Homo sapiens alu', alu, N*2)
+  make_random_fasta('TWO', 'IUB ambiguity codes', iub, N*3)
+  make_random_fasta('THREE', 'Homo sapiens frequency', homosapiens, N*5)
+  return table.concat(out, "", 1, nout)
+end

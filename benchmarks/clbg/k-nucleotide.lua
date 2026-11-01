@@ -1,6 +1,20 @@
 -- The Computer Language Benchmarks Game
 -- http://benchmarksgame.alioth.debian.org/
 -- contributed by Mike Pall
+--
+-- From gligneul/Lua-Benchmarks at e1b3f24, as a module: it returns a
+-- function of the input, the output of fasta, that returns the output as a
+-- string.  write collects the output and nextline iterates over the lines
+-- of the input, in place of io.write and io.lines().
+
+local out, nout, nextline = {}, 0, nil
+
+local function write(...)
+  for i = 1, select("#", ...) do
+    nout = nout + 1
+    out[nout] = (select(i, ...))
+  end
+end
 
 local function kfrequency(seq, freq, k, frame)
   local sub = string.sub
@@ -19,7 +33,7 @@ local function count(seq, frag)
   local k = string.len(frag)
   local freq = setmetatable({}, { __index = freqdefault })
   for frame=1,k do kfrequency(seq, freq, k, frame) end
-  io.write(freq[frag] or 0, "\t", frag, "\n")
+  write(freq[frag] or 0, "\t", frag, "\n")
 end
 
 local function frequency(seq, k)
@@ -33,18 +47,18 @@ local function frequency(seq, k)
   end)
   sum = string.len(seq)-k+1
   for _,c in ipairs(sfreq) do
-    io.write(string.format("%s %0.3f\n", c, (freq[c]*100)/sum))
+    write(string.format("%s %0.3f\n", c, (freq[c]*100)/sum))
   end
-  io.write("\n")
+  write("\n")
 end
 
 local function readseq()
   local sub = string.sub
-  for line in io.lines() do
+  for line in nextline do
     if sub(line, 1, 1) == ">" and sub(line, 2, 6) == "THREE" then break end
   end
   local lines, ln = {}, 0
-  for line in io.lines() do
+  for line in nextline do
     local c = sub(line, 1, 1)
     if c == ">" then
       break
@@ -56,11 +70,15 @@ local function readseq()
   return string.upper(table.concat(lines, "", 1, ln))
 end
 
-local seq = readseq()
-frequency(seq, 1)
-frequency(seq, 2)
-count(seq, "GGT")
-count(seq, "GGTA")
-count(seq, "GGTATT")
-count(seq, "GGTATTTTAATT")
-count(seq, "GGTATTTTAATTTATAGT")
+return function(s)
+  out, nout, nextline = {}, 0, s:gmatch("([^\n]*)\n")
+  local seq = readseq()
+  frequency(seq, 1)
+  frequency(seq, 2)
+  count(seq, "GGT")
+  count(seq, "GGTA")
+  count(seq, "GGTATT")
+  count(seq, "GGTATTTTAATT")
+  count(seq, "GGTATTTTAATTTATAGT")
+  return table.concat(out, "", 1, nout)
+end

@@ -1,44 +1,41 @@
 -- MD5 test and benchmark. Public domain.
+--
+-- md5test.lua from Lua BitOp 1.0.3 (https://bitop.luajit.org/), as a module:
+-- it returns a function of n that hashes the text n times and returns the
+-- hash.  Calls to the bit library are replaced by Lua 5.3's bitwise
+-- operators.  The library works on signed 32-bit numbers; here values are
+-- 64-bit integers whose low 32 bits are the library's.  Only rol shifts high
+-- bits down, so it masks its argument, and the results are masked to 32 bits.
 
-local bit = require("bit")
-local tobit, tohex, bnot = bit.tobit or bit.cast, bit.tohex, bit.bnot
-local bor, band, bxor = bit.bor, bit.band, bit.bxor
-local lshift, rshift, rol, bswap = bit.lshift, bit.rshift, bit.rol, bit.bswap
 local byte, char, sub, rep = string.byte, string.char, string.sub, string.rep
 
-if not rol then -- Replacement function if rotates are missing.
-  local bor, shl, shr = bit.bor, bit.lshift, bit.rshift
-  function rol(a, b) return bor(shl(a, b), shr(a, 32-b)) end
+local function rol(a, b)
+  a = a & 0xffffffff
+  return ((a << b) | (a >> (32-b))) & 0xffffffff
 end
 
-if not bswap then -- Replacement function if bswap is missing.
-  local bor, band, shl, shr = bit.bor, bit.band, bit.lshift, bit.rshift
-  function bswap(a)
-    return bor(shr(a, 24), band(shr(a, 8), 0xff00),
-	       shl(band(a, 0xff00), 8), shl(a, 24));
-  end
+local function bswap(a)
+  return (a >> 24) | ((a >> 8) & 0xff00) | ((a & 0xff00) << 8) | ((a & 0xff) << 24)
 end
 
-if not tohex then -- (Unreliable) replacement function if tohex is missing.
-  function tohex(a)
-    return string.sub(string.format("%08x", a), -8)
-  end
+local function tohex(a)
+  return string.format("%08x", a)
 end
 
 local function tr_f(a, b, c, d, x, s)
-  return rol(bxor(d, band(b, bxor(c, d))) + a + x, s) + b
+  return rol((d ~ (b & (c ~ d))) + a + x, s) + b
 end
 
 local function tr_g(a, b, c, d, x, s)
-  return rol(bxor(c, band(d, bxor(b, c))) + a + x, s) + b
+  return rol((c ~ (d & (b ~ c))) + a + x, s) + b
 end
 
 local function tr_h(a, b, c, d, x, s)
-  return rol(bxor(b, c, d) + a + x, s) + b
+  return rol((b ~ c ~ d) + a + x, s) + b
 end
 
 local function tr_i(a, b, c, d, x, s)
-  return rol(bxor(c, bor(b, bnot(d))) + a + x, s) + b
+  return rol((c ~ (b | ~d)) + a + x, s) + b
 end
 
 local function transform(x, a1, b1, c1, d1)
@@ -112,22 +109,22 @@ local function transform(x, a1, b1, c1, d1)
   c = tr_i(c, d, a, b, x[ 3] + 0x2ad7d2bb, 15)
   b = tr_i(b, c, d, a, x[10] + 0xeb86d391, 21)
 
-  return tobit(a+a1), tobit(b+b1), tobit(c+c1), tobit(d+d1)
+  return (a+a1) & 0xffffffff, (b+b1) & 0xffffffff, (c+c1) & 0xffffffff, (d+d1) & 0xffffffff
 end
 
 -- Note: this is copying the original string and NOT particularly fast.
 -- A library for struct unpacking would make this task much easier.
 local function md5(msg)
   local len = #msg
-  msg = msg.."\128"..rep("\0", 63 - band(len + 8, 63))
-	   ..char(band(lshift(len, 3), 255), band(rshift(len, 5), 255),
-		  band(rshift(len, 13), 255), band(rshift(len, 21), 255))
+  msg = msg.."\128"..rep("\0", 63 - ((len + 8) & 63))
+	   ..char((len << 3) & 255, (len >> 5) & 255,
+		  (len >> 13) & 255, (len >> 21) & 255)
 	   .."\0\0\0\0"
   local a, b, c, d = 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476
   local x, k = {}, 1
   for i=1,#msg,4 do
     local m0, m1, m2, m3 = byte(msg, i, i+3)
-    x[k] = bor(m0, lshift(m1, 8), lshift(m2, 16), lshift(m3, 24))
+    x[k] = m0 | (m1 << 8) | (m2 << 16) | (m3 << 24)
     if k == 16 then
       a, b, c, d = transform(x, a, b, c, d)
       k = 1
@@ -148,9 +145,8 @@ assert(md5('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789') ==
 assert(md5('12345678901234567890123456789012345678901234567890123456789012345678901234567890') ==
        '57edf4a22be3c955ac49da2e2107b67a')
 
-if arg and arg[1] == "bench" then
-  -- Credits: William Shakespeare, Romeo and Juliet
-  local txt = [[Rebellious subjects, enemies to peace,
+-- Credits: William Shakespeare, Romeo and Juliet
+local txt = [[Rebellious subjects, enemies to peace,
 Profaners of this neighbour-stained steel,--
 Will they not hear? What, ho! you men, you beasts,
 That quench the fire of your pernicious rage
@@ -173,24 +169,13 @@ And, Montague, come you this afternoon,
 To know our further pleasure in this case,
 To old Free-town, our common judgment-place.
 Once more, on pain of death, all men depart.]]
-  txt = txt..txt..txt..txt
-  txt = txt..txt..txt..txt
+txt = txt..txt..txt..txt
+txt = txt..txt..txt..txt
 
-  local function bench()
-    local n = 80
-    repeat
-      local tm = os.clock()
-      local res
-      for i=1,n do
-	res = md5(txt)
-      end
-      assert(res == 'a831e91e0f70eddcb70dc61c6f82f6cd')
-      tm = os.clock() - tm
-      if tm > 1 then return tm*(1000000000/(n*#txt)) end
-      n = n + n
-    until false
+return function(n)
+  local res
+  for i=1,n do
+    res = md5(txt)
   end
-
-  io.write(string.format("MD5 %7.1f ns/char\n", bench()))
+  return res
 end
-
