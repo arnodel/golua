@@ -134,6 +134,32 @@ func (c *LuaCont) etcOp(t *Thread, opcode code.Opcode) error {
 // rareBinOp runs a binary operation other than the four commonest arithmetic
 // operations and the comparisons.
 func rareBinOp(t *Thread, op code.BinOp, x, y Value) (res Value, err error) {
+	// The bitwise operators and % on integers first.  Code that uses them,
+	// such as hashing, mostly applies them to integers, and then each is one
+	// machine operation.  A uint64 shifted by 64 or more is 0, as Lua
+	// requires, so only a negative shift is left to shl and shr.
+	if a, b, ints := bothInts(x, y); ints {
+		switch op {
+		case code.OpBitAnd:
+			return IntValue(a & b), nil
+		case code.OpBitOr:
+			return IntValue(a | b), nil
+		case code.OpBitXor:
+			return IntValue(a ^ b), nil
+		case code.OpShiftL:
+			if b >= 0 {
+				return IntValue(int64(uint64(a) << uint64(b))), nil
+			}
+		case code.OpShiftR:
+			if b >= 0 {
+				return IntValue(int64(uint64(a) >> uint64(b))), nil
+			}
+		case code.OpMod:
+			if b > 0 {
+				return IntValue(modInt(a, b)), nil
+			}
+		}
+	}
 	var ok bool
 	switch op {
 	case code.OpFloorDiv:
@@ -248,4 +274,15 @@ func (c *LuaCont) callHooks(t *Thread, contReg code.Reg, isTail bool, next Cont)
 	default:
 		_ = t.triggerCall(t, next)
 	}
+}
+
+// bothInts returns x and y as integers, if they both are.
+func bothInts(x, y Value) (a, b int64, ok bool) {
+	if _, ok = x.iface.(int64); !ok {
+		return
+	}
+	if _, ok = y.iface.(int64); !ok {
+		return
+	}
+	return x.AsInt(), y.AsInt(), true
 }
