@@ -349,3 +349,18 @@ do
     print(pcall(table.create, "foo"))
     --> ~^false\t.*must be an integer
 end
+
+-- table.unpack returns up to a million values, like the reference
+-- implementation, whose limit is the size of its stack
+do
+    local t = {}
+    for i = 1, 2000 do t[i] = i end
+    print(select("#", table.unpack(t)), select(2000, table.unpack(t)))
+    --> =2000	2000
+
+    print(select("#", table.unpack({}, 1, 1000000)))
+    --> =1000000
+
+    print(pcall(table.unpack, {}, 1, 1000001))
+    --> ~^false\t.*too many values to unpack
+end
