@@ -438,7 +438,9 @@ func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
 	fReg := c.compileExpNoDestHint(f.Target)
 	var contReg ir.Register
 	if f.Method.Val != "" {
-		self := fReg
+		// self is listed in the call, so it is read at the call: copy a
+		// captured variable now (see stable).
+		self := c.stable(f.Target, fReg)
 		c.TakeRegister(self)
 		fReg = c.GetFreeRegister()
 		c.emitInstr(f.Target, ir.LookupK{
@@ -513,7 +515,7 @@ func (c *compiler) compileCallWithArgs(loc ast.Locator, contReg, self ir.Registe
 		argRegs = append(argRegs, self)
 	}
 	for _, arg := range args {
-		reg := c.compileExpNoDestHint(arg)
+		reg := c.stable(arg, c.compileExpNoDestHint(arg))
 		c.TakeRegister(reg)
 		argRegs = append(argRegs, reg)
 	}
@@ -522,6 +524,21 @@ func (c *compiler) compileCallWithArgs(loc ast.Locator, contReg, self ir.Registe
 		c.ReleaseRegister(reg)
 	}
 	c.emitInstr(loc, ir.Call{Cont: contReg, Args: argRegs, Tail: tail})
+}
+
+// stable returns a register holding the value reg has now, for a value that
+// is read later than it is evaluated (an argument listed in a call is read at
+// the call).  A captured variable (a cell) is copied into a temporary: a
+// function called while evaluating a later argument could reassign it, and
+// "f(x, g())" must pass the x it had before g ran.  Other registers cannot
+// change in between, as Lua expressions do not assign to locals.
+func (c *compiler) stable(e ast.Locator, reg ir.Register) ir.Register {
+	if !c.IsCellReg(reg) {
+		return reg
+	}
+	tmp := c.GetFreeRegister()
+	c.emitMove(e, tmp, reg)
+	return tmp
 }
 
 func globalVar(n ast.Name) ast.IndexExp {
