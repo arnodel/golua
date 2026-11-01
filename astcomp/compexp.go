@@ -435,12 +435,13 @@ func (c *compiler) getCallerReg() ir.Register {
 }
 
 func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
-	fReg := c.compileExpNoDestHint(f.Target)
-	var contReg ir.Register
+	// The callee, and self for a method, are evaluated first and held until
+	// the continuation is made, after the arguments; a captured variable is
+	// copied now (see stable).
+	fReg := c.stable(f.Target, c.compileExpNoDestHint(f.Target))
+	self := noRegister
 	if f.Method.Val != "" {
-		// self is listed in the call, so it is read at the call: copy a
-		// captured variable now (see stable).
-		self := c.stable(f.Target, fReg)
+		self = fReg
 		c.TakeRegister(self)
 		fReg = c.GetFreeRegister()
 		c.emitInstr(f.Target, ir.LookupK{
@@ -448,22 +449,9 @@ func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
 			Table: self,
 			Kidx:  c.GetConstantIndex(ir.String(f.Method.Val)),
 		})
-		contReg = c.GetFreeRegister()
-		c.emitInstr(f, ir.MkCont{
-			Dst:     contReg,
-			Closure: fReg,
-			Tail:    tail,
-		})
-		c.compileCallWithArgs(f, contReg, self, f.Args, tail)
-	} else {
-		contReg = c.GetFreeRegister()
-		c.emitInstr(f, ir.MkCont{
-			Dst:     contReg,
-			Closure: fReg,
-			Tail:    tail,
-		})
-		c.compileCallWithArgs(f, contReg, noRegister, f.Args, tail)
 	}
+	c.TakeRegister(fReg)
+	c.compileCallWithArgs(f, c.GetFreeRegister(), fReg, self, f.Args, tail)
 }
 
 // noRegister stands for "no register" where one is optional.
@@ -474,23 +462,39 @@ const noRegister = ^ir.Register(0)
 // beyond this many they are pushed one by one as before, reusing registers.
 const maxListedArgs = 32
 
-// compileCallWithArgs evaluates the arguments, then emits the call of contReg
-// with the argument registers listed in it (self first, if given), so that
-// the call pushes them itself.  The argument registers stay taken until the
-// call so that they keep their values; self, taken by the caller, is released
-// here too.
+// compileCallWithArgs evaluates the arguments, then makes the continuation of
+// closure in contReg (unless closure is noRegister: contReg then already holds
+// a continuation, as for a return) and emits the call of contReg with the
+// argument registers listed in it (self first, if given), so that the call
+// pushes them itself.  The argument registers stay taken until the call so
+// that they keep their values; closure and self, taken by the caller, are
+// released here.
+//
+// Making the continuation after the arguments puts it right before the call:
+//
+//	r5 <- r2[K ("m")]
+//	r6 <- 1
+//	r6 <- r3 + r6
+//	r7 <- cont(r5)
+//	call r7 (r2, r6)
+//
+// which the run loop executes in one step (see the cont case in
+// runtime/luacont.go).  It also evaluates the arguments before a call of a
+// nil value fails, as C Lua does.
 //
 // When the last argument is an etc (a vararg or a call), its values must come
-// after the others and their number is not known, so everything is pushed one
-// by one before the call, as it was before calls listed their arguments.  The
-// same goes for a call with more than maxListedArgs arguments.
-func (c *compiler) compileCallWithArgs(loc ast.Locator, contReg, self ir.Register, args []ast.ExpNode, tail bool) {
-	c.TakeRegister(contReg)
+// after the others and their number is not known, so the continuation is made
+// first and everything is pushed one by one before the call, as it was before
+// calls listed their arguments.  The same goes for a call with more than
+// maxListedArgs arguments.
+func (c *compiler) compileCallWithArgs(loc ast.Locator, contReg, closure, self ir.Register, args []ast.ExpNode, tail bool) {
 	var tailArg ast.TailExpNode
 	if len(args) > 0 {
 		tailArg, _ = args[len(args)-1].(ast.TailExpNode)
 	}
 	if tailArg != nil || len(args) > maxListedArgs {
+		c.compileMkCont(loc, contReg, closure, tail)
+		c.TakeRegister(contReg)
 		if self != noRegister {
 			c.emitInstr(loc, ir.Push{Cont: contReg, Item: self})
 			c.ReleaseRegister(self)
@@ -519,11 +523,25 @@ func (c *compiler) compileCallWithArgs(loc ast.Locator, contReg, self ir.Registe
 		c.TakeRegister(reg)
 		argRegs = append(argRegs, reg)
 	}
-	c.ReleaseRegister(contReg)
+	c.compileMkCont(loc, contReg, closure, tail)
 	for _, reg := range argRegs {
 		c.ReleaseRegister(reg)
 	}
 	c.emitInstr(loc, ir.Call{Cont: contReg, Args: argRegs, Tail: tail})
+}
+
+// compileMkCont makes the continuation for closure in contReg and releases
+// closure, unless closure is noRegister.
+func (c *compiler) compileMkCont(loc ast.Locator, contReg, closure ir.Register, tail bool) {
+	if closure == noRegister {
+		return
+	}
+	c.ReleaseRegister(closure)
+	c.emitInstr(loc, ir.MkCont{
+		Dst:     contReg,
+		Closure: closure,
+		Tail:    tail,
+	})
 }
 
 // stable returns a register holding the value reg has now, for a value that

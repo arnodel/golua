@@ -407,7 +407,7 @@ func (c *compiler) compileBlockNoPop(s ast.BlockStat, complete bool) func() {
 			if len(s.Return) > 0 {
 				loc = s.Return[0]
 			}
-			c.compileCallWithArgs(loc, contReg, noRegister, s.Return, true)
+			c.compileCallWithArgs(loc, contReg, noRegister, noRegister, s.Return, true)
 		}
 	}
 	return func() {

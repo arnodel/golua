@@ -326,13 +326,25 @@ RunLoop:
 					res, err = bnot(t, val)
 				case code.OpLen:
 					res, err = Len(t, val)
-				case code.OpCont:
+				case code.OpCont, code.OpTailCont:
+					next := Cont(c)
+					if opcode.GetUnOp() == code.OpTailCont {
+						next = c.Next()
+					}
 					var cont Cont
-					cont, err = Continue(t, val, c)
-					res = ContValue(cont)
-				case code.OpTailCont:
-					var cont Cont
-					cont, err = Continue(t, val, c.Next())
+					cont, err = Continue(t, val, next)
+					if err == nil && !opcode.GetF() {
+						setReg(regs, cells, dst, ContValue(cont))
+						pc++
+						// The compiler makes a continuation right before
+						// calling it: make the call now, without going back to
+						// the top of the loop.
+						if call := opcodes[pc]; call.IsCallOf(dst) && !t.DebugHooks.areFlagsEnabled(HookFlagLine) {
+							t.RequireCPU(1)
+							return c.call(t, call, pc, cont)
+						}
+						continue RunLoop
+					}
 					res = ContValue(cont)
 				case code.OpId:
 					res = val
@@ -426,66 +438,7 @@ RunLoop:
 				}
 				continue RunLoop
 			case code.OpCall:
-				pc++
-				contReg := opcode.GetA()
-				isTail := opcode.GetF() // Can mean tail call or simple return
-				next := getReg(regs, cells, contReg).AsCont()
-
-				// Push the arguments listed in the operand words, then skip
-				// the words.
-				if n := opcode.GetArgCount(); n > 0 {
-					for ; n > 0; pc++ {
-						w := opcodes[pc]
-						clear := w.ArgClears()
-						for k, reg := range [3]code.Reg{w.GetA(), w.GetB(), w.GetC()} {
-							if n == 0 {
-								break
-							}
-							next.Push(t.Runtime, getReg(regs, cells, reg))
-							if clear[k] {
-								setReg(regs, cells, reg, NilValue)
-							}
-							n--
-						}
-					}
-				}
-				c.pc = pc
-				c.acc = nil
-				c.running = false
-
-				// We clear the register containing the continuation to allow
-				// garbage collection.  A continuation can only be called once
-				// anyway, so that's ok semantically.
-				c.clearReg(contReg)
-
-				if isTail {
-					// As we're leaving this continuation for good, perform all
-					// the pending close actions.  It must be done before debug
-					// hooks are called.
-					if err := t.cleanupCloseStack(c, c.closeStackBase, nil); err != nil {
-						return nil, err
-					}
-				}
-
-				if t.areFlagsEnabled(HookFlagCall | HookFlagReturn) {
-					switch {
-					case contReg == code.ValueReg(0):
-						_ = t.triggerReturn(t, c)
-					case isTail:
-						_ = t.triggerTailCall(t, next)
-					default:
-						_ = t.triggerCall(t, next)
-					}
-				}
-
-				if isTail {
-					// It's a tail call.  There is no error, so nothing will
-					// reference c anymore, therefore we are safe to give it to
-					// the pool for reuse.  It must be done after debug hooks
-					// are called because they may use c.
-					c.release(t.Runtime)
-				}
-				return next, nil
+				return c.call(t, opcode, pc, getReg(regs, cells, opcode.GetA()).AsCont())
 			case code.OpClStack:
 				if opcode.GetF() {
 					// Push to close stack
@@ -695,6 +648,71 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 		Name:        name,
 		CurrentLine: currentLine,
 	}
+}
+
+// call runs the call opcode at pc: it pushes the arguments listed after it
+// into next, the continuation in the opcode's register, and transfers control
+// to it.
+func (c *LuaCont) call(t *Thread, opcode code.Opcode, pc int32, next Cont) (Cont, error) {
+	pc++
+	contReg := opcode.GetA()
+	isTail := opcode.GetF() // Can mean tail call or simple return
+
+	// Push the arguments listed in the operand words, then skip
+	// the words.
+	if n := opcode.GetArgCount(); n > 0 {
+		for ; n > 0; pc++ {
+			w := c.code[pc]
+			clear := w.ArgClears()
+			for k, reg := range [3]code.Reg{w.GetA(), w.GetB(), w.GetC()} {
+				if n == 0 {
+					break
+				}
+				next.Push(t.Runtime, getReg(c.registers, c.cells, reg))
+				if clear[k] {
+					setReg(c.registers, c.cells, reg, NilValue)
+				}
+				n--
+			}
+		}
+	}
+	c.pc = pc
+	c.acc = nil
+	c.running = false
+
+	// We clear the register containing the continuation to allow
+	// garbage collection.  A continuation can only be called once
+	// anyway, so that's ok semantically.
+	c.clearReg(contReg)
+
+	if isTail {
+		// As we're leaving this continuation for good, perform all
+		// the pending close actions.  It must be done before debug
+		// hooks are called.
+		if err := t.cleanupCloseStack(c, c.closeStackBase, nil); err != nil {
+			return nil, err
+		}
+	}
+
+	if t.areFlagsEnabled(HookFlagCall | HookFlagReturn) {
+		switch {
+		case contReg == code.ValueReg(0):
+			_ = t.triggerReturn(t, c)
+		case isTail:
+			_ = t.triggerTailCall(t, next)
+		default:
+			_ = t.triggerCall(t, next)
+		}
+	}
+
+	if isTail {
+		// It's a tail call.  There is no error, so nothing will
+		// reference c anymore, therefore we are safe to give it to
+		// the pool for reuse.  It must be done after debug hooks
+		// are called because they may use c.
+		c.release(t.Runtime)
+	}
+	return next, nil
 }
 
 func (c *LuaCont) getRegCell(reg code.Reg) Cell {

@@ -501,6 +501,13 @@ func (c Opcode) GetArgCount() int {
 	return int(uint16(c))
 }
 
+// IsCallOf reports whether c is "call r" or "tailcall r", with any number of
+// listed arguments.
+func (c Opcode) IsCallOf(r Reg) bool {
+	// Ignore F, which says whether it is a tail call, and the argument count.
+	return c&^(On.encodeF()|0xffff) == Type5Pfx|OpCall.encodeJ()|r.toA()
+}
+
 // callArgCount returns the number of arguments the opcode lists in operand
 // words, if it is a call, else 0.
 func (c Opcode) callArgCount() int {

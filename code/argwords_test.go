@@ -40,3 +40,25 @@ func TestArgWords(t *testing.T) {
 		t.Error("plain call has arguments")
 	}
 }
+
+func TestIsCallOf(t *testing.T) {
+	r1, r2 := ValueReg(1), ValueReg(2)
+	for _, c := range []struct {
+		name string
+		got  bool
+		want bool
+	}{
+		{"call r1", Call(r1).IsCallOf(r1), true},
+		{"tailcall r1", TailCall(r1).IsCallOf(r1), true},
+		{"call r1 with arguments", CallArgs(r1, 3).IsCallOf(r1), true},
+		{"tailcall r1 with arguments", TailCallArgs(r1, 200).IsCallOf(r1), true},
+		{"call r2", CallArgs(r2, 1).IsCallOf(r1), false},
+		{"call u1", Call(CellReg(1)).IsCallOf(r1), false},
+		{"jump", Jump(1).IsCallOf(Reg{}), false},
+		{"push", Push(r1, r2).IsCallOf(r1), false},
+	} {
+		if c.got != c.want {
+			t.Errorf("%s: got %v, want %v", c.name, c.got, c.want)
+		}
+	}
+}

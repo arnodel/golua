@@ -20,3 +20,14 @@ p.who = function() return "p's method" end
 local function swap() o = p return 0 end
 print(o:who(swap()))
 --> =o
+
+-- The arguments are evaluated before calling a nil value fails.  (Not when
+-- the last argument is a call or "...": its values are pushed one by one into
+-- a continuation made first.)
+local n
+local evaluated = false
+local function mark() evaluated = true end
+print(pcall(function() n(mark(), 0) end))
+--> ~false\t.*attempt to call a nil value
+print(evaluated)
+--> =true
