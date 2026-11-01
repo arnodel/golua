@@ -3,6 +3,9 @@
 #
 #   benchmarks/layout_ab.sh [-r ROUNDS] [-b REGEX] [-w WORKDIR] NAME=REV NAME=REV ...
 #
+# REGEX is passed to -test.bench, which matches each level of a benchmark's
+# name separately: 'Standard/md5|life/impl=golua' selects two benchmarks.
+#
 # The speed of the run loop (LuaCont.RunInThread) depends on where its code
 # lands in memory, not only on what it does: moving the same code by 16 bytes
 # can change a benchmark by 1 to 3%.  To keep that out of comparisons, each
@@ -128,6 +131,11 @@ for round in $(seq 1 "$rounds"); do
 				grep '^Benchmark' >>"$work/$name.txt"
 		done
 	done
+done
+
+# A pattern that matches no benchmark runs nothing, quietly.
+for spec in "$@"; do
+	[ -s "$work/${spec%%=*}.txt" ] || { echo "no benchmark matched $regex" >&2; exit 1; }
 done
 
 first=${1%%=*}
