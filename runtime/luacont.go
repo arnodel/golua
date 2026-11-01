@@ -349,21 +349,6 @@ RunLoop:
 					}
 					res = ContValue(cont)
 				case code.OpId:
-					if opcode.GetF() {
-						// A push: more pushes and the call usually follow, as
-						// for cont above.
-						cont := getReg(regs, cells, dst).AsCont()
-						cont.Push(t.Runtime, val)
-						pc++
-						if !t.DebugHooks.areFlagsEnabled(HookFlagLine) {
-							var isCall bool
-							if pc, isCall = c.runPushes(t, pc, dst, cont); isCall {
-								t.RequireCPU(1)
-								return c.call(t, opcodes[pc], pc)
-							}
-						}
-						continue RunLoop
-					}
 					res = val
 				case code.OpEtcId:
 					cont := getReg(regs, cells, dst).AsCont()
@@ -435,10 +420,21 @@ RunLoop:
 				return nil, err
 			}
 			if opcode.GetF() {
-				getReg(regs, cells, dst).AsCont().Push(t.Runtime, res)
-			} else {
-				setReg(regs, cells, dst, res)
+				// A push: more pushes and the call usually follow, as after
+				// cont above.
+				cont := getReg(regs, cells, dst).AsCont()
+				cont.Push(t.Runtime, res)
+				pc++
+				if !t.DebugHooks.areFlagsEnabled(HookFlagLine) {
+					var isCall bool
+					if pc, isCall = c.runPushes(t, pc, dst, cont); isCall {
+						t.RequireCPU(1)
+						return c.call(t, opcodes[pc], pc)
+					}
+				}
+				continue RunLoop
 			}
+			setReg(regs, cells, dst, res)
 			pc++
 			continue RunLoop
 		case code.Type5Pfx:
