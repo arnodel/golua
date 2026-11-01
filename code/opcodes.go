@@ -29,6 +29,24 @@ const (
 	type4aFlag Opcode = 1 << 24
 )
 
+// IsPushInto reports whether c is "push r, x" for some register x.
+func (c Opcode) IsPushInto(r Reg) bool {
+	// Ignore x and its kind bit.
+	return c&^0x0200ff00 == Type4Pfx|On.encodeF()|type4aFlag|r.toA()|OpId.encodeZ()
+}
+
+// IsCallOf reports whether c is "call r" or "tailcall r".
+func (c Opcode) IsCallOf(r Reg) bool {
+	// Ignore F, which says whether it is a tail call.
+	return c&^On.encodeF() == Type5Pfx|OpCall.encodeJ()|r.toA()
+}
+
+// IsClearValue reports whether c is "clr r" for a value register r.
+func (c Opcode) IsClearValue() bool {
+	// Ignore r; the kind bit must say value register.
+	return c&^0x00ff0000 == Type4Pfx|OpClear.encodeZ()
+}
+
 // TypePfx returns the type prefix of the opcode, that is its most significant
 // 4 bits.  It identifies the type of every opcode but Type1, which is
 // recognised with HasType1.

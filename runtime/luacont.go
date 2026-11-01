@@ -326,15 +326,44 @@ RunLoop:
 					res, err = bnot(t, val)
 				case code.OpLen:
 					res, err = Len(t, val)
-				case code.OpCont:
+				case code.OpCont, code.OpTailCont:
+					next := Cont(c)
+					if opcode.GetUnOp() == code.OpTailCont {
+						next = c.Next()
+					}
 					var cont Cont
-					cont, err = Continue(t, val, c)
-					res = ContValue(cont)
-				case code.OpTailCont:
-					var cont Cont
-					cont, err = Continue(t, val, c.Next())
+					cont, err = Continue(t, val, next)
+					if err == nil && !opcode.GetF() {
+						// The pushes of the arguments and the call follow:
+						// run them without going back to the top of the loop.
+						setReg(regs, cells, dst, ContValue(cont))
+						pc++
+						if !t.DebugHooks.areFlagsEnabled(HookFlagLine) {
+							var isCall bool
+							if pc, isCall = c.runPushes(t, pc, dst, cont); isCall {
+								t.RequireCPU(1)
+								return c.call(t, opcodes[pc], pc)
+							}
+						}
+						continue RunLoop
+					}
 					res = ContValue(cont)
 				case code.OpId:
+					if opcode.GetF() {
+						// A push: more pushes and the call usually follow, as
+						// for cont above.
+						cont := getReg(regs, cells, dst).AsCont()
+						cont.Push(t.Runtime, val)
+						pc++
+						if !t.DebugHooks.areFlagsEnabled(HookFlagLine) {
+							var isCall bool
+							if pc, isCall = c.runPushes(t, pc, dst, cont); isCall {
+								t.RequireCPU(1)
+								return c.call(t, opcodes[pc], pc)
+							}
+						}
+						continue RunLoop
+					}
 					res = val
 				case code.OpEtcId:
 					cont := getReg(regs, cells, dst).AsCont()
@@ -426,47 +455,7 @@ RunLoop:
 				}
 				continue RunLoop
 			case code.OpCall:
-				pc++
-				c.pc = pc
-				c.acc = nil
-				c.running = false
-				contReg := opcode.GetA()
-				isTail := opcode.GetF() // Can mean tail call or simple return
-				next := getReg(regs, cells, contReg).AsCont()
-
-				// We clear the register containing the continuation to allow
-				// garbage collection.  A continuation can only be called once
-				// anyway, so that's ok semantically.
-				c.clearReg(contReg)
-
-				if isTail {
-					// As we're leaving this continuation for good, perform all
-					// the pending close actions.  It must be done before debug
-					// hooks are called.
-					if err := t.cleanupCloseStack(c, c.closeStackBase, nil); err != nil {
-						return nil, err
-					}
-				}
-
-				if t.areFlagsEnabled(HookFlagCall | HookFlagReturn) {
-					switch {
-					case contReg == code.ValueReg(0):
-						_ = t.triggerReturn(t, c)
-					case isTail:
-						_ = t.triggerTailCall(t, next)
-					default:
-						_ = t.triggerCall(t, next)
-					}
-				}
-
-				if isTail {
-					// It's a tail call.  There is no error, so nothing will
-					// reference c anymore, therefore we are safe to give it to
-					// the pool for reuse.  It must be done after debug hooks
-					// are called because they may use c.
-					c.release(t.Runtime)
-				}
-				return next, nil
+				return c.call(t, opcode, pc)
 			case code.OpClStack:
 				if opcode.GetF() {
 					// Push to close stack
@@ -675,6 +664,76 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 		Source:      c.source,
 		Name:        name,
 		CurrentLine: currentLine,
+	}
+}
+
+// call runs the call opcode at pc: it transfers control to the continuation
+// in the opcode's register, which has had its arguments pushed.
+func (c *LuaCont) call(t *Thread, opcode code.Opcode, pc int32) (Cont, error) {
+	pc++
+	c.pc = pc
+	c.acc = nil
+	c.running = false
+	contReg := opcode.GetA()
+	isTail := opcode.GetF() // Can mean tail call or simple return
+	next := getReg(c.registers, c.cells, contReg).AsCont()
+
+	// We clear the register containing the continuation to allow
+	// garbage collection.  A continuation can only be called once
+	// anyway, so that's ok semantically.
+	c.clearReg(contReg)
+
+	if isTail {
+		// As we're leaving this continuation for good, perform all
+		// the pending close actions.  It must be done before debug
+		// hooks are called.
+		if err := t.cleanupCloseStack(c, c.closeStackBase, nil); err != nil {
+			return nil, err
+		}
+	}
+
+	if t.areFlagsEnabled(HookFlagCall | HookFlagReturn) {
+		switch {
+		case contReg == code.ValueReg(0):
+			_ = t.triggerReturn(t, c)
+		case isTail:
+			_ = t.triggerTailCall(t, next)
+		default:
+			_ = t.triggerCall(t, next)
+		}
+	}
+
+	if isTail {
+		// It's a tail call.  There is no error, so nothing will
+		// reference c anymore, therefore we are safe to give it to
+		// the pool for reuse.  It must be done after debug hooks
+		// are called because they may use c.
+		c.release(t.Runtime)
+	}
+	return next, nil
+}
+
+// runPushes runs the opcodes from pc that follow a cont or a push into reg,
+// for as long as they push into reg or clear a value register, and returns
+// the pc of the first other opcode and whether it is the call of reg.  It
+// does for each what the run loop would do, charging cpu the same, but
+// without going back to the top of the loop: "cont; push...; call" is how
+// every call is compiled.
+func (c *LuaCont) runPushes(t *Thread, pc int32, reg code.Reg, cont Cont) (int32, bool) {
+	opcodes := c.code
+	for {
+		op := opcodes[pc]
+		switch {
+		case op.IsPushInto(reg):
+			t.RequireCPU(1)
+			cont.Push(t.Runtime, getReg(c.registers, c.cells, op.GetB()))
+		case op.IsClearValue():
+			t.RequireCPU(1)
+			c.registers[op.GetA().Idx()] = NilValue
+		default:
+			return pc, op.IsCallOf(reg)
+		}
+		pc++
 	}
 }
 
