@@ -130,3 +130,122 @@ func (c *LuaCont) etcOp(t *Thread, opcode code.Opcode) error {
 	setReg(regs, cells, dst, val)
 	return nil
 }
+
+// rareBinOp runs a binary operation other than the four commonest arithmetic
+// operations and the comparisons.
+func rareBinOp(t *Thread, op code.BinOp, x, y Value) (res Value, err error) {
+	var ok bool
+	switch op {
+	case code.OpFloorDiv:
+		res, ok, err = Idiv(x, y)
+		if !ok {
+			res, err = binaryArithFallback(t, metaIdiv, x, y)
+		}
+	case code.OpMod:
+		res, ok, err = Mod(x, y)
+		if !ok {
+			res, err = binaryArithFallback(t, metaMod, x, y)
+		}
+	case code.OpPow:
+		res, ok = Pow(x, y)
+		if !ok {
+			res, err = binaryArithFallback(t, metaPow, x, y)
+		}
+	case code.OpBitAnd:
+		res, err = band(t, x, y)
+	case code.OpBitOr:
+		res, err = bor(t, x, y)
+	case code.OpBitXor:
+		res, err = bxor(t, x, y)
+	case code.OpShiftL:
+		res, err = shl(t, x, y)
+	case code.OpShiftR:
+		res, err = shr(t, x, y)
+	case code.OpConcat:
+		res, err = Concat(t, x, y)
+	default:
+		panic("unsupported")
+	}
+	return res, err
+}
+
+// prepFor prepares a numeric for loop (prepfor rA, rB, rC): it checks that
+// the start, limit and step are numbers, gives the start and step the same
+// numeric type, and sets the start to nil if the loop must not run.
+func (c *LuaCont) prepFor(opcode code.Opcode) error {
+	startReg, stopReg, stepReg := opcode.GetA(), opcode.GetB(), opcode.GetC()
+	start := getReg(c.registers, c.cells, startReg)
+	stop := getReg(c.registers, c.cells, stopReg)
+	step := getReg(c.registers, c.cells, stepReg)
+	start, tstart := ToNumberValue(start)
+	stop, tstop := ToNumberValue(stop)
+	step, tstep := ToNumberValue(step)
+	if tstart == NaN || tstop == NaN || tstep == NaN {
+		var (
+			role string
+			val  Value
+		)
+		switch {
+		case tstart == NaN:
+			role, val = "initial value", start
+		case tstop == NaN:
+			role, val = "limit", stop
+		default:
+			role, val = "step", step
+		}
+		return fmt.Errorf("'for' %s: expected number, got %s", role, val.CustomTypeName())
+	}
+	// The loop is done with integers if start and step are
+	// both integers, whatever the limit.
+	intLoop := tstart == IsInt && tstep == IsInt
+	// Make sure start and step have the same numeric type
+	if tstart != tstep {
+		// One is a float, one is an int, turn them both to floats
+		if tstart == IsInt {
+			start = FloatValue(float64(start.AsInt()))
+		} else {
+			step = FloatValue(float64(step.AsInt()))
+		}
+	}
+	// A 0 step is an error
+	if isZero(step) {
+		return errors.New("'for' step is zero")
+	}
+	// If the loop is already finished, startReg is set to nil.
+	var done bool
+	if intLoop {
+		// Make the limit an integer too, so that advancing the
+		// loop only deals with integers.
+		var ok bool
+		stop, ok = forLimit(stop, tstop, step.AsInt())
+		done = !ok || forPassedInt(start.AsInt(), stop.AsInt(), step.AsInt())
+	} else {
+		done = forPassed(start, stop, step)
+	}
+	if done {
+		start = NilValue
+	}
+	setReg(c.registers, c.cells, startReg, start)
+	setReg(c.registers, c.cells, stopReg, stop)
+	setReg(c.registers, c.cells, stepReg, step)
+	return nil
+}
+
+// advForFloat advances a for loop that is not all integers: it returns the
+// next value of the loop variable and whether the loop is done.
+func advForFloat(start, stop, step Value) (Value, bool) {
+	next, _ := Add(start, step)
+	return next, forPassed(next, stop, step) || forPassed(start, next, step)
+}
+
+// callHooks calls the debug hooks for a call, tail call or return.
+func (c *LuaCont) callHooks(t *Thread, contReg code.Reg, isTail bool, next Cont) {
+	switch {
+	case contReg == code.ValueReg(0):
+		_ = t.triggerReturn(t, c)
+	case isTail:
+		_ = t.triggerTailCall(t, next)
+	default:
+		_ = t.triggerCall(t, next)
+	}
+}
