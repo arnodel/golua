@@ -435,46 +435,138 @@ func (c *compiler) getCallerReg() ir.Register {
 }
 
 func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
-	fReg := c.compileExpNoDestHint(f.Target)
-	var contReg ir.Register
+	// The callee, and self for a method, are evaluated first and held until
+	// the call, as in C Lua; a captured variable is copied so that an
+	// argument that reassigns it does not change what is called.
+	fReg := c.compileStableExp(f.Target)
+	c.TakeRegister(fReg)
+	self := noRegister
 	if f.Method.Val != "" {
-		self := fReg
-		c.TakeRegister(self)
+		self = fReg
 		fReg = c.GetFreeRegister()
 		c.emitInstr(f.Target, ir.LookupK{
 			Dst:   fReg,
 			Table: self,
 			Kidx:  c.GetConstantIndex(ir.String(f.Method.Val)),
 		})
-		contReg = c.GetFreeRegister()
-		c.emitInstr(f, ir.MkCont{
-			Dst:     contReg,
-			Closure: fReg,
-			Tail:    tail,
-		})
-		c.emitInstr(f, ir.Push{
-			Cont: fReg,
-			Item: self,
-		})
-		c.ReleaseRegister(self)
-	} else {
-		contReg = c.GetFreeRegister()
-		c.emitInstr(f, ir.MkCont{
-			Dst:     contReg,
-			Closure: fReg,
-			Tail:    tail,
-		})
+		c.TakeRegister(fReg)
 	}
-	c.compilePushArgs(f.Args, contReg)
-	c.emitInstr(f, ir.Call{
-		Cont: contReg,
-		Tail: tail,
+	c.compileCallRun(f, c.GetFreeRegister(), fReg, self, f.Args, tail)
+}
+
+// noRegister stands for "no register" where one is optional.
+const noRegister = ^ir.Register(0)
+
+// maxRunArgs is the most arguments a call evaluates before pushing them.  The
+// evaluated arguments each hold a register until they are pushed; beyond this
+// many, each is pushed as soon as it is evaluated, which frees its register.
+const maxRunArgs = 32
+
+// compileCallRun compiles a call of the continuation in contReg with the given
+// arguments (self first, if given).  If closure is a register, the
+// continuation is made from it; otherwise contReg already holds one (a
+// return).  closure and self must be taken; they are released here.
+//
+// The arguments are evaluated first, then the continuation is made and the
+// arguments pushed, and the call follows: "cont; push...; call" is one
+// contiguous run of opcodes, which the run loop executes without going back
+// to its top for each (see the cont and push cases in runtime/luacont.go).
+// With q, a and b locals,
+//
+//	q:m(a, b + 1)
+//
+// compiles to
+//
+//	r5 <- r1[K ("m")]
+//	r6 <- 1
+//	r6 <- r3 + r6
+//	r7 <- cont(r5)
+//	push r7, r1
+//	push r7, r2
+//	push r7, r6
+//	call r7
+func (c *compiler) compileCallRun(loc ast.Locator, contReg, closure, self ir.Register, args []ast.ExpNode, tail bool) {
+	if len(args) > maxRunArgs {
+		c.compileMkCont(loc, contReg, closure, tail)
+		c.TakeRegister(contReg)
+		c.pushSelf(loc, contReg, self)
+		c.compilePushArgs(args, contReg)
+		c.ReleaseRegister(contReg)
+		c.emitInstr(loc, ir.Call{Cont: contReg, Tail: tail})
+		return
+	}
+	var argRegs []ir.Register
+	etcReg := noRegister
+	for i, arg := range args {
+		if i == len(args)-1 {
+			if tailArg, ok := arg.(ast.TailExpNode); ok {
+				etcReg = c.stable(arg, c.compileEtcExp(tailArg, c.GetFreeRegister()))
+				c.TakeRegister(etcReg)
+				break
+			}
+		}
+		reg := c.compileStableExp(arg)
+		c.TakeRegister(reg)
+		argRegs = append(argRegs, reg)
+	}
+	c.compileMkCont(loc, contReg, closure, tail)
+	c.TakeRegister(contReg)
+	c.pushSelf(loc, contReg, self)
+	for i, reg := range argRegs {
+		c.ReleaseRegister(reg)
+		c.emitInstr(args[i], ir.Push{Cont: contReg, Item: reg})
+	}
+	if etcReg != noRegister {
+		c.ReleaseRegister(etcReg)
+		c.emitInstr(args[len(args)-1], ir.Push{Cont: contReg, Item: etcReg, Etc: true})
+	}
+	c.ReleaseRegister(contReg)
+	c.emitInstr(loc, ir.Call{Cont: contReg, Tail: tail})
+}
+
+// compileMkCont makes the continuation for closure in contReg, unless closure
+// is noRegister (contReg then already holds a continuation).
+func (c *compiler) compileMkCont(loc ast.Locator, contReg, closure ir.Register, tail bool) {
+	if closure == noRegister {
+		return
+	}
+	c.ReleaseRegister(closure)
+	c.emitInstr(loc, ir.MkCont{
+		Dst:     contReg,
+		Closure: closure,
+		Tail:    tail,
 	})
 }
 
-// TODO: move this to somewhere better
+// pushSelf pushes self into contReg, if it is a register, and releases it.
+func (c *compiler) pushSelf(loc ast.Locator, contReg, self ir.Register) {
+	if self == noRegister {
+		return
+	}
+	c.ReleaseRegister(self)
+	c.emitInstr(loc, ir.Push{Cont: contReg, Item: self})
+}
+
+// compileStableExp compiles e into a register whose value later expressions
+// cannot change: a captured variable (a cell) is copied into a temporary,
+// since a function called by a later argument could reassign it.
+func (c *compiler) compileStableExp(e ast.ExpNode) ir.Register {
+	return c.stable(e, c.compileExpNoDestHint(e))
+}
+
+func (c *compiler) stable(e ast.Locator, reg ir.Register) ir.Register {
+	if !c.IsCellReg(reg) {
+		return reg
+	}
+	tmp := c.GetFreeRegister()
+	c.emitMove(e, tmp, reg)
+	return tmp
+}
+
+// compilePushArgs evaluates each argument and pushes it into contReg at once,
+// which frees its register before the next is evaluated.  It is used for
+// calls with more than maxRunArgs arguments.
 func (c *compiler) compilePushArgs(args []ast.ExpNode, contReg ir.Register) {
-	c.TakeRegister(contReg)
 	for i, arg := range args {
 		var argReg ir.Register
 		var isTailArg bool
@@ -494,7 +586,6 @@ func (c *compiler) compilePushArgs(args []ast.ExpNode, contReg ir.Register) {
 			Etc:  isTailArg,
 		})
 	}
-	c.ReleaseRegister(contReg)
 }
 
 func globalVar(n ast.Name) ast.IndexExp {

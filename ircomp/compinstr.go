@@ -99,13 +99,21 @@ func (ic instrCompiler) ProcessLoadConstInstr(l ir.LoadConst) {
 
 // ProcessPushInstr compiles a Push instruction.
 func (ic instrCompiler) ProcessPushInstr(p ir.Push) {
-	var opcode code.Opcode
+	cont, item := ic.codeReg(p.Cont), ic.codeReg(p.Item)
 	if p.Etc {
-		opcode = code.PushEtc(ic.codeReg(p.Cont), ic.codeReg(p.Item))
+		ic.Emit(code.PushEtc(cont, item))
 	} else {
-		opcode = code.Push(ic.codeReg(p.Cont), ic.codeReg(p.Item))
+		ic.Emit(code.Push(cont, item))
 	}
-	ic.Emit(opcode)
+	// A value register whose take count is zero here was released for this
+	// push (the compiler releases a register just before the instruction
+	// reading it), so nothing reads it afterwards.  Clear it, so that the value
+	// it held (a table built for the call, say) does not stay reachable from
+	// the frame while the callee runs and after.  A return (a push into r0)
+	// needs no clearing: the frame is released.
+	if item.RegType() == code.ValueRegType && ic.regs[item.Idx()] == 0 && cont != code.ValueReg(0) {
+		ic.Emit(code.Clear(item))
+	}
 }
 
 // ProcessJumpInstr compiles a Jump instruction.
