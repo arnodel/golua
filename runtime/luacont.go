@@ -719,14 +719,28 @@ func (c *LuaCont) call(t *Thread, opcode code.Opcode, pc int32) (Cont, error) {
 // does for each what the run loop would do, charging cpu the same, but
 // without going back to the top of the loop: "cont; push...; call" is how
 // every call is compiled.
+//
+// The continuation's type is resolved once: a value pushed into a Lua callee
+// at a recv of one value is written straight into the register the recv
+// names, as Push would; anything else goes through Push.
 func (c *LuaCont) runPushes(t *Thread, pc int32, reg code.Reg, cont Cont) (int32, bool) {
 	opcodes := c.code
+	lc, isLua := cont.(*LuaCont)
 	for {
 		op := opcodes[pc]
 		switch {
 		case op.IsPushInto(reg):
 			t.RequireCPU(1)
-			cont.Push(t.Runtime, getReg(c.registers, c.cells, op.GetB()))
+			val := getReg(c.registers, c.cells, op.GetB())
+			if isLua {
+				if recv := lc.code[lc.pc]; recv.HasType0() && !recv.GetF() {
+					t.Runtime.RequireCPU(1) // as Push does
+					lc.pc++
+					setReg(lc.registers, lc.cells, recv.GetA(), val)
+					break
+				}
+			}
+			cont.Push(t.Runtime, val)
 		case op.IsClearValue():
 			t.RequireCPU(1)
 			c.registers[op.GetA().Idx()] = NilValue
