@@ -93,10 +93,38 @@ continuation register on the way out.
 
 A return is `tailcall r0, n, 0`.  Entering a function has no opcode.
 
+### Etc values
+
+The top bit of each count marks an etc, and the handling is `pushetc`'s and
+`recvetc`'s moved into the call.
+
+Sending: in `f(a, ...)` or `f(a, g())` the last listed argument register
+holds an etc (the frame's vararg register, or a register that collected a
+call's results) and the top bit of `n` is set.  The call pushes the fixed
+arguments, then expands the etc and pushes each of its values.  Lua expands
+only the last argument, so one bit is enough.
+
+Receiving: with the top bit of `m` set, the result list has `m` fixed
+registers and one more that collects the rest.  `Push` fills the fixed
+registers in order and appends further values to the continuation's
+accumulator; a value beyond a list without an etc is dropped.  At resume the
+missing fixed registers become nil and the etc register receives the
+accumulated values as an array, possibly empty.  What consumes an etc
+afterwards (`etclookup`, `fill`, the vararg table, passing it on as a last
+argument) does not change.
+
+So `print(f())` is two words:
+
+    call rF, 0, 0|etc (rT)        -- all of f's results into rT
+    call rPrint, 1|etc, 0 (rT)    -- push them all
+
+and `function(a, ...)` begins with `recv (r1, ...r2)`, the entry word with
+`m = 1|etc`.
+
 ### What stays in the instruction set
 
-`OpCont`, `OpTailCont` and `OpCC` remain; the compiler stops emitting the first
-two.  First-class continuations, if they come, go through `OpCC` (the current
+`OpCont`, `OpTailCont`, `OpEtcId` (`pushetc`) and `OpCC` remain; the compiler
+stops emitting the first three.  First-class continuations, if they come, go through `OpCC` (the current
 continuation as a value), which this design does not touch.  `Type 0` is no
 longer emitted and becomes free, see Payoff.
 
