@@ -429,9 +429,12 @@ func sortf(t *rt.Thread, c *rt.GoCont) (next rt.Cont, resErr error) {
 	return c.Next(), nil
 }
 
-// Maximum number of values that can be unpacked from a table.  Lua docs don't
-// specify what this number should be.
-const maxUnpackSize = 256
+// Maximum number of values that can be unpacked from a table.  The manual
+// doesn't specify it.  The reference implementation is limited by the size of
+// its stack, about a million values, and programs rely on unpacking a few
+// thousand (fasta passes 2047 values to string.char).  The values are charged
+// to the memory quota as they are pushed.
+const maxUnpackSize = 1000000
 
 func unpack(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
