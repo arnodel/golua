@@ -209,81 +209,8 @@ func (c *compiler) compileCond(s ast.CondStat, lbl ir.Label) {
 	c.CompileStat(s.Body)
 }
 
-// compileCondJump emits code that jumps to lbl if the truth of e is jumpIf,
-// and falls through otherwise.  A condition only decides where to go next, so
-// unlike compiling e as a value, this needs no register to hold the result of
-// "and", "or" or "not": "if a or b and c then" becomes
-//
-//	if a jump THEN; if not b jump ELSE; if not c jump ELSE; THEN: ...
-func (c *compiler) compileCondJump(e ast.ExpNode, lbl ir.Label, jumpIf bool) {
-	if truth, ok := constantTruth(e); ok {
-		if truth == jumpIf {
-			c.emitInstr(e, ir.Jump{Label: lbl})
-		}
-		return
-	}
-	if u, ok := asUnOp(e); ok && u.Op == ops.OpNot {
-		c.compileCondJump(u.Operand, lbl, !jumpIf)
-		return
-	}
-	if b, ok := asBinOp(e); ok {
-		switch {
-		case b.OpType == ops.OpAnd || b.OpType == ops.OpOr:
-			c.compileLogicalJump(b, lbl, jumpIf)
-			return
-		case len(b.Right) == 1 && b.Right[0].Op == ops.OpNeq:
-			// x ~= y is not (x == y), and the not goes into the jump.
-			b.Right = []ast.Operation{{Op: ops.OpEq, Operand: b.Right[0].Operand}}
-			r := c.compileExpNoDestHint(b)
-			c.emitInstr(b, ir.JumpIf{Cond: r, Label: lbl, Not: jumpIf})
-			return
-		}
-	}
-	r := c.compileExpNoDestHint(e)
-	c.emitInstr(e, ir.JumpIf{Cond: r, Label: lbl, Not: !jumpIf})
-}
-
-// compileLogicalJump is compileCondJump for a chain of "and" or of "or".  In
-// an "and" chain a false operand decides the result, in an "or" chain a true
-// one.  If that is the result that jumps, every operand can jump to lbl.
-// Otherwise a deciding operand skips past the chain, and the last operand
-// decides.
-func (c *compiler) compileLogicalJump(b ast.BinOp, lbl ir.Label, jumpIf bool) {
-	operands := []ast.ExpNode{b.Left}
-	for _, r := range b.Right {
-		operands = append(operands, r.Operand)
-	}
-	deciding := b.OpType == ops.OpOr
-	if deciding == jumpIf {
-		for _, e := range operands {
-			c.compileCondJump(e, lbl, jumpIf)
-		}
-		return
-	}
-	skip := c.GetNewLabel()
-	last := len(operands) - 1
-	for _, e := range operands[:last] {
-		c.compileCondJump(e, skip, deciding)
-	}
-	c.compileCondJump(operands[last], lbl, jumpIf)
-	must(c.EmitLabelNoLine(skip))
-}
-
-// constantTruth returns the truth of e if it is a constant.
-func constantTruth(e ast.ExpNode) (truth bool, ok bool) {
-	switch x := e.(type) {
-	case ast.Bool:
-		return x.Val, true
-	case ast.Nil:
-		return false, true
-	case ast.Int, ast.Float, ast.String:
-		return true, true
-	}
-	return false, false
-}
-
-// The parser makes pointers to these nodes, the compiler sometimes values.
-
+// asUnOp returns e as a UnOp if it is one.  The parser makes pointers to
+// UnOp nodes, the compiler sometimes values.
 func asUnOp(e ast.ExpNode) (ast.UnOp, bool) {
 	switch x := e.(type) {
 	case ast.UnOp:
@@ -292,16 +219,6 @@ func asUnOp(e ast.ExpNode) (ast.UnOp, bool) {
 		return *x, true
 	}
 	return ast.UnOp{}, false
-}
-
-func asBinOp(e ast.ExpNode) (ast.BinOp, bool) {
-	switch x := e.(type) {
-	case ast.BinOp:
-		return x, true
-	case *ast.BinOp:
-		return *x, true
-	}
-	return ast.BinOp{}, false
 }
 
 // ProcessLabelStat compiles a LabelStat.
