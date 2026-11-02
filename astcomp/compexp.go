@@ -89,7 +89,8 @@ func (c *expCompiler) compileLogicalOp(b ast.BinOp, not bool) {
 	c.emitInstr(b.Left, ir.JumpIf{Cond: c.dst, Label: doneLbl, Not: not})
 	for i, r := range b.Right {
 		c.compileExpInto(r.Operand, c.dst)
-		if i < len(b.Right) {
+		// After the last operand, done comes next anyway.
+		if i < len(b.Right)-1 {
 			c.emitInstr(r.Operand, ir.JumpIf{Cond: c.dst, Label: doneLbl, Not: not})
 		}
 	}
