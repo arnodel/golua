@@ -128,8 +128,6 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	})
 
 	c.PushContext()
-	loopLbl := c.GetNewLabel()
-	must(c.EmitLabelNoLine(loopLbl))
 	endLbl := c.DeclareGotoLabelNoLine(breakLblName)
 
 	// If startReg is nil, then there are no iterations in the loop
@@ -138,6 +136,8 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 		Label: endLbl,
 		Not:   true,
 	})
+	bodyLbl := c.GetNewLabel()
+	must(c.EmitLabelNoLine(bodyLbl))
 
 	// Here compile the loop body
 	c.PushContext()
@@ -156,10 +156,11 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 		Stop:  stopReg,
 		Step:  stepReg,
 	})
-	// If startReg is not nil, it means the loop continues
+	// If startReg is not nil, it means the loop continues.  The jump goes
+	// past the entry test, which would only find startReg not nil again.
 	c.EmitNoLine(ir.JumpIf{
 		Cond:  startReg,
-		Label: loopLbl,
+		Label: bodyLbl,
 	})
 
 	// break:
