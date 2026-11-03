@@ -13,7 +13,8 @@ const maxRegCount = 256
 
 // verify checks that running c cannot touch anything outside its frame: the
 // register counts make sense, every register operand of every opcode is
-// within them, and every jump lands inside the code.  The run loop relies on
+// within them, and every jump lands inside the code on an opcode (not on one
+// of the operand words that list a call's arguments).  The run loop relies on
 // this to access registers without checking their index.
 //
 // Code produced by the compiler should always pass; code loaded from a binary
@@ -29,12 +30,60 @@ func (c *Code) verify() error {
 	case len(c.UpNames) != int(c.UpvalueCount):
 		return fmt.Errorf("%d upvalue names for %d upvalues", len(c.UpNames), c.UpvalueCount)
 	}
-	for pc, op := range c.code {
+	// First the opcodes and the operand words of calls, which are not
+	// opcodes and must be known before jump targets can be checked.
+	operand := make([]bool, len(c.code))
+	for pc := 0; pc < len(c.code); pc++ {
+		op := c.code[pc]
 		if err := c.verifyOpcode(pc, op); err != nil {
 			return fmt.Errorf("opcode %d: %w", pc, err)
 		}
+		if n := callArgCount(op); n > 0 {
+			words := code.ArgWordCount(n)
+			if pc+words >= len(c.code) {
+				return fmt.Errorf("opcode %d: call with %d arguments runs past the end of the code", pc, n)
+			}
+			for _, r := range code.ArgRegs(c.code[pc+1:pc+1+words], n) {
+				if err := c.verifyRegisters(r); err != nil {
+					return fmt.Errorf("opcode %d: argument %w", pc, err)
+				}
+			}
+			for i := pc + 1; i <= pc+words; i++ {
+				operand[i] = true
+			}
+			pc += words
+		}
+	}
+	for pc, op := range c.code {
+		if operand[pc] {
+			continue
+		}
+		if target, ok := jumpTarget(pc, op); ok && operand[target] {
+			return fmt.Errorf("opcode %d: jump to %d, inside the arguments of a call", pc, target)
+		}
 	}
 	return nil
+}
+
+// callArgCount returns the number of arguments listed after op if it is a
+// call, else 0.
+func callArgCount(op code.Opcode) int {
+	if op.HasType1() || op.TypePfx() != code.Type5Pfx || op.GetJ() != code.OpCall {
+		return 0
+	}
+	return op.GetArgCount()
+}
+
+// jumpTarget returns the target of op if it is a jump.
+func jumpTarget(pc int, op code.Opcode) (int, bool) {
+	if op.HasType1() || op.TypePfx() != code.Type5Pfx {
+		return 0, false
+	}
+	switch op.GetJ() {
+	case code.OpJump, code.OpJumpIf:
+		return pc + int(op.GetOffset()), true
+	}
+	return 0, false
 }
 
 // verifyOpcode checks the register operands of op, its jump target if it is

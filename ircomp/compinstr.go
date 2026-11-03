@@ -128,12 +128,25 @@ func (ic instrCompiler) ProcessJumpIfInstr(j ir.JumpIf) {
 
 // ProcessCallInstr compiles a Call instruction.
 func (ic instrCompiler) ProcessCallInstr(c ir.Call) {
-	call := code.Call
+	call := code.CallArgs
 	if c.Tail {
-		call = code.TailCall
+		call = code.TailCallArgs
 	}
-	opcode := call(ic.codeReg(c.Cont))
-	ic.Emit(opcode)
+	ic.Emit(call(ic.codeReg(c.Cont), len(c.Args)))
+	args := make([]code.Reg, len(c.Args))
+	clear := make([]bool, len(c.Args))
+	for i, r := range c.Args {
+		args[i] = ic.codeReg(r)
+		// A value register that is not taken at this point was released for
+		// this very use (the compiler releases a register just before the
+		// instruction reading it), so nothing reads it after the call: the
+		// call clears it, so that its value does not stay reachable from the
+		// frame.  A taken register may be read later, a cell is shared.
+		clear[i] = args[i].RegType() == code.ValueRegType && ic.regs[args[i].Idx()] == 0
+	}
+	for _, w := range code.ArgWords(args, clear) {
+		ic.Emit(w)
+	}
 }
 
 // ProcessMkClosureInstr compiles a MkClosure instruction.

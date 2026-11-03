@@ -33,8 +33,14 @@ func (r *Runtime) RefactorCodeConsts(c *Code) *Code {
 	r.RequireCPU(2 * uint64(len(c.code)))
 
 	// Constant keys are indexed with 8 bits, so they are numbered first: there
-	// are at most 256 distinct ones.
-	for _, op := range c.code {
+	// are at most 256 distinct ones.  The operand words of calls are register
+	// lists, not opcodes, and are skipped in both loops.
+	for i := 0; i < len(c.code); i++ {
+		op := c.code[i]
+		if n := callArgCount(op); n > 0 {
+			i += code.ArgWordCount(n)
+			continue
+		}
 		if op.TypePfx() == code.Type8Pfx {
 			n := op.GetK8().ToKIndex()
 			if _, ok := constMap[n]; !ok {
@@ -45,7 +51,14 @@ func (r *Runtime) RefactorCodeConsts(c *Code) *Code {
 		}
 	}
 
-	for i, op := range c.code {
+	for i := 0; i < len(c.code); i++ {
+		op := c.code[i]
+		if n := callArgCount(op); n > 0 {
+			words := code.ArgWordCount(n)
+			copy(opcodes[i:i+1+words], c.code[i:i+1+words])
+			i += words
+			continue
+		}
 		switch op.TypePfx() {
 		case code.Type8Pfx:
 			n := op.GetK8().ToKIndex()

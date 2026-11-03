@@ -101,6 +101,29 @@ func TestVerifyOpcodes(t *testing.T) {
 		{"type0 in range", code.Receive(r1), true},
 		{"type0 bad A", code.ReceiveEtc(r2), false},
 	}
+	// A call's arguments live in the operand words after it.
+	callCases := []struct {
+		name string
+		ops  []code.Opcode
+		ok   bool
+	}{
+		{"call with arguments in range", append([]code.Opcode{code.CallArgs(r0, 4)}, code.ArgWords([]code.Reg{r1, u0, r0, r1}, nil)...), true},
+		{"call with a bad argument", append([]code.Opcode{code.CallArgs(r0, 4)}, code.ArgWords([]code.Reg{r1, u0, r2, r1}, nil)...), false},
+		{"call with a bad cell argument", append([]code.Opcode{code.TailCallArgs(r0, 1)}, code.ArgWords([]code.Reg{u1}, nil)...), false},
+		{"call whose arguments run past the end", []code.Opcode{code.CallArgs(r0, 1)}, false},
+		{"jump into the arguments", append(append([]code.Opcode{code.Jump(2), code.CallArgs(r0, 1)}, code.ArgWords([]code.Reg{r1}, nil)...), code.Call(r0)), false},
+		{"jump over the arguments", append(append([]code.Opcode{code.Jump(3), code.CallArgs(r0, 1)}, code.ArgWords([]code.Reg{r1}, nil)...), code.Call(r0)), true},
+		{"argument words are not opcodes", append([]code.Opcode{code.CallArgs(r0, 3)}, code.ArgWords([]code.Reg{r1, r1, r1}, nil)...), true},
+	}
+	for _, c := range callCases {
+		err := testCode(c.ops...).verify()
+		if c.ok && err != nil {
+			t.Errorf("%s: unexpected error %v", c.name, err)
+		}
+		if !c.ok && err == nil {
+			t.Errorf("%s: expected an error", c.name)
+		}
+	}
 	for _, c := range cases {
 		err := testCode(c.op).verify()
 		if c.ok && err != nil {
