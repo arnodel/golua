@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"math"
 
 	"github.com/arnodel/golua/code"
 )
@@ -23,6 +24,8 @@ func MarshalConst(w io.Writer, c Value, budget uint64) (used uint64, err error) 
 	defer func() {
 		if r := recover(); r == budgetConsumed {
 			used = budget
+		} else if r != nil {
+			panic(r)
 		}
 	}()
 	if _, err := w.Write(marshalPrefix); err != nil {
@@ -34,10 +37,16 @@ func MarshalConst(w io.Writer, c Value, budget uint64) (used uint64, err error) 
 }
 
 // UnmarshalConst reads from r to deserialize a const value.
+//
+// The input may come from anywhere, so every length in it is checked before
+// it is used, and what it describes is read as it comes: the input can make
+// UnmarshalConst allocate no more than the input holds.
 func UnmarshalConst(r io.Reader, budget uint64) (v Value, used uint64, err error) {
 	defer func() {
 		if r := recover(); r == budgetConsumed {
 			used = budget
+		} else if r != nil {
+			panic(r)
 		}
 	}()
 	pfx := make([]byte, len(marshalPrefix))
@@ -207,40 +216,57 @@ func (r *breader) readConst() (v Value) {
 }
 
 func (r *breader) readCode(c *Code) {
-	var sz int64
-	r.read(
-		0+0+8,
-		&c.source,
-		&c.name,
-		&sz,
-	)
-	c.code = make([]code.Opcode, sz)
-	r.read(
-		4*uint64(sz)+8,
-		c.code,
-		&sz,
-	)
-	c.lines = make([]int32, sz)
-	r.read(
-		4*uint64(sz)+8,
-		c.lines,
-		&sz,
-	)
-	c.consts = make([]Value, sz)
-	for i := range c.consts {
-		c.consts[i] = r.readConst()
+	r.read(0+0, &c.source, &c.name)
+	c.code = readSlice[code.Opcode](r, r.readLen(4), 4)
+	c.lines = readSlice[int32](r, r.readLen(4), 4)
+	for n := r.readLen(1); len(c.consts) < n && r.err == nil; {
+		c.consts = append(c.consts, r.readConst())
 	}
-	r.read(
-		2+2+2+8,
-		&c.UpvalueCount,
-		&c.RegCount,
-		&c.CellCount,
-		&sz,
-	)
-	c.UpNames = make([]string, sz)
-	for i := range c.UpNames {
-		c.UpNames[i] = r.readString()
+	r.read(2+2+2, &c.UpvalueCount, &c.RegCount, &c.CellCount)
+	for n := r.readLen(8); len(c.UpNames) < n && r.err == nil; {
+		c.UpNames = append(c.UpNames, r.readString())
 	}
+}
+
+// readLen reads the number of items of what comes next in the input, each
+// taking at least itemSize bytes of it, and charges the budget for them.
+func (r *breader) readLen(itemSize uint64) int {
+	var n int64
+	r.read(8, &n)
+	if r.err != nil {
+		return 0
+	}
+	if n < 0 || uint64(n) > math.MaxInt {
+		r.err = errInvalidLength
+		return 0
+	}
+	cost := uint64(n) * itemSize
+	if cost/itemSize != uint64(n) {
+		cost = math.MaxUint64
+	}
+	r.consumeBudget(cost)
+	return int(n)
+}
+
+// The most items readSlice allocates for before reading them.
+const readChunk = 4096
+
+// readSlice reads n items of the given size.  n comes from the input, so
+// the slice grows as items are read, in chunks: a length larger than the
+// input fails at its end, having allocated about what it held.
+func readSlice[T any](r *breader, n int, size uint64) []T {
+	if r.err != nil {
+		return nil
+	}
+	xs := make([]T, 0, min(n, readChunk))
+	for len(xs) < n {
+		chunk := make([]T, min(n-len(xs), readChunk))
+		if r.err = binary.Read(r.r, binary.LittleEndian, chunk); r.err != nil {
+			return nil
+		}
+		xs = append(xs, chunk...)
+	}
+	return xs
 }
 
 func (r *breader) read(sz uint64, xs ...interface{}) {
@@ -265,14 +291,7 @@ func (r *breader) readString() (s string) {
 	if r.err != nil {
 		return
 	}
-	var sl int64
-	r.read(8, &sl)
-	if r.err != nil {
-		return
-	}
-	r.consumeBudget(uint64(sl))
-	b := make([]byte, sl)
-	_, r.err = r.r.Read(b)
+	b := readSlice[byte](r, r.readLen(1), 1)
 	if r.err == nil {
 		s = string(b)
 	}
@@ -290,3 +309,4 @@ func (r *breader) consumeBudget(amount uint64) {
 }
 
 var errInvalidValueType = errors.New("Invalid value type")
+var errInvalidLength = errors.New("Invalid length")
