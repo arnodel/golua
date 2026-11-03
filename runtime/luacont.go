@@ -363,14 +363,18 @@ RunLoop:
 					setReg(regs, cells, opcode.GetB(), tbl)
 					res = tbl
 				case code.OpCheckNotDefined:
-					// Lua 5.5: check that table[index] is not already defined.
-					// Used by "global x = value" declarations.
-					table := getReg(regs, cells, dst) // rA = table (_ENV)
+					// Lua 5.5: check that _ENV[name] is not already defined.
+					// Used by "global x = value" declarations.  _ENV is
+					// indexed as any value is, so it needn't be a table.
+					env := getReg(regs, cells, dst) // rA = _ENV
 					// val is rB = index (name)
-					tbl := table.AsTable()
-					if tbl != nil && !tbl.Get(val).IsNil() {
+					v, err := Index(t, env, val)
+					if err == nil && !v.IsNil() {
+						err = fmt.Errorf("global '%s' already defined", val.AsString())
+					}
+					if err != nil {
 						c.pc = pc
-						return nil, fmt.Errorf("global '%s' already defined", val.AsString())
+						return nil, err
 					}
 					pc++
 					continue RunLoop
