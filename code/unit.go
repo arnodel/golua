@@ -68,13 +68,12 @@ func (d *unitDisassembler) GetLabel(offset int) string {
 
 func (d *unitDisassembler) setSpan(name string, startOffset, endOffset int) {
 	d.spans[startOffset] = name
-	for {
-		startOffset++
-		d.spans[startOffset] = " |"
-		if startOffset == endOffset {
-			d.spans[endOffset] = `  \`
-			return
-		}
+	for i := startOffset + 1; i < endOffset; i++ {
+		d.spans[i] = " |"
+	}
+	// A function compiled to a single opcode starts and ends on it.
+	if endOffset > startOffset {
+		d.spans[endOffset] = `  \`
 	}
 }
 
