@@ -10,7 +10,7 @@
 # turn, round after round, so that a machine getting slower or faster affects
 # them all alike; C Lua runs once per round.  The table gives each
 # benchmark's best time over the rounds as a multiple of C Lua's best (below
-# 1x is faster than C Lua).  A benchmark a revision fails to run is shown as
+# 1× is faster than C Lua).  A benchmark a revision fails to run is shown as
 # "-" and reported, and the geomean is over the benchmarks every revision ran.
 
 set -e
@@ -50,11 +50,13 @@ for round in $(seq "$rounds"); do
 		if [ $i -eq 1 ]; then ref=$lua; else ref=; fi
 		(cd "$top/benchmarks" && GOLUA_BENCH_LUA=$ref "$work/$i.test" \
 			-test.run '^$' -test.bench . -test.count 1) >"$work/out" || true
-		sed -n "s|^--- FAIL: BenchmarkStandard/\([^/]*\)/impl=golua.*|$rev fails \1|p" "$work/out" | sort -u >&2
+		sed -n "s|^--- FAIL: BenchmarkStandard/\([^/]*\)/impl=golua.*|$rev fails \1|p" "$work/out" >>"$work/fails"
 		sed -n "s|^BenchmarkStandard/\([^/]*\)/impl=\([a-z]*\)[^[:space:]]*[[:space:]].*[[:space:]]\([0-9.]*\) ns/op.*|\1 \2 $i \3|p" \
 			"$work/out" >>"$work/times"
 	done
 done
+
+[ -f "$work/fails" ] && sort -u "$work/fails" >&2
 
 # Lines in times: benchmark, impl (golua or lua), revision number, ns/op.
 awk -v revs="$*" '
@@ -82,12 +84,12 @@ awk -v revs="$*" '
 					continue
 				}
 				x = best[name, r] / best[name, 0]
-				printf " %.2fx |", x
+				printf " %.2f× |", x
 				if (all) logsum[r] += log(x)
 			}
 			printf "\n"
 		}
 		printf "| **geomean of %d** |", common
-		for (r = 1; r <= nrev; r++) printf " **%.2fx** |", exp(logsum[r] / common)
+		for (r = 1; r <= nrev; r++) printf " **%.2f×** |", exp(logsum[r] / common)
 		printf "\n"
 	}' "$work/times"

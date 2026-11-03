@@ -34,6 +34,54 @@ for its interpreter alone).  Shopify/go-lua has no command-line interpreter
 and implements Lua 5.2, which the benchmarks outgrow; apogee's own harness
 drives it as a library and publishes 4.8× C Lua for it.
 
+## 2026-11-03, golua over its revisions, Apple M1 Max
+
+Taken with [`benchmarks/gauge.sh`](../benchmarks/gauge.sh), 3 rounds,
+against C Lua 5.5.1 (Homebrew): the suite's first commit (ed8ba02), the
+previous checkpoint (17a888f), before #182 (2b09206), lua5.5 after #182
+(aae169b) and #186 (value-andor).  fasta, k-nucleotide and regex-dna fail on
+the first two, from golua bugs fixed since (fasta: `too many values to
+unpack`), so the geomean is over the other 20.
+
+| benchmark | ed8ba02 | 17a888f | 2b09206 | lua5.5 | value-andor |
+|---|---|---|---|---|---|
+| bounce | 4.97× | 3.54× | 3.56× | 3.52× | 3.51× |
+| cd | 3.07× | 2.31× | 2.31× | 2.29× | 2.28× |
+| deltablue | 5.18× | 3.33× | 3.30× | 3.29× | 3.30× |
+| havlak | 3.13× | 2.28× | 2.27× | 2.25× | 2.23× |
+| json | 5.34× | 3.54× | 3.52× | 3.48× | 3.46× |
+| list | 4.82× | 3.18× | 3.20× | 2.84× | 2.82× |
+| mandelbrot | 3.07× | 2.70× | 2.71× | 2.50× | 2.51× |
+| nbody | 4.75× | 3.26× | 3.30× | 3.23× | 3.24× |
+| permute | 6.60× | 4.16× | 4.15× | 4.10× | 4.08× |
+| queens | 5.50× | 3.58× | 3.66× | 3.58× | 3.50× |
+| richards | 6.63× | 3.66× | 3.69× | 3.63× | 3.60× |
+| sieve | 4.56× | 3.65× | 3.66× | 3.52× | 3.53× |
+| storage | 2.99× | 2.34× | 2.35× | 2.34× | 2.34× |
+| towers | 7.44× | 4.70× | 4.70× | 4.67× | 4.60× |
+| binary-trees | 3.63× | 3.23× | 3.25× | 3.24× | 3.24× |
+| fannkuch-redux | 4.64× | 3.19× | 3.21× | 2.89× | 2.94× |
+| spectral-norm | 3.79× | 3.28× | 3.30× | 3.22× | 3.23× |
+| fasta | - | - | 3.25× | 3.19× | 3.21× |
+| k-nucleotide | - | - | 2.20× | 2.16× | 2.17× |
+| regex-dna | - | - | 1.37× | 1.37× | 1.36× |
+| coroutine-ring | 8.22× | 6.21× | 6.21× | 6.06× | 6.01× |
+| md5 | 4.40× | 3.62× | 3.65× | 3.63× | 3.64× |
+| life | 2.28× | 1.88× | 1.73× | 1.66× | 1.64× |
+| **geomean of 20** | **4.51×** | **3.27×** | **3.26×** | **3.17×** | **3.16×** |
+
+Notes:
+
+- From the suite's first commit golua went from 4.51× to 3.16× C Lua on these
+  20 benchmarks: 30% less time.
+- The previous checkpoint's 3.25× (17 benchmarks) is 3.27× here (20
+  benchmarks): the two methods agree.
+- #182 (with #183) is the step from 3.26× to 3.17×: list, fannkuch-redux,
+  mandelbrot and sieve, the benchmarks whose loops and conditions it shortens.
+- Between separate binaries a benchmark can move by a percent or two from
+  code layout alone; life gains 1.2% here from #186, where the on/off
+  measurement in the same binary gives 3.1%.
+
 ## 2026-10-31, golua 17a888f (after #174), Apple M1 Max
 
 Reference: C Lua 5.5.1 (Homebrew).  C Lua 5.5.0 is a separate build of the
