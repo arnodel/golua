@@ -33,3 +33,24 @@ print(coroutine.status(co))
 
 print(coroutine.resume(co, 100))
 --> =false	cannot resume dead thread
+
+-- A coroutine started outside a context with a memory limit can end inside
+-- it.  It releases its stack there, more memory than the context has used so
+-- far: that used to crash the whole program.
+
+local co = coroutine.create(function() coroutine.yield(1) end)
+coroutine.resume(co)
+print(runtime.callcontext({kill={memory=1000000}}, coroutine.resume, co))
+--> =done	true
+
+print(coroutine.status(co))
+--> =dead
+
+-- The same from inside a sandbox, which can't otherwise reach outside it.
+
+print(runtime.callcontext({kill={memory=10000000, cpu=1000000}, flags="memsafe cpusafe iosafe"}, function()
+    local co = coroutine.create(function() coroutine.yield(1) end)
+    coroutine.resume(co)
+    return runtime.callcontext({kill={memory=1000000}}, coroutine.resume, co)
+end))
+--> =done	done	true

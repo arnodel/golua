@@ -249,14 +249,13 @@ func (m *runtimeContextManager) RequireBytes(n int) (mem uint64) {
 }
 
 func (m *runtimeContextManager) ReleaseMem(memAmount uint64) {
-	// TODO: think about what to do when memory is released when unwinding from
-	// a quota exceeded error
+	// Memory can be released in a context other than the one it was charged
+	// to: a coroutine started outside this context can end inside it, and
+	// release its stack here.  A context can't use less than nothing, and
+	// the memory stays charged to the context that required it, so the
+	// accounting errs on the side of too much.
 	if m.hardLimits.Memory > 0 {
-		if memAmount <= m.usedResources.Memory {
-			m.usedResources.Memory -= memAmount
-		} else {
-			panic("Too much mem released")
-		}
+		m.usedResources.Memory -= min(memAmount, m.usedResources.Memory)
 	}
 }
 
