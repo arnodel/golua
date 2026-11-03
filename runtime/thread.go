@@ -61,6 +61,10 @@ type Thread struct {
 	// functions).
 	goFunctionCallDepth int
 
+	// The context the goroutine's stack was charged to, where it is
+	// released when the thread ends.
+	stackContextID uint64
+
 	// Depth of nested RunContinuation loops in the thread.  This should not
 	// exceed maxRunContinuationDepth.
 	runContinuationDepth int
@@ -155,6 +159,7 @@ type threadClose struct{}
 // t.Resume() method needs to be called to provide arguments to the callable.
 func (t *Thread) Start(c Callable) {
 	t.RequireBytes(2 << 10) // A goroutine starts off with 2k stack
+	t.stackContextID = t.contextID()
 	go func() {
 		var (
 			args []Value
@@ -290,7 +295,7 @@ func (t *Thread) end(args []Value, err error, exception interface{}) {
 	err = t.cleanupCloseStack(nil, 0, err) // TODO: not nil
 	t.closeErr = err
 	caller.sendResumeValues(args, err, exception)
-	t.ReleaseBytes(2 << 10) // The goroutine will terminate after this
+	t.releaseMemIn(t.stackContextID, 2<<10) // The goroutine will terminate after this
 }
 
 func (t *Thread) call(c Callable, args []Value, next Cont) error {

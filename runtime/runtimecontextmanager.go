@@ -31,6 +31,12 @@ type runtimeContextManager struct {
 
 	parent *runtimeContextManager
 
+	// id numbers the contexts of a runtime in the order they were pushed,
+	// from lastID which they share; the root is 0.  As contexts nest, a
+	// live context with a smaller id than another is its ancestor.
+	id     uint64
+	lastID *uint64
+
 	messageHandler Callable
 
 	trackCpu         bool
@@ -53,6 +59,7 @@ type runtimeContextManager struct {
 var _ RuntimeContext = (*runtimeContextManager)(nil)
 
 func (m *runtimeContextManager) initRoot() {
+	m.lastID = new(uint64)
 	m.gcPolicy = IsolateGCPolicy
 	m.weakRefPool = NewWeakPool()
 	m.fsAccess = safeio.Unrestricted
@@ -145,6 +152,8 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	m.status = StatusLive
 	m.messageHandler = ctx.MessageHandler
 	m.parent = &parent
+	*m.lastID++
+	m.id = *m.lastID
 	if ctx.GCPolicy == IsolateGCPolicy || ctx.HardLimits.Millis > 0 || ctx.HardLimits.Cpu > 0 || ctx.HardLimits.Memory > 0 {
 		m.weakRefPool = NewWeakPool()
 		m.gcPolicy = IsolateGCPolicy
@@ -249,14 +258,31 @@ func (m *runtimeContextManager) RequireBytes(n int) (mem uint64) {
 }
 
 func (m *runtimeContextManager) ReleaseMem(memAmount uint64) {
-	// Memory can be released in a context other than the one it was charged
-	// to: a coroutine started outside this context can end inside it, and
-	// release its stack here.  A context can't use less than nothing, and
-	// the memory stays charged to the context that required it, so the
-	// accounting errs on the side of too much.
+	// Releasing memory is less reliable than requiring it: it can be
+	// released in a context other than the one it was charged to.  A
+	// context can't use less than nothing, and a panic here can happen on a
+	// coroutine's goroutine, where nothing recovers it.
 	if m.hardLimits.Memory > 0 {
 		m.usedResources.Memory -= min(memAmount, m.usedResources.Memory)
 	}
+}
+
+// contextID returns the id of the current context, for releaseMemIn.
+func (m *runtimeContextManager) contextID() uint64 {
+	return m.id
+}
+
+// releaseMemIn releases memory that was required in the context with the
+// given id, which need not be the current one.  If that context is live, the
+// memory goes back to it.  If it has finished, its usage was charged to its
+// parent, or further up if that has finished too: to its deepest live
+// ancestor, which is the deepest live context with a smaller id.
+func (m *runtimeContextManager) releaseMemIn(id uint64, memAmount uint64) {
+	c := m
+	for c.id > id && c.parent != nil {
+		c = c.parent
+	}
+	c.ReleaseMem(memAmount)
 }
 
 func (m *runtimeContextManager) ReleaseSize(sz uintptr) {
