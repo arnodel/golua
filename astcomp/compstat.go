@@ -205,9 +205,20 @@ func (c *compiler) ProcessIfStat(s ast.IfStat) {
 }
 
 func (c *compiler) compileCond(s ast.CondStat, lbl ir.Label) {
-	condReg := c.compileExpNoDestHint(s.Cond)
-	c.emitInstr(s.Cond, ir.JumpIf{Cond: condReg, Label: lbl, Not: true})
+	c.compileCondJump(s.Cond, lbl, false)
 	c.CompileStat(s.Body)
+}
+
+// asUnOp returns e as a UnOp if it is one.  The parser makes pointers to
+// UnOp nodes, the compiler sometimes values.
+func asUnOp(e ast.ExpNode) (ast.UnOp, bool) {
+	switch x := e.(type) {
+	case ast.UnOp:
+		return x, true
+	case *ast.UnOp:
+		return *x, true
+	}
+	return ast.UnOp{}, false
 }
 
 // ProcessLabelStat compiles a LabelStat.
@@ -338,17 +349,25 @@ func (c *compiler) ProcessRepeatStat(s ast.RepeatStat) {
 	loopLbl := c.GetNewLabel()
 	must(c.EmitLabelNoLine(loopLbl))
 	pop := c.compileBlockNoPop(s.Body, false)
-	condReg := c.compileExpNoDestHint(s.Cond)
-	negReg := c.GetFreeRegister()
-	c.emitInstr(s.Cond, ir.Transform{
-		Op:  ops.OpNot,
-		Dst: negReg,
-		Src: condReg,
-	})
+	// The condition can see the body's locals, so it is computed before the
+	// body's scope closes, and tested after: the code that closes the scope
+	// must run whichever way the loop goes.  So it is a value, but a "not" in
+	// front of it goes into the jump.
+	cond, loopIf := s.Cond, false
+	for {
+		u, ok := asUnOp(cond)
+		if !ok || u.Op != ops.OpNot {
+			break
+		}
+		cond, loopIf = u.Operand, !loopIf
+	}
+	condReg := c.GetFreeRegister()
+	c.compileExpInto(cond, condReg)
 	pop()
 	c.emitInstr(s.Cond, ir.JumpIf{
-		Cond:  negReg,
+		Cond:  condReg,
 		Label: loopLbl,
+		Not:   !loopIf,
 	})
 
 	must(c.EmitGotoLabel(breakLblName))
