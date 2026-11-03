@@ -27,12 +27,8 @@ func (c *expCompiler) ProcessBFunctionCallExp(f ast.BFunctionCall) {
 
 // ProcessBinOpExp compiles a BinOpExp.
 func (c *expCompiler) ProcessBinOpExp(b ast.BinOp) {
-	if b.OpType == ops.OpAnd {
-		c.compileLogicalOp(b, true)
-		return
-	}
-	if b.OpType == ops.OpOr {
-		c.compileLogicalOp(b, false)
+	if b.OpType == ops.OpAnd || b.OpType == ops.OpOr {
+		c.compileLogicalOp(b)
 		return
 	}
 	lsrc := c.compileExpNoDestHint(b.Left)
@@ -82,18 +78,19 @@ func (c *expCompiler) ProcessBinOpExp(b ast.BinOp) {
 	}
 }
 
-// This implements short-circuiting in logical expressions.
-func (c *expCompiler) compileLogicalOp(b ast.BinOp, not bool) {
+// compileLogicalOp compiles a chain of "and" or of "or" as a value, with
+// short-circuiting: an operand that decides the result (false in an "and"
+// chain, true in an "or" chain) is the result, and jumps to the end with its
+// value.  If none does, the last operand is the result.
+func (c *expCompiler) compileLogicalOp(b ast.BinOp) {
+	operands := logicalOperands(b)
+	deciding := b.OpType == ops.OpOr
 	doneLbl := c.GetNewLabel()
-	c.compileExpInto(b.Left, c.dst)
-	c.emitInstr(b.Left, ir.JumpIf{Cond: c.dst, Label: doneLbl, Not: not})
-	for i, r := range b.Right {
-		c.compileExpInto(r.Operand, c.dst)
-		// After the last operand, done comes next anyway.
-		if i < len(b.Right)-1 {
-			c.emitInstr(r.Operand, ir.JumpIf{Cond: c.dst, Label: doneLbl, Not: not})
-		}
+	last := len(operands) - 1
+	for _, e := range operands[:last] {
+		c.compileValueJump(e, c.dst, doneLbl, deciding)
 	}
+	c.compileExpInto(operands[last], c.dst)
 	must(c.EmitLabelNoLine(doneLbl))
 }
 
