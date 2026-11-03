@@ -53,6 +53,26 @@ To set golua beside the reference Lua in one run:
 benchstat -col /impl new.txt
 ```
 
+## Progress over revisions
+
+[`gauge.sh`](gauge.sh) times golua at any number of revisions against C Lua
+and prints a table: each benchmark's time at each revision as a multiple of
+C Lua's, and their geomean.
+
+```sh
+benchmarks/gauge.sh -l /path/to/lua ed8ba02 lua5.5 my-branch
+```
+
+Every revision runs this checkout's benchmarks, so old revisions are timed on
+programs added since, and all of them are built with `-tags noquotas`.  The
+revisions run in turn for a few rounds (`-n`, 3 by default) and the best time
+counts.  A benchmark that a revision fails is shown as `-` and left out of
+the geomean.  Each revision is a separate binary, so a difference of a few
+percent on one benchmark can come from where the Go linker puts code; to
+measure one change, compare the same binary with the change switched on and
+off.  [`notes/benchmark-checkpoints.md`](../notes/benchmark-checkpoints.md)
+keeps the results over time.
+
 ## Are We Fast Yet
 
 [`awfy/`](awfy) holds the Lua port of the 14 benchmarks of
