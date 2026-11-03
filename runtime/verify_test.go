@@ -11,7 +11,7 @@ import (
 
 // A frame with 2 value registers and 1 cell, no upvalues, and 2 constants.
 func testCode(ops ...code.Opcode) *Code {
-	return &Code{code: ops, RegCount: 2, CellCount: 1, consts: []Value{IntValue(1), StringValue("x")}}
+	return &Code{code: ops, lines: make([]int32, len(ops)), RegCount: 2, CellCount: 1, consts: []Value{IntValue(1), StringValue("x")}}
 }
 
 var (
@@ -32,6 +32,7 @@ func TestVerifyCounts(t *testing.T) {
 		{"more upvalues than cells", &Code{RegCount: 1, CellCount: 1, UpvalueCount: 2, UpNames: []string{"a", "b"}}, "upvalue count"},
 		{"negative upvalues", &Code{RegCount: 1, UpvalueCount: -1}, "upvalue count"},
 		{"names and upvalues disagree", &Code{RegCount: 1, CellCount: 1, UpvalueCount: 1}, "upvalue names"},
+		{"an opcode without a line", &Code{RegCount: 1, code: make([]code.Opcode, 2), lines: make([]int32, 1)}, "lines for"},
 	} {
 		err := c.code.verify()
 		if err == nil || !strings.Contains(err.Error(), c.want) {

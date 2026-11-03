@@ -13,7 +13,8 @@ const maxRegCount = 256
 
 // verify checks that running c cannot touch anything outside its frame: the
 // register counts make sense, every register operand of every opcode is
-// within them, and every jump lands inside the code.  The run loop relies on
+// within them, every jump lands inside the code, and every opcode has a
+// line.  The run loop relies on
 // this to access registers without checking their index.
 //
 // Code produced by the compiler should always pass; code loaded from a binary
@@ -28,6 +29,9 @@ func (c *Code) verify() error {
 		return fmt.Errorf("invalid upvalue count %d for %d cells", c.UpvalueCount, c.CellCount)
 	case len(c.UpNames) != int(c.UpvalueCount):
 		return fmt.Errorf("%d upvalue names for %d upvalues", len(c.UpNames), c.UpvalueCount)
+	case len(c.lines) != len(c.code):
+		// The line hook reads the line of each opcode it runs.
+		return fmt.Errorf("%d lines for %d opcodes", len(c.lines), len(c.code))
 	}
 	for pc, op := range c.code {
 		if err := c.verifyOpcode(pc, op); err != nil {

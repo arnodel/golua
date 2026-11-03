@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
@@ -112,5 +113,51 @@ func TestUnmarshalConst(t *testing.T) {
 				t.Errorf("UnmarshalConst() gotUsed = %v, want %v", gotUsed, tt.wantUsed)
 			}
 		})
+	}
+}
+
+// Lengths in a binary chunk come from the input.  A forged one must not make
+// UnmarshalConst allocate more than the input holds, even with no budget to
+// stop it, and a negative one is an error.
+func TestUnmarshalForgedLengths(t *testing.T) {
+	r := New(io.Discard)
+	clos, err := r.CompileAndLoadLuaChunk("test", []byte(`return "abcdefgh"`), TableValue(r.GlobalEnv()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var w bytes.Buffer
+	if _, err := MarshalConst(&w, CodeValue(r.MainThread().RefactorCodeConsts(clos.Code)), 0); err != nil {
+		t.Fatal(err)
+	}
+	dump := w.Bytes()
+	i := bytes.Index(dump, []byte("abcdefgh")) - 8 // the string's length
+	forge := func(n int64) []byte {
+		forged := bytes.Clone(dump)
+		for j := range 8 {
+			forged[i+j] = byte(uint64(n) >> (8 * j))
+		}
+		return forged
+	}
+	if _, _, err := UnmarshalConst(bytes.NewBuffer(forge(8)), 0); err != nil {
+		t.Fatalf("the dump itself doesn't load: %s", err)
+	}
+	for _, tc := range []struct {
+		name string
+		n    int64
+	}{
+		{"negative", -5},
+		{"longer than the input", 1 << 40},
+		{"longest", 1<<63 - 1},
+	} {
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		_, _, err := UnmarshalConst(bytes.NewBuffer(forge(tc.n)), 0)
+		runtime.ReadMemStats(&after)
+		if err == nil {
+			t.Errorf("%s: no error", tc.name)
+		}
+		if alloc := after.TotalAlloc - before.TotalAlloc; alloc > 1<<20 {
+			t.Errorf("%s: allocated %d bytes", tc.name, alloc)
+		}
 	}
 }
