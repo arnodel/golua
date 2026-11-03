@@ -175,13 +175,13 @@ func (c *CodeBuilder) PopContext() {
 	c.emitTruncate(context.top())
 	c.context = context
 	c.emitClearReg(top)
-	for _, tr := range top.reg {
+	for _, tr := range top.regs() {
 		c.ReleaseRegister(tr.reg)
 	}
 }
 
 func (c *CodeBuilder) emitClearReg(m lexicalScope) {
-	for _, tr := range m.reg {
+	for _, tr := range m.regs() {
 		if tr.tags&regHasUpvalue != 0 && tr.reg >= 0 {
 			c.EmitNoLine(ClearReg{Dst: tr.reg})
 		}
