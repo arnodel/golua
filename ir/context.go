@@ -1,6 +1,10 @@
 package ir
 
-import "fmt"
+import (
+	"cmp"
+	"fmt"
+	"slices"
+)
 
 // GlobalDeclType represents the type of a global variable declaration
 type GlobalDeclType uint8
@@ -45,6 +49,17 @@ func (s lexicalScope) getLabel(name Name) (label Label, line int, ok bool) {
 		line = ll.line
 	}
 	return
+}
+
+// regs returns the scope's registers in register order, so that the code
+// emitted for them doesn't depend on the order of iteration over a map.
+func (s lexicalScope) regs() []taggedReg {
+	regs := make([]taggedReg, 0, len(s.reg))
+	for _, tr := range s.reg {
+		regs = append(regs, tr)
+	}
+	slices.SortFunc(regs, func(x, y taggedReg) int { return cmp.Compare(x.reg, y.reg) })
+	return regs
 }
 
 type taggedReg struct {
