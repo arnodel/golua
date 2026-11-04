@@ -65,5 +65,13 @@ local z = "haha"
 load(string.dump(function() print("hi", z) end))()
 --> =hi	nil
 
+-- A binary chunk of another format version is refused.  The version is the
+-- byte after the 3-byte prefix.
+do
+    local d = string.dump(function() end)
+    print(load(d:sub(1, 3) .. string.char(d:byte(4) + 1) .. d:sub(5)))
+end
+--> ~nil\tbinary chunk format [0-9]+, this golua reads format [0-9]+
+
 print(load("???", "", "t"))
 --> ~nil\t.*invalid token
