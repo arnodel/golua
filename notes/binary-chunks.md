@@ -63,9 +63,19 @@ the VM gives it nothing it didn't have.
 format version, and `load` refuses a version it doesn't read, in any context,
 before checking anything else.  This guards against honest mistakes, such as a
 bytecode cache left over from an older golua, which a signature wouldn't: an
-old chunk signed with the same key is still signed.  The version changes with
-any change to the opcodes, their encoding or the marshal format; a test of a
-hash of the opcode tables catches a change that forgets to.
+old chunk signed with the same key is still signed.
+
+The version is a counter in a byte after the prefix, unrelated to golua's
+release numbers, so a release that leaves the format alone keeps the chunks
+of the one before.  It goes up at most once between two releases: the first
+change to the opcodes, their encoding or the marshal format after a release
+bumps it, and later changes before the next release keep it.  Released chunks
+and chunks from development builds after a change are told apart; two
+development builds in the same cycle may not be, which only matters for a
+cache kept from one unreleased build to the next.  A test of a hash of the
+opcode tables and the marshal format catches a change: it fails until the hash
+is updated, and the version is bumped too if it is still the one of the last
+release.
 
 **The cheap checks stay.**  The loader reads lengths without trusting them,
 allocating no more than the input holds (#190), and `Code.verify` keeps its
