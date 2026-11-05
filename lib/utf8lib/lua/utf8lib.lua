@@ -48,7 +48,7 @@ do
     print(pcall(utf8.codes))
     --> ~false	.*value needed
 
-    print(pcall(utf8.codes, 123))
+    print(pcall(utf8.codes, {}))
     --> ~false	.*must be a string
 
     local iter = utf8.codes("A\xff")
@@ -136,7 +136,7 @@ do
     err()
     --> ~value needed
 
-    err(123)
+    err({})
     --> ~must be a string
 
     err("ABC", {})

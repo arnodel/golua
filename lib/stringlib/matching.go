@@ -227,7 +227,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	// wrong.
 	var replF func([]pattern.Capture) (string, bool, error)
 
-	if replString, ok := repl.TryString(); ok {
+	if replString, ok := repl.ToString(); ok {
 		replF = func(captures []pattern.Capture) (string, bool, error) {
 			cStrings := [10]string{}
 			maxIndex := len(captures) - 1

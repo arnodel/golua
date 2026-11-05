@@ -39,6 +39,6 @@ do
     test("blah")
     --> ~false\t.*: invalid option
 
-    test(1)
+    test({})
     --> ~false\t.*must be a string
 end
