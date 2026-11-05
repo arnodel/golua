@@ -113,3 +113,21 @@ do
     print(table.concat(t, ","))
     --> =1.0,1.5,2.0
 end
+
+-- Each iteration has its own loop variable, which a closure can capture.
+do
+    local fs = {}
+    for i = 1, 3 do fs[i] = function() return i end end
+    print(fs[1](), fs[2](), fs[3]())
+    --> =1	2	3
+end
+
+-- The body reads the loop variable as the loop counts it, also after a branch.
+do
+    local t = {}
+    for i = 3, 1, -1 do
+        if i % 2 == 1 then t[#t+1] = i else t[#t+1] = -i end
+    end
+    print(table.concat(t, ","))
+    --> =3,-2,1
+end

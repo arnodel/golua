@@ -150,3 +150,35 @@ func TestPropagateCopies(t *testing.T) {
 		Push{Cont: 5, Item: q},
 	)
 }
+
+// A register marked as a copy is read through over the whole function, past
+// labels and jumps, and the copies into it go, unless it is a cell.
+func TestMarkedCopies(t *testing.T) {
+	// The counter is r0, the loop variable r1, a temporary r2.
+	counter, v := Register(0), Register(1)
+	loop := []Instruction{
+		DeclareLabel{Label: 1},
+		move(v, counter), TakeRegister{Reg: v},
+		JumpIf{Cond: v, Label: 2},
+		DeclareLabel{Label: 3},
+		Combine{Op: ops.OpAdd, Dst: 2, Lsrc: v, Rsrc: v},
+		DeclareLabel{Label: 2},
+		ReleaseRegister{Reg: v},
+	}
+	code := func(cells []Register) Code {
+		c := testCode(2, 1, cells, loop...)
+		c.Registers[v].IsCopy = true
+		c.Registers[v].CopyOf = counter
+		return c
+	}
+	check(t, "plain", PropagateCopies(code(nil)),
+		DeclareLabel{Label: 1},
+		TakeRegister{Reg: v},
+		JumpIf{Cond: counter, Label: 2},
+		DeclareLabel{Label: 3},
+		Combine{Op: ops.OpAdd, Dst: 2, Lsrc: counter, Rsrc: counter},
+		DeclareLabel{Label: 2},
+		ReleaseRegister{Reg: v},
+	)
+	check(t, "cell", PropagateCopies(code([]Register{v})), loop...)
+}
