@@ -37,6 +37,9 @@ import (
 // called in between could change them.  Named locals keep their copies when
 // they are the destination, so that their value stays observable.
 //
+// Before that, the copies the compiler marked as fixed (see MarkCopyOf) are
+// read through and removed over the whole function, past labels and jumps.
+//
 // The code generator only reserves a slot for a register between its
 // TakeRegister and its ReleaseRegister; a register that is not taken keeps its
 // slot only until the next register is first used.  So a read is only moved
@@ -46,9 +49,8 @@ import (
 // means the same thing throughout, and the counts of its reads and writes
 // over the whole function are exact.
 func PropagateCopies(c Code) Code {
-	instrs := slices.Clone(c.Instructions)
-	lines := slices.Clone(c.Lines)
 	regs := c.Registers
+	instrs, lines := readThroughFixedCopies(c.Instructions, c.Lines, regs)
 	reads := make([]int, len(regs))
 	writes := make([]int, len(regs))
 	for _, instr := range instrs {
@@ -193,6 +195,29 @@ func PropagateCopies(c Code) Code {
 	c.Instructions = instrs[:kept]
 	c.Lines = lines[:kept]
 	return c
+}
+
+// readThroughFixedCopies returns instrs and lines with every read of a register
+// marked as a copy (RegData.IsCopy) reading its source instead, and the copies
+// into it removed.  A cell keeps its copies: each one may give a closure its
+// own variable.
+func readThroughFixedCopies(instrs []Instruction, lines []int, regs []RegData) ([]Instruction, []int) {
+	fixed := func(r Register) bool { return regs[r].IsCopy && !regs[r].IsCell }
+	outInstrs := make([]Instruction, 0, len(instrs))
+	outLines := make([]int, 0, len(lines))
+	for i, instr := range instrs {
+		if mv, ok := asMove(instr); ok && fixed(mv.Dst) && mv.Src == regs[mv.Dst].CopyOf {
+			continue
+		}
+		for _, r := range instr.Reads() {
+			if fixed(r) {
+				instr = instr.ReplaceRead(r, regs[r].CopyOf)
+			}
+		}
+		outInstrs = append(outInstrs, instr)
+		outLines = append(outLines, lines[i])
+	}
+	return outInstrs, outLines
 }
 
 // asMove returns the instruction as a register copy, if it is one.
