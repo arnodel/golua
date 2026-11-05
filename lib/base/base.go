@@ -93,7 +93,7 @@ func loadChunk(t *rt.Thread, args []rt.Value) (chunk []byte, chunkName string, e
 		reader = os.Stdin
 	} else {
 		var ok bool
-		chunkName, ok = args[0].TryString()
+		chunkName, ok = args[0].ToString()
 		if !ok {
 			return nil, chunkName, errors.New("#1 must be a string")
 		}

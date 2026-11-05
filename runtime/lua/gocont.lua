@@ -58,3 +58,6 @@ errtest(rawget, 1, 2)
 
 errtest(dofile, {}, 2, 3)
 --> ~must be a string
+
+errtest(dofile, 1, 2, 3)
+--> ~open 1:

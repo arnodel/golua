@@ -28,6 +28,9 @@ print(pcall(loadfile, "lua/loadfile.lua.notest", {}))
 print(loadfile("lua/nonexistent_file"))
 --> ~nil\t
 
+print(loadfile(1))
+--> ~nil\topen 1:
+
 dofile("lua/loadfile.lua.notest")
 --> =loadfile
 
