@@ -76,7 +76,7 @@ func TestUnmarshalConst(t *testing.T) {
 		{
 			name: "consume the budget",
 			args: args{
-				r:      bytes.NewBuffer([]byte{6, 0, 4, byte(StringType), 1, 1, 1, 1, 1, 1, 1, 1}), // would be very long
+				r:      bytes.NewBuffer([]byte{6, 0, 4, marshalFormat, byte(StringType), 1, 1, 1, 1, 1, 1, 1, 1}), // would be very long
 				budget: 1000,
 			},
 			wantUsed: 1000,
@@ -89,13 +89,40 @@ func TestUnmarshalConst(t *testing.T) {
 			},
 			wantErr: true,
 		},
-
+		{
+			name: "no format version",
+			args: args{
+				r: bytes.NewBuffer([]byte{6, 0, 4, byte(StringType), 0, 0, 0, 0, 0, 0, 0, 0}),
+			},
+			wantErr: true,
+		},
+		{
+			name: "other format version",
+			args: args{
+				r: bytes.NewBuffer([]byte{6, 0, 4, marshalFormat + 1, byte(StringType), 0, 0, 0, 0, 0, 0, 0, 0}),
+			},
+			wantErr: true,
+		},
+		{
+			name: "truncated header",
+			args: args{
+				r: bytes.NewBuffer([]byte{6, 0, 4}),
+			},
+			wantErr: true,
+		},
 		{
 			name: "read wrong type",
 			args: args{
-				r: bytes.NewBuffer([]byte{6, 0, 4, byte(FunctionType)}),
+				r: bytes.NewBuffer([]byte{6, 0, 4, marshalFormat, byte(FunctionType)}),
 			},
 			wantErr: true,
+		},
+		{
+			name: "read a string",
+			args: args{
+				r: bytes.NewBuffer([]byte{6, 0, 4, marshalFormat, byte(StringType), 2, 0, 0, 0, 0, 0, 0, 0, 'h', 'i'}),
+			},
+			wantV: StringValue("hi"),
 		},
 	}
 	for _, tt := range tests {

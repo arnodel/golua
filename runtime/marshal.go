@@ -4,13 +4,29 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
+	"slices"
 
 	"github.com/arnodel/golua/code"
 )
 
 var marshalPrefix = []byte{6, 0, 4}
 var ErrInvalidMarshalPrefix = errors.New("Invalid marshal prefix")
+
+// marshalFormat is the version of the format of marshalled values, written
+// after marshalPrefix.  Only values of this version can be unmarshalled.
+//
+// It is unrelated to golua's release numbers and goes up at most once between
+// two releases.  The first change after a release to what a binary chunk holds
+// or how it runs bumps it: the opcodes, their encoding or meaning, what the
+// run loop relies on the compiler for, or the layout below.  Later changes
+// before the next release keep it.  TestMarshalFormat fails when the files
+// that define the format change, as a reminder.
+//
+// Versions start at 16, above every value type tag: a value marshalled before
+// there were versions has a type tag where the version is now.
+const marshalFormat byte = 16
 
 // HasMarshalPrefix returns true if the byte slice passed starts witht the magic
 // prefix for Lua marshalled values.
@@ -25,7 +41,7 @@ func MarshalConst(w io.Writer, c Value, budget uint64) (used uint64, err error) 
 			used = budget
 		}
 	}()
-	if _, err := w.Write(marshalPrefix); err != nil {
+	if _, err := w.Write(slices.Concat(marshalPrefix, []byte{marshalFormat})); err != nil {
 		return 0, err
 	}
 	bw := bwriter{w: w, budget: budget}
@@ -40,10 +56,13 @@ func UnmarshalConst(r io.Reader, budget uint64) (v Value, used uint64, err error
 			used = budget
 		}
 	}()
-	pfx := make([]byte, len(marshalPrefix))
-	_, err = r.Read(pfx)
-	if !bytes.Equal(pfx, marshalPrefix) {
+	hdr := make([]byte, len(marshalPrefix)+1)
+	_, err = io.ReadFull(r, hdr)
+	switch format := hdr[len(marshalPrefix)]; {
+	case !bytes.Equal(hdr[:len(marshalPrefix)], marshalPrefix):
 		err = ErrInvalidMarshalPrefix
+	case err == nil && format != marshalFormat:
+		err = fmt.Errorf("binary chunk format %d, this golua reads format %d", format, marshalFormat)
 	}
 	if err != nil {
 		return
