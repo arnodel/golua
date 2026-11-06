@@ -112,3 +112,13 @@ repeat
 until j >= 3 and fs[j]() == j
 print(#fs, fs[1](), fs[3]())
 --> =3	1	3
+
+-- Loops on a constant condition
+do
+    local n = 0
+    repeat n = n + 1; if n == 3 then break end until false
+    repeat n = n + 10 until true
+    repeat n = n + 100 until not nil
+    print(n)
+end
+--> =113

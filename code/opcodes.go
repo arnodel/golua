@@ -759,7 +759,7 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 		tpl := "???"
 		switch c.GetY() {
 		case OpInt16:
-			tpl = fmt.Sprint(n)
+			tpl = fmt.Sprint(int16(n))
 		case OpStr2:
 			tpl = fmt.Sprintf("%q", n.ToStr2())
 		case OpK:

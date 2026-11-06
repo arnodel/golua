@@ -231,11 +231,39 @@ func (c *expCompiler) ProcessTableConstructorExp(t ast.TableConstructor) {
 
 // ProcessUnOpExp compiles a UnOpExp.
 func (c *expCompiler) ProcessUnOpExp(u ast.UnOp) {
+	if k, ok := numberLiteral(u); ok {
+		c.emitLoadConst(u, k, c.dst)
+		return
+	}
 	c.emitInstr(u, ir.Transform{
 		Op:  u.Op,
 		Dst: c.dst,
 		Src: c.compileExpNoDestHint(u.Operand),
 	})
+}
+
+// numberLiteral returns the value of e if it is a number literal, possibly
+// negated: the parser reads "-1" as "-" applied to 1.  Integers wrap around as
+// "-" does at run time.  A float zero is left to be negated at run time: the
+// constant table can't tell 0.0 from -0.0.
+func numberLiteral(e ast.ExpNode) (ir.Constant, bool) {
+	switch x := e.(type) {
+	case ast.Int:
+		return ir.Int(x.Val), true
+	case ast.Float:
+		return ir.Float(x.Val), x.Val != 0
+	}
+	if u, ok := asUnOp(e); ok && u.Op == ops.OpNeg {
+		if k, ok := numberLiteral(u.Operand); ok {
+			switch k := k.(type) {
+			case ir.Int:
+				return -k, true
+			case ir.Float:
+				return -k, true
+			}
+		}
+	}
+	return nil, false
 }
 
 func (c *expCompiler) CompileExp(e ast.ExpNode) {
