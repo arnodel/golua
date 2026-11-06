@@ -185,9 +185,10 @@ func (c *GoCont) CheckNArgs(n int) error {
 }
 
 // StringArg returns the n-th argument as a string if possible, otherwise a
-// non-nil error.  No range check!
+// non-nil error.  A number is converted to a string, as described in §3.4.3
+// of the Lua manual.  No range check!
 func (c *GoCont) StringArg(n int) (string, error) {
-	s, ok := c.Arg(n).TryString()
+	s, ok := c.Arg(n).ToString()
 	if !ok {
 		return "", fmt.Errorf("#%d must be a string", n+1)
 	}

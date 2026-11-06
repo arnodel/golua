@@ -5,8 +5,11 @@ do
     print(pcall(table.concat, "not a table"))
     --> ~^false\t.*must be a table
 
-    print(pcall(table.concat, {}, 1))
+    print(pcall(table.concat, {}, {}))
     --> ~^false\t.*must be a string
+
+    print(table.concat({1, 2, 3}, 0))
+    --> =10203
 
     print(pcall(table.concat, {}, "--", false))
     --> ~^false\t.*must be an integer

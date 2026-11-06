@@ -1,13 +1,13 @@
 print(pcall(package.searchpath))
 --> ~^false\t.*2 arguments needed
 
-print(pcall(package.searchpath, 1, 2))
+print(pcall(package.searchpath, {}, "zzz"))
 --> ~^false\t.*must be a string
 
-print(pcall(package.searchpath, "zzz", 2))
+print(pcall(package.searchpath, "zzz", {}))
 --> ~^false\t.*must be a string
 
-print(pcall(package.searchpath, "zzz", "aaa", 3))
+print(pcall(package.searchpath, "zzz", "aaa", {}))
 --> ~^false\t.*must be a string
 
 print(pcall(package.searchpath, "zzz", "aaa", "o", {}))

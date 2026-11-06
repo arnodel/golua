@@ -81,7 +81,7 @@ do
 end
 
 do
-    testf(io.lines)(123)
+    testf(io.lines)({})
     --> ~ERR	.*must be a string
 
     testf(io.lines)("nonexistent")
@@ -158,7 +158,7 @@ do
     print((pcall(f.seek, "hello")))
     --> =false
 
-    print(pcall(f.seek, f, 42))
+    print(pcall(f.seek, f, {}))
     --> ~^false\t.*string
 
     print(f:seek("set", -100000))
@@ -264,7 +264,7 @@ do
     perr()
     --> ~false\t.*2 arguments needed
 
-    perr(100)
+    perr({})
     --> ~false\t.*#2 must be a string
 
     perr("full", {})

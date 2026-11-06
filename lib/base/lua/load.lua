@@ -22,11 +22,14 @@ loadfile("lua/loadfile.lua.notest")()
 loadfile("lua/loadfile.lua.notest", "t", {print=print, ggg = "global"})()
 --> =global
 
-print(pcall(loadfile, "lua/loadfile.lua.notest", 123))
+print(pcall(loadfile, "lua/loadfile.lua.notest", {}))
 --> ~false\t.*must be a string
 
 print(loadfile("lua/nonexistent_file"))
 --> ~nil\t
+
+print(loadfile(1))
+--> ~nil\topen 1:
 
 dofile("lua/loadfile.lua.notest")
 --> =loadfile

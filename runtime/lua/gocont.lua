@@ -32,8 +32,11 @@ print(string.byte("A", 1))
 errtest(string.dump, 1)
 --> ~must be a lua function
 
-errtest(string.len, 1)
+errtest(string.len, {})
 --> ~must be a string
+
+print(string.len(12), string.len(1.5))
+--> =2	3
 
 errtest(string.len)
 --> ~value needed
@@ -53,5 +56,8 @@ errtest(math.cos, true)
 errtest(rawget, 1, 2)
 --> ~must be a table
 
-errtest(dofile, 1, 2, 3)
+errtest(dofile, {}, 2, 3)
 --> ~must be a string
+
+errtest(dofile, 1, 2, 3)
+--> ~open 1:

@@ -68,7 +68,7 @@ do
     errtest(string.len)()
     --> ~value needed
 
-    errtest(string.len)(123)
+    errtest(string.len)({})
     --> ~must be a string
 end
 
@@ -83,13 +83,13 @@ do
     errtest(string.lower)()
     --> ~value needed
 
-    errtest(string.lower)(123)
+    errtest(string.lower)({})
     --> ~must be a string
 
     errtest(string.upper)()
     --> ~value needed
 
-    errtest(string.upper)(123)
+    errtest(string.upper)({})
     --> ~must be a string
 end
 
@@ -116,7 +116,7 @@ do
     errrep()
     --> ~2 arguments needed
 
-    errrep(1, 2)
+    errrep({}, 2)
     --> ~must be a string
 
     errrep("xx", {})
@@ -125,7 +125,7 @@ do
     errrep("xx", -1)
     --> ~out of range
 
-    errrep("x", 2, 1)
+    errrep("x", 2, {})
     --> ~must be a string
 
     errrep("xxxxxxxxxx", 1 << 62)
@@ -146,7 +146,7 @@ do
     errtest(string.reverse)()
     --> ~value needed
 
-    errtest(string.reverse)(123)
+    errtest(string.reverse)({})
     --> ~must be a string
 end
 
@@ -176,7 +176,7 @@ do
     subtest()
     --> ~2 arguments needed
 
-    subtest(1, 2)
+    subtest({}, 2)
     --> ~must be a string
 
     subtest("x", {})
@@ -281,7 +281,7 @@ do
     errf()
     --> ~value needed
 
-    errf(321)
+    errf({})
     --> ~must be a string
 
     -- New in Lua 5.4: %p formatting
@@ -424,4 +424,25 @@ do
 
     print(string.gsub("x", "x", {x = 1 << 40}))
     --> =1099511627776	1
+end
+
+do
+    -- A number is converted to a string where a string is expected.
+    print(string.upper(12), string.upper(1.5), string.len(1/3))
+    --> =12	1.5	19
+
+    print(("x"):rep(2, 1.5), string.rep(1, 3), string.reverse(123))
+    --> =x1.5x	111	321
+
+    print(string.sub(12345, 2, 3), string.byte(7), string.format(12))
+    --> =23	55	12
+
+    print(string.find(1234, 23))
+    --> =2	3
+
+    print(string.gsub(1111, 1, 2))
+    --> =2222	4
+
+    print(pcall(string.upper, true))
+    --> ~false	.*must be a string
 end
