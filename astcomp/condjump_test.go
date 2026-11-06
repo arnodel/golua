@@ -98,6 +98,21 @@ L0:
 L1:
 L0:
 `},
+		// So do conditions whose value is known, not only literals.
+		{"if -1 then a = 1 end", `
+L1:
+L0:
+`},
+		{"if a and -1 then a = 1 end", `
+jump L1 if r2 is not true
+L1:
+L0:
+`},
+		{"while -1 do a = 1 end", `
+L1:
+jump L1
+L0:
+`},
 	} {
 		if got := controlFlow(t, "local a, b, c = ...\n"+tc.src, false); "\n"+got != tc.want {
 			t.Errorf("%s:\ngot%s\nwant%s", tc.src, "\n"+got, tc.want)
