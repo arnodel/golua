@@ -130,6 +130,13 @@ func (m *runtimeContextManager) ReleaseArrSize(sz uintptr, n int) {
 func (m *runtimeContextManager) ReleaseBytes(n int) {
 }
 
+func (m *runtimeContextManager) contextID() uint64 {
+	return 0
+}
+
+func (m *runtimeContextManager) releaseMemIn(id uint64, memAmount uint64) {
+}
+
 func (m *runtimeContextManager) UnusedMem() uint64 {
 	return 0
 }
