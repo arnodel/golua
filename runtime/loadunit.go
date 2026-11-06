@@ -18,6 +18,11 @@ type Code struct {
 	UpNames      []string
 	RegCount     int16
 	CellCount    int16
+
+	// template holds the values of registers r1, r2, ... when a call starts.
+	// They are constants that the code reads from those registers instead of
+	// loading them, and nothing writes them.
+	template []Value
 }
 
 // RefactorConsts returns an equivalent *Code this consts "refactored", which
@@ -93,17 +98,6 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 
 	for i, ck := range unit.Constants {
 		switch k := ck.(type) {
-		case code.Int:
-			constants[i] = IntValue(int64(k))
-		case code.Float:
-			constants[i] = FloatValue(float64(k))
-		case code.String:
-			// The strings are already accounted for memory-wise
-			constants[i] = StringValue(string(k))
-		case code.Bool:
-			constants[i] = BoolValue(bool(k))
-		case code.NilType:
-			// Do nothing as constants[i] == nil
 		case code.Code:
 			r.RequireSize(unsafe.Sizeof(Code{}))
 			var lines []int32
@@ -121,6 +115,13 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 				RegCount:     k.RegCount,
 				CellCount:    k.CellCount,
 			}
+			if len(k.Template) > 0 {
+				r.RequireArrSize(unsafe.Sizeof(Value{}), len(k.Template))
+				c.template = make([]Value, len(k.Template))
+				for j, tk := range k.Template {
+					c.template[j] = constantValue(tk)
+				}
+			}
 			// The compiler is trusted to produce code that passes, so a
 			// failure here is a bug in it rather than an error to report.
 			if err := c.verify(); err != nil {
@@ -128,7 +129,7 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 			}
 			constants[i] = CodeValue(c)
 		default:
-			panic("Unsupported constant type")
+			constants[i] = constantValue(k)
 		}
 	}
 	mainCode := constants[0].AsCode() // It must be some code
@@ -137,4 +138,22 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 		clos.AddUpvalue(Cell{&env})
 	}
 	return clos
+}
+
+// constantValue returns the value of a constant that is not code.
+func constantValue(k code.Constant) Value {
+	switch k := k.(type) {
+	case code.Int:
+		return IntValue(int64(k))
+	case code.Float:
+		return FloatValue(float64(k))
+	case code.String:
+		// The strings are already accounted for memory-wise
+		return StringValue(string(k))
+	case code.Bool:
+		return BoolValue(bool(k))
+	case code.NilType:
+		return NilValue
+	}
+	panic("Unsupported constant type")
 }

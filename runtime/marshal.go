@@ -95,15 +95,14 @@ func (w *bwriter) writeConst(c Value) {
 		w.write(StringType, c.AsString())
 	case CodeType:
 		w.writeCode(c.AsCode())
-	// Booleans and nil are inlined so this shouldn't be neeeded.  Keeping
-	// around in case this is reversed
-	//
-	//  case BoolType:
-	//  w.consumeBudget(1 + 1)
-	//  w.write(BoolType, c.AsBool())
-	// case NilType:
-	//  w.consumeBudget(1)
-	//  w.write(NilType)
+	// Booleans and nil are only found in register templates: the code loads
+	// them without the constant table.
+	case BoolType:
+		w.consumeBudget(1 + 1)
+		w.write(BoolType, c.AsBool())
+	case NilType:
+		w.consumeBudget(1)
+		w.write(NilType)
 	default:
 		w.err = errInvalidValueType
 	}
@@ -131,6 +130,11 @@ func (w *bwriter) writeCode(c *Code) {
 	)
 	for _, n := range c.UpNames {
 		w.writeString(n)
+	}
+	w.consumeBudget(8)
+	w.write(int64(len(c.template)))
+	for _, v := range c.template {
+		w.writeConst(v)
 	}
 }
 
@@ -207,15 +211,13 @@ func (r *breader) readConst() (v Value) {
 			r.err = x.verify()
 		}
 		v = CodeValue(x)
-	// Booleans and nil are inlined so this shouldn't be needed.  Keeping around
-	// in case this is reversed.
-	//
-	// case BoolType:
-	// 	var x bool
-	// 	r.read(1, &x)
-	// 	v = BoolValue(x)
-	// case NilType:
-	// 	v = NilValue
+	// Booleans and nil are only found in register templates.
+	case BoolType:
+		var x bool
+		r.read(1, &x)
+		v = BoolValue(x)
+	case NilType:
+		v = NilValue
 	default:
 		r.err = errInvalidValueType
 	}
@@ -259,6 +261,17 @@ func (r *breader) readCode(c *Code) {
 	c.UpNames = make([]string, sz)
 	for i := range c.UpNames {
 		c.UpNames[i] = r.readString()
+	}
+	r.read(8, &sz)
+	switch {
+	case r.err != nil:
+	case sz < 0 || sz >= maxRegCount:
+		r.err = fmt.Errorf("invalid register template size %d", sz)
+	case sz > 0:
+		c.template = make([]Value, sz)
+		for i := range c.template {
+			c.template[i] = r.readConst()
+		}
 	}
 }
 

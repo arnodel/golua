@@ -12,7 +12,8 @@ import (
 const maxRegCount = 256
 
 // verify checks that running c cannot touch anything outside its frame: the
-// register counts make sense, every register operand of every opcode is
+// register counts make sense, the register template fits in the frame and
+// holds plain constants, every register operand of every opcode is
 // within them, and every jump lands inside the code.  The run loop relies on
 // this to access registers without checking their index.
 //
@@ -28,6 +29,15 @@ func (c *Code) verify() error {
 		return fmt.Errorf("invalid upvalue count %d for %d cells", c.UpvalueCount, c.CellCount)
 	case len(c.UpNames) != int(c.UpvalueCount):
 		return fmt.Errorf("%d upvalue names for %d upvalues", len(c.UpNames), c.UpvalueCount)
+	case len(c.template) >= int(c.RegCount):
+		return fmt.Errorf("register template of %d values for %d registers", len(c.template), c.RegCount)
+	}
+	for _, v := range c.template {
+		switch v.Type() {
+		case NilType, BoolType, IntType, FloatType, StringType:
+		default:
+			return fmt.Errorf("register template holds a %s", v.TypeName())
+		}
 	}
 	for pc, op := range c.code {
 		if err := c.verifyOpcode(pc, op); err != nil {

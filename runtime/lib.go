@@ -459,9 +459,10 @@ func (r *Runtime) compileLuaStat(name string, stat *ast.BlockStat, statSize uint
 	r.LinearRequire(4, unitSize) // 4 is a factor pulled out of thin air
 
 	// Optimise the IR and compile it to code.  Hoisted constants take
-	// registers over whole loops, so a function that runs out of registers
-	// with them is compiled again without them.
-	unit, err := compileIR(name, kidx, ir.Optimise(constants, ir.PropagateCopies, ir.HoistConstants))
+	// registers over whole loops and preloaded ones over whole functions, so
+	// a function that runs out of registers with them is compiled again
+	// without them.
+	unit, err := compileIR(name, kidx, ir.Optimise(constants, ir.PropagateCopies, ir.HoistConstants, ir.PreloadSmall(preloadMaxLen)))
 	if errors.Is(err, ircomp.ErrNotEnoughRegisters) {
 		unit, err = compileIR(name, kidx, ir.Optimise(constants, ir.PropagateCopies))
 	}
@@ -472,6 +473,11 @@ func (r *Runtime) compileLuaStat(name string, stat *ast.BlockStat, statSize uint
 	// We no longer need the constants
 	return unit, unitSize, nil
 }
+
+// preloadMaxLen is the size of a function, in IR instructions, up to which
+// its constants are preloaded into its register template.  See
+// ir.PreloadSmall.
+const preloadMaxLen = 60
 
 // compileIR compiles IR constants to a code unit whose main function is the
 // constant kidx.

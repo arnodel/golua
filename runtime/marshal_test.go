@@ -22,7 +22,7 @@ func TestMarshalConst(t *testing.T) {
 		{
 			name: "marshal the wrong type",
 			args: args{
-				c: FunctionValue(nil),
+				c: TableValue(NewTable()),
 			},
 			wantErr: true,
 		},

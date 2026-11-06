@@ -45,6 +45,9 @@ func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 	t.RequireArrSize(unsafe.Sizeof(Value{}), int(clos.RegCount))
 	registers := t.regPool.get(int(clos.RegCount))
 	registers[0] = ContValue(next)
+	if len(clos.template) > 0 {
+		copy(registers[1:], clos.template)
+	}
 	cont := t.luaContPool.get()
 	t.RequireSize(unsafe.Sizeof(LuaCont{}))
 	*cont = LuaCont{

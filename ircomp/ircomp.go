@@ -1,6 +1,9 @@
 package ircomp
 
 import (
+	"fmt"
+	"math"
+
 	"github.com/arnodel/golua/code"
 	"github.com/arnodel/golua/ir"
 )
@@ -64,6 +67,21 @@ func (kc *ConstantCompiler) ProcessCode(c ir.Code) {
 	for _, r := range c.UpvalueDests {
 		regAllocator.takeRegister(r)
 	}
+	// Then the preloaded registers, in r1 onwards: r0 is left for the first
+	// register allocated, which receives the caller.  They are never
+	// released.
+	var template []code.Constant
+	regAllocator.regs = []int{0}
+	for r, rData := range c.Registers {
+		if rData.Preloaded {
+			template = append(template, templateConstant(kc.constants[rData.Kidx]))
+			regAllocator.allocations[r] = regAllocation{done: true, r: code.ValueReg(uint8(len(regAllocator.regs)))}
+			regAllocator.regs = append(regAllocator.regs, 1)
+		}
+	}
+	if len(regAllocator.regs) > math.MaxUint8 {
+		panic(notEnoughRegisters())
+	}
 	ic := instrCompiler{
 		ConstantCompiler: kc,
 		regAllocator:     regAllocator,
@@ -81,7 +99,26 @@ func (kc *ConstantCompiler) ProcessCode(c ir.Code) {
 		CellCount:    int16(len(regAllocator.cells)),
 		UpNames:      c.UpNames,
 		RegCount:     int16(len(regAllocator.regs)),
+		Template:     template,
 	})
+}
+
+// templateConstant returns the compiled form of a constant held in a
+// preloaded register.
+func templateConstant(k ir.Constant) code.Constant {
+	switch kk := k.(type) {
+	case ir.Int:
+		return code.Int(kk)
+	case ir.Float:
+		return code.Float(kk)
+	case ir.String:
+		return code.String(kk)
+	case ir.Bool:
+		return code.Bool(kk)
+	case ir.NilType:
+		return code.NilType{}
+	}
+	panic(fmt.Sprintf("cannot preload %T constant", k))
 }
 
 func (kc *ConstantCompiler) compileConstant(ki uint) {

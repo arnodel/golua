@@ -12,6 +12,12 @@ type RegData struct {
 	IsCell     bool
 	IsConstant bool
 	IsLocal    bool // the register holds a named local variable
+
+	// If Preloaded is true, the register holds the constant Kidx from the
+	// start of every call and nothing writes it: the function's register
+	// template sets it.  See PreloadConstants.
+	Preloaded bool
+	Kidx      uint
 }
 
 const regHasUpvalue uint = 1

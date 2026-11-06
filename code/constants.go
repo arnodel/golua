@@ -3,6 +3,7 @@ package code
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // A Constant is a literal that can be loaded into a register (that include code
@@ -20,6 +21,11 @@ type Code struct {
 	CellCount              int16    // Number of cell registers needed to run the code
 	RegCount               int16    // Number of registers needed to run the coee
 	UpNames                []string // Names of the upvalues
+
+	// Template holds the values of registers r1, r2, ... when a call starts:
+	// constants that operations read from those registers, so that the code
+	// never loads them.  Nothing writes these registers.
+	Template []Constant
 }
 
 var _ Constant = Code{}
@@ -27,7 +33,12 @@ var _ spanGetter = Code{}
 
 // ShortString returns a short string describing this constant (e.g. for disassembly)
 func (c Code) ShortString() string {
-	return fmt.Sprintf("function %s [%d - %d]", c.nameString(), c.StartOffset, c.EndOffset-1)
+	var b strings.Builder
+	fmt.Fprintf(&b, "function %s [%d - %d]", c.nameString(), c.StartOffset, c.EndOffset-1)
+	for i, k := range c.Template {
+		fmt.Fprintf(&b, " r%d=%s", i+1, k.ShortString())
+	}
+	return b.String()
 }
 
 // GetSpan returns the name of the function this code is compiled from, and the
