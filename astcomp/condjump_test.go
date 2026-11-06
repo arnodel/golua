@@ -94,6 +94,10 @@ L0:
 L1:
 L0:
 `},
+		{"repeat a = 1 until -1", `
+L1:
+L0:
+`},
 	} {
 		if got := controlFlow(t, "local a, b, c = ...\n"+tc.src, false); "\n"+got != tc.want {
 			t.Errorf("%s:\ngot%s\nwant%s", tc.src, "\n"+got, tc.want)

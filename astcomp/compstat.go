@@ -209,22 +209,21 @@ func (c *compiler) compileCond(s ast.CondStat, lbl ir.Label) {
 	c.CompileStat(s.Body)
 }
 
-// asUnOp returns e as a UnOp if it is one.  The parser makes pointers to
-// UnOp nodes, the compiler sometimes values.
-// constantTruth returns the truth of e if e is a constant: nil and false are
-// false, numbers, strings and true are true.
+// constantTruth returns the truth of e if its value is known at compile time:
+// nil and false are false, anything else is true.
 func constantTruth(e ast.ExpNode) (truth, ok bool) {
-	switch x := e.(type) {
-	case ast.Nil:
+	k, ok := constantValue(e)
+	switch k := k.(type) {
+	case ir.NilType:
 		return false, true
-	case ast.Bool:
-		return x.Val, true
-	case ast.Int, ast.Float, ast.String:
-		return true, true
+	case ir.Bool:
+		return bool(k), true
 	}
-	return false, false
+	return ok, ok
 }
 
+// asUnOp returns e as a UnOp if it is one.  The parser makes pointers to
+// UnOp nodes, the compiler sometimes values.
 func asUnOp(e ast.ExpNode) (ast.UnOp, bool) {
 	switch x := e.(type) {
 	case ast.UnOp:
