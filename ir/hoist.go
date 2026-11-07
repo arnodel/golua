@@ -99,9 +99,9 @@ func planLoop(a *analysis, l int) (p hoistPlan) {
 			blk := a.g.Blocks[q]
 			lbl, jumps, next := controlFlow(a.instrs[blk.End-1])
 			switch {
-			case jumps && a.g.labelBlock(lbl, a.instrs) == e && !next:
+			case jumps && a.g.LabelBlock(lbl) == e && !next:
 				p.edges = append(p.edges, blk.End-1) // before the jump in
-			case !jumps || a.g.labelBlock(lbl, a.instrs) != e:
+			case !jumps || a.g.LabelBlock(lbl) != e:
 				p.edges = append(p.edges, blk.End) // falls in
 			default:
 				p.ok = false // a conditional jump into the loop
@@ -238,19 +238,4 @@ func placeLoads(a *analysis, plans []hoistPlan, ch hoistChoices) *Edits {
 		lbl++
 	}
 	return e
-}
-
-// labelBlock returns the block that starts at lbl.
-func (g *Graph) labelBlock(lbl Label, instrs []Instruction) int {
-	for b, blk := range g.Blocks {
-		for i := blk.Start; i < blk.End; i++ {
-			if l, ok := instrs[i].(DeclareLabel); ok && l.Label == lbl {
-				return b
-			}
-			if !isLabel(instrs[i]) {
-				break
-			}
-		}
-	}
-	return -1
 }

@@ -83,6 +83,8 @@ type Graph struct {
 	// Order, or -1 if the block cannot run.  It answers "which of these two
 	// blocks comes first" without searching Order.
 	rank []int
+
+	labels map[Label]int // the block each label starts
 }
 
 // Block is a run of instructions, Instructions[Start:End].
@@ -121,6 +123,14 @@ func (g *Graph) Reachable(b int) bool {
 	return g.rank[b] >= 0
 }
 
+// LabelBlock returns the block that starts at lbl, or -1 if no block does.
+func (g *Graph) LabelBlock(lbl Label) int {
+	if b, ok := g.labels[lbl]; ok {
+		return b
+	}
+	return -1
+}
+
 // Dominates reports whether every path from the entry to block b goes
 // through block a.  A block dominates itself.  Nothing dominates an
 // unreachable block.
@@ -135,7 +145,7 @@ func (g *Graph) Dominates(a, b int) bool {
 }
 
 func (g *Graph) cutBlocks(instrs []Instruction) {
-	labelBlock := map[Label]int{}
+	g.labels = map[Label]int{}
 	start := 0
 	cut := func(end int) {
 		if end > start {
@@ -149,7 +159,7 @@ func (g *Graph) cutBlocks(instrs []Instruction) {
 			if i > 0 && !isLabel(instrs[i-1]) {
 				cut(i)
 			}
-			labelBlock[x.Label] = len(g.Blocks)
+			g.labels[x.Label] = len(g.Blocks)
 		default:
 			if _, jumps, next := controlFlow(instr); jumps || !next {
 				cut(i + 1)
@@ -162,8 +172,8 @@ func (g *Graph) cutBlocks(instrs []Instruction) {
 	}
 
 	target := func(lbl Label) int {
-		b, ok := labelBlock[lbl]
-		if !ok {
+		b := g.LabelBlock(lbl)
+		if b < 0 {
 			panic(fmt.Sprintf("jump to undeclared label %s", lbl))
 		}
 		return b
