@@ -37,10 +37,11 @@ import (
 // called in between could change them.  Named locals keep their copies when
 // they are the destination, so that their value stays observable.
 //
-// The code generator only reserves a slot for a register between its
-// TakeRegister and its ReleaseRegister; a register that is not taken keeps its
-// slot only until the next register is first used.  So a read is only moved
-// to a source that is taken at that point, and not past its release.
+// Only copies of named locals are read through.  A local is live for its
+// whole scope, so reading it instead of its copy costs nothing and lets the
+// copy die early; reading a temporary instead of its copy would keep the
+// temporary alive for longer.  Reading a register later than before is
+// always safe: the code generator computes register lifetimes itself.
 //
 // Registers are never reused for another purpose in a function, so a register
 // means the same thing throughout, and the counts of its reads and writes
@@ -61,6 +62,7 @@ func PropagateCopies(c Code) Code {
 	}
 	plain := func(r Register) bool { return !regs[r].IsCell }
 	temp := func(r Register) bool { return !regs[r].IsCell && !regs[r].IsLocal }
+	local := func(r Register) bool { return !regs[r].IsCell && regs[r].IsLocal }
 	deleted := make([]bool, len(instrs))
 
 	// State for the current straight-line stretch.
@@ -69,7 +71,6 @@ func PropagateCopies(c Code) Code {
 		lastDef   map[Register]int      // last instruction writing the register (alone)
 		lastTouch map[Register]int      // last instruction reading or writing the register
 	)
-	taken := map[Register]bool{} // registers between their take and their release
 	reset := func() {
 		copies = map[Register]Register{}
 		lastDef = map[Register]int{}
@@ -86,26 +87,8 @@ func PropagateCopies(c Code) Code {
 	}
 
 	for i, instr := range instrs {
-		switch x := instr.(type) {
-		case DeclareLabel:
+		if _, ok := instr.(DeclareLabel); ok {
 			reset() // a join point: nothing known about what came before
-			continue
-		case TakeRegister:
-			taken[x.Reg] = true
-			continue
-		case ReleaseRegister:
-			// The register's slot may be reused by the code generator once
-			// another register is allocated, so reads are no longer moved
-			// onto it.  (The compiler itself releases a register just before
-			// the instruction that reads it, which is fine: nothing is
-			// allocated in between.)  A copy held in the released register
-			// is still a copy.
-			taken[x.Reg] = false
-			for d, s := range copies {
-				if s == x.Reg {
-					delete(copies, d)
-				}
-			}
 			continue
 		}
 
@@ -157,9 +140,8 @@ func PropagateCopies(c Code) Code {
 			lastTouch[r] = i
 		}
 
-		// 3. Remember a copy between plain registers, if the source keeps its
-		// slot for as long as it is taken.
-		if mv, ok := asMove(instr); ok && plain(mv.Src) && plain(mv.Dst) && mv.Src != mv.Dst && taken[mv.Src] {
+		// 3. Remember a copy of a named local.
+		if mv, ok := asMove(instr); ok && local(mv.Src) && plain(mv.Dst) && mv.Src != mv.Dst {
 			copies[mv.Dst] = mv.Src
 		}
 

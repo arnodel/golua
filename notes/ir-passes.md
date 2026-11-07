@@ -53,7 +53,7 @@ condition costs an opcode".
   generator, which gives a register a slot only between the two.  The code
   generator computes them itself (`ircomp/lifetimes.go`), from liveness over
   the control-flow graph (`ir/cfg.go`), and discards any it finds in its
-  input.  The AST compiler still emits its own; a pass can ignore them, and
+  input.  The AST compiler emits none; a pass can ignore them, and
   may leave them wrong.  They emit no opcode.
 
 ## Constraints that come from the code generator
@@ -68,8 +68,6 @@ reads garbage.  Each one was found by a failing Lua test.
    register is first used.  Since the code generator computes the markers
    itself, this binds no pass: it takes every register over every point
    where its value may be read, so a pass may extend a read freely.
-   (`PropagateCopies` still tracks the compiler's markers from the time it
-   had to; that tracking can go.)
 2. **Operands are released just before use.**  `release r12; release r13;
    r12[r13] <- r6`: an instruction reads its operands before writing its
    destination, so the destination may take the slot of an operand read for
