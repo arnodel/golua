@@ -1,6 +1,7 @@
 package ircomp
 
 import (
+	"errors"
 	"fmt"
 	"math"
 
@@ -372,7 +373,7 @@ func (a *regAllocator) scratchReg(avoid ...code.Reg) code.Reg {
 		}
 	}
 	if len(a.regs) == math.MaxUint8 {
-		panic(newPanic("not enough registers"))
+		panic(notEnoughRegisters())
 	}
 	a.regs = append(a.regs, 0)
 	return code.ValueReg(uint8(len(a.regs) - 1))
@@ -385,15 +386,25 @@ func allocReg(regs []int) ([]int, uint8) {
 		}
 	}
 	if len(regs) == math.MaxUint8 {
-		panic(newPanic("not enough registers"))
+		panic(notEnoughRegisters())
 	}
 	i := len(regs)
 	return append(regs, 0), uint8(i)
 }
 
+// ErrNotEnoughRegisters is the cause of a compilation error when a function
+// needs more registers than an opcode can name.
+var ErrNotEnoughRegisters = errors.New("not enough registers")
+
 type CompilationPanic struct {
 	msg  string
 	line int32
+	err  error
+}
+
+// Unwrap returns the cause of the error, if there is one.
+func (p *CompilationPanic) Unwrap() error {
+	return p.err
 }
 
 func (p *CompilationPanic) Error() string {
@@ -403,6 +414,6 @@ func (p *CompilationPanic) Error() string {
 	return p.msg
 }
 
-func newPanic(msg string) *CompilationPanic {
-	return &CompilationPanic{msg: msg}
+func notEnoughRegisters() *CompilationPanic {
+	return &CompilationPanic{msg: ErrNotEnoughRegisters.Error(), err: ErrNotEnoughRegisters}
 }

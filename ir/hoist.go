@@ -40,7 +40,9 @@ const (
 //
 // Register lifetimes are computed afterwards (ComputeLifetimes), so the new
 // registers need no take or release here.  The new loads carry no line:
-// they stand for no statement, and line hooks should not see one.
+// they stand for no statement, and line hooks should not see one.  A
+// hoisted register is live over its whole loop, so a function that runs out
+// of registers with hoisting is compiled again without it (runtime/lib.go).
 func HoistConstants(c Code) Code {
 	instrs := c.Instructions
 	g := NewGraph(instrs)
