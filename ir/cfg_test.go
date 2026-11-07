@@ -132,6 +132,9 @@ b2 2-5 ->[] idom 0
 	if g.Reachable(1) || !g.Reachable(2) || !slices.Equal(g.Order, []int{0, 2}) {
 		t.Errorf("unreachable: Order %v", g.Order)
 	}
+	if g.LabelBlock(1) != 2 || g.LabelBlock(7) != -1 {
+		t.Errorf("LabelBlock: L1 in b%d, L7 in b%d", g.LabelBlock(1), g.LabelBlock(7))
+	}
 	if !slices.Equal(g.Blocks[2].Preds, []int{0, 1}) {
 		t.Errorf("unreachable: preds %v", g.Blocks[2].Preds)
 	}
