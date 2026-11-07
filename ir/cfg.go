@@ -102,10 +102,8 @@ func (g *Graph) cutBlocks(instrs []Instruction) {
 				cut(i)
 			}
 			labelBlock[x.Label] = len(g.Blocks)
-		case Jump, JumpIf:
-			cut(i + 1)
-		case Call:
-			if x.Tail {
+		default:
+			if _, jumps, next := controlFlow(instr); jumps || !next {
 				cut(i + 1)
 			}
 		}
@@ -126,15 +124,11 @@ func (g *Graph) cutBlocks(instrs []Instruction) {
 		blk := &g.Blocks[b]
 		fallsThrough := true
 		if blk.End > blk.Start {
-			switch x := instrs[blk.End-1].(type) {
-			case Jump:
-				blk.Succs = []int{target(x.Label)}
-				fallsThrough = false
-			case JumpIf:
-				blk.Succs = []int{target(x.Label)}
-			case Call:
-				fallsThrough = !x.Tail
+			lbl, jumps, next := controlFlow(instrs[blk.End-1])
+			if jumps {
+				blk.Succs = []int{target(lbl)}
 			}
+			fallsThrough = next
 		}
 		if fallsThrough && b+1 < len(g.Blocks) {
 			blk.Succs = append(blk.Succs, b+1)
@@ -147,6 +141,22 @@ func (g *Graph) cutBlocks(instrs []Instruction) {
 			g.Blocks[s].Preds = append(g.Blocks[s].Preds, b)
 		}
 	}
+}
+
+// controlFlow says where execution can go after instr: to lbl if jumps is
+// true, and to the next instruction if next is true.  A Jump only jumps, a
+// JumpIf does both, a tail Call does neither: it leaves the function.  Every
+// other instruction goes to the next one.
+func controlFlow(instr Instruction) (lbl Label, jumps, next bool) {
+	switch x := instr.(type) {
+	case Jump:
+		return x.Label, true, false
+	case JumpIf:
+		return x.Label, true, true
+	case Call:
+		return 0, false, !x.Tail
+	}
+	return 0, false, true
 }
 
 func isLabel(instr Instruction) bool {
