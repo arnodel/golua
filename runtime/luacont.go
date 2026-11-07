@@ -268,20 +268,22 @@ RunLoop:
 			reg := opcode.GetA()
 			coll := getReg(regs, cells, opcode.GetB())
 			key := consts[opcode.GetK8()]
-			guess := &c.slotCache[pc]
+			hints := c.slotCache
 			if !opcode.GetF() {
-				val, err := indexStringAt(t, coll, key, guess)
+				val, hint, err := indexStringAt(t, coll, key, hints[pc])
 				if err != nil {
 					c.pc = pc
 					return nil, err
 				}
+				hints[pc] = hint
 				setReg(regs, cells, reg, val)
 			} else {
-				err := setIndexStringAt(t, coll, key, getReg(regs, cells, reg), guess)
+				hint, err := setIndexStringAt(t, coll, key, getReg(regs, cells, reg), hints[pc])
 				if err != nil {
 					c.pc = pc
 					return nil, err
 				}
+				hints[pc] = hint
 			}
 			pc++
 			continue RunLoop
