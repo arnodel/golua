@@ -84,6 +84,35 @@ L1:
 jump L1 if r6 is not true
 L0:
 `},
+		// A constant condition needs no test.
+		{"repeat a = 1 until false", `
+L1:
+jump L1
+L0:
+`},
+		{"repeat a = 1 until not nil", `
+L1:
+L0:
+`},
+		{"repeat a = 1 until -1", `
+L1:
+L0:
+`},
+		// So do conditions whose value is known, not only literals.
+		{"if -1 then a = 1 end", `
+L1:
+L0:
+`},
+		{"if a and -1 then a = 1 end", `
+jump L1 if r2 is not true
+L1:
+L0:
+`},
+		{"while -1 do a = 1 end", `
+L1:
+jump L1
+L0:
+`},
 	} {
 		if got := controlFlow(t, "local a, b, c = ...\n"+tc.src, false); "\n"+got != tc.want {
 			t.Errorf("%s:\ngot%s\nwant%s", tc.src, "\n"+got, tc.want)
@@ -147,6 +176,49 @@ L0:
 	} {
 		if got := controlFlow(t, "local a, b, c = ...\n"+tc.src, true); "\n"+got != tc.want {
 			t.Errorf("%s:\ngot%s\nwant%s", tc.src, "\n"+got, tc.want)
+		}
+	}
+}
+
+// A negated number literal is a constant, except a float zero (-0.0 is
+// computed at run time).
+func TestNegatedLiterals(t *testing.T) {
+	for _, tc := range []struct {
+		src  string
+		want ir.Constant // nil if the negation stays
+	}{
+		{"local x = -1", ir.Int(-1)},
+		{"local x = - -2", ir.Int(2)},
+		{"local x = -2.5", ir.Float(-2.5)},
+		{"local x = -0x8000000000000000", ir.Int(-0x8000000000000000)},
+		{"local x = -0.0", nil},
+		{"local x = -(-0.0)", nil},
+	} {
+		stat, err := parsing.ParseChunk(scanner.New("test", []byte(tc.src)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		kidx, consts, err := CompileLuaChunk("test", stat)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var loads []ir.Constant
+		negs := 0
+		for _, instr := range consts[kidx].(*ir.Code).Instructions {
+			switch x := instr.(type) {
+			case ir.LoadConst:
+				loads = append(loads, consts[x.Kidx])
+			case ir.Transform:
+				if x.Op == ops.OpNeg {
+					negs++
+				}
+			}
+		}
+		switch {
+		case tc.want == nil && negs == 0:
+			t.Errorf("%s: no negation left", tc.src)
+		case tc.want != nil && (negs != 0 || len(loads) != 1 || loads[0] != tc.want):
+			t.Errorf("%s: loads %v and %d negations, want a load of %v", tc.src, loads, negs, tc.want)
 		}
 	}
 }

@@ -209,6 +209,19 @@ func (c *compiler) compileCond(s ast.CondStat, lbl ir.Label) {
 	c.CompileStat(s.Body)
 }
 
+// constantTruth returns the truth of e if its value is known at compile time:
+// nil and false are false, anything else is true.
+func constantTruth(e ast.ExpNode) (truth, ok bool) {
+	k, ok := constantValue(e)
+	switch k := k.(type) {
+	case ir.NilType:
+		return false, true
+	case ir.Bool:
+		return bool(k), true
+	}
+	return ok, ok
+}
+
 // asUnOp returns e as a UnOp if it is one.  The parser makes pointers to
 // UnOp nodes, the compiler sometimes values.
 func asUnOp(e ast.ExpNode) (ast.UnOp, bool) {
@@ -361,14 +374,22 @@ func (c *compiler) ProcessRepeatStat(s ast.RepeatStat) {
 		}
 		cond, loopIf = u.Operand, !loopIf
 	}
-	condReg := c.GetFreeRegister()
-	c.compileExpInto(cond, condReg)
-	pop()
-	c.emitInstr(s.Cond, ir.JumpIf{
-		Cond:  condReg,
-		Label: loopLbl,
-		Not:   !loopIf,
-	})
+	if truth, ok := constantTruth(cond); ok {
+		// "until false" loops back without a test, "until true" doesn't.
+		pop()
+		if truth == loopIf {
+			c.emitInstr(s.Cond, ir.Jump{Label: loopLbl})
+		}
+	} else {
+		condReg := c.GetFreeRegister()
+		c.compileExpInto(cond, condReg)
+		pop()
+		c.emitInstr(s.Cond, ir.JumpIf{
+			Cond:  condReg,
+			Label: loopLbl,
+			Not:   !loopIf,
+		})
+	}
 
 	must(c.EmitGotoLabel(breakLblName))
 	c.PopContext()

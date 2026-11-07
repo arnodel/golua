@@ -238,6 +238,35 @@ func (c *expCompiler) ProcessUnOpExp(u ast.UnOp) {
 	})
 }
 
+// constantValue returns the value of e if it is known at compile time: a
+// literal, or a negated number literal (the parser reads "-1" as "-" applied
+// to 1).  Integers wrap around as "-" does at run time.  A float zero is left
+// to be negated at run time: the constant table can't tell 0.0 from -0.0.
+func constantValue(e ast.ExpNode) (ir.Constant, bool) {
+	switch x := e.(type) {
+	case ast.Nil:
+		return ir.NilType{}, true
+	case ast.Bool:
+		return ir.Bool(x.Val), true
+	case ast.Int:
+		return ir.Int(x.Val), true
+	case ast.Float:
+		return ir.Float(x.Val), true
+	case ast.String:
+		return ir.String(x.Val), true
+	}
+	if u, ok := asUnOp(e); ok && u.Op == ops.OpNeg {
+		k, _ := constantValue(u.Operand)
+		switch k := k.(type) {
+		case ir.Int:
+			return -k, true
+		case ir.Float:
+			return -k, k != 0
+		}
+	}
+	return nil, false
+}
+
 func (c *expCompiler) CompileExp(e ast.ExpNode) {
 	e.ProcessExp(c)
 }
@@ -305,6 +334,10 @@ func (c *etcExpCompiler) CompileTailExp(e ast.TailExpNode) {
 
 // compileExp compiles the given expression into a register and returns it.
 func (c *compiler) compileExp(e ast.ExpNode, dst ir.Register) ir.Register {
+	if k, ok := constantValue(e); ok {
+		c.emitLoadConst(e, k, dst)
+		return dst
+	}
 	ec := expCompiler{
 		compiler: c,
 		dst:      dst,

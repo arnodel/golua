@@ -17,7 +17,7 @@ import (
 //
 //	if a jump THEN; if not b jump ELSE; if not c jump ELSE; THEN: ...
 func (c *compiler) compileCondJump(e ast.ExpNode, lbl ir.Label, jumpIf bool) {
-	e.ProcessExp(condJumpCompiler{compiler: c, lbl: lbl, jumpIf: jumpIf})
+	condJumpCompiler{compiler: c, lbl: lbl, jumpIf: jumpIf}.cond(e)
 }
 
 // compileValueJump is compileCondJump for an operand of "and" or "or"
@@ -25,7 +25,7 @@ func (c *compiler) compileCondJump(e ast.ExpNode, lbl ir.Label, jumpIf bool) {
 // falls through, the value isn't needed, and dst holds nothing in particular.
 // So in "x = a and b or c", a false a jumps straight to c.
 func (c *compiler) compileValueJump(e ast.ExpNode, dst ir.Register, lbl ir.Label, jumpIf bool) {
-	e.ProcessExp(condJumpCompiler{compiler: c, lbl: lbl, jumpIf: jumpIf, keep: true, dst: dst})
+	condJumpCompiler{compiler: c, lbl: lbl, jumpIf: jumpIf, keep: true, dst: dst}.cond(e)
 }
 
 // condJumpCompiler compiles an expression as a condition, for
@@ -40,6 +40,17 @@ type condJumpCompiler struct {
 }
 
 var _ ast.ExpProcessor = condJumpCompiler{}
+
+// cond compiles e as a condition.  Every condition starts here: one whose
+// value is known at compile time jumps unconditionally or not at all, the
+// others are compiled according to their kind.
+func (c condJumpCompiler) cond(e ast.ExpNode) {
+	if truth, ok := constantTruth(e); ok {
+		c.constant(e, truth)
+		return
+	}
+	e.ProcessExp(c)
+}
 
 // ProcessUnOpExp compiles a UnOp: "not" swaps the jump's direction, unless
 // its value is needed.
@@ -78,7 +89,7 @@ func (c condJumpCompiler) logicalJump(b ast.BinOp) {
 	deciding := b.OpType == ops.OpOr
 	if deciding == c.jumpIf {
 		for _, e := range operands {
-			e.ProcessExp(c)
+			c.cond(e)
 		}
 		return
 	}
@@ -87,7 +98,7 @@ func (c condJumpCompiler) logicalJump(b ast.BinOp) {
 	for _, e := range operands[:last] {
 		c.compileCondJump(e, skip, deciding)
 	}
-	operands[last].ProcessExp(c)
+	c.cond(operands[last])
 	must(c.EmitLabelNoLine(skip))
 }
 
@@ -100,8 +111,8 @@ func logicalOperands(b ast.BinOp) []ast.ExpNode {
 	return operands
 }
 
-// Constants: the jump is unconditional, or there is none.  A constant that
-// doesn't jump needs no value.
+// Literals: cond handles them before they get here, as it does any value
+// known at compile time.
 
 func (c condJumpCompiler) ProcesBoolExp(b ast.Bool)      { c.constant(b, b.Val) }
 func (c condJumpCompiler) ProcessNilExp(n ast.Nil)       { c.constant(n, false) }
@@ -109,6 +120,9 @@ func (c condJumpCompiler) ProcessIntExp(n ast.Int)       { c.constant(n, true) }
 func (c condJumpCompiler) ProcessFloatExp(f ast.Float)   { c.constant(f, true) }
 func (c condJumpCompiler) ProcessStringExp(s ast.String) { c.constant(s, true) }
 
+// constant compiles a condition whose truth is known: the jump is
+// unconditional, or there is none.  A constant that doesn't jump needs no
+// value.
 func (c condJumpCompiler) constant(e ast.ExpNode, truth bool) {
 	if truth == c.jumpIf {
 		if c.keep {
