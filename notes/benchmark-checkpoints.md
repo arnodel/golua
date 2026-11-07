@@ -34,6 +34,57 @@ for its interpreter alone).  Shopify/go-lua has no command-line interpreter
 and implements Lua 5.2, which the benchmarks outgrow; apogee's own harness
 drives it as a library and publishes 4.8× C Lua for it.
 
+## 2026-11-08, golua over its revisions, Apple M1 Max
+
+Taken with [`benchmarks/gauge.sh`](../benchmarks/gauge.sh), 3 rounds,
+against C Lua 5.5.1 (Homebrew): the previous checkpoint's last column
+(94f130b, #186) and lua5.5 after #210.  All 23 benchmarks run on both, so
+the geomean is over 23, not 20 as in the table below; the three that join
+(fasta, k-nucleotide, regex-dna) are among the closer ones to C Lua, which is
+why 94f130b reads 2.99× here and 3.16× there.
+
+| benchmark | 94f130b (3 Nov) | 9d0e7f5 (lua5.5) |
+|---|---|---|
+| bounce | 3.47× | 3.35× |
+| cd | 2.30× | 2.25× |
+| deltablue | 3.31× | 3.26× |
+| havlak | 2.19× | 2.15× |
+| json | 3.43× | 3.38× |
+| list | 2.81× | 2.74× |
+| mandelbrot | 2.50× | 2.05× |
+| nbody | 3.34× | 3.36× |
+| permute | 3.94× | 3.73× |
+| queens | 3.61× | 3.40× |
+| richards | 3.51× | 3.46× |
+| sieve | 3.54× | 2.93× |
+| storage | 2.32× | 2.28× |
+| towers | 4.57× | 4.39× |
+| binary-trees | 3.28× | 3.24× |
+| fannkuch-redux | 2.92× | 2.39× |
+| spectral-norm | 3.20× | 3.10× |
+| fasta | 3.19× | 2.95× |
+| k-nucleotide | 2.15× | 2.11× |
+| regex-dna | 1.36× | 1.36× |
+| coroutine-ring | 5.99× | 5.83× |
+| md5 | 3.60× | 3.38× |
+| life | 1.65× | 1.51× |
+| **geomean of 23** | **2.99×** | **2.84×** |
+
+Notes:
+
+- Since 3 November the suite is 5.0% faster, which agrees with the sum of
+  the changes measured one by one: hoisting constants out of loops (#203,
+  −3.0%), calls listing their arguments (#210, −2.0%), negated literals and
+  constant conditions (#198, fannkuch).  The pipeline of IR passes was also
+  rebuilt (#200–#209: control-flow graph, register lifetimes computed by the
+  code generator, passes as Edits) at no cost in opcodes or time.
+- The loop benchmarks moved most: mandelbrot 2.50× to 2.05×, sieve 3.54× to
+  2.93×, fannkuch 2.92× to 2.39×; the call-heavy ones a few percent each.
+- Time per dispatched opcode on lua5.5 today: 5.6 to 7.5 ns in the loop
+  benchmarks, 14 to 23 ns where calls or tables dominate.  The remaining
+  gap to C Lua is per-opcode cost in the former and per-call and
+  per-allocation cost in the latter, not opcode counts.
+
 ## 2026-11-03, golua over its revisions, Apple M1 Max
 
 Taken with [`benchmarks/gauge.sh`](../benchmarks/gauge.sh), 3 rounds,
