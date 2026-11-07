@@ -126,21 +126,21 @@ func planLoop(a *analysis, l int) (p hoistPlan) {
 	return p
 }
 
-// hoistChoices says which loads are hoisted and where.
+// hoistChoices says which loads are hoisted and where.  Each hoisted
+// constant of each loop is numbered; placeLoads gives each number a
+// register.
 type hoistChoices struct {
-	loads   map[int]Register          // position of a hoisted load -> the register read instead
-	byLoop  map[int]map[uint]Register // loop -> constant -> its register
-	nregs   int                       // registers the code has
-	newRegs int                       // registers added, numbered from nregs
+	loads  map[int]int          // position of a hoisted load -> the number it reads
+	byLoop map[int]map[uint]int // loop -> constant -> its number
+	count  int                  // numbers given out
 }
 
 // chooseLoads picks, for each load that can be hoisted, the outermost loop
 // around it that has a plan and room for its constant, or already has it.
 func chooseLoads(a *analysis, plans []hoistPlan) hoistChoices {
 	ch := hoistChoices{
-		loads:  map[int]Register{},
-		byLoop: map[int]map[uint]Register{},
-		nregs:  len(a.code.Registers),
+		loads:  map[int]int{},
+		byLoop: map[int]map[uint]int{},
 	}
 	for i, instr := range a.instrs {
 		load, ok := instr.(LoadConst)
@@ -163,25 +163,25 @@ func chooseLoads(a *analysis, plans []hoistPlan) hoistChoices {
 			continue
 		}
 		if ch.byLoop[target] == nil {
-			ch.byLoop[target] = map[uint]Register{}
+			ch.byLoop[target] = map[uint]int{}
 		}
-		r, ok := ch.byLoop[target][load.Kidx]
+		k, ok := ch.byLoop[target][load.Kidx]
 		if !ok {
-			r = Register(ch.nregs + ch.newRegs)
-			ch.newRegs++
-			ch.byLoop[target][load.Kidx] = r
+			k = ch.count
+			ch.count++
+			ch.byLoop[target][load.Kidx] = k
 		}
-		ch.loads[i] = r
+		ch.loads[i] = k
 	}
 	return ch
 }
 
-// loadsFor returns the loads of loop l's hoisted constants, in register
-// order.
-func (ch hoistChoices) loadsFor(l int) []Instruction {
+// loadsFor returns the loads of loop l's hoisted constants into their
+// registers, in register order.
+func (ch hoistChoices) loadsFor(l int, regs []Register) []Instruction {
 	var loads []Instruction
-	for kidx, r := range ch.byLoop[l] {
-		loads = append(loads, LoadConst{Dst: r, Kidx: kidx})
+	for kidx, k := range ch.byLoop[l] {
+		loads = append(loads, LoadConst{Dst: regs[k], Kidx: kidx})
 	}
 	slices.SortFunc(loads, func(a, b Instruction) int {
 		return int(a.(LoadConst).Dst) - int(b.(LoadConst).Dst)
@@ -189,20 +189,21 @@ func (ch hoistChoices) loadsFor(l int) []Instruction {
 	return loads
 }
 
-// placeLoads turns the choices into edits: the hoisted loads deleted and
-// their destinations renamed, the new registers, and each loop's loads put
-// where its plan says.  Loops that split the same entry put their loads
+// placeLoads turns the choices into edits: a register for each hoisted
+// constant, the hoisted loads deleted and their destinations renamed to it,
+// and each loop's loads put where its plan says.  Loops that split the same entry put their loads
 // under one new label, which every jump back to that entry from inside any
 // of them is moved to: a hoisted register is never written again, so no
 // jump back needs to pass the loads.
 func placeLoads(a *analysis, plans []hoistPlan, ch hoistChoices) *Edits {
 	e := NewEdits(a.code)
-	for range ch.newRegs {
-		e.NewRegister(RegData{})
+	regs := make([]Register, ch.count)
+	for k := range regs {
+		regs[k] = e.NewRegister(RegData{})
 	}
-	for pos, r := range ch.loads {
+	for pos, k := range ch.loads {
 		e.Delete(pos)
-		e.RenameReads(a.instrs[pos].(LoadConst).Dst, r)
+		e.RenameReads(a.instrs[pos].(LoadConst).Dst, regs[k])
 	}
 	splitLoops := map[int][]int{} // entry block -> loops split there
 	for l := range a.g.Loops {
@@ -210,7 +211,7 @@ func placeLoads(a *analysis, plans []hoistPlan, ch hoistChoices) *Edits {
 			continue
 		}
 		for _, pos := range plans[l].edges {
-			for _, in := range ch.loadsFor(l) {
+			for _, in := range ch.loadsFor(l, regs) {
 				if !slices.Contains(e.Inserted(pos), in) {
 					e.InsertBefore(pos, in)
 				}
@@ -224,7 +225,7 @@ func placeLoads(a *analysis, plans []hoistPlan, ch hoistChoices) *Edits {
 	for _, entry := range slices.Sorted(maps.Keys(splitLoops)) {
 		labels, pos := a.leadingLabels(entry)
 		for _, l := range splitLoops[entry] {
-			e.InsertBefore(pos, ch.loadsFor(l)...)
+			e.InsertBefore(pos, ch.loadsFor(l, regs)...)
 		}
 		e.InsertBefore(pos, DeclareLabel{Label: lbl})
 		for _, l := range splitLoops[entry] {
