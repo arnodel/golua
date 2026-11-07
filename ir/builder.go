@@ -12,7 +12,6 @@ type RegData struct {
 	IsCell     bool
 	IsConstant bool
 	IsLocal    bool // the register holds a named local variable
-	refCount   int
 }
 
 const regHasUpvalue uint = 1
@@ -146,23 +145,6 @@ func (c *CodeBuilder) GetFreeRegister() Register {
 	return reg
 }
 
-func (c *CodeBuilder) TakeRegister(reg Register) {
-	c.registers[reg].refCount++
-	if c.registers[reg].refCount == 1 {
-		c.EmitNoLine(TakeRegister{Reg: reg})
-	}
-}
-
-func (c *CodeBuilder) ReleaseRegister(reg Register) {
-	if c.registers[reg].refCount == 0 {
-		panic("cannot release register")
-	}
-	c.registers[reg].refCount--
-	if c.registers[reg].refCount == 0 {
-		c.EmitNoLine(ReleaseRegister{Reg: reg})
-	}
-}
-
 func (c *CodeBuilder) PushContext() {
 	c.context = c.context.pushNew()
 }
@@ -175,9 +157,6 @@ func (c *CodeBuilder) PopContext() {
 	c.emitTruncate(context.top())
 	c.context = context
 	c.emitClearReg(top)
-	for _, tr := range top.regs() {
-		c.ReleaseRegister(tr.reg)
-	}
 }
 
 func (c *CodeBuilder) emitClearReg(m lexicalScope) {
@@ -226,7 +205,6 @@ func (c *CodeBuilder) EmitJump(lblName Name, line int) bool {
 }
 
 func (c *CodeBuilder) DeclareLocal(name Name, reg Register) {
-	c.TakeRegister(reg)
 	c.registers[reg].IsLocal = true
 	c.context.addToTop(name, reg)
 }

@@ -33,7 +33,6 @@ func (c *expCompiler) ProcessBinOpExp(b ast.BinOp) {
 	}
 	lsrc := c.compileExpNoDestHint(b.Left)
 	for _, r := range b.Right {
-		c.TakeRegister(lsrc)
 		rsrc := c.compileExpNoDestHint(r.Operand)
 		switch r.Op {
 		case ops.OpNeq:
@@ -73,7 +72,6 @@ func (c *expCompiler) ProcessBinOpExp(b ast.BinOp) {
 				Rsrc: rsrc,
 			})
 		}
-		c.ReleaseRegister(lsrc)
 		lsrc = c.dst
 	}
 }
@@ -134,14 +132,12 @@ func (c *expCompiler) ProcessIndexExp(e ast.IndexExp) {
 		})
 		return
 	}
-	c.TakeRegister(tReg)
 	iReg := c.compileExpNoDestHint(e.Idx)
 	c.emitInstr(e, ir.Lookup{
 		Dst:   c.dst,
 		Table: tReg,
 		Index: iReg,
 	})
-	c.ReleaseRegister(tReg)
 }
 
 // ProcessNameExp compiles a NameExp.
@@ -187,7 +183,6 @@ func (c *expCompiler) ProcessStringExp(s ast.String) {
 // ProcessTableConstructorExp compiles a TableConstructorExp.
 func (c *expCompiler) ProcessTableConstructorExp(t ast.TableConstructor) {
 	c.emitInstr(t, ir.MkTable{Dst: c.dst})
-	c.TakeRegister(c.dst)
 	currImplicitKey := 1
 	for i, field := range t.Fields {
 		keyExp := field.Key
@@ -205,7 +200,6 @@ func (c *expCompiler) ProcessTableConstructorExp(t ast.TableConstructor) {
 			}
 		}
 		valReg := c.compileExpNoDestHint(field.Value)
-		c.TakeRegister(valReg)
 		if noKey {
 			keyExp = ast.Int{Val: uint64(currImplicitKey)}
 			currImplicitKey++
@@ -224,9 +218,7 @@ func (c *expCompiler) ProcessTableConstructorExp(t ast.TableConstructor) {
 				Src:   valReg,
 			})
 		}
-		c.ReleaseRegister(valReg)
 	}
-	c.ReleaseRegister(c.dst)
 }
 
 // ProcessUnOpExp compiles a UnOpExp.
@@ -396,12 +388,10 @@ func (c *compiler) compileExpList(exps []ast.ExpNode, dstRegs []ir.Register) {
 	for i, exp := range exps[:commonCount] {
 		dst := c.GetFreeRegister()
 		c.compileExpInto(exp, dst)
-		c.TakeRegister(dst)
 		dstRegs[i] = dst
 	}
 	for i := commonCount; i < len(dstRegs); i++ {
 		dst := c.GetFreeRegister()
-		c.TakeRegister(dst)
 		dstRegs[i] = dst
 	}
 	if doTailExp {
@@ -470,7 +460,6 @@ func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
 	var contReg ir.Register
 	if f.Method.Val != "" {
 		self := fReg
-		c.TakeRegister(self)
 		fReg = c.GetFreeRegister()
 		c.emitInstr(f.Target, ir.LookupK{
 			Dst:   fReg,
@@ -487,7 +476,6 @@ func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
 			Cont: contReg,
 			Item: self,
 		})
-		c.ReleaseRegister(self)
 	} else {
 		contReg = c.GetFreeRegister()
 		c.emitInstr(f, ir.MkCont{
@@ -505,7 +493,6 @@ func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
 
 // TODO: move this to somewhere better
 func (c *compiler) compilePushArgs(args []ast.ExpNode, contReg ir.Register) {
-	c.TakeRegister(contReg)
 	for i, arg := range args {
 		var argReg ir.Register
 		var isTailArg bool
@@ -525,7 +512,6 @@ func (c *compiler) compilePushArgs(args []ast.ExpNode, contReg ir.Register) {
 			Etc:  isTailArg,
 		})
 	}
-	c.ReleaseRegister(contReg)
 }
 
 func globalVar(n ast.Name) ast.IndexExp {

@@ -21,12 +21,10 @@ var _ ast.VarProcessor = (*assignCompiler)(nil)
 func (c *assignCompiler) ProcessIndexExpVar(e ast.IndexExp) {
 	tReg := c.GetFreeRegister()
 	c.compileExpInto(e.Coll, tReg)
-	c.TakeRegister(tReg)
 	if s, ok := e.Idx.(ast.String); ok && !c.checkNotDefined {
 		// A constant key (e.g. a field name) needs no register.
 		kidx := c.GetConstantIndex(ir.String(s.Val))
 		c.assigns = append(c.assigns, func(src ir.Register) {
-			c.ReleaseRegister(tReg)
 			c.emitInstr(e, ir.SetIndexK{
 				Table: tReg,
 				Kidx:  kidx,
@@ -37,11 +35,8 @@ func (c *assignCompiler) ProcessIndexExpVar(e ast.IndexExp) {
 	}
 	iReg := c.GetFreeRegister()
 	c.compileExpInto(e.Idx, iReg)
-	c.TakeRegister(iReg)
 	checkNotDefined := c.checkNotDefined
 	c.assigns = append(c.assigns, func(src ir.Register) {
-		c.ReleaseRegister(tReg)
-		c.ReleaseRegister(iReg)
 		c.emitInstr(e, ir.SetIndex{
 			Table:           tReg,
 			Index:           iReg,
@@ -102,7 +97,6 @@ func (c *compiler) compileAssignmentsWithCheck(lvals []ast.Var, dsts []ir.Regist
 	}
 	// Compile the assignments
 	for i, reg := range dsts {
-		c.ReleaseRegister(reg)
 		ac.assigns[i](reg)
 	}
 }
