@@ -41,8 +41,7 @@ import (
 // whole scope, so reading it instead of its copy costs nothing and lets the
 // copy die early; reading a temporary instead of its copy would keep the
 // temporary alive for longer.  Reading a register later than before is
-// always safe: register lifetimes are computed after this pass
-// (ComputeLifetimes).
+// always safe: the code generator computes register lifetimes itself.
 //
 // Registers are never reused for another purpose in a function, so a register
 // means the same thing throughout, and the counts of its reads and writes
