@@ -12,37 +12,112 @@ var (
 	MetaFieldGcValue = StringValue(MetaFieldGcString)
 )
 
-// The names of the metamethods the runtime looks up, built once.  Making the
-// Value on each lookup, as StringValue(name) does, boxes the name into an
-// interface every time, and a metatable is probed on every lookup that
-// misses, every new key set, and every operation on a non-number.
-var (
-	metaIndex     = StringValue("__index")
-	metaNewindex  = StringValue("__newindex")
-	metaCall      = StringValue("__call")
-	metaLen       = StringValue("__len")
-	metaConcat    = StringValue("__concat")
-	metaClose     = StringValue("__close")
-	metaName      = StringValue("__name")
-	metaMetatable = StringValue("__metatable")
+// A metaID names one of the metamethods the runtime looks up.  Looking a
+// metamethod up by id rather than by name lets a table that is a metatable
+// keep the answers (see metaCache).
+type metaID uint8
 
-	metaEq = StringValue("__eq")
-	metaLt = StringValue("__lt")
-	metaLe = StringValue("__le")
+const (
+	metaIndex metaID = iota
+	metaNewindex
+	metaCall
+	metaLen
+	metaConcat
+	metaClose
+	metaName
+	metaMetatable
 
-	metaAdd  = StringValue("__add")
-	metaSub  = StringValue("__sub")
-	metaMul  = StringValue("__mul")
-	metaDiv  = StringValue("__div")
-	metaIdiv = StringValue("__idiv")
-	metaMod  = StringValue("__mod")
-	metaPow  = StringValue("__pow")
-	metaUnm  = StringValue("__unm")
+	metaEq
+	metaLt
+	metaLe
 
-	metaBand = StringValue("__band")
-	metaBor  = StringValue("__bor")
-	metaBxor = StringValue("__bxor")
-	metaShl  = StringValue("__shl")
-	metaShr  = StringValue("__shr")
-	metaBnot = StringValue("__bnot")
+	metaAdd
+	metaSub
+	metaMul
+	metaDiv
+	metaIdiv
+	metaMod
+	metaPow
+	metaUnm
+
+	metaBand
+	metaBor
+	metaBxor
+	metaShl
+	metaShr
+	metaBnot
+	metaGc
+
+	numMeta
 )
+
+// metaNames holds the name of each metamethod as a Value, built once: making
+// the Value on each lookup, as StringValue(name) does, boxes the name into an
+// interface every time.
+var metaNames = func() (names [numMeta]Value) {
+	for id, name := range map[metaID]string{
+		metaIndex: "__index", metaNewindex: "__newindex", metaCall: "__call",
+		metaLen: "__len", metaConcat: "__concat", metaClose: "__close",
+		metaName: "__name", metaMetatable: "__metatable",
+		metaEq: "__eq", metaLt: "__lt", metaLe: "__le",
+		metaAdd: "__add", metaSub: "__sub", metaMul: "__mul", metaDiv: "__div",
+		metaIdiv: "__idiv", metaMod: "__mod", metaPow: "__pow", metaUnm: "__unm",
+		metaBand: "__band", metaBor: "__bor", metaBxor: "__bxor",
+		metaShl: "__shl", metaShr: "__shr", metaBnot: "__bnot",
+		metaGc: MetaFieldGcString,
+	} {
+		names[id] = StringValue(name)
+	}
+	return names
+}()
+
+// metaIDs maps a metamethod's name to its id.
+var metaIDs = func() map[string]metaID {
+	ids := map[string]metaID{}
+	for id, name := range metaNames {
+		ids[name.AsString()] = metaID(id)
+	}
+	return ids
+}()
+
+// A metaCache holds the metamethods of a table that is used as a metatable,
+// as the runtime finds them: a value, or nil for an absent one, which is the
+// usual answer (every store of a new key into a table with a metatable asks
+// for __newindex).  Looking a metamethod up is then an array read in place
+// of a string lookup, and the cache is cleared by any write to the table.
+//
+// Only tables that have been set as the metatable of something carry one;
+// the others pay a nil check on each write, nothing else.
+type metaCache struct {
+	known uint32 // which of vals are filled
+	vals  [numMeta]Value
+}
+
+// markMetatable gives t a metaCache, if it has none: it is about to become
+// the metatable of something.
+func (t *Table) markMetatable() {
+	if t != nil && t.metaCache == nil {
+		t.metaCache = &metaCache{}
+	}
+}
+
+// metaChanged forgets the metamethods of t after a write to it.
+func (t *Table) metaChanged() {
+	t.metaCache.known = 0
+}
+
+// metaField returns t's metamethod id, nil if absent, from the cache when t
+// is a metatable.
+func (t *Table) metaField(id metaID) Value {
+	c := t.metaCache
+	if c == nil {
+		return t.getString(metaNames[id])
+	}
+	if c.known&(1<<id) != 0 {
+		return c.vals[id]
+	}
+	v := t.getString(metaNames[id])
+	c.vals[id] = v
+	c.known |= 1 << id
+	return v
+}

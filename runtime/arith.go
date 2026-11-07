@@ -220,12 +220,12 @@ func Pow(x, y Value) (Value, bool) {
 
 // binaryArithFallback tries the metamethod op (a name from metatables.go)
 // for x op y, and returns an error if neither operand has it.
-func binaryArithFallback(t *Thread, op Value, x, y Value) (Value, error) {
+func binaryArithFallback(t *Thread, op metaID, x, y Value) (Value, error) {
 	res, err, ok := metabin(t, op, x, y)
 	if ok {
 		return res, err
 	}
-	return NilValue, BinaryArithmeticError(op.AsString()[2:], x, y)
+	return NilValue, BinaryArithmeticError(metaNames[op].AsString()[2:], x, y)
 }
 
 // BinaryArithmeticError returns an error describing the problem with trying to
@@ -243,12 +243,12 @@ func BinaryArithmeticError(op string, x, y Value) error {
 	return fmt.Errorf("attempt to perform arithmetic on a %s value", wrongVal.CustomTypeName())
 }
 
-func unaryArithFallback(t *Thread, op Value, x Value) (Value, error) {
+func unaryArithFallback(t *Thread, op metaID, x Value) (Value, error) {
 	res, err, ok := metaun(t, op, x)
 	if ok {
 		return res, err
 	}
-	return NilValue, UnaryArithmeticError(op.AsString()[2:], x)
+	return NilValue, UnaryArithmeticError(metaNames[op].AsString()[2:], x)
 }
 
 // UnaryArithmeticError returns an error describing the problem with trying to
