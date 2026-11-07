@@ -20,8 +20,8 @@ type Code struct {
 	CellCount    int16
 
 	// slotCache holds a hint for each constant-key table access in the
-	// code, by opcode position: what the access returned last time to be
-	// given back next time.  See slotcache.go.
+	// code, by opcode position, which the access reads and updates.  See
+	// slotcache.go.
 	slotCache []lookupHint
 }
 
@@ -139,6 +139,7 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 				RegCount:     k.RegCount,
 				CellCount:    k.CellCount,
 			}
+			r.RequireArrSize(unsafe.Sizeof(lookupHint{}), len(c.code))
 			c.slotCache = make([]lookupHint, len(c.code))
 			// The compiler is trusted to produce code that passes, so a
 			// failure here is a bug in it rather than an error to report.

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"unsafe"
 
 	"github.com/arnodel/golua/code"
 )
@@ -72,9 +73,7 @@ func UnmarshalConst(r io.Reader, budget uint64) (v Value, used uint64, err error
 	return v, budget - br.budget, br.err
 }
 
-//
 // bwriter: helper data struture to serialise values
-//
 type bwriter struct {
 	w   io.Writer
 	err error
@@ -203,6 +202,7 @@ func (r *breader) readConst() (v Value) {
 	case CodeType:
 		x := new(Code)
 		r.readCode(x)
+		r.consumeBudget(uint64(unsafe.Sizeof(lookupHint{})) * uint64(len(x.code)))
 		x.slotCache = make([]lookupHint, len(x.code))
 		if r.err == nil {
 			r.err = x.verify()
