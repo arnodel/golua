@@ -13,22 +13,67 @@ import (
 // instruction and left only after their last.  A block starts at a label
 // (consecutive labels share a block) or after an instruction that ends one,
 // and ends after a Jump, a JumpIf or a tail Call, or just before a label.
+// The blocks are the nodes of a directed graph whose edges are the jumps and
+// the fall-throughs from one block to the next; a loop is a cycle in it.
 //
 // A non-tail Call is not an edge: with continuations, the code resumes at
 // the next instruction.  Neither is an error, which leaves the whole
 // function, nor TruncateCloseStack, whose __close handlers come back.  A
 // tail Call leaves the function, and so does falling off the end.
+//
+// Two examples.  First a while loop as the compiler lays it out, with the
+// test after the body and the loop entered by jumping to the test:
+//
+//	b0: jump L2             b0 → b2
+//	b1: L1: body            b1 → b2
+//	b2: L2: if c jump L1    b2 → b1, b3
+//	b3: after
+//
+// Order is b0 b2 b3 b1: execution reaches the test before the body.  Every
+// edge goes forward in it except b1 → b2, the jump back that closes the
+// loop.  b2 dominates b1, since the body is only entered from the test, but
+// b1 does not dominate b2 although it comes first in the code: the first
+// time round, b0 jumped straight to b2.  The one loop is {b1, b2}, entered
+// at b2 and exiting to b3.  Code meant to run once before the loop belongs
+// in b0, which dominates both.
+//
+// Then a loop that goto enters at two places, schematically:
+//
+//	if c then goto b end
+//	::a:: x = x + 1
+//	::b:: x = x + 10
+//	if x < 50 then goto a end
+//
+//	b0: if c jump L1                     b0 → b1, b2
+//	b1: L0: x = x + 1                    b1 → b2
+//	b2: L1: x = x + 10; if x < 50 jump L0    b2 → b1, b3
+//	b3: after
+//
+// Order is b0 b1 b2 b3, with b2 → b1 the edge that closes the cycle.  The
+// loop is {b1, b2}, entered at both b1 (falling in) and b2 (the goto), so
+// neither dominates the other: b0 is the immediate dominator of both.  No
+// single block of the loop runs before all the others, which is why loops
+// are found as strongly connected components rather than from a header.
 type Graph struct {
+	// Blocks holds the blocks in the order of the code.  Block 0 is the
+	// entry.
 	Blocks []Block
 
-	// Order holds the blocks reachable from the entry (block 0), in reverse
-	// postorder: a block comes before its successors, except along the jumps
-	// that close loops.
+	// Order is a linearisation of the blocks that can run: every edge goes
+	// from an earlier block to a later one, except the edges that close
+	// cycles.  It is the reverse postorder of a depth-first walk from the
+	// entry: a block is written down once everything it leads to has been
+	// visited, and the list is reversed.  An edge met on the way to a block
+	// the walk is still inside is one that closes a cycle; those are the
+	// only ones that go backwards.  Blocks that cannot run are absent.  A
+	// block's dominators all come before it.
 	Order []int
 
 	// Idom holds, for each block, its immediate dominator: the last block
 	// that every path from the entry to it goes through.  The entry is its
-	// own; an unreachable block has -1.
+	// own; an unreachable block has -1.  Following Idom from any reachable
+	// block leads to the entry, so the immediate dominators form a tree,
+	// which Dominates walks.
 	Idom []int
 
 	// Loops holds the loops, each before the loops nested in it.
@@ -40,7 +85,7 @@ type Graph struct {
 // Block is a run of instructions, Instructions[Start:End].
 type Block struct {
 	Start, End   int
-	Succs, Preds []int // in increasing order, without repeats
+	Succs, Preds []int // block indices, increasing, without repeats
 	Loop         int   // innermost loop containing the block, or -1
 }
 
