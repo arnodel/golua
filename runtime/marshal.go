@@ -203,7 +203,7 @@ func (r *breader) readConst() (v Value) {
 	case CodeType:
 		x := new(Code)
 		r.readCode(x)
-		x.slotCache = make([]uint32, len(x.code))
+		x.slotCache = make([]siteGuess, len(x.code))
 		if r.err == nil {
 			r.err = x.verify()
 		}
