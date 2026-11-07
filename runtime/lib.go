@@ -453,26 +453,32 @@ func (r *Runtime) compileLuaStat(name string, stat *ast.BlockStat, statSize uint
 
 	statSize = 0 // So that the deferred function above doesn't release the memory again.
 
-	// Optimise the ir code
-	constants = ir.OptimiseConstants(constants)
-
-	// Set up the IR to code compiler
-	kc := ircomp.NewConstantCompiler(constants, code.NewBuilder(name))
-	kc.QueueConstant(kidx)
-
 	// Account for CPU and memory needed to compile IR to a code unit.  This is
 	// an estimate, but unitSize is proportional to the size of the IR consts.
 	unitSize := constsSize
 	r.LinearRequire(4, unitSize) // 4 is a factor pulled out of thin air
 
-	// Compile IR to code
-	unit, err := kc.CompileQueue()
+	// Optimise the IR and compile it to code.  Hoisted constants take
+	// registers over whole loops, so a function that runs out of registers
+	// with them is compiled again without them.
+	unit, err := compileIR(name, kidx, ir.OptimiseConstants(constants, true))
+	if errors.Is(err, ircomp.ErrNotEnoughRegisters) {
+		unit, err = compileIR(name, kidx, ir.OptimiseConstants(constants, false))
+	}
 	if err != nil {
 		return nil, 0, err
 	}
 
 	// We no longer need the constants
 	return unit, unitSize, nil
+}
+
+// compileIR compiles IR constants to a code unit whose main function is the
+// constant kidx.
+func compileIR(name string, kidx uint, constants []ir.Constant) (*code.Unit, error) {
+	kc := ircomp.NewConstantCompiler(constants, code.NewBuilder(name))
+	kc.QueueConstant(kidx)
+	return kc.CompileQueue()
 }
 
 func (r *Runtime) CompileLuaChunkOrExp(name string, source []byte, scannerOptions ...scanner.Option) (unit *code.Unit, sz uint64, err error) {
