@@ -209,8 +209,10 @@ func killnow(t *rt.Thread, c *rt.GoCont) (next rt.Cont, err error) {
 	if err != nil {
 		return nil, err
 	}
+	// If ctx is the current context (or one of its ancestors), this does not
+	// return.  Otherwise (e.g. ctx has finished) it has no effect.
 	ctx.SetStopLevel(rt.HardStop)
-	return nil, nil
+	return c.Next(), nil
 }
 
 func stopnow(t *rt.Thread, c *rt.GoCont) (next rt.Cont, err error) {
