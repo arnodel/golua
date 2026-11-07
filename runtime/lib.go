@@ -76,7 +76,13 @@ func IndexString(t *Thread, coll Value, k Value) (Value, error) {
 // '__index' metamethod decides.  A table metamethod is looked up in turn, a
 // function one is called.
 func indexChain(t *Thread, coll Value, k Value, tbl *Table, kind keyKind) (Value, error) {
-	for i := 1; i < maxIndexChainLength; i++ {
+	return indexChainFrom(t, coll, k, tbl, kind, 1)
+}
+
+// indexChainFrom is indexChain with depth levels of the chain already
+// walked.
+func indexChainFrom(t *Thread, coll Value, k Value, tbl *Table, kind keyKind, depth int) (Value, error) {
+	for i := depth; i < maxIndexChainLength; i++ {
 		metaIdx := t.metaGet(coll, metaIndex)
 		if metaIdx.IsNil() {
 			if tbl != nil {
