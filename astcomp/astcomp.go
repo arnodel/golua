@@ -50,6 +50,9 @@ const (
 	loopFRegName    = ir.Name("<f>")
 	loopSRegName    = ir.Name("<s>")
 	loopVarRegName  = ir.Name("<var>")
+	loopStartName   = ir.Name("<start>")
+	loopStopName    = ir.Name("<stop>")
+	loopStepName    = ir.Name("<step>")
 )
 
 // Error that results from a valid AST which does not form a valid program.
