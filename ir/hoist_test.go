@@ -36,13 +36,20 @@ func TestHoistConstants(t *testing.T) {
 		{"entry", 2,
 			[]Instruction{lbl(1), k(2, 0), add(0, 0, 2), jif(1, 1), ret(0)},
 			[]Instruction{k(6, 0), lbl(1), add(0, 0, 6), jif(1, 1), ret(0)}},
-		// A loop with two entries is left alone.
-		{"two entries", 2,
-			[]Instruction{jif(2, 1), lbl(1), set(0), lbl(2), k(2, 0), add(0, 0, 2), jif(1, 1), ret(0)},
-			nil},
-		// So is one entered by a conditional jump.
+		// A loop entered by a conditional jump: the load goes at the top of
+		// the entry under a new label, L2, and the jump back is moved to it.
 		{"conditional entry", 2,
 			[]Instruction{jif(1, 1), ret(0), lbl(1), k(2, 0), add(0, 0, 2), jif(1, 1), ret(0)},
+			[]Instruction{jif(1, 1), ret(0), lbl(1), k(6, 0), lbl(2), add(0, 0, 6), jif(2, 1), ret(0)}},
+		// A loop that goto gives two entries, L1 and L2, reached by jumps:
+		// both get the load, and the jumps back are moved past it.
+		{"two entries", 2,
+			[]Instruction{jif(2, 1), lbl(1), set(0), jmp(2), lbl(2), k(2, 0), add(0, 0, 2), jif(1, 1), ret(0)},
+			[]Instruction{jif(2, 1), lbl(1), k(6, 0), lbl(3), set(0), jmp(4), lbl(2), k(6, 0), lbl(4), add(0, 0, 6), jif(3, 1), ret(0)}},
+		// With two entries and a block falling from one into the other, the
+		// loads can't go at the top of the second: left alone.
+		{"two entries, fall-through", 2,
+			[]Instruction{jif(2, 1), lbl(1), set(0), lbl(2), k(2, 0), add(0, 0, 2), jif(1, 1), ret(0)},
 			nil},
 		// A load into a named local, or into a register written again, stays.
 		{"local", 3,
