@@ -201,12 +201,13 @@ func asMove(instr Instruction) (Transform, bool) {
 	return t, ok && t.Op == ops.OpId
 }
 
-// OptimiseConstants applies PropagateCopies to every function in consts.
+// OptimiseConstants applies the passes to every function in consts:
+// PropagateCopies, then ComputeLifetimes.
 func OptimiseConstants(consts []Constant) []Constant {
 	out := make([]Constant, len(consts))
 	for i, k := range consts {
 		if c, ok := k.(*Code); ok {
-			oc := PropagateCopies(*c)
+			oc := ComputeLifetimes(PropagateCopies(*c))
 			out[i] = &oc
 		} else {
 			out[i] = k
