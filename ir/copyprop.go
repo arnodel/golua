@@ -47,8 +47,7 @@ import (
 // means the same thing throughout, and the counts of its reads and writes
 // over the whole function are exact.
 func PropagateCopies(c Code) Code {
-	instrs := slices.Clone(c.Instructions)
-	lines := slices.Clone(c.Lines)
+	instrs := c.Instructions
 	regs := c.Registers
 	reads := make([]int, len(regs))
 	writes := make([]int, len(regs))
@@ -63,7 +62,7 @@ func PropagateCopies(c Code) Code {
 	plain := func(r Register) bool { return !regs[r].IsCell }
 	temp := func(r Register) bool { return !regs[r].IsCell && !regs[r].IsLocal }
 	local := func(r Register) bool { return !regs[r].IsCell && regs[r].IsLocal }
-	deleted := make([]bool, len(instrs))
+	e := NewEdits(c)
 
 	// State for the current straight-line stretch.
 	var (
@@ -98,21 +97,21 @@ func PropagateCopies(c Code) Code {
 		writes_ := instr.Writes()
 		for _, r := range instr.Reads() {
 			if s, ok := copies[r]; ok && !slices.Contains(writes_, r) {
-				instr = instr.ReplaceRead(r, s)
+				e.ReplaceRead(i, r, s)
 				reads[r]--
 				reads[s]++
 			}
 		}
-		instrs[i] = instr
+		instr = e.Current(i)
 
 		// 2. A move of a temporary with a single definition in this stretch
 		// into a register untouched since: write there directly.
 		if mv, ok := asMove(instr); ok && temp(mv.Src) && plain(mv.Dst) && writes[mv.Src] == 1 && reads[mv.Src] == 1 {
 			if d, ok := lastDef[mv.Src]; ok {
 				if t, touched := lastTouch[mv.Dst]; !touched || t <= d {
-					if def, ok := instrs[d].(SetRegInstruction); ok {
-						instrs[d] = def.WithDestReg(mv.Dst)
-						deleted[i] = true
+					if def, ok := e.Current(d).(SetRegInstruction); ok {
+						e.Replace(d, def.WithDestReg(mv.Dst))
+						e.Delete(i)
 						writes[mv.Src]--
 						reads[mv.Src]--
 						delete(lastDef, mv.Src)
@@ -157,24 +156,13 @@ func PropagateCopies(c Code) Code {
 	}
 
 	// 4. A copy into a temporary that is never read does nothing.
-	for i, instr := range instrs {
-		if mv, ok := asMove(instr); ok && !deleted[i] && temp(mv.Dst) && reads[mv.Dst] == 0 {
-			deleted[i] = true
+	for i := range instrs {
+		if mv, ok := asMove(e.Current(i)); ok && !e.Deleted(i) && temp(mv.Dst) && reads[mv.Dst] == 0 {
+			e.Delete(i)
 			reads[mv.Src]--
 		}
 	}
-
-	kept := 0
-	for i := range instrs {
-		if !deleted[i] {
-			instrs[kept] = instrs[i]
-			lines[kept] = lines[i]
-			kept++
-		}
-	}
-	c.Instructions = instrs[:kept]
-	c.Lines = lines[:kept]
-	return c
+	return e.Apply(c)
 }
 
 // asMove returns the instruction as a register copy, if it is one.

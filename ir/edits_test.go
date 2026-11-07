@@ -24,9 +24,17 @@ func TestEdits(t *testing.T) {
 	e.RenameReads(1, r)
 	e.Retarget(3, 2)
 	e.InsertBefore(5, set(2)) // at the end
+	e.Replace(4, ret(2))
+	e.ReplaceRead(4, 2, 1) // on the replacement; the rename of r1 then applies
+	if cur := e.Current(4); cur.String() != ret(1).String() {
+		t.Errorf("Current(4) = %s, want %s", cur, ret(1))
+	}
+	if !e.Deleted(1) || e.Deleted(2) {
+		t.Error("Deleted: wrong answers")
+	}
 	got := e.Apply(c)
 	check(t, "edits", got,
-		lbl(1), LoadConst{Dst: r, Kidx: 7}, lbl(2), set(2), add(0, 0, r), jif(2, 2), ret(0), set(2))
+		lbl(1), LoadConst{Dst: r, Kidx: 7}, lbl(2), set(2), add(0, 0, r), jif(2, 2), ret(r), set(2))
 	if len(got.Registers) != 4 || len(c.Registers) != 3 {
 		t.Errorf("%d registers after, %d before; want 4 and 3", len(got.Registers), len(c.Registers))
 	}
