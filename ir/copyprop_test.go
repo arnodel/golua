@@ -45,103 +45,84 @@ func check(t *testing.T, name string, got Code, want ...Instruction) {
 func TestPropagateCopies(t *testing.T) {
 	// Locals: q=r0, i=r1, j=r2.  Temporaries from r3.
 	q, i, j := Register(0), Register(1), Register(2)
-	taken := func(rs ...Register) []Instruction {
-		var out []Instruction
-		for _, r := range rs {
-			out = append(out, TakeRegister{Reg: r})
-		}
-		return out
-	}
 
 	// q[i], q[j] = q[j], q[i]: the copies of the locals go, the stores read
-	// the locals.  The compiler releases operands just before the store.
-	swap := append(taken(q, i, j),
-		Lookup{Dst: 3, Table: q, Index: j}, TakeRegister{Reg: 3},
-		Lookup{Dst: 4, Table: q, Index: i}, TakeRegister{Reg: 4},
-		move(5, q), TakeRegister{Reg: 5}, move(6, i), TakeRegister{Reg: 6},
-		move(7, q), TakeRegister{Reg: 7}, move(8, j), TakeRegister{Reg: 8},
-		ReleaseRegister{Reg: 3}, ReleaseRegister{Reg: 5}, ReleaseRegister{Reg: 6},
+	// the locals.
+	swap := []Instruction{
+		Lookup{Dst: 3, Table: q, Index: j},
+		Lookup{Dst: 4, Table: q, Index: i},
+		move(5, q), move(6, i), move(7, q), move(8, j),
 		SetIndex{Table: 5, Index: 6, Src: 3},
-		ReleaseRegister{Reg: 4}, ReleaseRegister{Reg: 7}, ReleaseRegister{Reg: 8},
 		SetIndex{Table: 7, Index: 8, Src: 4},
-	)
-	check(t, "swap", PropagateCopies(testCode(3, 6, nil, swap...)), append(taken(q, i, j),
-		Lookup{Dst: 3, Table: q, Index: j}, TakeRegister{Reg: 3},
-		Lookup{Dst: 4, Table: q, Index: i}, TakeRegister{Reg: 4},
-		TakeRegister{Reg: 5}, TakeRegister{Reg: 6}, TakeRegister{Reg: 7}, TakeRegister{Reg: 8},
-		ReleaseRegister{Reg: 3}, ReleaseRegister{Reg: 5}, ReleaseRegister{Reg: 6},
+	}
+	check(t, "swap", PropagateCopies(testCode(3, 6, nil, swap...)),
+		Lookup{Dst: 3, Table: q, Index: j},
+		Lookup{Dst: 4, Table: q, Index: i},
 		SetIndex{Table: q, Index: i, Src: 3},
-		ReleaseRegister{Reg: 4}, ReleaseRegister{Reg: 7}, ReleaseRegister{Reg: 8},
 		SetIndex{Table: q, Index: j, Src: 4},
-	)...)
+	)
 
 	// i = i + 1: the result is written to i directly.
-	inc := append(taken(i),
+	inc := []Instruction{
 		LoadConst{Dst: 3, Kidx: 0},
 		Combine{Op: ops.OpAdd, Dst: 4, Lsrc: i, Rsrc: 3},
-		TakeRegister{Reg: 4}, ReleaseRegister{Reg: 4},
 		move(i, 4),
-	)
-	check(t, "increment", PropagateCopies(testCode(3, 2, nil, inc...)), append(taken(i),
+	}
+	check(t, "increment", PropagateCopies(testCode(3, 2, nil, inc...)),
 		LoadConst{Dst: 3, Kidx: 0},
 		Combine{Op: ops.OpAdd, Dst: i, Lsrc: i, Rsrc: 3},
-		TakeRegister{Reg: 4}, ReleaseRegister{Reg: 4},
-	)...)
+	)
 
 	// A copy is not written straight to a register touched since the
 	// definition: here j is read between the two.
-	touched := append(taken(i, j),
+	touched := []Instruction{
 		Combine{Op: ops.OpAdd, Dst: 3, Lsrc: i, Rsrc: i},
 		Push{Cont: 4, Item: j},
 		move(j, 3),
-	)
+	}
 	check(t, "destination touched", PropagateCopies(testCode(3, 2, nil, touched...)), touched...)
 
 	// A copy of a cell is left alone, and so is a copy into a cell.
-	cell := append(taken(q, i),
+	cell := []Instruction{
 		move(3, q), SetIndexK{Table: 3, Kidx: 0, Src: i},
 		Combine{Op: ops.OpAdd, Dst: 4, Lsrc: i, Rsrc: i}, move(q, 4),
-	)
+	}
 	check(t, "cells", PropagateCopies(testCode(3, 2, []Register{q}, cell...)), cell...)
 
-	// A copy from a register that is not taken is not read through: its slot
-	// may be reused.  The copy into a named local stays.
-	untaken := []Instruction{
-		TakeRegister{Reg: i},
+	// A copy of a temporary is not read through: that would only keep the
+	// temporary alive.  Here the copy into a named local stays as well, so
+	// that the local keeps its value.
+	local := []Instruction{
 		Receive{Dst: []Register{3}},
 		move(i, 3),
 		Push{Cont: 4, Item: i},
 	}
-	check(t, "untaken source", PropagateCopies(testCode(3, 2, nil, untaken...)), untaken...)
+	check(t, "copy of a temporary", PropagateCopies(testCode(3, 2, nil, local...)), local...)
 
 	// Nothing is known across a label; a copy before the label is kept and
 	// not read through after it.
-	label := append(taken(q, i),
-		move(3, q), TakeRegister{Reg: 3},
+	label := []Instruction{
+		move(3, q),
 		DeclareLabel{Label: 1},
 		SetIndexK{Table: 3, Kidx: 0, Src: i},
-		ReleaseRegister{Reg: 3},
-	)
+	}
 	check(t, "label", PropagateCopies(testCode(3, 1, nil, label...)), label...)
 
 	// A register the instruction also writes is not substituted.
-	forloop := append(taken(q, i, j),
+	forloop := []Instruction{
 		move(3, q), move(4, i), move(5, j),
 		PrepForLoop{Start: 3, Stop: 4, Step: 5},
-	)
+	}
 	check(t, "read-write operands", PropagateCopies(testCode(3, 3, nil, forloop...)), forloop...)
 
-	// A copy made after its source was released is not read through.
-	released := append(taken(q),
-		move(3, q), TakeRegister{Reg: 3}, ReleaseRegister{Reg: 3},
-		move(4, 3), TakeRegister{Reg: 4},
+	// A chain of copies of a local: r3 <- q is read through into r4 <- q,
+	// then r4 into the push; both copies are dead temporaries.
+	chain := []Instruction{
+		move(3, q),
+		move(4, 3),
 		Push{Cont: 5, Item: 4},
-	)
-	check(t, "released source", PropagateCopies(testCode(3, 3, nil, released...)), append(taken(q),
-		// r3 <- q is read through (q is taken) into r4 <- q, then r4 is
-		// read through into the push; both copies are dead temporaries.
-		TakeRegister{Reg: 3}, ReleaseRegister{Reg: 3},
-		TakeRegister{Reg: 4},
+	}
+	check(t, "chain", PropagateCopies(testCode(3, 3, nil, chain...)),
 		Push{Cont: 5, Item: q},
-	)...)
+	)
 }
