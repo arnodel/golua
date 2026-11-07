@@ -261,9 +261,11 @@ func (j JumpIf) String() string {
 	return fmt.Sprintf("jump %s if %s is not %t", j.Label, j.Cond, j.Not)
 }
 
-// Call moves execution to the given continuation
+// Call pushes the values of Args into the given continuation, in order, and
+// moves execution to it.  Values pushed earlier (an etc, say) come first.
 type Call struct {
 	Cont Register
+	Args []Register
 	Tail bool
 }
 
@@ -272,15 +274,20 @@ func (c Call) ProcessInstr(p InstrProcessor) {
 	p.ProcessCallInstr(c)
 }
 
-func (c Call) Reads() []Register  { return []Register{c.Cont} }
+func (c Call) Reads() []Register  { return append([]Register{c.Cont}, c.Args...) }
 func (c Call) Writes() []Register { return nil }
 func (c Call) ReplaceRead(from, to Register) Instruction {
 	c.Cont = sub(c.Cont, from, to)
+	args := make([]Register, len(c.Args))
+	for i, r := range c.Args {
+		args[i] = sub(r, from, to)
+	}
+	c.Args = args
 	return c
 }
 
 func (c Call) String() string {
-	return fmt.Sprintf("call %s, tail=%t", c.Cont, c.Tail)
+	return fmt.Sprintf("call %s%v, tail=%t", c.Cont, c.Args, c.Tail)
 }
 
 // MkClosure creates a new closure with the given code and upvalues and puts it in Dst.

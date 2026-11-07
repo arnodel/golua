@@ -459,7 +459,9 @@ func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
 	fReg := c.compileExpNoDestHint(f.Target)
 	var contReg ir.Register
 	if f.Method.Val != "" {
-		self := fReg
+		// self is listed in the call, so it is read at the call: copy a
+		// captured variable now (see stable).
+		self := c.stable(f.Target, fReg)
 		fReg = c.GetFreeRegister()
 		c.emitInstr(f.Target, ir.LookupK{
 			Dst:   fReg,
@@ -472,10 +474,7 @@ func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
 			Closure: fReg,
 			Tail:    tail,
 		})
-		c.emitInstr(f, ir.Push{
-			Cont: contReg,
-			Item: self,
-		})
+		c.compileCallWithArgs(f, contReg, self, f.Args, tail)
 	} else {
 		contReg = c.GetFreeRegister()
 		c.emitInstr(f, ir.MkCont{
@@ -483,35 +482,73 @@ func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
 			Closure: fReg,
 			Tail:    tail,
 		})
+		c.compileCallWithArgs(f, contReg, noRegister, f.Args, tail)
 	}
-	c.compilePushArgs(f.Args, contReg)
-	c.emitInstr(f, ir.Call{
-		Cont: contReg,
-		Tail: tail,
-	})
 }
 
-// TODO: move this to somewhere better
-func (c *compiler) compilePushArgs(args []ast.ExpNode, contReg ir.Register) {
-	for i, arg := range args {
-		var argReg ir.Register
-		var isTailArg bool
-		if i == len(args)-1 {
-			var tailArg ast.TailExpNode
-			tailArg, isTailArg = arg.(ast.TailExpNode)
-			if isTailArg {
-				argReg = c.compileEtcExp(tailArg, c.GetFreeRegister())
-			}
-		}
-		if !isTailArg {
-			argReg = c.compileExpNoDestHint(arg)
-		}
-		c.emitInstr(arg, ir.Push{
-			Cont: contReg,
-			Item: argReg,
-			Etc:  isTailArg,
-		})
+// noRegister stands for "no register" where one is optional.
+const noRegister = ^ir.Register(0)
+
+// maxListedArgs is the most arguments a call lists in its operand words.  The
+// listed arguments are all live until the call, and a frame has 256
+// registers; beyond this many they are pushed one by one as before.
+const maxListedArgs = 32
+
+// compileCallWithArgs evaluates the arguments, then emits the call of contReg
+// with the argument registers listed in it (self first, if given), so that
+// the call pushes them itself.
+//
+// When the last argument is an etc (a vararg or a call), its values must come
+// after the others and their number is not known, so everything is pushed one
+// by one before the call, as it was before calls listed their arguments.  The
+// same goes for a call with more than maxListedArgs arguments.
+func (c *compiler) compileCallWithArgs(loc ast.Locator, contReg, self ir.Register, args []ast.ExpNode, tail bool) {
+	var tailArg ast.TailExpNode
+	if len(args) > 0 {
+		tailArg, _ = args[len(args)-1].(ast.TailExpNode)
 	}
+	if tailArg != nil || len(args) > maxListedArgs {
+		if self != noRegister {
+			c.emitInstr(loc, ir.Push{Cont: contReg, Item: self})
+		}
+		fixed := args
+		if tailArg != nil {
+			fixed = args[:len(args)-1]
+		}
+		for _, arg := range fixed {
+			c.emitInstr(arg, ir.Push{Cont: contReg, Item: c.compileExpNoDestHint(arg)})
+		}
+		if tailArg != nil {
+			etcReg := c.compileEtcExp(tailArg, c.GetFreeRegister())
+			c.emitInstr(tailArg, ir.Push{Cont: contReg, Item: etcReg, Etc: true})
+		}
+		c.emitInstr(loc, ir.Call{Cont: contReg, Tail: tail})
+		return
+	}
+	var argRegs []ir.Register
+	if self != noRegister {
+		argRegs = append(argRegs, self)
+	}
+	for _, arg := range args {
+		reg := c.stable(arg, c.compileExpNoDestHint(arg))
+		argRegs = append(argRegs, reg)
+	}
+	c.emitInstr(loc, ir.Call{Cont: contReg, Args: argRegs, Tail: tail})
+}
+
+// stable returns a register holding the value reg has now, for a value that
+// is read later than it is evaluated (an argument listed in a call is read at
+// the call).  A captured variable (a cell) is copied into a temporary: a
+// function called while evaluating a later argument could reassign it, and
+// "f(x, g())" must pass the x it had before g ran.  Other registers cannot
+// change in between, as Lua expressions do not assign to locals.
+func (c *compiler) stable(e ast.Locator, reg ir.Register) ir.Register {
+	if !c.IsCellReg(reg) {
+		return reg
+	}
+	tmp := c.GetFreeRegister()
+	c.emitMove(e, tmp, reg)
+	return tmp
 }
 
 func globalVar(n ast.Name) ast.IndexExp {

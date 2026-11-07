@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/arnodel/golua/code"
 	"github.com/arnodel/golua/ir"
@@ -129,12 +130,28 @@ func (ic instrCompiler) ProcessJumpIfInstr(j ir.JumpIf) {
 
 // ProcessCallInstr compiles a Call instruction.
 func (ic instrCompiler) ProcessCallInstr(c ir.Call) {
-	call := code.Call
+	call := code.CallArgs
 	if c.Tail {
-		call = code.TailCall
+		call = code.TailCallArgs
 	}
-	opcode := call(ic.codeReg(c.Cont))
-	ic.Emit(opcode)
+	ic.Emit(call(ic.codeReg(c.Cont), len(c.Args)))
+	args := make([]code.Reg, len(c.Args))
+	clear := make([]bool, len(c.Args))
+	for i, r := range c.Args {
+		args[i] = ic.codeReg(r)
+		// A temporary in a value register that is not taken at this point is
+		// read for the last time by this call (computeLifetimes releases a
+		// register just before its last read), so nothing reads it after:
+		// the call clears it once pushed, so that its value does not stay
+		// reachable from the frame.  A register listed again later in the
+		// same call is cleared at its last listing.  A taken register is
+		// read later; a named local keeps its value; a cell is shared.
+		clear[i] = args[i].RegType() == code.ValueRegType && ic.regs[args[i].Idx()] == 0 &&
+			!ic.registers[r].IsLocal && !slices.Contains(c.Args[i+1:], r)
+	}
+	for _, w := range code.ArgWords(args, clear) {
+		ic.Emit(w)
+	}
 }
 
 // ProcessMkClosureInstr compiles a MkClosure instruction.
