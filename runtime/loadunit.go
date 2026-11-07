@@ -20,8 +20,8 @@ type Code struct {
 	CellCount    int16
 
 	// slotCache holds a hint for each constant-key table access in the
-	// code, by opcode position: what the access returned last time to be
-	// given back next time.  See slotcache.go.
+	// code, by opcode position, which the access reads and updates.  See
+	// slotcache.go.
 	slotCache []lookupHint
 }
 
