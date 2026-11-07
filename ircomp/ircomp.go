@@ -50,8 +50,11 @@ func (kc *ConstantCompiler) ProcessNil(k ir.NilType) {
 	kc.addCompiled(code.NilType{})
 }
 
-// ProcessCode compiles a Code.
+// ProcessCode compiles a Code.  Register lifetimes are the code generator's
+// business: it computes them first, from liveness, whatever markers the code
+// may carry.
 func (kc *ConstantCompiler) ProcessCode(c ir.Code) {
+	c = computeLifetimes(c)
 	start := kc.builder.Offset()
 	regAllocator := &regAllocator{
 		registers:   c.Registers,
