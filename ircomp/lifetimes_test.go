@@ -1,16 +1,49 @@
-package ir
+package ircomp
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/arnodel/golua/ir"
 	"github.com/arnodel/golua/ops"
 )
 
-func TestComputeLifetimes(t *testing.T) {
-	take := func(r Register) Instruction { return TakeRegister{Reg: r} }
-	release := func(r Register) Instruction { return ReleaseRegister{Reg: r} }
-	add := func(dst, l, r Register) Instruction { return Combine{Op: ops.OpAdd, Dst: dst, Lsrc: l, Rsrc: r} }
+type (
+	Instruction = ir.Instruction
+	Register    = ir.Register
+)
 
+func lbl(n int) Instruction             { return ir.DeclareLabel{Label: ir.Label(n)} }
+func jmp(n int) Instruction             { return ir.Jump{Label: ir.Label(n)} }
+func jif(n int, r Register) Instruction { return ir.JumpIf{Cond: r, Label: ir.Label(n)} }
+func set(r Register) Instruction        { return ir.LoadConst{Dst: r} }
+func ret(r Register) Instruction        { return ir.Call{Cont: r, Tail: true} }
+func take(r Register) Instruction       { return ir.TakeRegister{Reg: r} }
+func release(r Register) Instruction    { return ir.ReleaseRegister{Reg: r} }
+func add(dst, l, r Register) Instruction {
+	return ir.Combine{Op: ops.OpAdd, Dst: dst, Lsrc: l, Rsrc: r}
+}
+
+// A code with n registers, of which cells are cells, and upvals receive
+// upvalues.
+func testCode(n int, cells, upvals []Register, instrs ...Instruction) ir.Code {
+	regs := make([]ir.RegData, n)
+	for _, c := range cells {
+		regs[c].IsCell = true
+	}
+	return ir.Code{Instructions: instrs, Lines: make([]int, len(instrs)), Registers: regs, UpvalueDests: upvals}
+}
+
+func render(instrs []Instruction) string {
+	var b strings.Builder
+	for _, in := range instrs {
+		b.WriteString(in.String())
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+func TestComputeLifetimes(t *testing.T) {
 	for _, tc := range []struct {
 		name          string
 		cells, upvals []Register
@@ -44,15 +77,19 @@ func TestComputeLifetimes(t *testing.T) {
 		// Writing a cell stores into it, so a cell is live from the entry
 		// until its last use; only clearing it starts afresh.
 		{"cell", []Register{1}, nil,
-			[]Instruction{set(1), ClearReg{Dst: 1}, set(1), ret(0)},
-			[]Instruction{take(0), take(1), set(1), ClearReg{Dst: 1}, set(1), release(1), ret(0), release(0)}},
+			[]Instruction{set(1), ir.ClearReg{Dst: 1}, set(1), ret(0)},
+			[]Instruction{take(0), take(1), set(1), ir.ClearReg{Dst: 1}, set(1), release(1), ret(0), release(0)}},
 		// Upvalues are the code generator's business.
 		{"upvalue", []Register{1}, []Register{1},
 			[]Instruction{set(1), ret(0)},
 			[]Instruction{take(0), set(1), ret(0), release(0)}},
 	} {
-		c := testCode(0, 4, tc.cells, tc.in...)
-		c.UpvalueDests = tc.upvals
-		check(t, tc.name, ComputeLifetimes(c), tc.want...)
+		got := computeLifetimes(testCode(4, tc.cells, tc.upvals, tc.in...))
+		if g, w := render(got.Instructions), render(tc.want); g != w {
+			t.Errorf("%s:\ngot\n%swant\n%s", tc.name, g, w)
+		}
+		if len(got.Lines) != len(got.Instructions) {
+			t.Errorf("%s: %d lines for %d instructions", tc.name, len(got.Lines), len(got.Instructions))
+		}
 	}
 }

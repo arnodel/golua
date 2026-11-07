@@ -49,12 +49,12 @@ condition costs an opcode".
 - Control flow: `DeclareLabel` marks a join point, `Jump`/`JumpIf`/tail
   `Call` end a straight-line stretch.  Within a stretch every read and write
   is visible; across stretches assume nothing unless you do real dataflow.
-- `TakeRegister`/`ReleaseRegister` are lifetime markers.  The AST compiler
-  emits them when a register's reference count goes 0→1 and 1→0, and
-  `ir.ComputeLifetimes`, the last pass, discards them and places new ones
-  from liveness over the control-flow graph (`ir/cfg.go`).  They emit no
-  opcode.  A pass can ignore them, and may leave them wrong: they are
-  recomputed after it.
+- `TakeRegister`/`ReleaseRegister` are lifetime markers for the code
+  generator, which gives a register a slot only between the two.  The code
+  generator computes them itself (`ircomp/lifetimes.go`), from liveness over
+  the control-flow graph (`ir/cfg.go`), and discards any it finds in its
+  input.  The AST compiler still emits its own; a pass can ignore them, and
+  may leave them wrong.  They emit no opcode.
 
 ## Constraints that come from the code generator
 
@@ -65,15 +65,15 @@ reads garbage.  Each one was found by a failing Lua test.
 1. **Slots live between take and release.**  `ircomp` gives an IR register a
    code slot on first mention and reserves it only while the register is
    taken; a register that is never taken keeps its slot only until the next
-   register is first used.  Since `ComputeLifetimes` this binds only that
-   pass: it takes every register over every point where its value may be
-   read, so a pass before it may extend a read freely.  (`PropagateCopies`
-   still tracks the compiler's markers from the time it had to; that
-   tracking can go.)
+   register is first used.  Since the code generator computes the markers
+   itself, this binds no pass: it takes every register over every point
+   where its value may be read, so a pass may extend a read freely.
+   (`PropagateCopies` still tracks the compiler's markers from the time it
+   had to; that tracking can go.)
 2. **Operands are released just before use.**  `release r12; release r13;
    r12[r13] <- r6`: an instruction reads its operands before writing its
    destination, so the destination may take the slot of an operand read for
-   the last time.  `ComputeLifetimes` keeps this convention.  A pass must
+   the last time.  The code generator keeps this convention.  A pass must
    not treat the release of a register as the end of the *value* it holds,
    only as the end of its slot reservation.
 3. **Cells are shared by reference.**  A local captured by a closure, or an
