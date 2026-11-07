@@ -484,7 +484,7 @@ func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
 			Tail:    tail,
 		})
 		c.emitInstr(f, ir.Push{
-			Cont: fReg,
+			Cont: contReg,
 			Item: self,
 		})
 		c.ReleaseRegister(self)
