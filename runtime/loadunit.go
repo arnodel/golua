@@ -18,6 +18,11 @@ type Code struct {
 	UpNames      []string
 	RegCount     int16
 	CellCount    int16
+
+	// slotCache holds a hint for each constant-key table access in the
+	// code, by opcode position: what the access returned last time to be
+	// given back next time.  See slotcache.go.
+	slotCache []lookupHint
 }
 
 // RefactorConsts returns an equivalent *Code this consts "refactored", which
@@ -134,6 +139,7 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 				RegCount:     k.RegCount,
 				CellCount:    k.CellCount,
 			}
+			c.slotCache = make([]lookupHint, len(c.code))
 			// The compiler is trusted to produce code that passes, so a
 			// failure here is a bug in it rather than an error to report.
 			if err := c.verify(); err != nil {
