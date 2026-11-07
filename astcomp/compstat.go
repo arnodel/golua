@@ -127,6 +127,12 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	c.PushContext()
 	endLbl := c.DeclareGotoLabelNoLine(breakLblName)
 
+	// The control registers are the loop's hidden locals: they live for the
+	// whole loop, so copies of them are read through like those of a local.
+	c.DeclareLocal(loopStartName, startReg)
+	c.DeclareLocal(loopStopName, stopReg)
+	c.DeclareLocal(loopStepName, stepReg)
+
 	// If startReg is nil, then there are no iterations in the loop
 	c.EmitNoLine(ir.JumpIf{
 		Cond:  startReg,
