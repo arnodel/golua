@@ -454,7 +454,6 @@ func (r *Runtime) compileLuaStat(name string, stat *ast.BlockStat, statSize uint
 	statSize = 0 // So that the deferred function above doesn't release the memory again.
 
 	// Optimise the ir code
-	constants = ir.FoldConstants(constants, ir.DefaultFold)
 	constants = ir.Optimise(constants, ir.PropagateCopies)
 
 	// Set up the IR to code compiler
