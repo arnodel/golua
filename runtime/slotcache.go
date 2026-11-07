@@ -49,12 +49,34 @@ const (
 func hintWidth(field uint) uint { return uint(hintBits>>field) & 0xff }
 
 // hintedString returns the value of k in h, nil if absent, trying the slot
-// in the given field of the hint first and recording the slot found.
+// in the given field of the hint first.  The hit is inline, the miss is a
+// call: this is the hottest path of the field-heavy programs.
 func hintedString(h *hashTable, k Value, hint *lookupHint, field uint) Value {
-	if it := hintedSlot(h, k, hint, field); it != nil {
+	none := uint32(1)<<hintWidth(field) - 1
+	if g := uintptr(uint32(*hint>>field) & none); g < uintptr(none) && g < uintptr(1)<<h.base {
+		if it := &h.slots[g]; it.key.equalsString(k) && !it.value.IsNil() {
+			return it.value
+		}
+	}
+	if it := hintMiss(h, k, hint, field, none); it != nil {
 		return it.value
 	}
 	return NilValue
+}
+
+// hintMiss is the full lookup of k in h after the hint failed, recording the
+// slot found in the hint's field; nil if k is absent.
+func hintMiss(h *hashTable, k Value, hint *lookupHint, field uint, none uint32) *hashTableSlot {
+	it, i := findSlot(h.slots, uintptr(1)<<h.base-1, k, stringKey)
+	if it == nil || it.value.IsNil() {
+		return nil
+	}
+	slot := uint32(i)
+	if slot >= none {
+		slot = none
+	}
+	*hint = *hint&^(lookupHint(none)<<field) | lookupHint(slot)<<field
+	return it
 }
 
 // indexStringAt is IndexString with a site's hint.
@@ -94,7 +116,15 @@ func setIndexStringAt(t *Thread, coll Value, k, v Value, hint *lookupHint) error
 	t.RequireCPU(1)
 	tbl, isTable := coll.TryTable()
 	if isTable && !v.IsNil() && tbl.hashTable != nil {
-		if it := hintedSlot(tbl.hashTable, k, hint, ownHint); it != nil {
+		h := tbl.hashTable
+		none := uint32(1)<<hintWidth(ownHint) - 1
+		if g := uintptr(uint32(*hint>>ownHint) & none); g < uintptr(none) && g < uintptr(1)<<h.base {
+			if it := &h.slots[g]; it.key.equalsString(k) && !it.value.IsNil() {
+				it.value = v
+				return nil
+			}
+		}
+		if it := hintMiss(h, k, hint, ownHint, none); it != nil {
 			it.value = v
 			return nil
 		}
@@ -104,25 +134,4 @@ func setIndexStringAt(t *Thread, coll Value, k, v Value, hint *lookupHint) error
 		return nil
 	}
 	return setIndexChain(t, coll, k, v, tbl, stringKey)
-}
-
-// hintedSlot is hintedString returning the slot itself, for a store.
-func hintedSlot(h *hashTable, k Value, hint *lookupHint, field uint) *hashTableSlot {
-	width := hintWidth(field)
-	none := uint32(1)<<width - 1
-	mask := uintptr(1)<<h.base - 1
-	if g := uintptr(uint32(*hint>>field) & none); g < uintptr(none) && g <= mask {
-		if it := &h.slots[g]; it.key.equalsString(k) && !it.value.IsNil() {
-			return it
-		}
-	}
-	if it, i := findSlot(h.slots, mask, k, stringKey); it != nil && !it.value.IsNil() {
-		slot := uint32(i)
-		if slot >= none {
-			slot = none
-		}
-		*hint = *hint&^(lookupHint(none)<<field) | lookupHint(slot)<<field
-		return it
-	}
-	return nil
 }
