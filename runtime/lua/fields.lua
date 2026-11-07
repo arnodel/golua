@@ -89,3 +89,12 @@ print(pcall(who, a))
 local c = setmetatable({n = 3, who = function() return "own" end}, B)
 print(who(c), who(b))
 --> =own	B2
+
+-- A table too big for its hint field is looked up the ordinary way.
+local big = {x = "big"}
+for i = 1, 5000 do big["k" .. i] = i end
+print(get(big), big.k4321)
+--> =big	4321
+set(big, "bigger")
+print(get(big))
+--> =bigger
