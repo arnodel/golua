@@ -106,19 +106,16 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	startReg := c.GetFreeRegister()
 	r := c.compileExp(s.Start, startReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, startReg, r)
-	c.TakeRegister(startReg)
 
 	// Get register for the stop value and initialise it
 	stopReg := c.GetFreeRegister()
 	r = c.compileExp(s.Stop, stopReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, stopReg, r)
-	c.TakeRegister(stopReg)
 
 	// Get register for the step value and initialise it
 	stepReg := c.GetFreeRegister()
 	r = c.compileExp(s.Step, stepReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, stepReg, r)
-	c.TakeRegister(stepReg)
 
 	// Prepare the for loop
 	c.emitInstr(s, ir.PrepForLoop{
@@ -167,9 +164,6 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	must(c.EmitGotoLabel(breakLblName))
 	c.PopContext()
 
-	c.ReleaseRegister(startReg)
-	c.ReleaseRegister(stopReg)
-	c.ReleaseRegister(stepReg)
 }
 
 // ProcessFunctionCallStat compiles a FunctionCallStat.
@@ -256,7 +250,6 @@ func (c *compiler) ProcessLocalStat(s ast.LocalStat) {
 	localRegs := make([]ir.Register, len(s.NameAttribs))
 	c.compileExpList(s.Values, localRegs)
 	for i, reg := range localRegs {
-		c.ReleaseRegister(reg)
 		nameAttrib := s.NameAttribs[i]
 		c.DeclareLocal(ir.Name(nameAttrib.Name.Val), reg)
 		attrib := nameAttrib.Attrib
@@ -286,7 +279,6 @@ func (c *compiler) ProcessGlobalFunctionStat(s ast.GlobalFunctionStat) {
 	// Compile the function and assign it to the global
 	fReg := c.GetFreeRegister()
 	c.compileExpInto(s.Function, fReg)
-	c.TakeRegister(fReg)
 
 	// Check that the global is not already defined, then assign via _ENV
 	lvals := []ast.Var{globalVar(s.Name)}
