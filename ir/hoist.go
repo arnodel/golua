@@ -44,91 +44,42 @@ const (
 // over its whole loop, so a function that runs out of registers with
 // hoisting is compiled again without it (runtime/lib.go).
 //
-// The work goes in stages, each a method of hoister: choose a loop for each
-// load, place the loops' loads, then write the code out.
+// The work is a pipeline: planLoops says how each loop's loads can get in
+// front of it, chooseLoads picks a loop for each load, placeLoads turns the
+// choices into edits to the code, which are then applied.
 func HoistConstants(c Code) Code {
-	h := newHoister(c)
-	if len(h.g.Loops) == 0 {
+	a := analyse(c)
+	if len(a.g.Loops) == 0 {
 		return c
 	}
-	for i, instr := range h.instrs {
-		if load, ok := instr.(LoadConst); ok {
-			h.choose(i, load)
-		}
-	}
-	if len(h.rename) == 0 {
+	plans := planLoops(a)
+	choices := chooseLoads(a, plans)
+	if len(choices.loads) == 0 {
 		return c
 	}
-	h.place()
-	return h.emit()
-}
-
-// A hoister holds the state of HoistConstants on one function.
-type hoister struct {
-	code    Code
-	instrs  []Instruction
-	regs    []RegData
-	g       *Graph
-	writes  []int // how many instructions write each register
-	blockOf []int // the block of each instruction
-
-	plans map[int]*hoistPlan // by loop, made on demand
-
-	// What choose decides.
-	hoisted map[int]map[uint]Register // loop -> constant -> its register
-	rename  map[Register]Register     // a load's destination -> the register read instead
-	deleted []bool                    // the loads that go
-
-	// What place decides.
-	inserts  map[int][]Instruction // position -> instructions to put before it
-	retarget map[int]Label         // jump instruction -> its new target
-}
-
-func newHoister(c Code) *hoister {
-	h := &hoister{
-		code:     c,
-		instrs:   c.Instructions,
-		regs:     slices.Clone(c.Registers),
-		g:        NewGraph(c.Instructions),
-		writes:   make([]int, len(c.Registers)),
-		blockOf:  make([]int, len(c.Instructions)),
-		plans:    map[int]*hoistPlan{},
-		hoisted:  map[int]map[uint]Register{},
-		rename:   map[Register]Register{},
-		deleted:  make([]bool, len(c.Instructions)),
-		inserts:  map[int][]Instruction{},
-		retarget: map[int]Label{},
-	}
-	for _, instr := range h.instrs {
-		for _, r := range instr.Writes() {
-			h.writes[r]++
-		}
-	}
-	for b, blk := range h.g.Blocks {
-		for i := blk.Start; i < blk.End; i++ {
-			h.blockOf[i] = b
-		}
-	}
-	return h
+	return placeLoads(a, plans, choices).Apply(c)
 }
 
 // A hoistPlan says how the loads for a loop get in front of it: on the edges
-// into it, or by splitting its entries.  See HoistConstants.
+// into it, or by splitting its entries; or that they can't.
 type hoistPlan struct {
 	ok     bool
 	edges  []int // positions to insert before
 	splits []int // entry blocks to split
 }
 
-// plan returns the plan for loop l, making it the first time.
-func (h *hoister) plan(l int) *hoistPlan {
-	if p, ok := h.plans[l]; ok {
-		return p
+// planLoops makes the plan of every loop.
+func planLoops(a *analysis) []hoistPlan {
+	plans := make([]hoistPlan, len(a.g.Loops))
+	for l := range plans {
+		plans[l] = planLoop(a, l)
 	}
-	p := &hoistPlan{}
-	h.plans[l] = p
-	loop := h.g.Loops[l]
-	if h.loopLen(l) > hoistMaxLoop {
+	return plans
+}
+
+func planLoop(a *analysis, l int) (p hoistPlan) {
+	loop := a.g.Loops[l]
+	if a.loopLen(l) > hoistMaxLoop {
 		return p
 	}
 	inside := func(b int) bool { return slices.Contains(loop.Blocks, b) }
@@ -141,16 +92,16 @@ func (h *hoister) plan(l int) *hoistPlan {
 			p.edges = append(p.edges, 0)
 		}
 		p.ok = true
-		for _, q := range h.g.Blocks[e].Preds {
-			if inside(q) || !h.g.Reachable(q) {
+		for _, q := range a.g.Blocks[e].Preds {
+			if inside(q) || !a.g.Reachable(q) {
 				continue
 			}
-			blk := h.g.Blocks[q]
-			lbl, jumps, next := controlFlow(h.instrs[blk.End-1])
+			blk := a.g.Blocks[q]
+			lbl, jumps, next := controlFlow(a.instrs[blk.End-1])
 			switch {
-			case jumps && h.g.labelBlock(lbl, h.instrs) == e && !next:
+			case jumps && a.g.labelBlock(lbl, a.instrs) == e && !next:
 				p.edges = append(p.edges, blk.End-1) // before the jump in
-			case !jumps || h.g.labelBlock(lbl, h.instrs) != e:
+			case !jumps || a.g.labelBlock(lbl, a.instrs) != e:
 				p.edges = append(p.edges, blk.End) // falls in
 			default:
 				p.ok = false // a conditional jump into the loop
@@ -164,11 +115,9 @@ func (h *hoister) plan(l int) *hoistPlan {
 
 	// By splitting the entries, unless a block inside falls into one.
 	for _, e := range loop.Entries {
-		for _, q := range h.g.Blocks[e].Preds {
-			if inside(q) && q+1 == e {
-				if _, _, next := controlFlow(h.instrs[h.g.Blocks[q].End-1]); next {
-					return p
-				}
+		for _, q := range a.g.Blocks[e].Preds {
+			if inside(q) && a.fallsInto(q, e) {
+				return p
 			}
 		}
 	}
@@ -177,81 +126,61 @@ func (h *hoister) plan(l int) *hoistPlan {
 	return p
 }
 
-// loopLen is the number of instructions in loop l.
-func (h *hoister) loopLen(l int) int {
-	n := 0
-	for _, b := range h.g.Loops[l].Blocks {
-		n += h.g.Blocks[b].End - h.g.Blocks[b].Start
-	}
-	return n
+// hoistChoices says which loads are hoisted and where.
+type hoistChoices struct {
+	loads   map[int]Register          // position of a hoisted load -> the register read instead
+	byLoop  map[int]map[uint]Register // loop -> constant -> its register
+	nregs   int                       // registers the code has
+	newRegs int                       // registers added, numbered from nregs
 }
 
-// choose decides whether the load at instruction i is hoisted, and into
-// which loop: the outermost loop around it that has a plan and room for the
-// constant, or already has it.
-func (h *hoister) choose(i int, load LoadConst) {
-	if h.regs[load.Dst].IsCell || h.regs[load.Dst].IsLocal || h.writes[load.Dst] != 1 {
-		return
+// chooseLoads picks, for each load that can be hoisted, the outermost loop
+// around it that has a plan and room for its constant, or already has it.
+func chooseLoads(a *analysis, plans []hoistPlan) hoistChoices {
+	ch := hoistChoices{
+		loads:  map[int]Register{},
+		byLoop: map[int]map[uint]Register{},
+		nregs:  len(a.code.Registers),
 	}
-	target := -1
-	for l := h.g.Blocks[h.blockOf[i]].Loop; l >= 0; l = h.g.Loops[l].Parent {
-		if !h.plan(l).ok {
+	for i, instr := range a.instrs {
+		load, ok := instr.(LoadConst)
+		if !ok {
 			continue
 		}
-		if _, done := h.hoisted[l][load.Kidx]; done || len(h.hoisted[l]) < hoistMaxConsts {
-			target = l
-		}
-	}
-	if target < 0 {
-		return
-	}
-	if h.hoisted[target] == nil {
-		h.hoisted[target] = map[uint]Register{}
-	}
-	r, ok := h.hoisted[target][load.Kidx]
-	if !ok {
-		r = Register(len(h.regs))
-		h.regs = append(h.regs, RegData{})
-		h.hoisted[target][load.Kidx] = r
-	}
-	h.rename[load.Dst] = r
-	h.deleted[i] = true
-}
-
-// place decides where the loads of every loop go, according to its plan.
-// Loops that split the same entry put their loads under one new label, which
-// every jump back to that entry from inside any of them is moved to: a
-// hoisted register is never written again, so no jump back needs to pass
-// the loads.
-func (h *hoister) place() {
-	splitLoops := map[int][]int{} // entry block -> loops split there
-	for l := range h.g.Loops {
-		if h.hoisted[l] == nil {
+		if data := a.code.Registers[load.Dst]; data.IsCell || data.IsLocal || a.writes[load.Dst] != 1 {
 			continue
 		}
-		p := h.plan(l)
-		for _, pos := range p.edges {
-			for _, in := range h.loads(l) {
-				if !slices.Contains(h.inserts[pos], in) {
-					h.inserts[pos] = append(h.inserts[pos], in)
-				}
+		target := -1
+		for l := a.g.Blocks[a.blockOf[i]].Loop; l >= 0; l = a.g.Loops[l].Parent {
+			if !plans[l].ok {
+				continue
+			}
+			if _, done := ch.byLoop[l][load.Kidx]; done || len(ch.byLoop[l]) < hoistMaxConsts {
+				target = l
 			}
 		}
-		for _, e := range p.splits {
-			splitLoops[e] = append(splitLoops[e], l)
+		if target < 0 {
+			continue
 		}
+		if ch.byLoop[target] == nil {
+			ch.byLoop[target] = map[uint]Register{}
+		}
+		r, ok := ch.byLoop[target][load.Kidx]
+		if !ok {
+			r = Register(ch.nregs + ch.newRegs)
+			ch.newRegs++
+			ch.byLoop[target][load.Kidx] = r
+		}
+		ch.loads[i] = r
 	}
-	nextLabel := h.freeLabel()
-	for _, e := range slices.Sorted(maps.Keys(splitLoops)) {
-		h.split(e, splitLoops[e], nextLabel)
-		nextLabel++
-	}
+	return ch
 }
 
-// loads returns the loads for loop l's hoisted constants, in register order.
-func (h *hoister) loads(l int) []Instruction {
+// loadsFor returns the loads of loop l's hoisted constants, in register
+// order.
+func (ch hoistChoices) loadsFor(l int) []Instruction {
 	var loads []Instruction
-	for kidx, r := range h.hoisted[l] {
+	for kidx, r := range ch.byLoop[l] {
 		loads = append(loads, LoadConst{Dst: r, Kidx: kidx})
 	}
 	slices.SortFunc(loads, func(a, b Instruction) int {
@@ -260,80 +189,55 @@ func (h *hoister) loads(l int) []Instruction {
 	return loads
 }
 
-// freeLabel returns a label the code doesn't use.
-func (h *hoister) freeLabel() Label {
-	next := Label(0)
-	for _, instr := range h.instrs {
-		if l, ok := instr.(DeclareLabel); ok && l.Label >= next {
-			next = l.Label + 1
-		}
+// placeLoads turns the choices into edits: the hoisted loads deleted and
+// their destinations renamed, the new registers, and each loop's loads put
+// where its plan says.  Loops that split the same entry put their loads
+// under one new label, which every jump back to that entry from inside any
+// of them is moved to: a hoisted register is never written again, so no
+// jump back needs to pass the loads.
+func placeLoads(a *analysis, plans []hoistPlan, ch hoistChoices) *Edits {
+	e := NewEdits(a.code)
+	for range ch.newRegs {
+		e.NewRegister(RegData{})
 	}
-	return next
-}
-
-// split puts the loads of loops at the top of entry block e, after its
-// labels, under the new label lbl, and moves the jumps to e's labels from
-// inside those loops to lbl.
-func (h *hoister) split(e int, loops []int, lbl Label) {
-	blk := h.g.Blocks[e]
-	pos := blk.Start
-	var labels []Label
-	for pos < blk.End && isLabel(h.instrs[pos]) {
-		labels = append(labels, h.instrs[pos].(DeclareLabel).Label)
-		pos++
+	for pos, r := range ch.loads {
+		e.Delete(pos)
+		e.RenameReads(a.instrs[pos].(LoadConst).Dst, r)
 	}
-	for _, l := range loops {
-		h.inserts[pos] = append(h.inserts[pos], h.loads(l)...)
-	}
-	h.inserts[pos] = append(h.inserts[pos], DeclareLabel{Label: lbl})
-	for _, l := range loops {
-		for _, b := range h.g.Loops[l].Blocks {
-			last := h.g.Blocks[b].End - 1
-			if to, jumps, _ := controlFlow(h.instrs[last]); jumps && slices.Contains(labels, to) {
-				h.retarget[last] = lbl
-			}
-		}
-	}
-}
-
-// emit writes the code out: the inserted loads and labels, the kept
-// instructions with their reads renamed and their jumps retargeted, and the
-// registers with the new ones.
-func (h *hoister) emit() Code {
-	c := h.code
-	out := make([]Instruction, 0, len(h.instrs)+len(h.inserts))
-	lines := make([]int, 0, len(h.instrs)+len(h.inserts))
-	for i := 0; i <= len(h.instrs); i++ {
-		for _, in := range h.inserts[i] {
-			out = append(out, in)
-			lines = append(lines, 0)
-		}
-		if i == len(h.instrs) || h.deleted[i] {
+	splitLoops := map[int][]int{} // entry block -> loops split there
+	for l := range a.g.Loops {
+		if ch.byLoop[l] == nil {
 			continue
 		}
-		instr := h.instrs[i]
-		for _, r := range instr.Reads() {
-			if to, ok := h.rename[r]; ok {
-				instr = instr.ReplaceRead(r, to)
+		for _, pos := range plans[l].edges {
+			for _, in := range ch.loadsFor(l) {
+				if !slices.Contains(e.Inserted(pos), in) {
+					e.InsertBefore(pos, in)
+				}
 			}
 		}
-		if to, ok := h.retarget[i]; ok {
-			switch x := instr.(type) {
-			case Jump:
-				x.Label = to
-				instr = x
-			case JumpIf:
-				x.Label = to
-				instr = x
-			}
+		for _, entry := range plans[l].splits {
+			splitLoops[entry] = append(splitLoops[entry], l)
 		}
-		out = append(out, instr)
-		lines = append(lines, c.Lines[i])
 	}
-	c.Instructions = out
-	c.Lines = lines
-	c.Registers = h.regs
-	return c
+	lbl := a.freeLabel()
+	for _, entry := range slices.Sorted(maps.Keys(splitLoops)) {
+		labels, pos := a.leadingLabels(entry)
+		for _, l := range splitLoops[entry] {
+			e.InsertBefore(pos, ch.loadsFor(l)...)
+		}
+		e.InsertBefore(pos, DeclareLabel{Label: lbl})
+		for _, l := range splitLoops[entry] {
+			for _, b := range a.g.Loops[l].Blocks {
+				last := a.g.Blocks[b].End - 1
+				if to, jumps, _ := controlFlow(a.instrs[last]); jumps && slices.Contains(labels, to) {
+					e.Retarget(last, lbl)
+				}
+			}
+		}
+		lbl++
+	}
+	return e
 }
 
 // labelBlock returns the block that starts at lbl.
