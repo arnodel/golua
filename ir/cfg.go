@@ -79,7 +79,10 @@ type Graph struct {
 	// Loops holds the loops, each before the loops nested in it.
 	Loops []Loop
 
-	order []int // position of each block in Order, -1 if unreachable
+	// rank is the inverse of Order: rank[b] is the position of block b in
+	// Order, or -1 if the block cannot run.  It answers "which of these two
+	// blocks comes first" without searching Order.
+	rank []int
 }
 
 // Block is a run of instructions, Instructions[Start:End].
@@ -115,7 +118,7 @@ func NewGraph(instrs []Instruction) *Graph {
 
 // Reachable reports whether block b can run.
 func (g *Graph) Reachable(b int) bool {
-	return g.order[b] >= 0
+	return g.rank[b] >= 0
 }
 
 // Dominates reports whether every path from the entry to block b goes
@@ -210,9 +213,9 @@ func isLabel(instr Instruction) bool {
 }
 
 func (g *Graph) orderBlocks() {
-	g.order = make([]int, len(g.Blocks))
-	for i := range g.order {
-		g.order[i] = -1
+	g.rank = make([]int, len(g.Blocks))
+	for i := range g.rank {
+		g.rank[i] = -1
 	}
 	visited := make([]bool, len(g.Blocks))
 	var post []int
@@ -228,7 +231,7 @@ func (g *Graph) orderBlocks() {
 	}
 	visit(0)
 	for i := len(post) - 1; i >= 0; i-- {
-		g.order[post[i]] = len(g.Order)
+		g.rank[post[i]] = len(g.Order)
 		g.Order = append(g.Order, post[i])
 	}
 }
@@ -245,10 +248,10 @@ func (g *Graph) findDominators() {
 	g.Idom[0] = 0
 	meet := func(a, b int) int {
 		for a != b {
-			for g.order[a] > g.order[b] {
+			for g.rank[a] > g.rank[b] {
 				a = g.Idom[a]
 			}
-			for g.order[b] > g.order[a] {
+			for g.rank[b] > g.rank[a] {
 				b = g.Idom[b]
 			}
 		}
