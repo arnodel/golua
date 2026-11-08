@@ -226,10 +226,21 @@ func metacall(t *Thread, obj Value, method metaID, args []Value, next Cont) (err
 // metamethod and returns the continuations that needs to be run to get the
 // results.
 func Continue(t *Thread, f Value, next Cont) (Cont, error) {
-	callable, ok := f.TryCallable()
-	if ok {
-		return callable.Continuation(t, next), nil
+	// A function's continuation is made by a direct call for each kind of
+	// function, rather than through the Callable interface.  The run loop's
+	// call opcodes repeat this switch, and call continueCall for the rest.
+	switch c := f.iface.(type) {
+	case *Closure:
+		return NewLuaCont(t, c, next), nil
+	case *GoFunction:
+		return NewGoCont(t, c, next), nil
 	}
+	return continueCall(t, f, next)
+}
+
+// continueCall is Continue for a value that is not a function, through its
+// __call metamethod.
+func continueCall(t *Thread, f Value, next Cont) (Cont, error) {
 	// Not callable, need to use __call metamethod
 	// Check if we've exceeded the chain limit (Lua 5.5)
 	if t.metacallChainDepth >= maxCallChainLength {
