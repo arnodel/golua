@@ -445,8 +445,12 @@ RunLoop:
 				next := getReg(regs, cells, contReg).AsCont()
 
 				// Push the arguments listed in the operand words, then skip
-				// the words.
+				// the words.  The receiver is usually a Lua function's
+				// frame: a value its receive opcode puts in a register is
+				// stored there directly, which is Push inlined by hand (the
+				// compiler can't, as Push has to call out for varargs).
 				if n := opcode.GetArgCount(); n > 0 {
+					lnext, isLua := next.(*LuaCont)
 					for ; n > 0; pc++ {
 						w := opcodes[pc]
 						clear := w.ArgClears()
@@ -454,7 +458,16 @@ RunLoop:
 							if n == 0 {
 								break
 							}
-							next.Push(t.Runtime, getReg(regs, cells, reg))
+							v := getReg(regs, cells, reg)
+							if !isLua {
+								next.Push(t.Runtime, v)
+							} else if r := lnext.code[lnext.pc]; r.HasType0() && !r.GetF() {
+								t.RequireCPU(1)
+								lnext.pc++
+								setReg(lnext.registers, lnext.cells, r.GetA(), v)
+							} else {
+								lnext.Push(t.Runtime, v)
+							}
 							if clear[k] {
 								setReg(regs, cells, reg, NilValue)
 							}
