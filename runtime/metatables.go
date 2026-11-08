@@ -93,29 +93,9 @@ type metaCache struct {
 	vals  [numMeta]Value
 }
 
-// markMetatable gives t a metaCache, if it has none: it is about to become
-// the metatable of something.
-func (t *Table) markMetatable() {
-	if t != nil && t.metaCache == nil {
-		t.metaCache = &metaCache{}
-	}
-}
-
-// metaChanged forgets the metamethods of t after a write to it.
-func (t *Table) metaChanged() {
-	t.metaCache.known = 0
-}
-
-// metaField returns t's metamethod id, nil if absent, from the cache when t
-// is a metatable.
-func (t *Table) metaField(id metaID) Value {
-	c := t.metaCache
-	if c == nil {
-		return t.getString(metaNames[id])
-	}
-	if c.known&(1<<id) != 0 {
-		return c.vals[id]
-	}
+// fill looks metamethod id up in t, the table c belongs to, and keeps the
+// answer.
+func (c *metaCache) fill(t *Table, id metaID) Value {
 	v := t.getString(metaNames[id])
 	c.vals[id] = v
 	c.known |= 1 << id

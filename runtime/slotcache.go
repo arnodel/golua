@@ -97,17 +97,13 @@ func setIndexStringAt(t *Thread, coll Value, k, v Value, hint *lookupHint) error
 		if g := uintptr(hint.slot); g < uintptr(1)<<h.base {
 			if it := &h.slots[g]; it.key.equalsString(k) && !it.value.IsNil() {
 				it.value = v
-				if tbl.metaCache != nil {
-					tbl.metaChanged()
-				}
+				tbl.metaChanged()
 				return nil
 			}
 		}
 		if it := hintMiss(h, k, &hint.slot); it != nil {
 			it.value = v
-			if tbl.metaCache != nil {
-				tbl.metaChanged()
-			}
+			tbl.metaChanged()
 			return nil
 		}
 		return setIndexChain(t, coll, k, v, tbl, stringKey)
