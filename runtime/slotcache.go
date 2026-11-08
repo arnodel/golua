@@ -85,31 +85,45 @@ func indexStringAt(t *Thread, coll Value, k Value, hint *lookupHint) (Value, err
 	return indexChain(t, coll, k, tbl, stringKey)
 }
 
-// setIndexStringAt is SetIndexString with a site's hint.  Only a store of a
-// non-nil value into a key the table already has takes the fast path:
-// setting a key to nil removes it, and a new key may need the table to grow.
-// A table that is a metatable forgets its metamethods on the way.
+// keySlot returns the slot holding key k in h, nil if k has none, trying the
+// hinted slot first.  A removed key keeps its slot with a nil value, so the
+// slot may be that of an absent key.  The hit is inline, the miss a call.
+func keySlot(h *hashTable, k Value, hint *uint16) *hashTableSlot {
+	if g := uintptr(*hint); g < uintptr(1)<<h.base {
+		if it := &h.slots[g]; it.key.equalsString(k) {
+			return it
+		}
+	}
+	return keySlotMiss(h, k, hint)
+}
+
+func keySlotMiss(h *hashTable, k Value, hint *uint16) *hashTableSlot {
+	it, i := findSlot(h.slots, uintptr(1)<<h.base-1, k, stringKey)
+	if it != nil {
+		*hint = uint16(i)
+	}
+	return it
+}
+
+// setIndexStringAt is SetIndexString with a site's hint.  A store into a key
+// that has a slot, present or removed, writes the slot: a removed key keeps
+// its slot, so storing into it again is an insert that needs no room, and
+// clearing a present key is what removing it does.  Only an absent key
+// consults __newindex, from the metatable's cache; a key with no slot is
+// inserted the ordinary way.  A table that is a metatable forgets its
+// metamethods on the way.
 func setIndexStringAt(t *Thread, coll Value, k, v Value, hint *lookupHint) error {
 	t.RequireCPU(1)
 	tbl, isTable := coll.TryTable()
-	if isTable && !v.IsNil() && tbl.hashTable != nil {
-		h := tbl.hashTable
-		if g := uintptr(hint.slot); g < uintptr(1)<<h.base {
-			if it := &h.slots[g]; it.key.equalsString(k) && !it.value.IsNil() {
-				it.value = v
-				tbl.metaChanged()
-				return nil
+	if isTable && tbl.hashTable != nil {
+		if it := keySlot(tbl.hashTable, k, &hint.slot); it != nil {
+			if it.value.IsNil() && tbl.meta != nil && !tbl.meta.metaField(metaNewindex).IsNil() {
+				return setIndexChain(t, coll, k, v, tbl, stringKey)
 			}
-		}
-		if it := hintMiss(h, k, &hint.slot); it != nil {
 			it.value = v
 			tbl.metaChanged()
 			return nil
 		}
-		return setIndexChain(t, coll, k, v, tbl, stringKey)
-	}
-	if isTable && tbl.resetString(k, v) {
-		return nil
 	}
 	return setIndexChain(t, coll, k, v, tbl, stringKey)
 }
