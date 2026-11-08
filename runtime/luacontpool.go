@@ -14,7 +14,9 @@ type luaContPool struct {
 	next  int
 }
 
-// Get a LuaCont from the pool (or make a new one if the pool is empty).  Note
+// Get a LuaCont from the pool (or make a new one if the pool is empty).  It
+// is all zeros either way: release clears a continuation before keeping it,
+// and NewLuaCont relies on that.  Note
 // that it is ok not to release this LuaCont to the pool later - if it is not
 // released but becomes unreachable, then it will be GCed at some point by the
 // Go runtime

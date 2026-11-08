@@ -47,13 +47,14 @@ func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 	registers[0] = ContValue(next)
 	cont := t.luaContPool.get()
 	t.RequireSize(unsafe.Sizeof(LuaCont{}))
-	*cont = LuaCont{
-		Closure:        clos,
-		registers:      registers,
-		cells:          cells,
-		borrowedCells:  borrowCells,
-		closeStackBase: t.closeStack.size(),
-	}
+	// A continuation from the pool is all zeros, as release left it, and so
+	// is a new one: only the fields that aren't need setting.  Assigning a
+	// whole LuaCont would write every field again.
+	cont.Closure = clos
+	cont.registers = registers
+	cont.cells = cells
+	cont.borrowedCells = borrowCells
+	cont.closeStackBase = t.closeStack.size()
 	return cont
 }
 
