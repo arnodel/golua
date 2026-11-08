@@ -324,14 +324,24 @@ RunLoop:
 					res, err = bnot(t, val)
 				case code.OpLen:
 					res, err = Len(t, val)
-				case code.OpCont:
-					var cont Cont
-					cont, err = Continue(t, val, c)
-					res = ContValue(cont)
-				case code.OpTailCont:
-					var cont Cont
-					cont, err = Continue(t, val, c.Next())
-					res = ContValue(cont)
+				case code.OpCont, code.OpTailCont:
+					// Continue, inlined by hand: the compiler won't, as
+					// each call it can't inline costs most of its budget
+					// (57 of 80), and this makes three.
+					var next Cont = c
+					if opcode.GetUnOp() == code.OpTailCont {
+						next = c.Next()
+					}
+					switch f := val.iface.(type) {
+					case *Closure:
+						res = ContValue(NewLuaCont(t, f, next))
+					case *GoFunction:
+						res = ContValue(NewGoCont(t, f, next))
+					default:
+						var cont Cont
+						cont, err = continueCall(t, val, next)
+						res = ContValue(cont)
+					}
 				case code.OpId:
 					res = val
 				case code.OpEtcId:
