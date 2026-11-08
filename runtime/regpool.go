@@ -55,6 +55,12 @@ func poolClass(n int) (class, size int) {
 // get returns a zeroed slice of length n.
 func (p *slicePool[T]) get(n int) []T {
 	class, size := poolClass(n)
+	return p.getIn(class, size, n)
+}
+
+// getIn is get for an n whose class and size poolClass gave already, as a
+// function's frame knows them for its registers.
+func (p *slicePool[T]) getIn(class, size, n int) []T {
 	if class >= 0 {
 		if free := p.free[class]; len(free) > 0 {
 			s := free[len(free)-1]
@@ -69,8 +75,14 @@ func (p *slicePool[T]) get(n int) []T {
 // release clears s and keeps it for reuse, unless its capacity is not that
 // of a class (it was grown, or is too large) or the class has enough already.
 func (p *slicePool[T]) release(s []T) {
-	clear(s)
 	class, size := poolClass(cap(s))
+	p.releaseIn(class, size, s)
+}
+
+// releaseIn is release for a slice whose capacity has the class and size
+// poolClass gave, if it still has that capacity.
+func (p *slicePool[T]) releaseIn(class, size int, s []T) {
+	clear(s)
 	if class < 0 || cap(s) != size || len(p.free[class]) >= max(p.max>>class, 1) {
 		return
 	}
