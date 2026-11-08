@@ -81,8 +81,19 @@ func (p *slicePool[T]) release(s []T) {
 
 // releaseIn is release for a slice whose capacity has the class and size
 // poolClass gave, if it still has that capacity.
+//
+// A frame's registers are a handful of values, and clearing them with a loop
+// the compiler leaves as stores is cheaper than the call clear makes; only
+// a longer slice goes to clear.
 func (p *slicePool[T]) releaseIn(class, size int, s []T) {
-	clear(s)
+	if len(s) <= 8 {
+		var zero T
+		for i := 0; i < len(s); i++ {
+			s[i] = zero
+		}
+	} else {
+		clear(s)
+	}
 	if class < 0 || cap(s) != size || len(p.free[class]) >= max(p.max>>class, 1) {
 		return
 	}
