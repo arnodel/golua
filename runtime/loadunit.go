@@ -19,6 +19,10 @@ type Code struct {
 	RegCount     int16
 	CellCount    int16
 
+	// regClass and regSize are the register pool's class and slice size
+	// for RegCount registers, worked out once rather than at every call.
+	regClass, regSize int
+
 	// slotCache holds a hint for each constant-key table access in the
 	// code, by opcode position, which the access reads and updates.  See
 	// slotcache.go.
@@ -141,6 +145,7 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 			}
 			r.RequireArrSize(unsafe.Sizeof(lookupHint{}), len(c.code))
 			c.slotCache = make([]lookupHint, len(c.code))
+			c.regClass, c.regSize = poolClass(int(c.RegCount))
 			// The compiler is trusted to produce code that passes, so a
 			// failure here is a bug in it rather than an error to report.
 			if err := c.verify(); err != nil {

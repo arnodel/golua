@@ -43,7 +43,7 @@ func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 		}
 	}
 	t.RequireArrSize(unsafe.Sizeof(Value{}), int(clos.RegCount))
-	registers := t.regPool.get(int(clos.RegCount))
+	registers := t.regPool.getIn(clos.regClass, clos.regSize, int(clos.RegCount))
 	registers[0] = ContValue(next)
 	cont := t.luaContPool.get()
 	t.RequireSize(unsafe.Sizeof(LuaCont{}))
@@ -59,7 +59,7 @@ func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 }
 
 func (c *LuaCont) release(r *Runtime) {
-	r.regPool.release(c.registers)
+	r.regPool.releaseIn(c.regClass, c.regSize, c.registers)
 	r.ReleaseArrSize(unsafe.Sizeof(Value{}), int(c.RegCount))
 	if !c.borrowedCells {
 		r.ReleaseArrSize(unsafe.Sizeof(Cell{}), int(c.CellCount))

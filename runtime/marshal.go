@@ -204,6 +204,7 @@ func (r *breader) readConst() (v Value) {
 		r.readCode(x)
 		r.consumeBudget(uint64(unsafe.Sizeof(lookupHint{})) * uint64(len(x.code)))
 		x.slotCache = make([]lookupHint, len(x.code))
+		x.regClass, x.regSize = poolClass(int(x.RegCount))
 		if r.err == nil {
 			r.err = x.verify()
 		}

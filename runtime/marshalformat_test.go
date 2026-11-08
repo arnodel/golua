@@ -22,7 +22,7 @@ var marshalFormatFiles = []string{
 	"valuetype.go",
 }
 
-const marshalFormatHash = "68d7fe0c5db4a24eb6c0c0999c91ff16077ad551d261a03dd22aa11f8844482e"
+const marshalFormatHash = "d7e7d247abca5d4094a8675004449dff7e38b4e38e05b65834165d895b30e15b"
 
 // TestMarshalFormat is a reminder to bump marshalFormat: it fails when the
 // code in the files that define the format changes.  Comments and layout
