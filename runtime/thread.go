@@ -114,7 +114,9 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 	var errContCount = 0
 	_ = t.triggerCall(t, c)
 	for c != nil {
-		if t != t.gcThread {
+		// Checked at every continuation, so twice per call: the check is
+		// one load, inline, and the work only when there is some.
+		if t.weakRefPool.HasPending() && t != t.gcThread {
 			t.runPendingFinalizers()
 		}
 		t.currentCont = c
