@@ -34,6 +34,58 @@ for its interpreter alone).  Shopify/go-lua has no command-line interpreter
 and implements Lua 5.2, which the benchmarks outgrow; apogee's own harness
 drives it as a library and publishes 4.8× C Lua for it.
 
+## 2026-11-08 (evening), golua over its revisions, Apple M1 Max
+
+Taken with [`benchmarks/gauge.sh`](../benchmarks/gauge.sh), 3 rounds,
+against C Lua 5.5.1 (Homebrew): this morning's checkpoint (9d0e7f5), lua5.5
+after the field-access work (3bdb01f, #218), and lua5.5 after the frame
+set-up work (6e2ae23, #226).
+
+| benchmark | 9d0e7f5 | 3bdb01f | 6e2ae23 |
+|---|---|---|---|
+| bounce | 3.41× | 3.01× | 2.89× |
+| cd | 2.25× | 2.49× | 2.02× |
+| deltablue | 3.24× | 3.06× | 2.77× |
+| havlak | 2.19× | 2.31× | 1.95× |
+| json | 3.39× | 3.16× | 2.82× |
+| list | 2.74× | 2.50× | 2.39× |
+| mandelbrot | 2.06× | 2.07× | 2.04× |
+| nbody | 3.21× | 2.56× | 2.56× |
+| permute | 3.83× | 3.17× | 3.03× |
+| queens | 3.41× | 3.15× | 2.99× |
+| richards | 3.49× | 2.98× | 2.86× |
+| sieve | 2.93× | 2.96× | 2.94× |
+| storage | 2.30× | 2.23× | 2.10× |
+| towers | 4.39× | 3.71× | 3.47× |
+| binary-trees | 3.19× | 3.22× | 3.03× |
+| fannkuch-redux | 2.39× | 2.43× | 2.44× |
+| spectral-norm | 3.06× | 3.03× | 2.88× |
+| fasta | 2.96× | 2.94× | 2.82× |
+| k-nucleotide | 2.06× | 2.02× | 1.99× |
+| regex-dna | 1.36× | 1.36× | 1.36× |
+| coroutine-ring | 5.86× | 5.77× | 5.75× |
+| md5 | 3.38× | 3.29× | 3.15× |
+| life | 1.51× | 1.51× | 1.49× |
+| **geomean of 23** | **2.84×** | **2.71×** | **2.57×** |
+
+Notes:
+
+- 9d0e7f5 to 3bdb01f is the field-access work: a constant-key access
+  remembers the slot that answered (#212, #215), a method call remembers
+  where the method is (#220), a field store writes the slot its key has
+  (#221), and the pending-finalizer check is one inline load (#218).
+  nbody, towers, permute and richards gain most.  cd and havlak got slower
+  at 3bdb01f: #220 gave every metatable an allocated cache, and these
+  benchmarks make a metatable per object.
+- 3bdb01f to 6e2ae23 fixes that (#223: the absent metamethods are bits in
+  padding the hash part had anyway) and cuts the cost of setting up a frame
+  (#224, #225, #226): a bare call went from about 51 to 48 ns.  cd and
+  havlak are now well below where they were this morning, and the
+  call-heavy benchmarks (towers, deltablue, json, richards) gain 4 to 11%.
+- The loop benchmarks (mandelbrot, sieve, fannkuch) did not move all day:
+  their remaining cost is per opcode, not per call or per access.
+  coroutine-ring stays the outlier, as a ring of goroutine hand-offs.
+
 ## 2026-11-08, golua over its revisions, Apple M1 Max
 
 Taken with [`benchmarks/gauge.sh`](../benchmarks/gauge.sh), 3 rounds,
