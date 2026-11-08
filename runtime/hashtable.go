@@ -306,6 +306,11 @@ type hashTable struct {
 	slots    []hashTableSlot
 	nextFree uintptr
 	base     uint8
+
+	// metaAbsent says which metamethods, by metaID, the table is known
+	// not to have, when it is used as a metatable (see Table.metaField).
+	// It fits in padding the struct had anyway.  Adding a key clears it.
+	metaAbsent uint32
 }
 
 type hashTableSlot struct {
@@ -349,6 +354,7 @@ func (it *hashTableSlot) nextFlags() uintptr {
 }
 
 func (t *hashTable) set(k, v Value) {
+	t.metaAbsent = 0
 	if setKeyValue(t.slots, (1<<t.base)-1, k, v, t.nextFree) {
 		t.nextFree = updateNextFree(t.slots, t.nextFree)
 	}

@@ -17,9 +17,8 @@ package runtime
 // needed, as a stale hint fails its check.
 //
 // A method call, "obj:m()", finds m not in the instance but in a class table
-// through the metatable's __index.  The metatable answers for __index from
-// its metaCache, and the class table sees one table per site, so the hint
-// holds the slot of m in it too.  The same goes for s:m() on a string: the
+// through the metatable's __index, and the class table sees one table per
+// site, so the hint holds the slot of m in it too.  The same goes for s:m() on a string: the
 // string metatable's __index is the string library, and the site remembers
 // where m is in it.
 //
@@ -109,9 +108,7 @@ func keySlotMiss(h *hashTable, k Value, hint *uint16) *hashTableSlot {
 // that has a slot, present or removed, writes the slot: a removed key keeps
 // its slot, so storing into it again is an insert that needs no room, and
 // clearing a present key is what removing it does.  Only an absent key
-// consults __newindex, from the metatable's cache; a key with no slot is
-// inserted the ordinary way.  A table that is a metatable forgets its
-// metamethods on the way.
+// consults __newindex; a key with no slot is inserted the ordinary way.
 func setIndexStringAt(t *Thread, coll Value, k, v Value, hint *lookupHint) error {
 	t.RequireCPU(1)
 	tbl, isTable := coll.TryTable()
@@ -120,8 +117,10 @@ func setIndexStringAt(t *Thread, coll Value, k, v Value, hint *lookupHint) error
 			if it.value.IsNil() && tbl.meta != nil && !tbl.meta.metaField(metaNewindex).IsNil() {
 				return setIndexChain(t, coll, k, v, tbl, stringKey)
 			}
+			if it.value.IsNil() {
+				tbl.hashTable.metaAbsent = 0 // the key is added back
+			}
 			it.value = v
-			tbl.metaChanged()
 			return nil
 		}
 	}
