@@ -89,3 +89,24 @@ print(pcall(who, a))
 local c = setmetatable({n = 3, who = function() return "own" end}, B)
 print(who(c), who(b))
 --> =own	B2
+
+-- A field cleared and set again, as a linked list does: the key keeps its
+-- slot, and the store into it must still see __newindex when there is one.
+local function link(n, v) n.next = v end
+local n1, n2 = {v = 1}, {v = 2}
+for i = 1, 3 do
+    link(n1, n2) link(n1, nil)
+end
+print(n1.next, rawget(n1, "next"))
+--> =nil	nil
+link(n1, n2)
+print(n1.next.v)
+--> =2
+
+local seen = {}
+local watched = setmetatable({next = 1}, {__newindex = function(t, k, v) seen[#seen + 1] = k .. "=" .. tostring(v) end})
+link(watched, nil)          -- present: cleared, no __newindex
+link(watched, 5)            -- absent now: __newindex
+link(watched, nil)          -- absent: __newindex, even for nil
+print(rawget(watched, "next"), table.concat(seen, " "))
+--> =nil	next=5 next=nil
