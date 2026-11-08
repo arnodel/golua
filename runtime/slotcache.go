@@ -29,9 +29,10 @@ package runtime
 // table is looked up the ordinary way.
 
 // A lookupHint is what a site remembers between two accesses: where the key
-// was in the table accessed, and where it was in the table __index names.
+// was in the table accessed, where "__index" was in that table's metatable,
+// and where the key was in the table __index names.
 type lookupHint struct {
-	slot, indexSlot uint16
+	slot, metaSlot, indexSlot uint16
 }
 
 // hintedString returns the value of k in h, nil if absent, trying the
@@ -71,8 +72,15 @@ func indexStringAt(t *Thread, coll Value, k Value, hint *lookupHint) (Value, err
 	}
 	// Absent, or not a table: one level of __index through a table, with
 	// the hint; anything else is the general chain.  The depth passed on
-	// keeps the chain's length limit where it was.
-	if idx, ok := t.metaGet(coll, metaIndex).TryTable(); ok {
+	// keeps the chain's length limit where it was.  A table's metatable is
+	// one table per site, like the class, so __index is hinted in it too.
+	var idxVal Value
+	if isTable && tbl.meta != nil && tbl.meta.hashTable != nil {
+		idxVal = hintedString(tbl.meta.hashTable, metaNames[metaIndex], &hint.metaSlot)
+	} else {
+		idxVal = t.metaGet(coll, metaIndex)
+	}
+	if idx, ok := idxVal.TryTable(); ok {
 		t.RequireCPU(1)
 		if idx.hashTable != nil {
 			if val := hintedString(idx.hashTable, k, &hint.indexSlot); !val.IsNil() {
