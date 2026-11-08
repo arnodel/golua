@@ -8,47 +8,79 @@ package runtime
 // every table.  The site keeps a hint (Code.slotCache) that it hands to the
 // access, which reads it and, when the lookup learns something, updates it.
 //
-// To the site the hint is opaque.  Inside, it is the slot that answered last
-// time, a guess checked before use: the slot must exist in the table and hold
-// the key with a non-nil value.  A hit is one comparison in place of a scan
-// of a small table or a hash and a probe.  On a miss the full lookup runs
-// and, if it finds the key, its slot becomes the hint.  Absence is never
-// remembered, so a key that is not in the table takes the __index path as
-// before; and no invalidation is needed, as a stale hint fails its check.
+// To the site the hint is opaque.  Inside, each slot is a guess checked
+// before use: it must exist in the table and hold the key with a non-nil
+// value.  A hit is one comparison in place of a scan of a small table or a
+// hash and a probe.  On a miss the full lookup runs and, if it finds the key,
+// its slot goes into the hint.  Absence is never remembered, so a key that is
+// not in the table takes the __index path as before; and no invalidation is
+// needed, as a stale hint fails its check.
 //
-// The hint is passed by pointer rather than returned: returning it and
-// storing it on every access measured 3% slower on the field-heavy
-// benchmarks, a third of what the hint gains there.
+// A method call, "obj:m()", finds m not in the instance but in a class table
+// through the metatable's __index.  The metatable answers for __index from
+// its metaCache, and the class table sees one table per site, so the hint
+// holds the slot of m in it too.  The same goes for s:m() on a string: the
+// string metatable's __index is the string library, and the site remembers
+// where m is in it.
+//
+// The hint is passed by pointer, and its slots are plain 16-bit fields:
+// returning the hint and storing it on every access measured 3% slower on
+// the field-heavy benchmarks, and so did packing the slots into fewer bits.
+// A slot index beyond 16 bits is truncated, which the check catches: such a
+// table is looked up the ordinary way.
 
-// A lookupHint is what a site remembers between two accesses.
+// A lookupHint is what a site remembers between two accesses: where the key
+// was in the table accessed, and where it was in the table __index names.
 type lookupHint struct {
-	slot uint32 // where the key was in the table last time
+	slot, indexSlot uint16
 }
 
-// hintedString returns the value of k in h, nil if absent, trying the hinted
-// slot first and recording the slot found.
-func hintedString(h *hashTable, k Value, hint *uint32) Value {
-	mask := uintptr(1)<<h.base - 1
-	if g := uintptr(*hint); g <= mask {
+// hintedString returns the value of k in h, nil if absent, trying the
+// hinted slot first.  The hit is inline, the miss is a call: this is the
+// hottest path of the field-heavy programs.
+func hintedString(h *hashTable, k Value, hint *uint16) Value {
+	if g := uintptr(*hint); g < uintptr(1)<<h.base {
 		if it := &h.slots[g]; it.key.equalsString(k) && !it.value.IsNil() {
 			return it.value
 		}
 	}
-	if it, i := findSlot(h.slots, mask, k, stringKey); it != nil && !it.value.IsNil() {
-		*hint = uint32(i)
+	if it := hintMiss(h, k, hint); it != nil {
 		return it.value
 	}
 	return NilValue
 }
 
+// hintMiss is the full lookup of k in h after the hint failed, recording the
+// slot found in the hint; nil if k is absent.
+func hintMiss(h *hashTable, k Value, hint *uint16) *hashTableSlot {
+	it, i := findSlot(h.slots, uintptr(1)<<h.base-1, k, stringKey)
+	if it == nil || it.value.IsNil() {
+		return nil
+	}
+	*hint = uint16(i)
+	return it
+}
+
 // indexStringAt is IndexString with a site's hint.
 func indexStringAt(t *Thread, coll Value, k Value, hint *lookupHint) (Value, error) {
 	t.RequireCPU(1)
-	tbl, ok := coll.TryTable()
-	if ok && tbl.hashTable != nil {
+	tbl, isTable := coll.TryTable()
+	if isTable && tbl.hashTable != nil {
 		if val := hintedString(tbl.hashTable, k, &hint.slot); !val.IsNil() {
 			return val, nil
 		}
+	}
+	// Absent, or not a table: one level of __index through a table, with
+	// the hint; anything else is the general chain.  The depth passed on
+	// keeps the chain's length limit where it was.
+	if idx, ok := t.metaGet(coll, metaIndex).TryTable(); ok {
+		t.RequireCPU(1)
+		if idx.hashTable != nil {
+			if val := hintedString(idx.hashTable, k, &hint.indexSlot); !val.IsNil() {
+				return val, nil
+			}
+		}
+		return indexChainFrom(t, TableValue(idx), k, idx, stringKey, 2)
 	}
 	return indexChain(t, coll, k, tbl, stringKey)
 }
@@ -56,21 +88,22 @@ func indexStringAt(t *Thread, coll Value, k Value, hint *lookupHint) (Value, err
 // setIndexStringAt is SetIndexString with a site's hint.  Only a store of a
 // non-nil value into a key the table already has takes the fast path:
 // setting a key to nil removes it, and a new key may need the table to grow.
+// A table that is a metatable forgets its metamethods on the way.
 func setIndexStringAt(t *Thread, coll Value, k, v Value, hint *lookupHint) error {
 	t.RequireCPU(1)
 	tbl, isTable := coll.TryTable()
 	if isTable && !v.IsNil() && tbl.hashTable != nil {
 		h := tbl.hashTable
-		mask := uintptr(1)<<h.base - 1
-		if g := uintptr(hint.slot); g <= mask {
+		if g := uintptr(hint.slot); g < uintptr(1)<<h.base {
 			if it := &h.slots[g]; it.key.equalsString(k) && !it.value.IsNil() {
 				it.value = v
+				tbl.metaChanged()
 				return nil
 			}
 		}
-		if it, i := findSlot(h.slots, mask, k, stringKey); it != nil && !it.value.IsNil() {
-			hint.slot = uint32(i)
+		if it := hintMiss(h, k, &hint.slot); it != nil {
 			it.value = v
+			tbl.metaChanged()
 			return nil
 		}
 		return setIndexChain(t, coll, k, v, tbl, stringKey)

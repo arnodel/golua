@@ -53,3 +53,39 @@ print(rawget(guarded, "x"), log[1])
 local function len(v) return v.len end
 print(len({len = 3}), (pcall(len, 4)))
 --> =3	false
+
+-- A method found through the metatable's __index: the site remembers where
+-- __index is in the metatable and where the method is in the class.
+local A = {}
+A.__index = A
+function A.who(self) return "A" .. self.n end
+local B = {}
+B.__index = B
+function B.who(self) return "B" .. self.n end
+local function who(o) return o:who() end
+local a, b = setmetatable({n = 1}, A), setmetatable({n = 2}, B)
+print(who(a), who(b), who(a))
+--> =A1	B2	A1
+
+-- The class changes: a method replaced, removed, found deeper in a chain.
+function A.who(self) return "A'" .. self.n end
+print(who(a))
+--> =A'1
+A.who = nil
+local Base = {who = function(self) return "base" .. self.n end}
+setmetatable(A, {__index = Base})
+print(who(a))
+--> =base1
+
+-- __index is a function, or the metatable is swapped or dropped.
+setmetatable(a, {__index = function(t, k) return k .. "?" end})
+print(a.who, (pcall(who, a)))
+--> =who?	false
+setmetatable(a, nil)
+print(pcall(who, a))
+--> ~^false\t.*attempt to call a nil value
+
+-- An instance field shadows the class's.
+local c = setmetatable({n = 3, who = function() return "own" end}, B)
+print(who(c), who(b))
+--> =own	B2

@@ -144,6 +144,7 @@ func (r *Runtime) MainThread() *Thread {
 // SetStringMeta sets the runtime's string metatable (all strings in a runtime
 // have the same metatable).
 func (r *Runtime) SetStringMeta(meta *Table) {
+	meta.markMetatable()
 	r.stringMeta = meta
 }
 
@@ -185,6 +186,7 @@ func (r *Runtime) RawMetatable(v Value) *Table {
 
 // SetRawMetatable sets the metatable for value v to meta.
 func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
+	meta.markMetatable()
 	if v.IsNil() {
 		r.nilMeta = meta
 	}
@@ -235,7 +237,7 @@ func (r *Runtime) runFinalizers(refs []luagc.Value) {
 	for _, ref := range refs {
 		term := NewTerminationWith(nil, 0, false)
 		v := AsValue(ref)
-		err, _ := metacall(r.gcThread, v, MetaFieldGcValue, []Value{v}, term)
+		err, _ := metacall(r.gcThread, v, metaGc, []Value{v}, term)
 		if err != nil {
 			r.Warn(fmt.Sprintf("error in finalizer: %s", err))
 		}
@@ -287,7 +289,7 @@ func (r *Runtime) Metatable(v Value) Value {
 	if meta == nil {
 		return NilValue
 	}
-	metam := RawGet(meta, metaMetatable)
+	metam := RawGet(meta, metaNames[metaMetatable])
 	if metam != NilValue {
 		return metam
 	}
@@ -318,15 +320,22 @@ func (r *Runtime) SetTableCheck(t *Table, k, v Value) error {
 }
 
 func (r *Runtime) metaGetS(v Value, k string) Value {
-	return r.metaGet(v, StringValue(k))
-}
-
-// metaGet returns the field k of v's metatable, or nil.  k is one of the
-// metamethod names built once in metatables.go.
-func (r *Runtime) metaGet(v Value, k Value) Value {
+	if id, ok := metaIDs[k]; ok {
+		return r.metaGet(v, id)
+	}
 	meta := r.RawMetatable(v)
 	if meta == nil {
 		return NilValue
 	}
-	return meta.getString(k)
+	return meta.getString(StringValue(k))
+}
+
+// metaGet returns the metamethod id of v's metatable, or nil, from the
+// metatable's cache.
+func (r *Runtime) metaGet(v Value, id metaID) Value {
+	meta := r.RawMetatable(v)
+	if meta == nil {
+		return NilValue
+	}
+	return meta.metaField(id)
 }

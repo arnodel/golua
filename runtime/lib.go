@@ -76,7 +76,13 @@ func IndexString(t *Thread, coll Value, k Value) (Value, error) {
 // '__index' metamethod decides.  A table metamethod is looked up in turn, a
 // function one is called.
 func indexChain(t *Thread, coll Value, k Value, tbl *Table, kind keyKind) (Value, error) {
-	for i := 1; i < maxIndexChainLength; i++ {
+	return indexChainFrom(t, coll, k, tbl, kind, 1)
+}
+
+// indexChainFrom is indexChain with depth levels of the chain already
+// walked.
+func indexChainFrom(t *Thread, coll Value, k Value, tbl *Table, kind keyKind, depth int) (Value, error) {
+	for i := depth; i < maxIndexChainLength; i++ {
 		metaIdx := t.metaGet(coll, metaIndex)
 		if metaIdx.IsNil() {
 			if tbl != nil {
@@ -202,12 +208,14 @@ func Truth(v Value) bool {
 // Metacall calls the metamethod called method on obj with the given arguments
 // args, pushing the result to the continuation next.
 func Metacall(t *Thread, obj Value, method string, args []Value, next Cont) (error, bool) {
-	return metacall(t, obj, StringValue(method), args, next)
+	if f := t.metaGetS(obj, method); !f.IsNil() {
+		return Call(t, f, args, next), true
+	}
+	return nil, false
 }
 
-// metacall is Metacall with the method's name as a Value, one of those built
-// once in metatables.go.
-func metacall(t *Thread, obj Value, method Value, args []Value, next Cont) (error, bool) {
+// metacall is Metacall with the method's id.
+func metacall(t *Thread, obj Value, method metaID, args []Value, next Cont) (error, bool) {
 	if f := t.metaGet(obj, method); !f.IsNil() {
 		return Call(t, f, args, next), true
 	}
@@ -601,7 +609,7 @@ func stripFirstLineComment(chunk []byte) ([]byte, bool) {
 	return nil, true
 }
 
-func metacont(t *Thread, obj Value, method Value, next Cont) (Cont, error, bool) {
+func metacont(t *Thread, obj Value, method metaID, next Cont) (Cont, error, bool) {
 	f := t.metaGet(obj, method)
 	if f.IsNil() {
 		return nil, nil, false
@@ -613,7 +621,7 @@ func metacont(t *Thread, obj Value, method Value, next Cont) (Cont, error, bool)
 	return cont, nil, true
 }
 
-func metabin(t *Thread, f Value, x Value, y Value) (Value, error, bool) {
+func metabin(t *Thread, f metaID, x Value, y Value) (Value, error, bool) {
 	xy := []Value{x, y}
 	res := NewTerminationWith(t.CurrentCont(), 1, false)
 	err, ok := metacall(t, x, f, xy, res)
@@ -626,7 +634,7 @@ func metabin(t *Thread, f Value, x Value, y Value) (Value, error, bool) {
 	return NilValue, nil, false
 }
 
-func metaun(t *Thread, f Value, x Value) (Value, error, bool) {
+func metaun(t *Thread, f metaID, x Value) (Value, error, bool) {
 	res := NewTerminationWith(t.CurrentCont(), 1, false)
 	err, ok := metacall(t, x, f, []Value{x}, res)
 	if ok {
