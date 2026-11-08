@@ -342,7 +342,7 @@ func (v Value) ToString() (string, bool) {
 	case int64:
 		return strconv.FormatInt(v.AsInt(), 10), true
 	case float64:
-		return FloatToString(v.AsFloat()), true
+		return floatToString(v.AsFloat()), true
 	case bool:
 		return strconv.FormatBool(v.AsBool()), false
 	case string:
