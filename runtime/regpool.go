@@ -68,8 +68,19 @@ func (p *slicePool[T]) get(n int) []T {
 
 // release clears s and keeps it for reuse, unless its capacity is not that
 // of a class (it was grown, or is too large) or the class has enough already.
+//
+// A frame's registers are a handful of values, and clearing them with a loop
+// the compiler leaves as stores is cheaper than the call clear makes; only
+// a longer slice goes to clear.
 func (p *slicePool[T]) release(s []T) {
-	clear(s)
+	if len(s) <= 8 {
+		var zero T
+		for i := 0; i < len(s); i++ {
+			s[i] = zero
+		}
+	} else {
+		clear(s)
+	}
 	class, size := poolClass(cap(s))
 	if class < 0 || cap(s) != size || len(p.free[class]) >= max(p.max>>class, 1) {
 		return
