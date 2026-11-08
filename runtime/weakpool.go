@@ -174,6 +174,12 @@ func weakEntryCleanup(entry *weakEntry) {
 // It is called before every continuation runs, so the usual case, nothing
 // pending, is kept small enough to inline and the work is in a separate
 // function.
+// HasPending reports whether there may be values waiting to be finalized or
+// released.  It is a single load, cheap enough to check often.
+func (p *WeakPool) HasPending() bool {
+	return p.pending.Load()
+}
+
 func (p *WeakPool) ExtractPendingFinalize() []luagc.Value {
 	if !p.pending.Load() {
 		return nil
