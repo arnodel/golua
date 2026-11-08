@@ -226,6 +226,11 @@ func metacall(t *Thread, obj Value, method metaID, args []Value, next Cont) (err
 // metamethod and returns the continuations that needs to be run to get the
 // results.
 func Continue(t *Thread, f Value, next Cont) (Cont, error) {
+	// A Lua function is the common case: its continuation is made directly
+	// rather than through the Callable interface.
+	if clos, ok := f.TryClosure(); ok {
+		return NewLuaCont(t, clos, next), nil
+	}
 	callable, ok := f.TryCallable()
 	if ok {
 		return callable.Continuation(t, next), nil
