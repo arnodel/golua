@@ -13,8 +13,8 @@ var (
 )
 
 // A metaID names one of the metamethods the runtime looks up.  Looking a
-// metamethod up by id rather than by name lets a table that is a metatable
-// keep the answers (see metaCache).
+// metamethod up by id rather than by name lets a metatable remember which
+// metamethods it lacks (see Table.metaField).
 type metaID uint8
 
 const (
@@ -79,25 +79,3 @@ var metaIDs = func() map[string]metaID {
 	}
 	return ids
 }()
-
-// A metaCache holds the metamethods of a table that is used as a metatable,
-// as the runtime finds them: a value, or nil for an absent one, which is the
-// usual answer (every store of a new key into a table with a metatable asks
-// for __newindex).  Looking a metamethod up is then an array read in place
-// of a string lookup, and the cache is cleared by any write to the table.
-//
-// Only tables that have been set as the metatable of something carry one;
-// the others pay a nil check on each write, nothing else.
-type metaCache struct {
-	known uint32 // which of vals are filled
-	vals  [numMeta]Value
-}
-
-// fill looks metamethod id up in t, the table c belongs to, and keeps the
-// answer.
-func (c *metaCache) fill(t *Table, id metaID) Value {
-	v := t.getString(metaNames[id])
-	c.vals[id] = v
-	c.known |= 1 << id
-	return v
-}

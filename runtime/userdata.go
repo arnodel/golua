@@ -50,7 +50,6 @@ func (d *UserData) Metatable() *Table {
 
 // SetMetatable sets d's metatable to m.
 func (d *UserData) SetMetatable(m *Table) {
-	m.markMetatable()
 	d.meta = m
 }
 

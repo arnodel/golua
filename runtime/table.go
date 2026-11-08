@@ -11,8 +11,7 @@ type Table struct {
 	// This is where the implementation details are.
 	*mixedTable
 
-	meta      *Table
-	metaCache *metaCache // the table's metamethods, if it is a metatable
+	meta *Table
 }
 
 // NewTable returns a new Table without memory accounting. Use the method
@@ -57,37 +56,23 @@ func (t *Table) Metatable() *Table {
 
 // SetMetatable sets the table's metatable.
 func (t *Table) SetMetatable(m *Table) {
-	m.markMetatable()
 	t.meta = m
 }
 
-// markMetatable gives t a metaCache, if it has none: it is about to become
-// the metatable of something.  See metaCache.
-func (t *Table) markMetatable() {
-	if t != nil && t.metaCache == nil {
-		t.metaCache = &metaCache{}
-	}
-}
-
-// metaChanged forgets the metamethods of t after a write to it, if t is a
-// metatable.
-func (t *Table) metaChanged() {
-	if t.metaCache != nil {
-		t.metaCache.known = 0
-	}
-}
-
-// metaField returns t's metamethod id, nil if absent, from the cache when t
-// is a metatable.
+// metaField returns t's metamethod id, nil if absent.  t is a metatable, and
+// most metamethods are absent from most metatables (every store of a new
+// key into a table with a metatable asks for __newindex), so t remembers
+// the ones it lacks, in a word of its hash part that any new key clears.
 func (t *Table) metaField(id metaID) Value {
-	c := t.metaCache
-	if c == nil {
-		return t.getString(metaNames[id])
+	h := t.hashTable
+	if h == nil || h.metaAbsent&(1<<id) != 0 {
+		return NilValue
 	}
-	if c.known&(1<<id) != 0 {
-		return c.vals[id]
+	v := h.findString(metaNames[id])
+	if v.IsNil() {
+		h.metaAbsent |= 1 << id
 	}
-	return c.fill(t, id)
+	return v
 }
 
 var _ luagc.Value = (*Table)(nil)
@@ -132,7 +117,6 @@ func (t *Table) getString(k Value) Value {
 // resetString implements t[k] = v only if t[k] was already non-nil, for a key
 // known to be a string.
 func (t *Table) resetString(k, v Value) (wasSet bool) {
-	t.metaChanged()
 	if v.IsNil() {
 		return t.mixedTable.remove(k)
 	}
@@ -143,7 +127,6 @@ func (t *Table) resetString(k, v Value) (wasSet bool) {
 // of bytes the table allocated to store v: zero when v fits in storage the
 // table already has, the size of the new storage when the table had to grow.
 func (t *Table) Set(k, v Value) uint64 {
-	t.metaChanged()
 	if v.IsNil() {
 		t.mixedTable.remove(k)
 		return 0
@@ -158,7 +141,6 @@ const TableHeaderSize = uint64(unsafe.Sizeof(Table{}) + unsafe.Sizeof(mixedTable
 
 // Reset implements t[k] = v only if t[k] was already non-nil.
 func (t *Table) Reset(k, v Value) (wasSet bool) {
-	t.metaChanged()
 	if v.IsNil() {
 		return t.mixedTable.remove(k)
 	}

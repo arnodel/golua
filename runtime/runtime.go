@@ -144,7 +144,6 @@ func (r *Runtime) MainThread() *Thread {
 // SetStringMeta sets the runtime's string metatable (all strings in a runtime
 // have the same metatable).
 func (r *Runtime) SetStringMeta(meta *Table) {
-	meta.markMetatable()
 	r.stringMeta = meta
 }
 
@@ -186,7 +185,6 @@ func (r *Runtime) RawMetatable(v Value) *Table {
 
 // SetRawMetatable sets the metatable for value v to meta.
 func (r *Runtime) SetRawMetatable(v Value, meta *Table) {
-	meta.markMetatable()
 	if v.IsNil() {
 		r.nilMeta = meta
 	}
