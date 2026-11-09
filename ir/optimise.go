@@ -7,8 +7,11 @@ package ir
 // itself.
 type Pass func(Code) Code
 
-// Optimise applies the passes, in order, to every function in consts.
+// Optimise applies the passes, in order, to every function in consts.  It
+// first works out which registers are fixed (markFixed), which for cells
+// needs the whole chunk, so that the passes can rely on it.
 func Optimise(consts []Constant, passes ...Pass) []Constant {
+	consts = markFixed(consts)
 	out := make([]Constant, len(consts))
 	for i, k := range consts {
 		if c, ok := k.(*Code); ok {

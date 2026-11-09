@@ -34,10 +34,23 @@ import (
 //     r6 <- 1; i <- i + r6
 //
 // Cells (locals captured by closures, and upvalues) are left alone: a function
-// called in between could change them.  Named locals keep their copies when
-// they are the destination, so that their value stays observable.
+// called in between could change them.  The exception is a fixed cell (see
+// markFixed), which nothing changes once its value can be seen: a copy of it
+// is read through like a copy of a named local.  An argument listed in a
+// call is read at the call, so the AST compiler copies a cell argument before
+// evaluating the next ones, which could change it; with n fixed,
+// "f(n, g() + 1)" goes from
 //
-// Only copies of named locals are read through.  A local is live for its
+//	r1 <- cont(u0); r2 <- u1; ...g() + 1 into r3...; call r1 (r2, r3)
+//
+// to
+//
+//	r1 <- cont(u0); ...g() + 1 into r2...; call r1 (u1, r2)
+//
+// Named locals keep their copies when they are the destination, so that
+// their value stays observable.
+//
+// Only copies of named locals and of fixed cells are read through.  A local is live for its
 // whole scope, so reading it instead of its copy costs nothing and lets the
 // copy die early; reading a temporary instead of its copy would keep the
 // temporary alive for longer.  Reading a register later than before is
@@ -62,6 +75,7 @@ func PropagateCopies(c Code) Code {
 	plain := func(r Register) bool { return !regs[r].IsCell }
 	temp := func(r Register) bool { return !regs[r].IsCell && !regs[r].IsLocal }
 	local := func(r Register) bool { return !regs[r].IsCell && regs[r].IsLocal }
+	fixedCell := func(r Register) bool { return regs[r].IsCell && regs[r].IsFixed }
 	e := NewEdits(c)
 
 	// State for the current straight-line stretch.
@@ -139,8 +153,8 @@ func PropagateCopies(c Code) Code {
 			lastTouch[r] = i
 		}
 
-		// 3. Remember a copy of a named local.
-		if mv, ok := asMove(instr); ok && local(mv.Src) && plain(mv.Dst) && mv.Src != mv.Dst {
+		// 3. Remember a copy of a named local or of a fixed cell.
+		if mv, ok := asMove(instr); ok && (local(mv.Src) || fixedCell(mv.Src)) && plain(mv.Dst) && mv.Src != mv.Dst {
 			copies[mv.Dst] = mv.Src
 		}
 

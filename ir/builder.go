@@ -12,6 +12,7 @@ type RegData struct {
 	IsCell     bool
 	IsConstant bool
 	IsLocal    bool // the register holds a named local variable
+	IsFixed    bool // no write follows a point where its value is seen (see markFixed)
 }
 
 const regHasUpvalue uint = 1
