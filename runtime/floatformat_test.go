@@ -9,12 +9,11 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
-// Every conversion of a float to a string goes through the function set by
-// SetFloatFormat, except string.format's %q.
-func TestSetFloatFormat(t *testing.T) {
-	g14 := func(x float64) string { return "<" + strconv.FormatFloat(x, 'g', 14, 64) + ">" }
-	rt.SetFloatFormat(g14)
-	t.Cleanup(func() { rt.SetFloatFormat(nil) })
+// Every conversion of a float to a string goes through FloatToString, except
+// string.format's %q.
+func TestFloatToStringVar(t *testing.T) {
+	rt.FloatToString = func(x float64) string { return "<" + strconv.FormatFloat(x, 'g', 14, 64) + ">" }
+	t.Cleanup(func() { rt.FloatToString = rt.LuaFloatToString })
 
 	var out bytes.Buffer
 	r := rt.New(&out)
@@ -45,10 +44,5 @@ func TestSetFloatFormat(t *testing.T) {
 `
 	if got := out.String(); got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
-	}
-
-	rt.SetFloatFormat(nil)
-	if s, _ := rt.FloatValue(1.0 / 3).ToString(); s != "0.33333333333333331" {
-		t.Errorf("after SetFloatFormat(nil): got %q", s)
 	}
 }

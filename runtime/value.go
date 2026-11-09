@@ -342,7 +342,7 @@ func (v Value) ToString() (string, bool) {
 	case int64:
 		return strconv.FormatInt(v.AsInt(), 10), true
 	case float64:
-		return floatToString(v.AsFloat()), true
+		return FloatToString(v.AsFloat()), true
 	case bool:
 		return strconv.FormatBool(v.AsBool()), false
 	case string:
@@ -374,12 +374,25 @@ func getName(defaultName string, meta *Table) string {
 	return defaultName
 }
 
-// FloatToString formats a float64 for Lua as Lua 5.5 does
-// (tostringbuffFloat in lobject.c): "%.15g", or "%.17g" when that does not
-// read back as x, with ".0" added when the result looks like an integer so
-// that floats are distinguished from integers.  Infinities and NaNs are
-// spelled as C's printf spells them: "inf", "-inf", "nan" and "-nan".
-func FloatToString(x float64) string {
+// FloatToString converts floats to strings wherever Lua converts a number to
+// a string: tostring, print, concatenation, string arguments, table.concat,
+// io.write and string.format's %s.  It is LuaFloatToString by default.
+//
+// The manual leaves this format unspecified (§3.4.3), and Lua versions
+// differ: 5.3 and 5.4 print 14 significant digits, where 5.5 prints as many
+// as the float needs.  A program that replaces an interpreter of another
+// version can set FloatToString to reproduce its output.  It is not safe to
+// change while Lua code runs: set it before creating any Runtime.
+//
+// string.format's %q does not use it: it calls LuaFloatToString, so that its
+// output reads back as the same float.
+var FloatToString = LuaFloatToString
+
+// LuaFloatToString formats a float64 as Lua 5.5 does: with 15 significant
+// digits, or 17 when 15 do not read back as x, and with ".0" added when the
+// result looks like an integer, so that floats are distinguished from
+// integers.  Infinities and NaNs are "inf", "-inf", "nan" and "-nan".
+func LuaFloatToString(x float64) string {
 	switch {
 	case math.IsInf(x, 1):
 		return "inf"

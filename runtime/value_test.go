@@ -241,8 +241,8 @@ func TestFloatToString(t *testing.T) {
 		{math.Copysign(math.NaN(), -1), "-nan"},
 	}
 	for _, tt := range tests {
-		if got := FloatToString(tt.x); got != tt.want {
-			t.Errorf("FloatToString(%v) = %q, want %q", tt.x, got, tt.want)
+		if got := LuaFloatToString(tt.x); got != tt.want {
+			t.Errorf("LuaFloatToString(%v) = %q, want %q", tt.x, got, tt.want)
 		}
 	}
 }
