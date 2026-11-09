@@ -457,33 +457,47 @@ func (c *compiler) getCallerReg() ir.Register {
 
 func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
 	fReg := c.compileExpNoDestHint(f.Target)
-	var contReg ir.Register
+	self := noRegister
 	if f.Method.Val != "" {
 		// self is listed in the call, so it is read at the call: copy a
 		// captured variable now (see stable).
-		self := c.stable(f.Target, fReg)
+		self = c.stable(f.Target, fReg)
 		fReg = c.GetFreeRegister()
 		c.emitInstr(f.Target, ir.LookupK{
 			Dst:   fReg,
 			Table: self,
 			Kidx:  c.GetConstantIndex(ir.String(f.Method.Val)),
 		})
-		contReg = c.GetFreeRegister()
-		c.emitInstr(f, ir.MkCont{
-			Dst:     contReg,
-			Closure: fReg,
-			Tail:    tail,
-		})
-		c.compileCallWithArgs(f, contReg, self, f.Args, tail)
-	} else {
-		contReg = c.GetFreeRegister()
-		c.emitInstr(f, ir.MkCont{
-			Dst:     contReg,
-			Closure: fReg,
-			Tail:    tail,
-		})
-		c.compileCallWithArgs(f, contReg, noRegister, f.Args, tail)
 	}
+	// The call makes the callee's continuation itself, so the callee is read
+	// at the call, like the listed arguments: a captured variable is copied
+	// first (see stable), and copy propagation reads through the copy if
+	// nothing can change the variable (a fixed cell, see ir.markFixed).
+	if listsArgs(f.Args) {
+		c.compileCallWithArgs(f, c.stable(f.Target, fReg), self, f.Args, tail)
+		return
+	}
+	contReg := c.GetFreeRegister()
+	c.emitInstr(f, ir.MkCont{
+		Dst:     contReg,
+		Closure: fReg,
+		Tail:    tail,
+	})
+	c.compileCallWithArgs(f, contReg, self, f.Args, tail)
+}
+
+// listsArgs says whether a call with these arguments lists them all in its
+// operand words (see compileCallWithArgs).
+func listsArgs(args []ast.ExpNode) bool {
+	if len(args) > maxListedArgs {
+		return false
+	}
+	if len(args) > 0 {
+		if _, ok := args[len(args)-1].(ast.TailExpNode); ok {
+			return false
+		}
+	}
+	return true
 }
 
 // noRegister stands for "no register" where one is optional.
@@ -496,18 +510,20 @@ const maxListedArgs = 32
 
 // compileCallWithArgs evaluates the arguments, then emits the call of contReg
 // with the argument registers listed in it (self first, if given), so that
-// the call pushes them itself.
+// the call pushes them itself.  contReg holds the callee, whose continuation
+// the call makes.
 //
 // When the last argument is an etc (a vararg or a call), its values must come
 // after the others and their number is not known, so everything is pushed one
 // by one before the call, as it was before calls listed their arguments.  The
-// same goes for a call with more than maxListedArgs arguments.
+// same goes for a call with more than maxListedArgs arguments.  Then contReg
+// holds the callee's continuation, made before the pushes.
 func (c *compiler) compileCallWithArgs(loc ast.Locator, contReg, self ir.Register, args []ast.ExpNode, tail bool) {
-	var tailArg ast.TailExpNode
-	if len(args) > 0 {
-		tailArg, _ = args[len(args)-1].(ast.TailExpNode)
-	}
-	if tailArg != nil || len(args) > maxListedArgs {
+	if !listsArgs(args) {
+		var tailArg ast.TailExpNode
+		if len(args) > 0 {
+			tailArg, _ = args[len(args)-1].(ast.TailExpNode)
+		}
 		if self != noRegister {
 			c.emitInstr(loc, ir.Push{Cont: contReg, Item: self})
 		}

@@ -439,10 +439,40 @@ RunLoop:
 				}
 				continue RunLoop
 			case code.OpCall:
-				pc++
 				contReg := opcode.GetA()
 				isTail := opcode.GetF() // Can mean tail call or simple return
-				next := getReg(regs, cells, contReg).AsCont()
+
+				// The register holds either a continuation (r0 for a return,
+				// or one made by a cont opcode) or the callee, whose frame
+				// the call makes: Continue inlined by hand, as for the cont
+				// opcodes.  The callee stays in its register, which the call
+				// leaves alone: it may be a local.
+				v := getReg(regs, cells, contReg)
+				var next Cont
+				lc, isCont := v.iface.(*LuaCont)
+				if isCont {
+					next = lc
+				} else {
+					var cnext Cont = c
+					if isTail {
+						cnext = c.Next()
+					}
+					switch f := v.iface.(type) {
+					case *Closure:
+						next = NewLuaCont(t, f, cnext)
+					case *GoFunction:
+						next = NewGoCont(t, f, cnext)
+					default:
+						if next, isCont = v.TryCont(); !isCont {
+							var err error
+							if next, err = continueCall(t, v, cnext); err != nil {
+								c.pc = pc
+								return nil, err
+							}
+						}
+					}
+				}
+				pc++
 
 				// Push the arguments listed in the operand words, then skip
 				// the words.  The receiver is usually a Lua function's
@@ -482,7 +512,9 @@ RunLoop:
 				// We clear the register containing the continuation to allow
 				// garbage collection.  A continuation can only be called once
 				// anyway, so that's ok semantically.
-				c.clearReg(contReg)
+				if isCont {
+					c.clearReg(contReg)
+				}
 
 				if isTail {
 					// As we're leaving this continuation for good, perform all
