@@ -7,18 +7,18 @@ import (
 	"github.com/arnodel/golua/ops"
 )
 
-// LoadStoreCells makes the move the only instruction that reads or writes
-// the contents of a cell.  Every other instruction with a cell operand gets
-// a plain register in its place: one loaded from the cell before it for a
-// read, one stored into the cell after it for a write.  MkClosure captures
-// cells themselves, not their contents, and ClearReg makes a new one, so
-// both keep their cell operands.
+// LowerCells makes a cell register a register holding a box, whose contents
+// only Load, Store and NewBox touch (notes/cells.md).  Every instruction
+// with a cell operand gets a plain register in its place: one loaded from
+// the box before it for a read, one stored into the box after it for a
+// write.  A ClearReg of a cell becomes a NewBox.  MkClosure captures boxes
+// themselves, not their contents, so its upvalue operands stay.
 //
-// With this pass, the run loop needs to know about cells only in the move
-// and upval opcodes, and every other register access is a plain index.
-// This is the run-time half of notes/cells.md.
+// After this pass every other register access is a plain index, and the
+// run loop needs to know about boxes only in the opcodes these three
+// instructions compile to.
 //
-// Two rules keep the moves down:
+// Two rules keep the loads and stores down:
 //
 //   - A fixed upvalue (IsFixed: nothing changes its contents once a closure
 //     can see them, so nothing changes them while the function runs) is
@@ -30,7 +30,7 @@ import (
 //     register is written, or, for a cell that is not fixed, until an
 //     instruction that may run code (a call, an operation with a possible
 //     metamethod, a __close), which could change the cell.
-func LoadStoreCells(c Code) Code {
+func LowerCells(c Code) Code {
 	regs := c.Registers
 	isCell := func(r Register) bool { return regs[r].IsCell }
 	fixed := func(r Register) bool { return regs[r].IsFixed }
@@ -53,7 +53,7 @@ func LoadStoreCells(c Code) Code {
 	for _, u := range c.UpvalueDests {
 		if fixed(u) && readsContents[u] {
 			t := e.NewRegister(RegData{})
-			e.InsertBefore(0, mv(t, u))
+			e.InsertBefore(0, Load{Dst: t, Box: u})
 			entry[u] = t
 		}
 	}
@@ -93,6 +93,9 @@ func LoadStoreCells(c Code) Code {
 		case ClearReg:
 			delete(known, x.Dst)
 			written(x.Dst)
+			if isCell(x.Dst) {
+				e.Replace(i, NewBox{Dst: x.Dst})
+			}
 			continue
 		case MkClosure:
 			if !isCell(x.Dst) {
@@ -101,7 +104,7 @@ func LoadStoreCells(c Code) Code {
 			}
 			t := e.NewRegister(RegData{})
 			e.Replace(i, x.WithDestReg(t))
-			e.InsertBefore(i+1, mv(x.Dst, t))
+			e.InsertBefore(i+1, Store{Box: x.Dst, Src: t})
 			known[x.Dst] = t
 			continue
 		}
@@ -109,22 +112,26 @@ func LoadStoreCells(c Code) Code {
 			src, dst := m.Src, m.Dst
 			switch {
 			case isCell(src) && isCell(dst):
-				if t, ok := holding(src); ok {
-					e.Replace(i, mv(dst, t))
-					known[dst] = t
-				} else {
-					delete(known, dst)
+				t, ok := holding(src)
+				if !ok {
+					t = e.NewRegister(RegData{})
+					e.InsertBefore(i, Load{Dst: t, Box: src})
+					known[src] = t
 				}
+				e.Replace(i, Store{Box: dst, Src: t})
+				known[dst] = t
 				continue
 			case isCell(src): // a load
 				written(dst)
 				if t, ok := holding(src); ok {
 					e.Replace(i, mv(dst, t))
 				} else {
+					e.Replace(i, Load{Dst: dst, Box: src})
 					known[src] = dst
 				}
 				continue
 			case isCell(dst): // a store
+				e.Replace(i, Store{Box: dst, Src: src})
 				known[dst] = src
 				continue
 			}
@@ -141,7 +148,7 @@ func LoadStoreCells(c Code) Code {
 			t, ok := holding(r)
 			if !ok || slices.Contains(writes, r) {
 				t = e.NewRegister(RegData{})
-				e.InsertBefore(i, mv(t, r))
+				e.InsertBefore(i, Load{Dst: t, Box: r})
 				if !slices.Contains(writes, r) {
 					known[r] = t
 				}
@@ -169,7 +176,7 @@ func LoadStoreCells(c Code) Code {
 				t = e.NewRegister(RegData{})
 			}
 			instr = renameWrite(instr, w, t)
-			e.InsertBefore(i+1, mv(w, t))
+			e.InsertBefore(i+1, Store{Box: w, Src: t})
 			known[w] = t
 			changed = true
 		}

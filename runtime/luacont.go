@@ -320,7 +320,7 @@ RunLoop:
 			var err error
 			if opcode.HasType4a() {
 				// The move is the only opcode that reads or writes the
-				// contents of a cell (ir.LoadStoreCells), and upval takes
+				// contents of a cell (ir.LowerCells), and upval takes
 				// the cell itself.  Both go before the shared operand read,
 				// which indexes the plain registers directly.
 				switch opcode.GetUnOp() {
@@ -801,7 +801,7 @@ func (c *LuaCont) clearReg(reg code.Reg) {
 }
 
 // setReg and getReg access a plain register.  Only the move opcode reads or
-// writes the contents of a cell (ir.LoadStoreCells), and it does so itself.
+// writes the contents of a cell (ir.LowerCells), and it does so itself.
 func setReg(regs []Value, cells []Cell, reg code.Reg, val Value) {
 	regs[reg.Idx()] = val
 }

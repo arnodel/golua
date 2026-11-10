@@ -73,6 +73,9 @@ type InstrProcessor interface {
 	ProcessPushCloseStackInstr(PushCloseStack)
 	ProcessPrepForLoopInstr(PrepForLoop)
 	ProcessAdvForLoopInstr(AdvForLoop)
+	ProcessLoadInstr(Load)
+	ProcessStoreInstr(Store)
+	ProcessNewBoxInstr(NewBox)
 
 	// These are hints that a register is needed or no longer needed.
 	ProcessTakeRegisterInstr(TakeRegister)
@@ -388,6 +391,82 @@ func (i ClearReg) ReplaceRead(from, to Register) Instruction { return i }
 
 func (i ClearReg) String() string {
 	return fmt.Sprintf("clrreg(%s)", i.Dst)
+}
+
+// Load reads the contents of the box held in Box into Dst.  A box is a
+// value that a captured local lives in, shared with the closures that
+// capture it (notes/cells.md); the lowering of cells (LowerCells) emits
+// loads, stores and new boxes, and only they touch a box's contents.
+type Load struct {
+	Dst, Box Register
+}
+
+// DestReg returns the destination register of this instruction.
+func (l Load) DestReg() Register {
+	return l.Dst
+}
+
+// WithDestReg returns the same instruction with a new destination register.
+func (l Load) WithDestReg(r Register) Instruction {
+	l.Dst = r
+	return l
+}
+
+// ProcessInstr makes the InstrProcessor process this instruction.
+func (l Load) ProcessInstr(p InstrProcessor) {
+	p.ProcessLoadInstr(l)
+}
+
+func (l Load) Reads() []Register  { return []Register{l.Box} }
+func (l Load) Writes() []Register { return []Register{l.Dst} }
+func (l Load) ReplaceRead(from, to Register) Instruction {
+	l.Box = sub(l.Box, from, to)
+	return l
+}
+
+func (l Load) String() string {
+	return fmt.Sprintf("%s := [%s]", l.Dst, l.Box)
+}
+
+// Store writes Src into the box held in Box (see Load).  It writes no
+// register: the box is read to be found, like a table being stored into.
+type Store struct {
+	Box, Src Register
+}
+
+// ProcessInstr makes the InstrProcessor process this instruction.
+func (s Store) ProcessInstr(p InstrProcessor) {
+	p.ProcessStoreInstr(s)
+}
+
+func (s Store) Reads() []Register  { return []Register{s.Box, s.Src} }
+func (s Store) Writes() []Register { return nil }
+func (s Store) ReplaceRead(from, to Register) Instruction {
+	s.Box, s.Src = sub(s.Box, from, to), sub(s.Src, from, to)
+	return s
+}
+
+func (s Store) String() string {
+	return fmt.Sprintf("[%s] := %s", s.Box, s.Src)
+}
+
+// NewBox puts a new box, holding nil, in Dst (see Load).  A local declared
+// in a loop gets one each time round.
+type NewBox struct {
+	Dst Register
+}
+
+// ProcessInstr makes the InstrProcessor process this instruction.
+func (n NewBox) ProcessInstr(p InstrProcessor) {
+	p.ProcessNewBoxInstr(n)
+}
+
+func (n NewBox) Reads() []Register                         { return nil }
+func (n NewBox) Writes() []Register                        { return []Register{n.Dst} }
+func (n NewBox) ReplaceRead(from, to Register) Instruction { return n }
+
+func (n NewBox) String() string {
+	return fmt.Sprintf("%s := newbox()", n.Dst)
 }
 
 // MkTable creates a new empty table and puts it i Dst.

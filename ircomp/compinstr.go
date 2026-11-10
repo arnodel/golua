@@ -68,15 +68,30 @@ func (ic instrCompiler) ProcessTransformInstr(t ir.Transform) {
 		// A move between two IR registers given the same slot does nothing.
 		return
 	}
-	if t.Op == ops.OpId && ic.atEntry && src.IsCell() && int(src.Idx()) < ic.upvalueCount &&
-		!dst.IsCell() && ic.registers[t.Src].IsFixed {
+	ic.Emit(code.Transform(codeOp, dst, src))
+}
+
+// ProcessLoadInstr compiles a Load instruction.
+func (ic instrCompiler) ProcessLoadInstr(l ir.Load) {
+	dst, box := ic.codeReg(l.Dst), ic.codeReg(l.Box)
+	if ic.atEntry && int(box.Idx()) < ic.upvalueCount && ic.registers[l.Box].IsFixed {
 		// A load of a fixed upvalue at the function's entry, before anything
 		// but the parameters' recv: the frame does it when it is made, so no
 		// opcode.  Nothing can change a fixed upvalue in between.
-		ic.entryLoads = append(ic.entryLoads, code.EntryLoad{Up: src.Idx(), Reg: dst.Idx()})
+		ic.entryLoads = append(ic.entryLoads, code.EntryLoad{Up: box.Idx(), Reg: dst.Idx()})
 		return
 	}
-	ic.Emit(code.Transform(codeOp, dst, src))
+	ic.Emit(code.Transform(code.OpId, dst, box))
+}
+
+// ProcessStoreInstr compiles a Store instruction.
+func (ic instrCompiler) ProcessStoreInstr(s ir.Store) {
+	ic.Emit(code.Transform(code.OpId, ic.codeReg(s.Box), ic.codeReg(s.Src)))
+}
+
+// ProcessNewBoxInstr compiles a NewBox instruction.
+func (ic instrCompiler) ProcessNewBoxInstr(n ir.NewBox) {
+	ic.Emit(code.Clear(ic.codeReg(n.Dst)))
 }
 
 var codeUnOp = map[ops.Op]code.UnOp{
