@@ -30,6 +30,16 @@ func (c *Code) verify() error {
 	case len(c.UpNames) != int(c.UpvalueCount):
 		return fmt.Errorf("%d upvalue names for %d upvalues", len(c.UpNames), c.UpvalueCount)
 	}
+	// The frame copies the entry loads before running anything; r0 holds
+	// the continuation.
+	for _, l := range c.entryLoads {
+		switch {
+		case int(l.Up) >= int(c.UpvalueCount):
+			return fmt.Errorf("entry load from upvalue %d of %d", l.Up, c.UpvalueCount)
+		case l.Reg == 0 || int(l.Reg) >= int(c.RegCount):
+			return fmt.Errorf("entry load into register %d outside the frame (%d registers)", l.Reg, c.RegCount)
+		}
+	}
 	// First the opcodes and the operand words of calls, which are not
 	// opcodes and must be known before jump targets can be checked.
 	operand := make([]bool, len(c.code))

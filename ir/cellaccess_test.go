@@ -51,12 +51,12 @@ func TestLoadStoreCells(t *testing.T) {
 	check(t, "closure in cell", LoadStoreCells(cell(MkClosure{Dst: 0, Code: 0, Upvalues: []Register{0}})),
 		MkClosure{Dst: 2, Code: 0, Upvalues: []Register{0}}, move(0, 2))
 
-	// A fixed upvalue is loaded once at entry, after the parameters.
+	// A fixed upvalue is loaded once at entry, before the parameters.
 	up := testCode(0, 2, []Register{0}, Receive{Dst: []Register{1}}, add(1, 0, 1), DeclareLabel{Label: 0}, add(1, 0, 1))
 	up.UpvalueDests = []Register{0}
 	up.Registers[0].IsFixed = true
 	check(t, "fixed upvalue", LoadStoreCells(up),
-		Receive{Dst: []Register{1}}, move(2, 0), add(1, 2, 1), DeclareLabel{Label: 0}, add(1, 2, 1))
+		move(2, 0), Receive{Dst: []Register{1}}, add(1, 2, 1), DeclareLabel{Label: 0}, add(1, 2, 1))
 
 	// Not when only a nested closure captures it.
 	captured := testCode(0, 2, []Register{0}, MkClosure{Dst: 1, Code: 0, Upvalues: []Register{0}})

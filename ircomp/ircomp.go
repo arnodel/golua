@@ -57,8 +57,10 @@ func (kc *ConstantCompiler) ProcessCode(c ir.Code) {
 	c = computeLifetimes(c)
 	start := kc.builder.Offset()
 	regAllocator := &regAllocator{
-		registers:   c.Registers,
-		allocations: make([]regAllocation, len(c.Registers)),
+		registers:    c.Registers,
+		allocations:  make([]regAllocation, len(c.Registers)),
+		upvalueCount: len(c.UpvalueDests),
+		atEntry:      true,
 	}
 	// First allocate all the registers that will take upvalues.
 	for _, r := range c.UpvalueDests {
@@ -81,6 +83,7 @@ func (kc *ConstantCompiler) ProcessCode(c ir.Code) {
 		CellCount:    int16(len(regAllocator.cells)),
 		UpNames:      c.UpNames,
 		RegCount:     int16(len(regAllocator.regs)),
+		EntryLoads:   regAllocator.entryLoads,
 	})
 }
 

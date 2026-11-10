@@ -44,6 +44,29 @@ func TestVerifyCounts(t *testing.T) {
 	}
 }
 
+func TestVerifyEntryLoads(t *testing.T) {
+	load := func(up, reg uint8) *Code {
+		return &Code{RegCount: 2, CellCount: 1, UpvalueCount: 1, UpNames: []string{"x"}, entryLoads: []code.EntryLoad{{Up: up, Reg: reg}}}
+	}
+	if err := load(0, 1).verify(); err != nil {
+		t.Errorf("valid entry load: %v", err)
+	}
+	for _, c := range []struct {
+		name string
+		code *Code
+		want string
+	}{
+		{"from a missing upvalue", load(1, 1), "entry load from upvalue"},
+		{"into the continuation's register", load(0, 0), "entry load into register"},
+		{"into a register outside the frame", load(0, 2), "entry load into register"},
+	} {
+		err := c.code.verify()
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: got %v, want an error about the %s", c.name, err, c.want)
+		}
+	}
+}
+
 func TestVerifyOpcodes(t *testing.T) {
 	type tc struct {
 		name string

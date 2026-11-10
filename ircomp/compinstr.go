@@ -21,6 +21,7 @@ var _ ir.InstrProcessor = instrCompiler{}
 
 func (ic instrCompiler) Emit(opcode code.Opcode) {
 	ic.builder.Emit(opcode, ic.line)
+	ic.atEntry = false
 }
 
 func (ic instrCompiler) EmitJump(opcode code.Opcode, lbl code.Label) {
@@ -65,6 +66,14 @@ func (ic instrCompiler) ProcessTransformInstr(t ir.Transform) {
 	dst, src := ic.codeReg(t.Dst), ic.codeReg(t.Src)
 	if t.Op == ops.OpId && dst == src {
 		// A move between two IR registers given the same slot does nothing.
+		return
+	}
+	if t.Op == ops.OpId && ic.atEntry && src.IsCell() && int(src.Idx()) < ic.upvalueCount &&
+		!dst.IsCell() && ic.registers[t.Src].IsFixed {
+		// A load of a fixed upvalue at the function's entry, before anything
+		// but the parameters' recv: the frame does it when it is made, so no
+		// opcode.  Nothing can change a fixed upvalue in between.
+		ic.entryLoads = append(ic.entryLoads, code.EntryLoad{Up: src.Idx(), Reg: dst.Idx()})
 		return
 	}
 	ic.Emit(code.Transform(codeOp, dst, src))
@@ -251,17 +260,21 @@ func (ic instrCompiler) ProcessSetIndexInstr(s ir.SetIndex) {
 
 // ProcessReceiveInstr compiles a Receive instruction.
 func (ic instrCompiler) ProcessReceiveInstr(r ir.Receive) {
+	entry := ic.atEntry // receiving the parameters is still the entry
 	for _, reg := range r.Dst {
 		ic.Emit(code.Receive(ic.codeReg(reg)))
 	}
+	ic.atEntry = entry
 }
 
 // ProcessReceiveEtcInstr compiles a ReceiveEtc instruction.
 func (ic instrCompiler) ProcessReceiveEtcInstr(r ir.ReceiveEtc) {
+	entry := ic.atEntry
 	for _, reg := range r.Dst {
 		ic.Emit(code.Receive(ic.codeReg(reg)))
 	}
 	ic.Emit(code.ReceiveEtc(ic.codeReg(r.Etc)))
+	ic.atEntry = entry
 }
 
 // ProcessEtcLookupInstr compiles a EtcLookup instruction.
@@ -320,10 +333,17 @@ type regAllocation struct {
 	done bool
 }
 type regAllocator struct {
-	registers   []ir.RegData
-	allocations []regAllocation
-	regs        []int
-	cells       []int
+	registers    []ir.RegData
+	allocations  []regAllocation
+	regs         []int
+	cells        []int
+	upvalueCount int
+
+	// atEntry is true until an opcode other than the parameters' recv has
+	// been emitted; entryLoads are the loads of fixed upvalues found there,
+	// which the frame does instead of an opcode (code.EntryLoad).
+	atEntry    bool
+	entryLoads []code.EntryLoad
 }
 
 func (a *regAllocator) takeRegister(r ir.Register) int {

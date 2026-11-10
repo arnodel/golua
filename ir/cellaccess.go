@@ -23,7 +23,8 @@ import (
 //   - A fixed upvalue (IsFixed: nothing changes its contents once a closure
 //     can see them, so nothing changes them while the function runs) is
 //     loaded once, at the function's entry, into a register that stands for
-//     it throughout.
+//     it throughout.  The code generator makes that load part of making the
+//     frame (code.EntryLoad), so it costs no opcode.
 //   - Within a straight-line stretch, a register known to hold a cell's
 //     contents, from a load or a store, stands for the cell until that
 //     register is written, or, for a cell that is not fixed, until an
@@ -36,8 +37,9 @@ func LoadStoreCells(c Code) Code {
 	e := NewEdits(c)
 
 	// Fixed upvalues whose contents the function reads are loaded at entry,
-	// after the parameters are received: a call that finds a recv at the
-	// callee's first opcode stores the argument into its register directly.
+	// before anything else, the parameters' recv included: the frame does
+	// these loads when it is made, so their registers must be ones the recv
+	// does not write, which this order ensures.
 	readsContents := map[Register]bool{}
 	for _, instr := range c.Instructions {
 		if _, ok := instr.(MkClosure); ok {
@@ -47,15 +49,11 @@ func LoadStoreCells(c Code) Code {
 			readsContents[r] = true
 		}
 	}
-	pos := 0
-	for pos < len(c.Instructions) && receives(c.Instructions[pos]) {
-		pos++
-	}
 	entry := map[Register]Register{}
 	for _, u := range c.UpvalueDests {
 		if fixed(u) && readsContents[u] {
 			t := e.NewRegister(RegData{})
-			e.InsertBefore(pos, mv(t, u))
+			e.InsertBefore(0, mv(t, u))
 			entry[u] = t
 		}
 	}
@@ -183,14 +181,6 @@ func LoadStoreCells(c Code) Code {
 }
 
 func mv(dst, src Register) Instruction { return Transform{Op: ops.OpId, Dst: dst, Src: src} }
-
-func receives(instr Instruction) bool {
-	switch instr.(type) {
-	case Receive, ReceiveEtc:
-		return true
-	}
-	return false
-}
 
 // pure says whether instr cannot run Lua code: no call, no metamethod, no
 // __close.  Only such an instruction leaves every cell as it was.
