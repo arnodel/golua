@@ -348,7 +348,7 @@ RunLoop:
 				case code.OpEtcId:
 					cont := getReg(regs, cells, dst).AsCont()
 					var etc []Value
-					etc, err = expandVarargs(val)
+					etc, err = expandVarargs(t, val)
 					if err != nil {
 						break
 					}
@@ -536,7 +536,7 @@ RunLoop:
 			}
 		case code.Type6Pfx:
 			dst := opcode.GetA()
-			etc, etcErr := expandVarargs(getReg(regs, cells, opcode.GetB()))
+			etc, etcErr := expandVarargs(t, getReg(regs, cells, opcode.GetB()))
 			if etcErr != nil {
 				c.pc = pc
 				return nil, etcErr
