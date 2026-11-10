@@ -62,9 +62,12 @@ func (ic instrCompiler) ProcessTransformInstr(t ir.Transform) {
 	if !ok {
 		panic(fmt.Sprintf("Cannot compile %v: invalid op", t))
 	}
-	opcode := code.Transform(codeOp, ic.codeReg(t.Dst), ic.codeReg(t.Src))
-	ic.Emit(opcode)
-
+	dst, src := ic.codeReg(t.Dst), ic.codeReg(t.Src)
+	if t.Op == ops.OpId && dst == src {
+		// A move between two IR registers given the same slot does nothing.
+		return
+	}
+	ic.Emit(code.Transform(codeOp, dst, src))
 }
 
 var codeUnOp = map[ops.Op]code.UnOp{
