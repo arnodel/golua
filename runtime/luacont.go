@@ -314,6 +314,34 @@ RunLoop:
 			var ok bool
 			var err error
 			if opcode.HasType4a() {
+				// The move is the only opcode that reads or writes the
+				// contents of a cell (ir.LoadStoreCells), and upval takes
+				// the cell itself.  Both go before the shared operand read,
+				// which indexes the plain registers directly.
+				switch opcode.GetUnOp() {
+				case code.OpId:
+					b := opcode.GetB()
+					var val Value
+					if b.IsCell() {
+						val = *cells[b.Idx()].ref
+					} else {
+						val = regs[b.Idx()]
+					}
+					switch {
+					case dst.IsCell():
+						cells[dst.Idx()].set(val)
+					case opcode.GetF():
+						regs[dst.Idx()].AsCont().Push(t.Runtime, val)
+					default:
+						regs[dst.Idx()] = val
+					}
+					pc++
+					continue RunLoop
+				case code.OpUpvalue:
+					regs[dst.Idx()].AsClosure().AddUpvalue(c.getRegCell(opcode.GetB()))
+					pc++
+					continue RunLoop
+				}
 				val := getReg(regs, cells, opcode.GetB())
 				switch opcode.GetUnOp() {
 				case code.OpNeg:
@@ -343,8 +371,6 @@ RunLoop:
 						cont, err = continueCall(t, val, next)
 						res = ContValue(cont)
 					}
-				case code.OpId:
-					res = val
 				case code.OpEtcId:
 					cont := getReg(regs, cells, dst).AsCont()
 					var etc []Value
@@ -359,12 +385,6 @@ RunLoop:
 					res = BoolValue(Truth(val))
 				case code.OpNot:
 					res = BoolValue(!Truth(val))
-				case code.OpUpvalue:
-					// TODO: wasteful as we already have got getReg
-					cell := c.getRegCell(opcode.GetB())
-					getReg(regs, cells, dst).AsClosure().AddUpvalue(cell)
-					pc++
-					continue RunLoop
 				case code.OpMkVarargTable:
 					tbl := TableValue(t.newVarargTable(val.AsArray()))
 					// Overwrite the etc register so ... expansion reads from
@@ -775,18 +795,12 @@ func (c *LuaCont) clearReg(reg code.Reg) {
 	}
 }
 
+// setReg and getReg access a plain register.  Only the move opcode reads or
+// writes the contents of a cell (ir.LoadStoreCells), and it does so itself.
 func setReg(regs []Value, cells []Cell, reg code.Reg, val Value) {
-	idx := reg.Idx()
-	if reg.IsCell() {
-		cells[idx].set(val)
-	} else {
-		regs[idx] = val
-	}
+	regs[reg.Idx()] = val
 }
 
 func getReg(regs []Value, cells []Cell, reg code.Reg) Value {
-	if reg.IsCell() {
-		return *cells[reg.Idx()].ref
-	}
 	return regs[reg.Idx()]
 }
