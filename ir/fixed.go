@@ -49,7 +49,14 @@ import "slices"
 //
 // as inc writes it.  The debug library can change any local or upvalue
 // (debug.setlocal, debug.setupvalue, debug.upvaluejoin), which the manual
-// allows to break such assumptions.
+// allows to break such assumptions (CONFORMANCE.md, GOLUA-046).
+//
+// Copy propagation alone would need less: that no closure writes the cell.
+// The rule here is stronger so that a fixed cell can also be read later than
+// where the source reads it, with nothing able to change it in between: a
+// call reads a fixed callee at the call rather than before its arguments
+// (notes/call-protocol.md, step 3), and a frame can load a fixed upvalue
+// once, when it is made (notes/cells.md).
 func markFixed(consts []Constant) []Constant {
 	// Changes found in each function, then shared between the registers of
 	// a cell: a capture links the cell in the function that makes the
@@ -87,7 +94,11 @@ func markFixed(consts []Constant) []Constant {
 			if m, ok := instr.(MkClosure); ok {
 				child := consts[m.Code].(*Code)
 				for i, r := range m.Upvalues {
-					parent[find(id(reg{c, r}))] = find(id(reg{child, child.UpvalueDests[i]}))
+					// Both ids may grow parent, so neither side of the
+					// assignment may index it before they are done.
+					a := find(id(reg{c, r}))
+					b := find(id(reg{child, child.UpvalueDests[i]}))
+					parent[a] = b
 				}
 			}
 		}
@@ -109,9 +120,11 @@ func markFixed(consts []Constant) []Constant {
 		oc := *c
 		oc.Registers = slices.Clone(c.Registers)
 		for r := range oc.Registers {
-			x := reg{c, Register(r)}
-			_, linked := ids[x]
-			oc.Registers[r].IsFixed = !changes[c].Has(x.r) && !(linked && changedCell[find(id(x))])
+			fixed := !changes[c].Has(Register(r))
+			if i, linked := ids[reg{c, Register(r)}]; linked && changedCell[find(i)] {
+				fixed = false
+			}
+			oc.Registers[r].IsFixed = fixed
 		}
 		out[i] = &oc
 	}
