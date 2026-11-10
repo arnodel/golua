@@ -210,6 +210,13 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if sz1/n != len(s) || sz2/(n-1) != len(sep) || sz < 0 {
 		return nil, errors.New("rep causes overflow")
 	}
+	if sz == 0 {
+		// The string and the separator are both empty, so the result is
+		// empty. The loop below would still run n times, charging nothing
+		// and checking no limit, so a large n would outlast any CPU or time
+		// limit.
+		return c.PushingNext1(t.Runtime, rt.StringValue("")), nil
+	}
 	t.RequireBytes(n*len(s) + (n-1)*len(sep))
 	builder.Grow(sz)
 	builder.Write(s)

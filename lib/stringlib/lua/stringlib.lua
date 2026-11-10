@@ -409,6 +409,11 @@ do
     print(string.rep("", math.maxinteger) == "")
     --> =true
 
+    -- An empty string with an empty separator gives an empty result at once,
+    -- however large the count.
+    print(string.rep("", math.maxinteger, "") == "")
+    --> =true
+
     -- Like C's printf, %c keeps the low byte.
     print(string.format("%c%c", 256 + 65, -191))
     --> =AA
