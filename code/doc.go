@@ -8,14 +8,17 @@ code units that hold both.
 A Lua function compiles to a sequence of 32-bit opcodes operating on a frame
 of registers.  There are two kinds of registers:
 
-  - value registers (r0, r1, ...) hold a Value each;
-  - cell registers (u0, u1, ...) hold a reference to a Value, so that a
-    closure and the function that created it can share a variable.  The first
-    cell registers of a frame are the function's upvalues, in order.
+  - registers (r0, r1, ...) hold a Value each;
+  - a local that a closure captures lives in a box, a value of its own that
+    the closure and the function share.  A register holds the box, and only
+    load, store and newbox touch its contents; upval gives a closure the box
+    as an upvalue.  When a frame is made it is given the upvalues the
+    function uses (Code.EntryLoads: the box, or the contents of one that
+    cannot change while the function runs) and a new box for each captured
+    local of its own (Code.NewBoxes).
 
-Each kind is numbered independently from 0 and a function declares how many
-of each it needs (Code.RegCount and Code.CellCount).  Register operands are 8
-bits wide, so a frame has at most 256 of each.
+A function declares how many registers it needs (Code.RegCount).  Register
+operands are 8 bits wide, so a frame has at most 256.
 
 Register r0 always holds the continuation to return values to.  Calls are
 made by building a continuation for the callee (cont / tailcont), pushing the
@@ -32,12 +35,13 @@ pushed by pushetc, read by etclookup and fill.
 
 Every opcode is one 32-bit word.  The top four bits select the type, and the
 bit after them (F) is a flag whose meaning depends on the type.  Register
-operands occupy the three low bytes (A, B, C), each with a kind bit (a, b, c)
-in the second byte: 0 for a value register, 1 for a cell register.  Types
-that do not use B or C put a literal or an operator there instead.
+operands occupy the three low bytes (A, B, C).  Types that do not use B or C
+put a literal or an operator there instead.  Bits 26 to 24, once the
+registers' kind bits, are reserved where the type does not use them, and
+left zero.
 
 	bit:  31 30 29 28 | 27 | 26 25 24 | 23 .. 16 | 15 .. 8 | 7 .. 0
-	      type        | F  | a  b  c  |    A     |    B    |   C
+	      type        | F  | reserved |    A     |    B    |   C
 
 Type 1 is the exception: it uses only bit 31 as its prefix and takes bits
 30-27 for the operator.
@@ -99,6 +103,7 @@ Z selects the operation (UnOp) applied to rB, and the result goes to rA
 	OpLen       #rB
 	OpTruth     rB as a boolean
 	OpNot       not rB
+	OpLoad      the contents of the box rB (\"rA <- [rB]\")
 	OpId        rB itself; with F = On this is "push rA, rB"
 	OpCont      a new continuation for the closure rB, returning to the
 	            current frame (its r0 is the current continuation)
@@ -109,8 +114,8 @@ Three operations under this type do not follow the "result to rA" pattern:
 
 	OpEtcId      push all the values of the etc rB into the continuation
 	             rA ("pushetc rA, rB"; F is On)
-	OpUpvalue    add the cell uB to the upvalues of the closure rA ("upval");
-	             B must be a cell register
+	OpStore      put rB into the box rA ("[rA] <- rB")
+	OpUpvalue    add the box rB to the upvalues of the closure rA ("upval")
 	OpCheckNotDefined  raise an error if rA[rB] is not nil (the Lua 5.5
 	             "global x = v" redefinition check)
 
@@ -130,9 +135,8 @@ value goes to rA (F = Off) or is pushed into the continuation in rA (F = On):
 	OpStr1      the 1-byte string L
 	OpTable     a new empty table
 	OpCC        the current continuation (the frame itself)
-	OpClear     not a load: "clr rA" resets the register; for a cell
-	            register this makes a fresh cell, which is how a loop gives
-	            each iteration its own variable for closures to capture
+	OpNewBox    a new box holding nil, which is how a loop gives each
+	            iteration its own variable for closures to capture
 
 # Type 5: jumps, calls and the close stack
 

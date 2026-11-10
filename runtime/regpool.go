@@ -2,7 +2,7 @@ package runtime
 
 import "math/bits"
 
-// Slices of registers, arguments and cells are reused across continuations so
+// Slices of registers and arguments are reused across continuations so
 // that calling a function does not allocate.  A slicePool keeps released
 // slices in size classes, powers of two from 8 to 1024, each a small LIFO, so
 // that a request is served by the most recently released slice of the class
@@ -30,14 +30,9 @@ type slicePool[T any] struct {
 }
 
 type valuePool = slicePool[Value]
-type cellPool = slicePool[Cell]
 
 func mkValuePool(max uint) valuePool {
 	return valuePool{max: int(max)}
-}
-
-func mkCellPool(max uint) cellPool {
-	return cellPool{max: int(max)}
 }
 
 // poolClass returns the class of slices with capacity for n items and that

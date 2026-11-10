@@ -74,24 +74,24 @@ func (ic instrCompiler) ProcessTransformInstr(t ir.Transform) {
 // ProcessLoadInstr compiles a Load instruction.
 func (ic instrCompiler) ProcessLoadInstr(l ir.Load) {
 	dst, box := ic.codeReg(l.Dst), ic.codeReg(l.Box)
-	if ic.atEntry && int(box.Idx()) < ic.upvalueCount && ic.registers[l.Box].IsFixed {
+	if up, isUp := ic.upvalueOf[l.Box]; isUp && ic.atEntry && ic.registers[l.Box].IsFixed {
 		// A load of a fixed upvalue at the function's entry, before anything
 		// but the parameters' recv: the frame does it when it is made, so no
 		// opcode.  Nothing can change a fixed upvalue in between.
-		ic.entryLoads = append(ic.entryLoads, code.EntryLoad{Up: box.Idx(), Reg: dst.Idx()})
+		ic.entryLoads = append(ic.entryLoads, code.EntryLoad{Up: uint8(up), Reg: dst.Idx()})
 		return
 	}
-	ic.Emit(code.Transform(code.OpId, dst, box))
+	ic.Emit(code.Load(dst, box))
 }
 
 // ProcessStoreInstr compiles a Store instruction.
 func (ic instrCompiler) ProcessStoreInstr(s ir.Store) {
-	ic.Emit(code.Transform(code.OpId, ic.codeReg(s.Box), ic.codeReg(s.Src)))
+	ic.Emit(code.Store(ic.codeReg(s.Box), ic.codeReg(s.Src)))
 }
 
 // ProcessNewBoxInstr compiles a NewBox instruction.
 func (ic instrCompiler) ProcessNewBoxInstr(n ir.NewBox) {
-	ic.Emit(code.Clear(ic.codeReg(n.Dst)))
+	ic.Emit(code.NewBox(ic.codeReg(n.Dst)))
 }
 
 var codeUnOp = map[ops.Op]code.UnOp{
@@ -166,14 +166,14 @@ func (ic instrCompiler) ProcessCallInstr(c ir.Call) {
 	clear := make([]bool, len(c.Args))
 	for i, r := range c.Args {
 		args[i] = ic.codeReg(r)
-		// A temporary in a value register that is not taken at this point is
-		// read for the last time by this call (computeLifetimes releases a
-		// register just before its last read), so nothing reads it after:
-		// the call clears it once pushed, so that its value does not stay
-		// reachable from the frame.  A register listed again later in the
-		// same call is cleared at its last listing.  A taken register is
-		// read later; a named local keeps its value; a cell is shared.
-		clear[i] = args[i].RegType() == code.ValueRegType && ic.regs[args[i].Idx()] == 0 &&
+		// A temporary that is not taken at this point is read for the last
+		// time by this call (computeLifetimes releases a register just
+		// before its last read), so nothing reads it after: the call clears
+		// it once pushed, so that its value does not stay reachable from the
+		// frame.  A register listed again later in the same call is cleared
+		// at its last listing.  A taken register is read later; a named
+		// local keeps its value.
+		clear[i] = ic.regs[args[i].Idx()] == 0 &&
 			!ic.registers[r].IsLocal && !slices.Contains(c.Args[i+1:], r)
 	}
 	for _, w := range code.ArgWords(args, clear) {
@@ -186,7 +186,7 @@ func (ic instrCompiler) ProcessMkClosureInstr(m ir.MkClosure) {
 	ckidx := ic.QueueConstant(m.Code)
 	opcode := code.LoadClosure(ic.codeReg(m.Dst), code.KIndexFromInt(ckidx))
 	ic.Emit(opcode)
-	// Now add the upvalues
+	// Now add the upvalues: the boxes the closure captures.
 	for _, upval := range m.Upvalues {
 		ic.Emit(code.Upval(ic.codeReg(m.Dst), ic.codeReg(upval)))
 	}
@@ -203,10 +203,11 @@ func (ic instrCompiler) ProcessMkContInstr(m ir.MkCont) {
 	ic.Emit(opcode)
 }
 
-// ProcessClearRegInstr compiles a ClearReg instruction.
+// ProcessClearRegInstr compiles a ClearReg instruction.  After the lowering
+// of cells (ir.LowerCells) a clear concerns a plain register, which it
+// resets to nil.
 func (ic instrCompiler) ProcessClearRegInstr(i ir.ClearReg) {
-	opcode := code.Clear(ic.codeReg(i.Dst))
-	ic.Emit(opcode)
+	ic.Emit(code.LoadNil(ic.codeReg(i.Dst)))
 }
 
 // ProcessMkTableInstr compiles a MkTable instruction.
@@ -348,60 +349,41 @@ type regAllocation struct {
 	done bool
 }
 type regAllocator struct {
-	registers    []ir.RegData
-	allocations  []regAllocation
-	regs         []int
-	cells        []int
-	upvalueCount int
+	registers   []ir.RegData
+	allocations []regAllocation
+	regs        []int
+	upvalueOf   map[ir.Register]int // the upvalue a register receives, if any
 
 	// atEntry is true until an opcode other than the parameters' recv has
 	// been emitted; entryLoads are the loads of fixed upvalues found there,
-	// which the frame does instead of an opcode (code.EntryLoad).
+	// which the frame does instead of an opcode (code.EntryLoad).  boxUsed
+	// marks the registers some opcode uses as a box (boxUses); the frame
+	// must put the upvalues among them in their registers.
 	atEntry    bool
 	entryLoads []code.EntryLoad
+	boxUsed    map[ir.Register]bool
 }
 
 func (a *regAllocator) takeRegister(r ir.Register) int {
 	cr := a.codeReg(r)
-	var ref *int
-	switch cr.RegType() {
-	case code.ValueRegType:
-		ref = &a.regs[cr.Idx()]
-	case code.CellRegType:
-		ref = &a.cells[cr.Idx()]
-	}
-	*ref++
-	return *ref
+	a.regs[cr.Idx()]++
+	return a.regs[cr.Idx()]
 }
 
 func (a *regAllocator) releaseRegister(r ir.Register) int {
 	cr := a.codeReg(r)
-	var ref *int
-	switch cr.RegType() {
-	case code.ValueRegType:
-		ref = &a.regs[cr.Idx()]
-	case code.CellRegType:
-		ref = &a.cells[cr.Idx()]
-	}
-	*ref--
-	return *ref
+	a.regs[cr.Idx()]--
+	return a.regs[cr.Idx()]
 }
 
 func (a *regAllocator) codeReg(r ir.Register) code.Reg {
-	rData := a.registers[r]
 	alloc := a.allocations[r]
 	if alloc.done {
 		return alloc.r
 	}
-	var cr code.Reg
 	var i uint8
-	if rData.IsCell {
-		a.cells, i = allocReg(a.cells)
-		cr = code.CellReg(i)
-	} else {
-		a.regs, i = allocReg(a.regs)
-		cr = code.ValueReg(i)
-	}
+	a.regs, i = allocReg(a.regs)
+	cr := code.ValueReg(i)
 	a.allocations[r] = regAllocation{
 		done: true,
 		r:    cr,

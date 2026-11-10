@@ -17,17 +17,19 @@ type Code struct {
 	Name                   string   // Name of the function (if it has one)
 	StartOffset, EndOffset uint     // Where to find the opcode in the code Unit this belongs to
 	UpvalueCount           int16    // Number of upvalues
-	CellCount              int16    // Number of cell registers needed to run the code
-	RegCount               int16    // Number of registers needed to run the coee
+	RegCount               int16    // Number of registers needed to run the code
 	UpNames                []string // Names of the upvalues
 	EntryLoads             []EntryLoad
 }
 
-// An EntryLoad copies the contents of upvalue Up into register Reg when a
-// frame for the code is made.  It is the load of a fixed upvalue, whose
-// contents cannot change while the function runs, done without an opcode.
+// An EntryLoad puts upvalue Up into register Reg when a frame for the code
+// is made: the box itself if Box is set, for an upvalue the function reads
+// or writes through OpLoad and OpStore or captures again; else its contents,
+// for a fixed upvalue, whose contents cannot change while the function runs,
+// read once here instead of by an opcode.
 type EntryLoad struct {
 	Up, Reg uint8
+	Box     bool
 }
 
 var _ Constant = Code{}
@@ -40,7 +42,11 @@ func (c Code) ShortString() string {
 		if i == 0 {
 			s += " entry:"
 		}
-		s += fmt.Sprintf(" r%d <- u%d", l.Reg, l.Up)
+		if l.Box {
+			s += fmt.Sprintf(" r%d <- u%d", l.Reg, l.Up)
+		} else {
+			s += fmt.Sprintf(" r%d <- [u%d]", l.Reg, l.Up)
+		}
 	}
 	return s
 }

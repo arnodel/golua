@@ -14,11 +14,9 @@ import (
 type LuaCont struct {
 	*Closure
 	registers      []Value
-	cells          []Cell
 	pc             int32
 	acc            []Value
 	running        bool
-	borrowedCells  bool
 	closeStackBase int
 }
 
@@ -30,25 +28,18 @@ func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 	if clos.upvalueIndex < len(clos.Upvalues) {
 		panic("Closure not ready")
 	}
-	var cells []Cell
-	borrowCells := clos.UpvalueCount == clos.CellCount
-	if borrowCells {
-		cells = clos.Upvalues
-	} else {
-		cells = t.cellPool.get(int(clos.CellCount))
-		copy(cells, clos.Upvalues)
-		t.RequireArrSize(unsafe.Sizeof(Cell{}), int(clos.CellCount))
-		for i := clos.UpvalueCount; i < clos.CellCount; i++ {
-			cells[i] = newCell(NilValue)
-		}
-	}
 	t.RequireArrSize(unsafe.Sizeof(Value{}), int(clos.RegCount))
 	registers := t.regPool.getIn(clos.regClass, clos.regSize, int(clos.RegCount))
 	registers[0] = ContValue(next)
-	// The loads of fixed upvalues at the function's entry: their contents
-	// cannot change while it runs, so they are read once, here.
+	// The upvalues the function uses: the box of one it may write or
+	// capture again, the contents of a fixed one, which cannot change while
+	// the function runs, so they are read once, here.
 	for _, l := range clos.entryLoads {
-		registers[l.Reg] = *cells[l.Up].ref
+		if l.Box {
+			registers[l.Reg] = BoxValue(clos.Upvalues[l.Up])
+		} else {
+			registers[l.Reg] = *clos.Upvalues[l.Up].ref
+		}
 	}
 	cont := t.luaContPool.get()
 	t.RequireSize(unsafe.Sizeof(LuaCont{}))
@@ -57,8 +48,6 @@ func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 	// whole LuaCont would write every field again.
 	cont.Closure = clos
 	cont.registers = registers
-	cont.cells = cells
-	cont.borrowedCells = borrowCells
 	cont.closeStackBase = t.closeStack.size()
 	return cont
 }
@@ -66,10 +55,6 @@ func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 func (c *LuaCont) release(r *Runtime) {
 	r.regPool.releaseIn(c.regClass, c.regSize, c.registers)
 	r.ReleaseArrSize(unsafe.Sizeof(Value{}), int(c.RegCount))
-	if !c.borrowedCells {
-		r.ReleaseArrSize(unsafe.Sizeof(Cell{}), int(c.CellCount))
-		r.cellPool.release(c.cells)
-	}
 	r.luaContPool.release(c)
 	r.ReleaseSize(unsafe.Sizeof(LuaCont{}))
 }
@@ -86,7 +71,7 @@ func (c *LuaCont) Push(r *Runtime, val Value) {
 			c.acc = append(c.acc, val)
 		} else {
 			c.pc++
-			setReg(c.registers, c.cells, dst, val)
+			setReg(c.registers, dst, val)
 		}
 	}
 }
@@ -120,7 +105,6 @@ func (c *LuaCont) RunInThread(t *Thread) (Cont, error) {
 	c.running = true
 	opcodes := c.code
 	regs := c.registers
-	cells := c.cells
 RunLoop:
 	for {
 		t.RequireCPU(1)
@@ -137,8 +121,8 @@ RunLoop:
 		opcode := opcodes[pc]
 		if opcode.HasType1() {
 			dst := opcode.GetA()
-			x := getReg(regs, cells, opcode.GetB())
-			y := getReg(regs, cells, opcode.GetC())
+			x := getReg(regs, opcode.GetB())
+			y := getReg(regs, opcode.GetC())
 			var res Value
 			var err error
 			var ok bool
@@ -221,7 +205,7 @@ RunLoop:
 				c.pc = pc
 				return nil, err
 			}
-			setReg(regs, cells, dst, res)
+			setReg(regs, dst, res)
 			pc++
 			continue RunLoop
 		}
@@ -230,16 +214,16 @@ RunLoop:
 			dst := opcode.GetA()
 			if opcode.GetF() {
 				// It's an etc
-				setReg(regs, cells, dst, ArrayValue(c.acc))
+				setReg(regs, dst, ArrayValue(c.acc))
 			} else {
-				setReg(regs, cells, dst, NilValue)
+				setReg(regs, dst, NilValue)
 			}
 			pc++
 			continue RunLoop
 		case code.Type2Pfx:
 			reg := opcode.GetA()
-			coll := getReg(regs, cells, opcode.GetB())
-			idx := getReg(regs, cells, opcode.GetC())
+			coll := getReg(regs, opcode.GetB())
+			idx := getReg(regs, opcode.GetC())
 			// Common case first: an integer key in the array part of a
 			// table, with a non-nil value there.  Anything else goes the
 			// general way.
@@ -257,9 +241,9 @@ RunLoop:
 						return nil, err
 					}
 				}
-				setReg(regs, cells, reg, val)
+				setReg(regs, reg, val)
 			} else {
-				val := getReg(regs, cells, reg)
+				val := getReg(regs, reg)
 				if slot != nil && !slot.IsNil() && !val.IsNil() {
 					t.RequireCPU(1)
 					*slot = val
@@ -272,7 +256,7 @@ RunLoop:
 			continue RunLoop
 		case code.Type8Pfx:
 			reg := opcode.GetA()
-			coll := getReg(regs, cells, opcode.GetB())
+			coll := getReg(regs, opcode.GetB())
 			key := consts[opcode.GetK8()]
 			hint := &c.slotCache[pc]
 			if !opcode.GetF() {
@@ -281,8 +265,8 @@ RunLoop:
 					c.pc = pc
 					return nil, err
 				}
-				setReg(regs, cells, reg, val)
-			} else if err := setIndexStringAt(t, coll, key, getReg(regs, cells, reg), hint); err != nil {
+				setReg(regs, reg, val)
+			} else if err := setIndexStringAt(t, coll, key, getReg(regs, reg), hint); err != nil {
 				c.pc = pc
 				return nil, err
 			}
@@ -306,10 +290,10 @@ RunLoop:
 			dst := opcode.GetA()
 			if opcode.GetF() {
 				// dst must contain a continuation
-				cont := getReg(regs, cells, dst).AsCont()
+				cont := getReg(regs, dst).AsCont()
 				cont.Push(t.Runtime, val)
 			} else {
-				setReg(regs, cells, dst, val)
+				setReg(regs, dst, val)
 			}
 			pc++
 			continue RunLoop
@@ -319,35 +303,7 @@ RunLoop:
 			var ok bool
 			var err error
 			if opcode.HasType4a() {
-				// The move is the only opcode that reads or writes the
-				// contents of a cell (ir.LowerCells), and upval takes
-				// the cell itself.  Both go before the shared operand read,
-				// which indexes the plain registers directly.
-				switch opcode.GetUnOp() {
-				case code.OpId:
-					b := opcode.GetB()
-					var val Value
-					if b.IsCell() {
-						val = *cells[b.Idx()].ref
-					} else {
-						val = regs[b.Idx()]
-					}
-					switch {
-					case dst.IsCell():
-						cells[dst.Idx()].set(val)
-					case opcode.GetF():
-						regs[dst.Idx()].AsCont().Push(t.Runtime, val)
-					default:
-						regs[dst.Idx()] = val
-					}
-					pc++
-					continue RunLoop
-				case code.OpUpvalue:
-					regs[dst.Idx()].AsClosure().AddUpvalue(c.getRegCell(opcode.GetB()))
-					pc++
-					continue RunLoop
-				}
-				val := getReg(regs, cells, opcode.GetB())
+				val := getReg(regs, opcode.GetB())
 				switch opcode.GetUnOp() {
 				case code.OpNeg:
 					res, ok = Unm(val)
@@ -376,8 +332,33 @@ RunLoop:
 						cont, err = continueCall(t, val, next)
 						res = ContValue(cont)
 					}
+				case code.OpId:
+					res = val
+				case code.OpLoad:
+					// rB holds a box: its contents (ir.LowerCells).
+					if box, isBox := val.iface.(Cell); isBox {
+						res = *box.ref
+					} else {
+						err = errNotABox
+					}
+				case code.OpStore:
+					// rA holds a box: val goes into it.
+					if box, isBox := regs[dst].iface.(Cell); isBox {
+						box.set(val)
+						pc++
+						continue RunLoop
+					}
+					err = errNotABox
+				case code.OpUpvalue:
+					// rB holds a box: the closure rA captures it.
+					if box, isBox := val.iface.(Cell); isBox {
+						regs[dst].AsClosure().AddUpvalue(box)
+						pc++
+						continue RunLoop
+					}
+					err = errNotABox
 				case code.OpEtcId:
-					cont := getReg(regs, cells, dst).AsCont()
+					cont := getReg(regs, dst).AsCont()
 					var etc []Value
 					etc, err = expandVarargs(t, val)
 					if err != nil {
@@ -394,13 +375,13 @@ RunLoop:
 					tbl := TableValue(t.newVarargTable(val.AsArray()))
 					// Overwrite the etc register so ... expansion reads from
 					// the table (respecting t.n modifications).
-					setReg(regs, cells, opcode.GetB(), tbl)
+					setReg(regs, opcode.GetB(), tbl)
 					res = tbl
 				case code.OpCheckNotDefined:
 					// Lua 5.5: check that _ENV[name] is not already defined.
 					// Used by "global x = value" declarations.  _ENV is
 					// indexed as any value is, so it needn't be a table.
-					env := getReg(regs, cells, dst) // rA = _ENV
+					env := getReg(regs, dst) // rA = _ENV
 					// val is rB = index (name)
 					v, err := Index(t, env, val)
 					if err == nil && !v.IsNil() {
@@ -430,11 +411,9 @@ RunLoop:
 					res = BoolValue(opcode.GetL().ToBool())
 				case code.OpNil:
 					res = NilValue
-				case code.OpClear:
-					// Special case: clear reg
-					c.clearReg(dst)
-					pc++
-					continue RunLoop
+				case code.OpNewBox:
+					t.RequireSize(unsafe.Sizeof(Value{}))
+					res = BoxValue(newCell(NilValue))
 				default:
 					panic("unsupported")
 				}
@@ -444,9 +423,9 @@ RunLoop:
 				return nil, err
 			}
 			if opcode.GetF() {
-				getReg(regs, cells, dst).AsCont().Push(t.Runtime, res)
+				getReg(regs, dst).AsCont().Push(t.Runtime, res)
 			} else {
-				setReg(regs, cells, dst, res)
+				setReg(regs, dst, res)
 			}
 			pc++
 			continue RunLoop
@@ -456,7 +435,7 @@ RunLoop:
 				pc += int32(opcode.GetOffset())
 				continue RunLoop
 			case code.OpJumpIf:
-				test := Truth(getReg(regs, cells, opcode.GetA()))
+				test := Truth(getReg(regs, opcode.GetA()))
 				if test == opcode.GetF() {
 					pc += int32(opcode.GetOffset())
 				} else {
@@ -474,7 +453,7 @@ RunLoop:
 				// continuation anywhere else was made by a cont opcode.  A
 				// callee stays in its register, which the call leaves alone:
 				// it may be a local.
-				callee := getReg(regs, cells, contReg)
+				callee := getReg(regs, contReg)
 				var next Cont
 				isCont := true
 				if contReg == code.ValueReg(0) {
@@ -518,18 +497,18 @@ RunLoop:
 							if n == 0 {
 								break
 							}
-							arg := getReg(regs, cells, reg)
+							arg := getReg(regs, reg)
 							if !isLua {
 								next.Push(t.Runtime, arg)
 							} else if r := lnext.code[lnext.pc]; r.HasType0() && !r.GetF() {
 								t.RequireCPU(1)
 								lnext.pc++
-								setReg(lnext.registers, lnext.cells, r.GetA(), arg)
+								setReg(lnext.registers, r.GetA(), arg)
 							} else {
 								lnext.Push(t.Runtime, arg)
 							}
 							if clear[k] {
-								setReg(regs, cells, reg, NilValue)
+								setReg(regs, reg, NilValue)
 							}
 							n--
 						}
@@ -577,7 +556,7 @@ RunLoop:
 			case code.OpClStack:
 				if opcode.GetF() {
 					// Push to close stack
-					v := getReg(regs, cells, opcode.GetA())
+					v := getReg(regs, opcode.GetA())
 					if Truth(v) && t.metaGet(v, metaClose).IsNil() {
 						c.pc = pc
 						return nil, errors.New("to be closed value missing a __close metamethod")
@@ -598,14 +577,14 @@ RunLoop:
 			}
 		case code.Type6Pfx:
 			dst := opcode.GetA()
-			etc, etcErr := expandVarargs(t, getReg(regs, cells, opcode.GetB()))
+			etc, etcErr := expandVarargs(t, getReg(regs, opcode.GetB()))
 			if etcErr != nil {
 				c.pc = pc
 				return nil, etcErr
 			}
 			idx := int(opcode.GetM())
 			if opcode.GetF() {
-				tbl := getReg(regs, cells, dst).AsTable()
+				tbl := getReg(regs, dst).AsTable()
 				for i, v := range etc {
 					t.SetTable(tbl, IntValue(int64(i+idx)), v)
 				}
@@ -614,15 +593,15 @@ RunLoop:
 				if idx < len(etc) {
 					val = etc[idx]
 				}
-				setReg(regs, cells, dst, val)
+				setReg(regs, dst, val)
 			}
 			pc++
 			continue RunLoop
 		case code.Type7Pfx:
 			startReg, stopReg, stepReg := opcode.GetA(), opcode.GetB(), opcode.GetC()
-			start := getReg(regs, cells, startReg)
-			stop := getReg(regs, cells, stopReg)
-			step := getReg(regs, cells, stepReg)
+			start := getReg(regs, startReg)
+			stop := getReg(regs, stopReg)
+			step := getReg(regs, stepReg)
 			if opcode.GetF() {
 				// Advance for loop.  All registers are assumed to contain
 				// numeric values because they have been prepared previously.
@@ -647,7 +626,7 @@ RunLoop:
 				if done {
 					next = NilValue
 				}
-				setReg(regs, cells, startReg, next)
+				setReg(regs, startReg, next)
 			} else {
 				// Prepare for loop
 				start, tstart := ToNumberValue(start)
@@ -700,9 +679,9 @@ RunLoop:
 				if done {
 					start = NilValue
 				}
-				setReg(regs, cells, startReg, start)
-				setReg(regs, cells, stopReg, stop)
-				setReg(regs, cells, stepReg, step)
+				setReg(regs, startReg, start)
+				setReg(regs, stopReg, stop)
+				setReg(regs, stepReg, step)
 			}
 			pc++
 			continue RunLoop
@@ -785,27 +764,16 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 	}
 }
 
-func (c *LuaCont) getRegCell(reg code.Reg) Cell {
-	if reg.IsCell() {
-		return c.cells[reg.Idx()]
-	}
-	panic("should be a cell")
-}
-
 func (c *LuaCont) clearReg(reg code.Reg) {
-	if reg.IsCell() {
-		c.cells[reg.Idx()] = newCell(NilValue)
-	} else {
-		c.registers[reg.Idx()] = NilValue
-	}
+	c.registers[reg] = NilValue
 }
 
-// setReg and getReg access a plain register.  Only the move opcode reads or
-// writes the contents of a cell (ir.LowerCells), and it does so itself.
-func setReg(regs []Value, cells []Cell, reg code.Reg, val Value) {
-	regs[reg.Idx()] = val
+// setReg and getReg access a register.  A box's contents are reached only
+// through the load and store opcodes (ir.LowerCells).
+func setReg(regs []Value, reg code.Reg, val Value) {
+	regs[reg] = val
 }
 
-func getReg(regs []Value, cells []Cell, reg code.Reg) Value {
-	return regs[reg.Idx()]
+func getReg(regs []Value, reg code.Reg) Value {
+	return regs[reg]
 }

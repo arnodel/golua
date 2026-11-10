@@ -1,14 +1,13 @@
 package runtime
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/arnodel/golua/code"
 )
 
 // Register operands are 8 bits wide, so a frame cannot have more registers
-// than this of either kind.
+// than this, nor a closure more upvalues.
 const maxRegCount = 256
 
 // verify checks that running c cannot touch anything outside its frame: the
@@ -23,15 +22,13 @@ func (c *Code) verify() error {
 	switch {
 	case c.RegCount < 1 || c.RegCount > maxRegCount:
 		return fmt.Errorf("invalid register count %d", c.RegCount)
-	case c.CellCount < 0 || c.CellCount > maxRegCount:
-		return fmt.Errorf("invalid cell count %d", c.CellCount)
-	case c.UpvalueCount < 0 || c.UpvalueCount > c.CellCount:
-		return fmt.Errorf("invalid upvalue count %d for %d cells", c.UpvalueCount, c.CellCount)
+	case c.UpvalueCount < 0 || c.UpvalueCount > maxRegCount:
+		return fmt.Errorf("invalid upvalue count %d", c.UpvalueCount)
 	case len(c.UpNames) != int(c.UpvalueCount):
 		return fmt.Errorf("%d upvalue names for %d upvalues", len(c.UpNames), c.UpvalueCount)
 	}
-	// The frame copies the entry loads before running anything; r0 holds
-	// the continuation.
+	// The frame fills the entry loads before running anything; r0 holds the
+	// continuation.
 	for _, l := range c.entryLoads {
 		switch {
 		case int(l.Up) >= int(c.UpvalueCount):
@@ -118,9 +115,6 @@ func (c *Code) verifyOpcode(pc int, op code.Opcode) error {
 		if !op.HasType4a() {
 			return c.verifyRegisters(op.GetA())
 		}
-		if op.GetUnOp() == code.OpUpvalue && !op.GetB().IsCell() {
-			return errors.New("upval needs a cell register")
-		}
 		return c.verifyRegisters(op.GetA(), op.GetB())
 	case code.Type5Pfx:
 		switch op.GetJ() {
@@ -154,11 +148,8 @@ func (c *Code) verifyConstant(k code.KIndex) error {
 // verifyRegisters checks that each register is within the frame.
 func (c *Code) verifyRegisters(regs ...code.Reg) error {
 	for _, r := range regs {
-		switch {
-		case !r.IsCell() && int(r.Idx()) >= int(c.RegCount):
+		if int(r) >= int(c.RegCount) {
 			return fmt.Errorf("register %s outside the frame (%d registers)", r, c.RegCount)
-		case r.IsCell() && int(r.Idx()) >= int(c.CellCount):
-			return fmt.Errorf("register %s outside the frame (%d cells)", r, c.CellCount)
 		}
 	}
 	return nil

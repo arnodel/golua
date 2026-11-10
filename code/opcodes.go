@@ -52,7 +52,7 @@ func (c Opcode) HasType0() bool {
 }
 
 // ==================================================================
-// Type1:  1XXXXabc AAAAAAAA BBBBBBBB CCCCCCCC
+// Type1:  1XXXX... AAAAAAAA BBBBBBBB CCCCCCCC
 //
 // Binary operations: rA <- rB op rC.
 //
@@ -100,7 +100,7 @@ func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
 }
 
 // ==================================================================
-// Type2:  0111Fabc AAAAAAAA BBBBBBBB CCCCCCCC
+// Type2:  0111F... AAAAAAAA BBBBBBBB CCCCCCCC
 //
 // Table access: rA <- rB[rC] when F is Off, rB[rC] <- rA when F is On.
 //
@@ -115,7 +115,7 @@ func mkType2(f Flag, rA, rB, rC Reg) Opcode {
 }
 
 // ==================================================================
-// Type8:  0001Fab0 AAAAAAAA BBBBBBBB KKKKKKKK
+// Type8:  0001F..0 AAAAAAAA BBBBBBBB KKKKKKKK
 //
 // Table access by constant key: rA <- rB[K] when F is Off, rB[K] <- rA when F
 // is On.  This is what Type2 does when the key is a constant, without the
@@ -165,7 +165,7 @@ func mkType8(f Flag, rA, rB Reg, k KIndex8) Opcode {
 }
 
 // ==================================================================
-// Type3:  0110FaYY AAAAAAAA NNNNNNNN NNNNNNNN
+// Type3:  0110F.YY AAAAAAAA NNNNNNNN NNNNNNNN
 //
 // Loading a 16-bit literal or a constant: rA <- value(N) when F is Off, or
 // push the value into the continuation rA when F is On.
@@ -280,7 +280,7 @@ func mkType3(f Flag, op UnOpK16, rA Reg, k encoderToN) Opcode {
 }
 
 // ==================================================================
-// Type4a: 0101Fab1 AAAAAAAA BBBBBBBB ZZZZZZZZ
+// Type4a: 0101F..1 AAAAAAAA BBBBBBBB ZZZZZZZZ
 //
 // Unary operations and continuations: rA <- op(rB) when F is Off, or push
 // op(rB) into the continuation rA when F is On.  A few operations (OpEtcId,
@@ -306,10 +306,12 @@ const (
 	OpId                          // rB itself; with F On this is "push rA, rB"
 	OpTruth                       // rB as a boolean
 	OpNot                         // not rB
-	OpUpvalue                     // add the cell uB to the upvalues of the closure rA
+	OpUpvalue                     // add the box rB to the upvalues of the closure rA
 	OpEtcId                       // push all the values of the etc rB into the continuation rA
 	OpMkVarargTable               // a table sharing the values of the etc rB, which also replaces rB (Lua 5.5)
 	OpCheckNotDefined             // error if rA[rB] is not nil (Lua 5.5 global redefinition check)
+	OpLoad                        // the contents of the box rB
+	OpStore                       // not a load: puts rB into the box rA ("store rA, rB")
 )
 
 // encodeZ encodes an UnOp into an opcode.
@@ -328,7 +330,7 @@ func mkType4a(f Flag, op UnOp, rA, rB Reg) Opcode {
 }
 
 // ==================================================================
-// Type4b: 0101Fa00 AAAAAAAA LLLLLLLL ZZZZZZZZ
+// Type4b: 0101F.00 AAAAAAAA LLLLLLLL ZZZZZZZZ
 //
 // Loading a small constant: rA <- value when F is Off, or push the value into
 // the continuation rA when F is On.
@@ -344,16 +346,16 @@ type UnOpK uint8
 
 // The Type4b constants.
 const (
-	OpNil   UnOpK = iota // nil
-	OpStr0               // ""
-	OpTable              // a new empty table
-	OpStr1               // the 1-byte string L
-	OpBool               // the boolean L != 0
-	OpCC                 // the current continuation
-	OpClear              // not a load: resets rA, giving a cell register a fresh cell
-	OpInt                // unused: meant to carry an int64 in the next 2 words
-	OpFloat              // unused: meant to carry a float64 in the next 2 words
-	OpStrN               // unused: meant to carry a string in the following words
+	OpNil    UnOpK = iota // nil
+	OpStr0                // ""
+	OpTable               // a new empty table
+	OpStr1                // the 1-byte string L
+	OpBool                // the boolean L != 0
+	OpCC                  // the current continuation
+	OpNewBox              // a new box, holding nil
+	OpInt                 // unused: meant to carry an int64 in the next 2 words
+	OpFloat               // unused: meant to carry a float64 in the next 2 words
+	OpStrN                // unused: meant to carry a string in the following words
 )
 
 // encodeZ encodes an UnOpK into an opcode.
@@ -409,7 +411,7 @@ func mkType4b(f Flag, op UnOpK, rA Reg, k Lit8) Opcode {
 }
 
 // ==================================================================
-// Type5:  0100FaJJ AAAAAAAA DDDDDDDD DDDDDDDD
+// Type5:  0100F.JJ AAAAAAAA DDDDDDDD DDDDDDDD
 //
 // Jumps, calls and the close stack.
 //
@@ -583,7 +585,7 @@ func mkType5(f Flag, op JumpOp, rA Reg, k encoderToD) Opcode {
 }
 
 // ==================================================================
-// Type6:  0011Fab0 AAAAAAAA BBBBBBBB MMMMMMMM
+// Type6:  0011F..0 AAAAAAAA BBBBBBBB MMMMMMMM
 //
 // Reading an etc: rA <- the M-th value of the etc rB when F is Off (nil if
 // there is none); rA[M+i] <- the i-th value of the etc rB for every i when F
@@ -622,7 +624,7 @@ func mkType6(f Flag, rA, rB Reg, i Index8) Opcode {
 }
 
 // ==================================================================
-// Type7:  0010Fabc AAAAAAAA BBBBBBBB CCCCCCCC
+// Type7:  0010F... AAAAAAAA BBBBBBBB CCCCCCCC
 //
 // Numeric for loops, over the variable rA with limit rB and step rC.  F Off
 // prepares the loop (checks the values are numbers, gives rA and rC the same
@@ -641,7 +643,7 @@ func mkType7(f Flag, rA, rB, rC Reg) Opcode {
 }
 
 // ==================================================================
-// Type0:  0000Fa00 AAAAAAAA 00000000 00000000
+// Type0:  0000F.00 AAAAAAAA 00000000 00000000
 //
 // Receiving arguments: the next value pushed into this continuation goes to
 // rA when F is Off; all the remaining pushed values go to rA as an etc when F
@@ -680,31 +682,22 @@ func (c Opcode) GetF() bool {
 }
 
 // Register operands.  Each is an 8-bit index in one of the three low bytes
-// of the opcode, with a kind bit (0 value register, 1 cell register) at bit
-// 26 (A), 25 (B) or 24 (C).
+// of the opcode.  Bits 26 (A), 25 (B) and 24 (C), once the registers' kind
+// bits, are reserved where the type does not use them, and left zero.
 
 // GetA returns the register rA encoded in the opcode.
 func (c Opcode) GetA() Reg {
-	return Reg{
-		idx: uint8(c >> 16 & 0xff),
-		tp:  RegType(c >> 26 & 1),
-	}
+	return Reg(c >> 16 & 0xff)
 }
 
 // GetB returns the register rB encoded in the opcode.
 func (c Opcode) GetB() Reg {
-	return Reg{
-		idx: uint8(c >> 8 & 0xff),
-		tp:  RegType(c >> 25 & 1),
-	}
+	return Reg(c >> 8 & 0xff)
 }
 
 // GetC returns the register rC encoded in the opcode.
 func (c Opcode) GetC() Reg {
-	return Reg{
-		idx: uint8(c & 0xff),
-		tp:  RegType(c >> 24 & 1),
-	}
+	return Reg(c & 0xff)
 }
 
 // getYorJ decodes the 2-bit field at bits 25-24, which is Y in Type3 and J in
@@ -812,6 +805,10 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 			case OpUpvalue:
 				// Special case
 				return fmt.Sprintf("upval %s, %s", rA, rB)
+			case OpLoad:
+				tpl = "[%s]"
+			case OpStore:
+				return fmt.Sprintf("[%s] <- %s", rA, rB)
 			case OpMkVarargTable:
 				tpl = "mkvargtable(%s)"
 			case OpCheckNotDefined:
@@ -837,9 +834,9 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 			k = fmt.Sprintf("%t", c.GetL().ToBool())
 		case OpNil:
 			k = "nil"
-		case OpClear:
-			// Special case
-			return fmt.Sprintf("clr %s", rA)
+		case OpNewBox:
+			k = "newbox"
+
 		}
 		if f {
 			return fmt.Sprintf("push %s, "+k, rA)

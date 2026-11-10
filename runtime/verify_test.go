@@ -9,15 +9,12 @@ import (
 	"github.com/arnodel/golua/code"
 )
 
-// A frame with 2 value registers and 1 cell, no upvalues, and 2 constants.
+// A frame with 2 registers, no upvalues, and 2 constants.
 func testCode(ops ...code.Opcode) *Code {
-	return &Code{code: ops, RegCount: 2, CellCount: 1, consts: []Value{IntValue(1), StringValue("x")}}
+	return &Code{code: ops, RegCount: 2, consts: []Value{IntValue(1), StringValue("x")}}
 }
 
-var (
-	r0, r1, r2 = code.ValueReg(0), code.ValueReg(1), code.ValueReg(2)
-	u0, u1     = code.CellReg(0), code.CellReg(1)
-)
+var r0, r1, r2 = code.ValueReg(0), code.ValueReg(1), code.ValueReg(2)
 
 func TestVerifyCounts(t *testing.T) {
 	for _, c := range []struct {
@@ -27,18 +24,16 @@ func TestVerifyCounts(t *testing.T) {
 	}{
 		{"no register for the continuation", &Code{RegCount: 0}, "register count"},
 		{"too many registers", &Code{RegCount: 257}, "register count"},
-		{"negative cells", &Code{RegCount: 1, CellCount: -1}, "cell count"},
-		{"too many cells", &Code{RegCount: 1, CellCount: 257}, "cell count"},
-		{"more upvalues than cells", &Code{RegCount: 1, CellCount: 1, UpvalueCount: 2, UpNames: []string{"a", "b"}}, "upvalue count"},
+		{"too many upvalues", &Code{RegCount: 1, UpvalueCount: 257, UpNames: make([]string, 257)}, "upvalue count"},
 		{"negative upvalues", &Code{RegCount: 1, UpvalueCount: -1}, "upvalue count"},
-		{"names and upvalues disagree", &Code{RegCount: 1, CellCount: 1, UpvalueCount: 1}, "upvalue names"},
+		{"names and upvalues disagree", &Code{RegCount: 1, UpvalueCount: 1}, "upvalue names"},
 	} {
 		err := c.code.verify()
 		if err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: got %v, want an error about the %s", c.name, err, c.want)
 		}
 	}
-	ok := &Code{RegCount: 256, CellCount: 256, UpvalueCount: 256, UpNames: make([]string, 256)}
+	ok := &Code{RegCount: 256, UpvalueCount: 256, UpNames: make([]string, 256)}
 	if err := ok.verify(); err != nil {
 		t.Errorf("largest frame: %v", err)
 	}
@@ -46,11 +41,12 @@ func TestVerifyCounts(t *testing.T) {
 
 func TestVerifyEntryLoads(t *testing.T) {
 	load := func(up, reg uint8) *Code {
-		return &Code{RegCount: 2, CellCount: 1, UpvalueCount: 1, UpNames: []string{"x"}, entryLoads: []code.EntryLoad{{Up: up, Reg: reg}}}
+		return &Code{RegCount: 2, UpvalueCount: 1, UpNames: []string{"x"}, entryLoads: []code.EntryLoad{{Up: up, Reg: reg}}}
 	}
 	if err := load(0, 1).verify(); err != nil {
 		t.Errorf("valid entry load: %v", err)
 	}
+
 	for _, c := range []struct {
 		name string
 		code *Code
@@ -75,13 +71,12 @@ func TestVerifyOpcodes(t *testing.T) {
 	}
 	cases := []tc{
 		// Type1: A, B, C are registers.
-		{"type1 in range", code.Combine(code.OpAdd, r1, r0, u0), true},
+		{"type1 in range", code.Combine(code.OpAdd, r1, r0, r1), true},
 		{"type1 bad A", code.Combine(code.OpAdd, r2, r0, r0), false},
 		{"type1 bad B", code.Combine(code.OpAdd, r0, r2, r0), false},
 		{"type1 bad C", code.Combine(code.OpAdd, r0, r0, r2), false},
-		{"type1 bad cell", code.Combine(code.OpAdd, r0, u1, r0), false},
 		// Type2: A, B, C are registers.
-		{"type2 in range", code.LoadLookup(r1, r0, u0), true},
+		{"type2 in range", code.LoadLookup(r1, r0, r1), true},
 		{"type2 bad C", code.SetIndex(r0, r0, r2), false},
 		// Type3: only A is a register; N is a literal or a constant index.
 		{"type3 in range", code.LoadInt16(r1, -1), true},
@@ -91,18 +86,20 @@ func TestVerifyOpcodes(t *testing.T) {
 		{"type3 constant out of range", code.LoadConst(r0, code.KIndex(2)), false},
 		{"type3 closure constant out of range", code.LoadClosure(r0, code.KIndex(0xffff)), false},
 		// Type8: A and B are registers; K is a constant index.
-		{"type8 in range", code.LoadLookupK(r1, u0, 1), true},
+		{"type8 in range", code.LoadLookupK(r1, r1, 1), true},
 		{"type8 set in range", code.SetIndexK(r0, r1, 0), true},
 		{"type8 bad A", code.LoadLookupK(r2, r0, 0), false},
-		{"type8 bad B", code.SetIndexK(r0, u1, 0), false},
+		{"type8 bad B", code.SetIndexK(r0, r2, 0), false},
 		{"type8 constant out of range", code.LoadLookupK(r0, r0, 2), false},
-		// Type4a: A and B are registers; upval needs a cell in B.
+		// Type4a: A and B are registers.
 		{"type4a in range", code.Transform(code.OpNeg, r1, r0), true},
 		{"type4a bad B", code.Transform(code.OpNeg, r0, r2), false},
 		{"type4a push", code.Push(r0, r1), true},
-		{"upval with a cell", code.Upval(r0, u0), true},
-		{"upval with a value register", code.Upval(r0, r1), false},
-		{"upval with a cell out of range", code.Upval(r0, u1), false},
+		{"upval in range", code.Upval(r0, r1), true},
+		{"upval out of range", code.Upval(r0, r2), false},
+		{"load in range", code.Load(r1, r0), true},
+		{"store out of range", code.Store(r2, r0), false},
+		{"newbox in range", code.NewBox(r1), true},
 		// Type4b: only A is a register; L and Z are literals.
 		{"type4b in range", code.LoadBool(r1, true), true},
 		{"type4b literal is not a register", code.LoadStr1(r0, []byte{0xff}), true},
@@ -118,7 +115,7 @@ func TestVerifyOpcodes(t *testing.T) {
 		{"type6 in range", code.LoadEtcLookup(r1, r0, 255), true},
 		{"type6 bad B", code.FillTable(r0, r2, 0), false},
 		// Type7: A, B, C are registers.
-		{"type7 in range", code.PrepForLoop(r0, r1, u0), true},
+		{"type7 in range", code.PrepForLoop(r0, r1, r1), true},
 		{"type7 bad C", code.AdvForLoop(r0, r0, r2), false},
 		// Type0: only A is a register.
 		{"type0 in range", code.Receive(r1), true},
@@ -130,9 +127,8 @@ func TestVerifyOpcodes(t *testing.T) {
 		ops  []code.Opcode
 		ok   bool
 	}{
-		{"call with arguments in range", append([]code.Opcode{code.CallArgs(r0, 4)}, code.ArgWords([]code.Reg{r1, u0, r0, r1}, nil)...), true},
-		{"call with a bad argument", append([]code.Opcode{code.CallArgs(r0, 4)}, code.ArgWords([]code.Reg{r1, u0, r2, r1}, nil)...), false},
-		{"call with a bad cell argument", append([]code.Opcode{code.TailCallArgs(r0, 1)}, code.ArgWords([]code.Reg{u1}, nil)...), false},
+		{"call with arguments in range", append([]code.Opcode{code.CallArgs(r0, 4)}, code.ArgWords([]code.Reg{r1, r1, r0, r1}, nil)...), true},
+		{"call with a bad argument", append([]code.Opcode{code.CallArgs(r0, 4)}, code.ArgWords([]code.Reg{r1, r1, r2, r1}, nil)...), false},
 		{"call whose arguments run past the end", []code.Opcode{code.CallArgs(r0, 1)}, false},
 		{"jump into the arguments", append(append([]code.Opcode{code.Jump(2), code.CallArgs(r0, 1)}, code.ArgWords([]code.Reg{r1}, nil)...), code.Call(r0)), false},
 		{"jump over the arguments", append(append([]code.Opcode{code.Jump(3), code.CallArgs(r0, 1)}, code.ArgWords([]code.Reg{r1}, nil)...), code.Call(r0)), true},

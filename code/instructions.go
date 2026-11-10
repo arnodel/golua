@@ -120,7 +120,7 @@ func PushEtc(r1, r2 Reg) Opcode {
 //
 // jump j
 func Jump(j Offset) Opcode {
-	return mkType5(Off, OpJump, Reg{}, j)
+	return mkType5(Off, OpJump, 0, j)
 }
 
 // JumpIf encodes a conditional jump.
@@ -177,7 +177,7 @@ func TailCall(r Reg) Opcode {
 // "__close" metamethod, in which case this metamethod is called.  This opcode
 // is introduced to support Lua 5.4's "to-be-closed" variables.
 func ClTrunc(h uint16) Opcode {
-	return mkType5(Off, OpClStack, Reg{}, ClStackOffset(h))
+	return mkType5(Off, OpClStack, 0, ClStackOffset(h))
 }
 
 // ClPush encodes clpush r
@@ -194,6 +194,16 @@ func ClPush(r Reg) Opcode {
 // upvalues of r1.
 func Upval(r1, r2 Reg) Opcode {
 	return mkType4a(Off, OpUpvalue, r1, r2)
+}
+
+// Load encodes r1 <- [r2], the contents of the box r2.
+func Load(r1, r2 Reg) Opcode {
+	return mkType4a(Off, OpLoad, r1, r2)
+}
+
+// Store encodes [r1] <- r2: r2 goes into the box r1.
+func Store(r1, r2 Reg) Opcode {
+	return mkType4a(Off, OpStore, r1, r2)
 }
 
 // Cont encodes r1 <- cont(r2)
@@ -216,8 +226,8 @@ func TailCont(r1, r2 Reg) Opcode {
 //
 // This clears the register.  If the register contains a cell, the cell is
 // removed, so this is different from r <- nil
-func Clear(r Reg) Opcode {
-	return mkType4b(Off, OpClear, r, 0)
+func NewBox(r Reg) Opcode {
+	return mkType4b(Off, OpNewBox, r, 0)
 }
 
 // Receive encodes recv r

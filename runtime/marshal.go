@@ -121,20 +121,19 @@ func (w *bwriter) writeCode(c *Code) {
 	for _, k := range c.consts {
 		w.writeConst(k)
 	}
-	w.consumeBudget(2 + 2 + 2 + 8)
+	w.consumeBudget(2 + 2 + 8)
 	w.write(
 		c.UpvalueCount,
 		c.RegCount,
-		c.CellCount,
 		int64(len(c.UpNames)),
 	)
 	for _, n := range c.UpNames {
 		w.writeString(n)
 	}
-	w.consumeBudget(8 + 2*uint64(len(c.entryLoads)))
+	w.consumeBudget(8 + 3*uint64(len(c.entryLoads)))
 	w.write(int64(len(c.entryLoads)))
 	for _, l := range c.entryLoads {
-		w.write(l.Up, l.Reg)
+		w.write(l.Up, l.Reg, l.Box)
 	}
 }
 
@@ -257,10 +256,9 @@ func (r *breader) readCode(c *Code) {
 		c.consts[i] = r.readConst()
 	}
 	r.read(
-		2+2+2+8,
+		2+2+8,
 		&c.UpvalueCount,
 		&c.RegCount,
-		&c.CellCount,
 		&sz,
 	)
 	c.UpNames = make([]string, sz)
@@ -270,7 +268,7 @@ func (r *breader) readCode(c *Code) {
 	r.read(8, &sz)
 	c.entryLoads = make([]code.EntryLoad, sz)
 	for i := range c.entryLoads {
-		r.read(2, &c.entryLoads[i].Up, &c.entryLoads[i].Reg)
+		r.read(3, &c.entryLoads[i].Up, &c.entryLoads[i].Reg, &c.entryLoads[i].Box)
 	}
 }
 

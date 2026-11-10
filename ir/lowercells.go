@@ -11,8 +11,15 @@ import (
 // only Load, Store and NewBox touch (notes/cells.md).  Every instruction
 // with a cell operand gets a plain register in its place: one loaded from
 // the box before it for a read, one stored into the box after it for a
-// write.  A ClearReg of a cell becomes a NewBox.  MkClosure captures boxes
-// themselves, not their contents, so its upvalue operands stay.
+// write.  MkClosure captures boxes themselves, not their contents, so its
+// upvalue operands stay.
+//
+// A local of the function's own gets its box where it is declared: a NewBox
+// before the local's first mention, which is the write that declares it (a
+// local without an initialiser is set to nil), and which every use of the
+// local comes after.  A local declared in a loop gets a new box each time
+// round, so the clears the compiler emits when a scope ends are dropped.
+// An upvalue's box is put in its register when the frame is made.
 //
 // After this pass every other register access is a plain index, and the
 // run loop needs to know about boxes only in the opcodes these three
@@ -50,11 +57,39 @@ func LowerCells(c Code) Code {
 		}
 	}
 	entry := map[Register]Register{}
+	upvalue := map[Register]bool{}
 	for _, u := range c.UpvalueDests {
+		upvalue[u] = true
 		if fixed(u) && readsContents[u] {
 			t := e.NewRegister(RegData{})
 			e.InsertBefore(0, Load{Dst: t, Box: u})
 			entry[u] = t
+		}
+	}
+
+	// The boxes of the function's own cells.  A captured parameter's first
+	// mention is the recv, which must stay the first opcode (a call stores
+	// an argument straight into the register the callee's recv names), so
+	// its box is made right after the parameters are received, before the
+	// store into it; so is the box of a cell whose first mention is not a
+	// write, which comes before everything else.
+	afterParams := 0
+	for afterParams < len(c.Instructions) && receives(c.Instructions[afterParams]) {
+		afterParams++
+	}
+	boxed := map[Register]bool{}
+	for i, instr := range c.Instructions {
+		writes := instr.Writes()
+		for _, r := range slices.Concat(writes, instr.Reads()) {
+			if !isCell(r) || upvalue[r] || boxed[r] {
+				continue
+			}
+			boxed[r] = true
+			if slices.Contains(writes, r) && !receives(instr) {
+				e.InsertBefore(i, NewBox{Dst: r})
+			} else {
+				e.InsertBefore(afterParams, NewBox{Dst: r})
+			}
 		}
 	}
 
@@ -94,7 +129,7 @@ func LowerCells(c Code) Code {
 			delete(known, x.Dst)
 			written(x.Dst)
 			if isCell(x.Dst) {
-				e.Replace(i, NewBox{Dst: x.Dst})
+				e.Delete(i)
 			}
 			continue
 		case MkClosure:
@@ -188,6 +223,14 @@ func LowerCells(c Code) Code {
 }
 
 func mv(dst, src Register) Instruction { return Transform{Op: ops.OpId, Dst: dst, Src: src} }
+
+func receives(instr Instruction) bool {
+	switch instr.(type) {
+	case Receive, ReceiveEtc:
+		return true
+	}
+	return false
+}
 
 // pure says whether instr cannot run Lua code: no call, no metamethod, no
 // __close.  Only such an instruction leaves every cell as it was.
