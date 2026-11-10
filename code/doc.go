@@ -142,10 +142,12 @@ J selects the operation (JumpOp):
 
 	OpJump      pc <- pc + D (D is a signed offset from the jump itself)
 	OpJumpIf    jump if rA is truthy (F = On) or falsy (F = Off)
-	OpCall      push the D registers listed in the operand words that
-	            follow (see below) into the continuation in rA, then
-	            transfer control to it; F = On makes it a tail call, which
-	            releases the current frame.  "call r0" is a return.
+	OpCall      rA holds a continuation (r0, the caller's, or one made by
+	            OpCont) or the value to call, whose frame the call makes;
+	            push the D registers listed in the operand words that
+	            follow (see below) into it, then transfer control to it;
+	            F = On makes it a tail call, which releases the current
+	            frame.  "call r0" is a return.
 	OpClStack   F = On: "clpush rA", push rA onto the close stack (a value
 	            with a __close metamethod, or nil/false); F = Off: "cltrunc
 	            D", truncate the close stack to height D, calling __close

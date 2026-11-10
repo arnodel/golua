@@ -442,30 +442,35 @@ RunLoop:
 				contReg := opcode.GetA()
 				isTail := opcode.GetF() // Can mean tail call or simple return
 
-				// The register holds either a continuation (r0 for a return,
-				// or one made by a cont opcode) or the callee, whose frame
-				// the call makes: Continue inlined by hand, as for the cont
-				// opcodes.  The callee stays in its register, which the call
-				// leaves alone: it may be a local.
-				v := getReg(regs, cells, contReg)
+				// The register holds either a continuation or the callee,
+				// whose frame the call makes: Continue inlined by hand, as
+				// for the cont opcodes.  r0 always holds the caller's
+				// continuation, so "call r0", a return, needs no test; a
+				// continuation anywhere else was made by a cont opcode.  A
+				// callee stays in its register, which the call leaves alone:
+				// it may be a local.
+				callee := getReg(regs, cells, contReg)
 				var next Cont
-				lc, isCont := v.iface.(*LuaCont)
-				if isCont {
+				isCont := true
+				if contReg == code.ValueReg(0) {
+					next = callee.AsCont()
+				} else if lc, ok := callee.iface.(*LuaCont); ok {
 					next = lc
 				} else {
+					isCont = false
 					var cnext Cont = c
 					if isTail {
 						cnext = c.Next()
 					}
-					switch f := v.iface.(type) {
+					switch f := callee.iface.(type) {
 					case *Closure:
 						next = NewLuaCont(t, f, cnext)
 					case *GoFunction:
 						next = NewGoCont(t, f, cnext)
 					default:
-						if next, isCont = v.TryCont(); !isCont {
+						if next, isCont = callee.TryCont(); !isCont {
 							var err error
-							if next, err = continueCall(t, v, cnext); err != nil {
+							if next, err = continueCall(t, callee, cnext); err != nil {
 								c.pc = pc
 								return nil, err
 							}
@@ -488,15 +493,15 @@ RunLoop:
 							if n == 0 {
 								break
 							}
-							v := getReg(regs, cells, reg)
+							arg := getReg(regs, cells, reg)
 							if !isLua {
-								next.Push(t.Runtime, v)
+								next.Push(t.Runtime, arg)
 							} else if r := lnext.code[lnext.pc]; r.HasType0() && !r.GetF() {
 								t.RequireCPU(1)
 								lnext.pc++
-								setReg(lnext.registers, lnext.cells, r.GetA(), v)
+								setReg(lnext.registers, lnext.cells, r.GetA(), arg)
 							} else {
-								lnext.Push(t.Runtime, v)
+								lnext.Push(t.Runtime, arg)
 							}
 							if clear[k] {
 								setReg(regs, cells, reg, NilValue)

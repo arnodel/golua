@@ -33,8 +33,9 @@ import (
 // over the positions from its first to its last.
 //
 // Register 0 holds the caller's continuation: the frame puts it there before
-// the function starts, and a tail continuation (MkCont with Tail) reads it
-// from the frame without naming it, so it is taken over the whole function,
+// the function starts, and a tail call or tail continuation (Call or MkCont
+// with Tail) reads it from the frame without naming it, so it is taken over
+// the whole function,
 // and first, which gives it slot 0.  Registers that receive upvalues are
 // taken by ProcessCode before anything else and left alone here.
 func computeLifetimes(c ir.Code) ir.Code {

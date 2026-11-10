@@ -446,7 +446,11 @@ func (c *compiler) compileBlockNoPop(s ast.BlockStat, complete bool) func() {
 			if len(s.Return) > 0 {
 				loc = s.Return[0]
 			}
-			c.compileCallWithArgs(loc, contReg, noRegister, s.Return, true)
+			if etc, listed := splitArgs(s.Return); listed {
+				c.compileListedCall(loc, contReg, noRegister, s.Return, true)
+			} else {
+				c.compilePushedCall(loc, contReg, noRegister, s.Return, etc, true)
+			}
 		}
 	}
 	return func() {

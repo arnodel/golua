@@ -261,8 +261,9 @@ func (j JumpIf) String() string {
 	return fmt.Sprintf("jump %s if %s is not %t", j.Label, j.Cond, j.Not)
 }
 
-// Call pushes the values of Args into the given continuation, in order, and
-// moves execution to it.  Values pushed earlier (an etc, say) come first.
+// Call pushes the values of Args into Cont, in order, and moves execution to
+// it.  Cont holds a continuation, or the value to call, whose continuation
+// the call makes.  Values pushed earlier (an etc, say) come first.
 type Call struct {
 	Cont Register
 	Args []Register

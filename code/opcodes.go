@@ -440,7 +440,7 @@ type JumpOp uint8
 
 // The Type5 operations.
 const (
-	OpCall    JumpOp = iota // transfer control to the continuation rA; "call r0" is a return
+	OpCall    JumpOp = iota // transfer control to rA, a continuation or a value to call; "call r0" is a return
 	OpJump                  // pc <- pc + D
 	OpJumpIf                // pc <- pc + D if rA is truthy (F On) or falsy (F Off)
 	OpClStack               // push rA onto the close stack (F On) or truncate it to height D (F Off)
