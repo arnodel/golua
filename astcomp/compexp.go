@@ -457,33 +457,53 @@ func (c *compiler) getCallerReg() ir.Register {
 
 func (c *compiler) compileCall(f ast.BFunctionCall, tail bool) {
 	fReg := c.compileExpNoDestHint(f.Target)
-	var contReg ir.Register
+	self := noRegister
 	if f.Method.Val != "" {
 		// self is listed in the call, so it is read at the call: copy a
 		// captured variable now (see stable).
-		self := c.stable(f.Target, fReg)
+		self = c.stable(f.Target, fReg)
 		fReg = c.GetFreeRegister()
 		c.emitInstr(f.Target, ir.LookupK{
 			Dst:   fReg,
 			Table: self,
 			Kidx:  c.GetConstantIndex(ir.String(f.Method.Val)),
 		})
-		contReg = c.GetFreeRegister()
-		c.emitInstr(f, ir.MkCont{
-			Dst:     contReg,
-			Closure: fReg,
-			Tail:    tail,
-		})
-		c.compileCallWithArgs(f, contReg, self, f.Args, tail)
-	} else {
-		contReg = c.GetFreeRegister()
-		c.emitInstr(f, ir.MkCont{
-			Dst:     contReg,
-			Closure: fReg,
-			Tail:    tail,
-		})
-		c.compileCallWithArgs(f, contReg, noRegister, f.Args, tail)
 	}
+	// A call lists its arguments in its operand words and makes the callee's
+	// frame itself, unless the last argument is an etc (a vararg or a call),
+	// whose values must come after the others and whose number is not known,
+	// or there are more arguments than fit: then the callee's continuation
+	// is made first and everything is pushed into it one by one.
+	if etc, listed := splitArgs(f.Args); listed {
+		// The callee is read at the call, after the arguments: a captured
+		// variable is copied first when an argument could reassign it (see
+		// stable), and copy propagation reads through the copy when nothing
+		// can (a fixed cell, see ir.markFixed).  With nothing to evaluate
+		// in between, the call reads the variable itself.
+		callee := fReg
+		if len(f.Args) > 0 || self != noRegister {
+			callee = c.stable(f.Target, fReg)
+		}
+		c.compileListedCall(f, callee, self, f.Args, tail)
+	} else {
+		contReg := c.GetFreeRegister()
+		c.emitInstr(f, ir.MkCont{
+			Dst:     contReg,
+			Closure: fReg,
+			Tail:    tail,
+		})
+		c.compilePushedCall(f, contReg, self, f.Args, etc, tail)
+	}
+}
+
+// splitArgs says whether a call with these arguments lists them in its
+// operand words (see compileCall), and returns the etc among them if there
+// is one.
+func splitArgs(args []ast.ExpNode) (etc ast.TailExpNode, listed bool) {
+	if n := len(args); n > 0 {
+		etc, _ = args[n-1].(ast.TailExpNode)
+	}
+	return etc, etc == nil && len(args) <= maxListedArgs
 }
 
 // noRegister stands for "no register" where one is optional.
@@ -494,46 +514,37 @@ const noRegister = ^ir.Register(0)
 // registers; beyond this many they are pushed one by one as before.
 const maxListedArgs = 32
 
-// compileCallWithArgs evaluates the arguments, then emits the call of contReg
-// with the argument registers listed in it (self first, if given), so that
-// the call pushes them itself.
-//
-// When the last argument is an etc (a vararg or a call), its values must come
-// after the others and their number is not known, so everything is pushed one
-// by one before the call, as it was before calls listed their arguments.  The
-// same goes for a call with more than maxListedArgs arguments.
-func (c *compiler) compileCallWithArgs(loc ast.Locator, contReg, self ir.Register, args []ast.ExpNode, tail bool) {
-	var tailArg ast.TailExpNode
-	if len(args) > 0 {
-		tailArg, _ = args[len(args)-1].(ast.TailExpNode)
-	}
-	if tailArg != nil || len(args) > maxListedArgs {
-		if self != noRegister {
-			c.emitInstr(loc, ir.Push{Cont: contReg, Item: self})
-		}
-		fixed := args
-		if tailArg != nil {
-			fixed = args[:len(args)-1]
-		}
-		for _, arg := range fixed {
-			c.emitInstr(arg, ir.Push{Cont: contReg, Item: c.compileExpNoDestHint(arg)})
-		}
-		if tailArg != nil {
-			etcReg := c.compileEtcExp(tailArg, c.GetFreeRegister())
-			c.emitInstr(tailArg, ir.Push{Cont: contReg, Item: etcReg, Etc: true})
-		}
-		c.emitInstr(loc, ir.Call{Cont: contReg, Tail: tail})
-		return
-	}
+// compileListedCall evaluates the arguments, then emits the call of callee
+// with the argument registers listed in it (self first, if given): the call
+// makes the callee's frame and pushes them itself.
+func (c *compiler) compileListedCall(loc ast.Locator, callee, self ir.Register, args []ast.ExpNode, tail bool) {
 	var argRegs []ir.Register
 	if self != noRegister {
 		argRegs = append(argRegs, self)
 	}
 	for _, arg := range args {
-		reg := c.stable(arg, c.compileExpNoDestHint(arg))
-		argRegs = append(argRegs, reg)
+		argRegs = append(argRegs, c.stable(arg, c.compileExpNoDestHint(arg)))
 	}
-	c.emitInstr(loc, ir.Call{Cont: contReg, Args: argRegs, Tail: tail})
+	c.emitInstr(loc, ir.Call{Cont: callee, Args: argRegs, Tail: tail})
+}
+
+// compilePushedCall pushes self (if given) and the arguments one by one into
+// contReg, the callee's continuation, the etc last, then emits the call.
+func (c *compiler) compilePushedCall(loc ast.Locator, contReg, self ir.Register, args []ast.ExpNode, etc ast.TailExpNode, tail bool) {
+	if self != noRegister {
+		c.emitInstr(loc, ir.Push{Cont: contReg, Item: self})
+	}
+	if etc != nil {
+		args = args[:len(args)-1]
+	}
+	for _, arg := range args {
+		c.emitInstr(arg, ir.Push{Cont: contReg, Item: c.compileExpNoDestHint(arg)})
+	}
+	if etc != nil {
+		etcReg := c.compileEtcExp(etc, c.GetFreeRegister())
+		c.emitInstr(etc, ir.Push{Cont: contReg, Item: etcReg, Etc: true})
+	}
+	c.emitInstr(loc, ir.Call{Cont: contReg, Tail: tail})
 }
 
 // stable returns a register holding the value reg has now, for a value that

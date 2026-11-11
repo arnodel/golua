@@ -36,16 +36,16 @@ import (
 // Cells (locals captured by closures, and upvalues) are left alone: a function
 // called in between could change them.  The exception is a fixed cell (see
 // markFixed), which nothing changes once its value can be seen: a copy of it
-// is read through like a copy of a named local.  An argument listed in a
-// call is read at the call, so the AST compiler copies a cell argument before
-// evaluating the next ones, which could change it; with n fixed,
-// "f(n, g() + 1)" goes from
+// is read through like a copy of a named local.  A call reads its callee and
+// its listed arguments at the call, so the AST compiler copies a captured
+// one before evaluating the arguments, which could change it; with f and n
+// fixed, "f(n, g() + 1)" goes from
 //
-//	r1 <- cont(u0); r2 <- u1; ...g() + 1 into r3...; call r1 (r2, r3)
+//	r1 <- u0; r2 <- u1; ...g() + 1 into r3...; call r1 (r2, r3)
 //
 // to
 //
-//	r1 <- cont(u0); ...g() + 1 into r2...; call r1 (u1, r2)
+//	...g() + 1 into r1...; call u0 (u1, r1)
 //
 // Named locals keep their copies when they are the destination, so that
 // their value stays observable.
