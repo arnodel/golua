@@ -34,6 +34,70 @@ for its interpreter alone).  Shopify/go-lua has no command-line interpreter
 and implements Lua 5.2, which the benchmarks outgrow; apogee's own harness
 drives it as a library and publishes 4.8× C Lua for it.
 
+## 2026-11-11, golua over its revisions, Apple M1 Max
+
+Taken with [`benchmarks/gauge.sh`](../benchmarks/gauge.sh), 3 rounds,
+against C Lua 5.5.1 (Homebrew): the previous checkpoint (6e2ae23, #226),
+lua5.5 after the call work (b7d9449: #229, #230, #231), and lua5.5 after the
+cells work (f3b177e: #233, #234, #235).
+
+| benchmark | 6e2ae23 | b7d9449 | f3b177e |
+|---|---|---|---|
+| bounce | 2.85× | 2.82× | 2.58× |
+| cd | 2.01× | 1.97× | 1.89× |
+| deltablue | 2.81× | 2.72× | 2.58× |
+| havlak | 1.96× | 1.89× | 1.81× |
+| json | 2.85× | 2.79× | 2.65× |
+| list | 2.40× | 2.31× | 2.12× |
+| mandelbrot | 2.04× | 2.09× | 1.88× |
+| nbody | 2.58× | 2.57× | 2.37× |
+| permute | 3.08× | 2.93× | 2.61× |
+| queens | 2.95× | 2.83× | 2.54× |
+| richards | 2.90× | 2.75× | 2.63× |
+| sieve | 2.96× | 3.01× | 2.65× |
+| storage | 2.12× | 2.10× | 1.98× |
+| towers | 3.47× | 3.31× | 2.97× |
+| binary-trees | 3.07× | 3.06× | 2.94× |
+| fannkuch-redux | 2.43× | 2.45× | 2.12× |
+| spectral-norm | 2.88× | 2.79× | 2.38× |
+| fasta | 2.82× | 2.82× | 2.65× |
+| k-nucleotide | 1.97× | 1.97× | 1.88× |
+| regex-dna | 1.35× | 1.35× | 1.36× |
+| coroutine-ring | 5.78× | 5.75× | 5.52× |
+| md5 | 3.14× | 2.96× | 2.56× |
+| life | 1.49× | 1.52× | 1.36× |
+| **geomean of 23** | **2.58×** | **2.53×** | **2.34×** |
+
+Notes:
+
+- Since the 8 November checkpoint the suite is 9.3% faster, 2.58× to 2.34×
+  C Lua, and for the first time below 2.5×.  The two steps are of a
+  different kind.
+- 6e2ae23 to b7d9449 is the call protocol: a call stores its arguments
+  straight into the callee's registers (#229), fixed registers (#230), and
+  the call opcode making the callee's frame instead of a `cont` opcode
+  before it (#231).  The call-heavy benchmarks gain 3 to 6% (towers 3.47×
+  to 3.31×, md5 3.14× to 2.96×, permute, richards, queens, list,
+  deltablue); the loop benchmarks do not move, or move a percent or two the
+  wrong way from code layout (mandelbrot 2.04× to 2.09×, sieve 2.96× to
+  3.01×).
+- b7d9449 to f3b177e is cells becoming boxes: a captured local lives in a
+  box, a value a register holds, reached by `load` and `store`; a fixed
+  upvalue is read once when the frame is made; registers have no kind, so
+  no register access in the run loop tests a bit first.  This is the step
+  that moved the loop benchmarks, which the 8 November note said had
+  stopped moving: spectral-norm 2.79× to 2.38×, fannkuch 2.45× to 2.12×,
+  sieve 3.01× to 2.65×, mandelbrot 2.09× to 1.88×, life 1.52× to 1.36×, md5
+  2.96× to 2.56×.  Their cost is per opcode, and this took a branch out of
+  every opcode.  The call-heavy ones gain another 3 to 10% (towers 3.31× to
+  2.97×, permute 2.93× to 2.61×, queens 2.83× to 2.54×).
+- regex-dna (1.35×) is unchanged by either, as always: its time is in the
+  string library.  coroutine-ring stays the outlier at 5.5×.
+- The reference matters: a first run of this table against
+  `/usr/local/bin/lua`, a Lua 5.5.0 build, read 2.80× for 6e2ae23 where the
+  Homebrew 5.5.1 reads 2.58×; the ratios between golua revisions were the
+  same.  On this machine `lua` in the path, Homebrew's, is the reference.
+
 ## 2026-11-08 (evening), golua over its revisions, Apple M1 Max
 
 Taken with [`benchmarks/gauge.sh`](../benchmarks/gauge.sh), 3 rounds,
