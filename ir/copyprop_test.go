@@ -89,6 +89,30 @@ func TestPropagateCopies(t *testing.T) {
 	}
 	check(t, "cells", PropagateCopies(testCode(3, 2, []Register{q}, cell...)), cell...)
 
+	// A copy of a fixed cell is read through, like a copy of a local,
+	// even across a call: nothing can change the cell.
+	once := []Instruction{
+		move(3, q),
+		Call{Cont: 4},
+		Push{Cont: 5, Item: 3},
+	}
+	fixed := testCode(3, 3, []Register{q}, once...)
+	fixed.Registers[q].IsFixed = true
+	check(t, "fixed cell", PropagateCopies(fixed),
+		Call{Cont: 4},
+		Push{Cont: 5, Item: q},
+	)
+
+	// A clear starts a new cell, so the copy is not read through after it.
+	cleared := []Instruction{
+		move(3, q),
+		ClearReg{Dst: q},
+		Push{Cont: 4, Item: 3},
+	}
+	fixed = testCode(3, 2, []Register{q}, cleared...)
+	fixed.Registers[q].IsFixed = true
+	check(t, "cell cleared", PropagateCopies(fixed), cleared...)
+
 	// A copy of a temporary is not read through: that would only keep the
 	// temporary alive.  Here the copy into a named local stays as well, so
 	// that the local keeps its value.

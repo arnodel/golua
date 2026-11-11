@@ -349,3 +349,17 @@ io.lines(file, table.unpack(t))
 -- Lua: error "too many arguments"
 -- Golua: silently succeeds
 ```
+
+### GOLUA-046: A fixed captured variable changed by the debug library may be read late
+**Test file**: none (db.lua is disabled)
+
+The compiler marks a captured local or upvalue *fixed* when no write to it can follow a point where its value can be seen (`ir/fixed.go`), and then reads it where it is used instead of copying it first. `debug.setupvalue`, `debug.setlocal` and `debug.upvaluejoin` can change a fixed variable all the same, so a read placed after such a call in the same expression sees the new value where Lua sees the old.
+
+```lua
+local n = 0
+local function f() return n end
+local function set() debug.setupvalue(f, 1, 5) end
+print(n, set(), n)
+-- Lua:   0  nil  5
+-- Golua: 5  nil  5
+```

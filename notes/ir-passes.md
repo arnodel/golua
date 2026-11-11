@@ -45,7 +45,7 @@ condition costs an opcode".
   (`GetFreeRegister` always appends), so a register means one thing
   throughout and counts of its reads and writes over the whole function are
   exact.  `RegData` says whether a register is a cell, a named local
-  (`IsLocal`), a compile-time constant.
+  (`IsLocal`), a compile-time constant, whether its value is fixed once seen (`IsFixed`, see `ir/fixed.go`).
 - Control flow: `DeclareLabel` marks a join point, `Jump`/`JumpIf`/tail
   `Call` end a straight-line stretch.  Within a stretch every read and write
   is visible; across stretches assume nothing unless you do real dataflow.
@@ -76,7 +76,11 @@ reads garbage.  Each one was found by a failing Lua test.
    only as the end of its slot reservation.
 3. **Cells are shared by reference.**  A local captured by a closure, or an
    upvalue, lives in a cell; a function called between two instructions can
-   change it.  Never substitute a cell for anything or anything for a cell.
+   change it.  Never substitute a cell for anything or anything for a cell,
+   except a fixed cell (`IsFixed`, worked out over the whole chunk before
+   the passes run): nothing changes it once its value can be seen, so it may
+   stand for a copy of it, as a named local does.  A clear starts a new
+   cell, so not across a `ClearReg` of it.
 4. **Read-write operands keep their name.**  `prepfor`/`advfor` update their
    registers in place; substituting the read side sends the write elsewhere.
 5. **Named locals stay observable.**  Deleting an assignment to a named local
