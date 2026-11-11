@@ -7,18 +7,25 @@ import (
 	"github.com/arnodel/golua/ops"
 )
 
-// LoadStoreCells makes the move the only instruction that reads or writes
-// the contents of a cell.  Every other instruction with a cell operand gets
-// a plain register in its place: one loaded from the cell before it for a
-// read, one stored into the cell after it for a write.  MkClosure captures
-// cells themselves, not their contents, and ClearReg makes a new one, so
-// both keep their cell operands.
+// LowerCells makes a cell register a register holding a box, whose contents
+// only Load, Store and NewBox touch (notes/cells.md).  Every instruction
+// with a cell operand gets a plain register in its place: one loaded from
+// the box before it for a read, one stored into the box after it for a
+// write.  MkClosure captures boxes themselves, not their contents, so its
+// upvalue operands stay.
 //
-// With this pass, the run loop needs to know about cells only in the move
-// and upval opcodes, and every other register access is a plain index.
-// This is the run-time half of notes/cells.md.
+// A local of the function's own gets its box where it is declared: a NewBox
+// before the local's first mention, which is the write that declares it (a
+// local without an initialiser is set to nil), and which every use of the
+// local comes after.  A local declared in a loop gets a new box each time
+// round, so the clears the compiler emits when a scope ends are dropped.
+// An upvalue's box is put in its register when the frame is made.
 //
-// Two rules keep the moves down:
+// After this pass every other register access is a plain index, and the
+// run loop needs to know about boxes only in the opcodes these three
+// instructions compile to.
+//
+// Two rules keep the loads and stores down:
 //
 //   - A fixed upvalue (IsFixed: nothing changes its contents once a closure
 //     can see them, so nothing changes them while the function runs) is
@@ -30,7 +37,7 @@ import (
 //     register is written, or, for a cell that is not fixed, until an
 //     instruction that may run code (a call, an operation with a possible
 //     metamethod, a __close), which could change the cell.
-func LoadStoreCells(c Code) Code {
+func LowerCells(c Code) Code {
 	regs := c.Registers
 	isCell := func(r Register) bool { return regs[r].IsCell }
 	fixed := func(r Register) bool { return regs[r].IsFixed }
@@ -50,11 +57,39 @@ func LoadStoreCells(c Code) Code {
 		}
 	}
 	entry := map[Register]Register{}
+	upvalue := map[Register]bool{}
 	for _, u := range c.UpvalueDests {
+		upvalue[u] = true
 		if fixed(u) && readsContents[u] {
 			t := e.NewRegister(RegData{})
-			e.InsertBefore(0, mv(t, u))
+			e.InsertBefore(0, Load{Dst: t, Box: u})
 			entry[u] = t
+		}
+	}
+
+	// The boxes of the function's own cells.  A captured parameter's first
+	// mention is the recv, which must stay the first opcode (a call stores
+	// an argument straight into the register the callee's recv names), so
+	// its box is made right after the parameters are received, before the
+	// store into it; so is the box of a cell whose first mention is not a
+	// write, which comes before everything else.
+	afterParams := 0
+	for afterParams < len(c.Instructions) && receives(c.Instructions[afterParams]) {
+		afterParams++
+	}
+	boxed := map[Register]bool{}
+	for i, instr := range c.Instructions {
+		writes := instr.Writes()
+		for _, r := range slices.Concat(writes, instr.Reads()) {
+			if !isCell(r) || upvalue[r] || boxed[r] {
+				continue
+			}
+			boxed[r] = true
+			if slices.Contains(writes, r) && !receives(instr) {
+				e.InsertBefore(i, NewBox{Dst: r})
+			} else {
+				e.InsertBefore(afterParams, NewBox{Dst: r})
+			}
 		}
 	}
 
@@ -93,6 +128,9 @@ func LoadStoreCells(c Code) Code {
 		case ClearReg:
 			delete(known, x.Dst)
 			written(x.Dst)
+			if isCell(x.Dst) {
+				e.Delete(i)
+			}
 			continue
 		case MkClosure:
 			if !isCell(x.Dst) {
@@ -101,7 +139,7 @@ func LoadStoreCells(c Code) Code {
 			}
 			t := e.NewRegister(RegData{})
 			e.Replace(i, x.WithDestReg(t))
-			e.InsertBefore(i+1, mv(x.Dst, t))
+			e.InsertBefore(i+1, Store{Box: x.Dst, Src: t})
 			known[x.Dst] = t
 			continue
 		}
@@ -109,22 +147,26 @@ func LoadStoreCells(c Code) Code {
 			src, dst := m.Src, m.Dst
 			switch {
 			case isCell(src) && isCell(dst):
-				if t, ok := holding(src); ok {
-					e.Replace(i, mv(dst, t))
-					known[dst] = t
-				} else {
-					delete(known, dst)
+				t, ok := holding(src)
+				if !ok {
+					t = e.NewRegister(RegData{})
+					e.InsertBefore(i, Load{Dst: t, Box: src})
+					known[src] = t
 				}
+				e.Replace(i, Store{Box: dst, Src: t})
+				known[dst] = t
 				continue
 			case isCell(src): // a load
 				written(dst)
 				if t, ok := holding(src); ok {
 					e.Replace(i, mv(dst, t))
 				} else {
+					e.Replace(i, Load{Dst: dst, Box: src})
 					known[src] = dst
 				}
 				continue
 			case isCell(dst): // a store
+				e.Replace(i, Store{Box: dst, Src: src})
 				known[dst] = src
 				continue
 			}
@@ -141,7 +183,7 @@ func LoadStoreCells(c Code) Code {
 			t, ok := holding(r)
 			if !ok || slices.Contains(writes, r) {
 				t = e.NewRegister(RegData{})
-				e.InsertBefore(i, mv(t, r))
+				e.InsertBefore(i, Load{Dst: t, Box: r})
 				if !slices.Contains(writes, r) {
 					known[r] = t
 				}
@@ -169,7 +211,7 @@ func LoadStoreCells(c Code) Code {
 				t = e.NewRegister(RegData{})
 			}
 			instr = renameWrite(instr, w, t)
-			e.InsertBefore(i+1, mv(w, t))
+			e.InsertBefore(i+1, Store{Box: w, Src: t})
 			known[w] = t
 			changed = true
 		}
@@ -181,6 +223,14 @@ func LoadStoreCells(c Code) Code {
 }
 
 func mv(dst, src Register) Instruction { return Transform{Op: ops.OpId, Dst: dst, Src: src} }
+
+func receives(instr Instruction) bool {
+	switch instr.(type) {
+	case Receive, ReceiveEtc:
+		return true
+	}
+	return false
+}
 
 // pure says whether instr cannot run Lua code: no call, no metamethod, no
 // __close.  Only such an instruction leaves every cell as it was.

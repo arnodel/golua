@@ -3,7 +3,7 @@ package code
 import "testing"
 
 func TestArgWords(t *testing.T) {
-	regs := []Reg{ValueReg(1), CellReg(2), ValueReg(255), CellReg(0), ValueReg(7)}
+	regs := []Reg{ValueReg(1), ValueReg(2), ValueReg(255), ValueReg(0), ValueReg(7)}
 	for n := 0; n <= len(regs); n++ {
 		clear := make([]bool, n)
 		for i := range clear {
@@ -23,8 +23,8 @@ func TestArgWords(t *testing.T) {
 			}
 		}
 		for j, w := range words {
-			if w>>30 != 0 {
-				t.Errorf("operand word %08x has type bits set", uint32(w))
+			if w>>30 != 0 || w&(7<<24) != 0 {
+				t.Errorf("operand word %08x has type or reserved bits set", uint32(w))
 			}
 			for k, c := range w.ArgClears() {
 				if i := 3*j + k; i < n && c != clear[i] {

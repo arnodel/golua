@@ -67,6 +67,14 @@ func computeLifetimes(c ir.Code) ir.Code {
 		for _, r := range instr.Reads() {
 			at(r, 2*i)
 		}
+		if m, ok := instr.(ir.MkClosure); ok {
+			// The closure is made, then given its upvalues: the boxes are
+			// read after the destination is written, so they are live at
+			// the write too and cannot share its slot.
+			for _, r := range m.Upvalues {
+				at(r, 2*i+1)
+			}
+		}
 		for _, r := range instr.Writes() {
 			at(r, 2*i+1)
 		}

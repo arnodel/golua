@@ -427,7 +427,8 @@ func (s RegSet) Len() int {
 //
 // A cell register holds a reference to its cell, and writing it stores into
 // the cell, so for a cell a write needs the register as a read does.  Only
-// ClearReg, which puts a fresh cell in the register, ends what it held.
+// ClearReg or NewBox, which puts a fresh cell in the register, ends what it
+// held.
 func (g *Graph) Liveness(instrs []Instruction, regs []RegData) (liveIn, liveOut []RegSet) {
 	n := len(regs)
 	use := make([]RegSet, len(g.Blocks))
@@ -441,8 +442,9 @@ func (g *Graph) Liveness(instrs []Instruction, regs []RegData) (liveIn, liveOut 
 				}
 			}
 			_, clear := instr.(ClearReg)
+			_, newBox := instr.(NewBox)
 			for _, r := range instr.Writes() {
-				if regs[r].IsCell && !clear {
+				if regs[r].IsCell && !clear && !newBox {
 					if !def[b].Has(r) {
 						use[b].Add(r)
 					}

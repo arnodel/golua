@@ -17,10 +17,9 @@ type Code struct {
 	UpvalueCount int16
 	UpNames      []string
 	RegCount     int16
-	CellCount    int16
 
-	// entryLoads are the fixed upvalues copied into registers when a frame
-	// is made (code.EntryLoad).
+	// entryLoads are the upvalues put in registers when a frame is made
+	// (code.EntryLoad).
 	entryLoads []code.EntryLoad
 
 	// regClass and regSize are the register pool's class and slice size
@@ -145,7 +144,6 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 				UpvalueCount: k.UpvalueCount,
 				UpNames:      k.UpNames,
 				RegCount:     k.RegCount,
-				CellCount:    k.CellCount,
 				entryLoads:   k.EntryLoads,
 			}
 			r.RequireArrSize(unsafe.Sizeof(lookupHint{}), len(c.code))

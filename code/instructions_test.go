@@ -27,12 +27,12 @@ func TestLoadSmallInt(t *testing.T) {
 		{n: math.MinInt64, inlined: false},
 	}
 	for _, tt := range tests {
-		op, ok := LoadSmallInt(Reg{}, tt.n)
+		op, ok := LoadSmallInt(0, tt.n)
 		if ok != tt.inlined {
 			t.Errorf("LoadSmallInt(%d) inlined = %t, want %t", tt.n, ok, tt.inlined)
 			continue
 		}
-		if ok && op != LoadInt16(Reg{}, int16(tt.n)) {
+		if ok && op != LoadInt16(0, int16(tt.n)) {
 			t.Errorf("LoadSmallInt(%d) = %v, want LoadInt16", tt.n, op)
 		}
 	}

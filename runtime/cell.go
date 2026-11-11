@@ -1,18 +1,19 @@
 package runtime
 
-// Cell is the data structure that represents a reference to a value.  Whenever
-// a value is put into a register that contains a cell, it is put in the cell
-// rather than the register itself.  It is used in order to implement upvalues
-// in lua. Example:
+import "errors"
+
+// Cell is a box: a reference to a Value, which a function and the closures
+// that capture one of its locals share.  Example:
 //
-//     local x
-//     local function f() return x + 1 end
-//     x = 3
-//     f()
+//	local x
+//	local function f() return x + 1 end
+//	x = 3
+//	f()
 //
-// The variable x is an upvalue in f so when x is set to 3 the upvalue of f must
-// be set to 3.  This is achieved by setting the register that contains x to a
-// Cell.
+// The variable x is an upvalue in f, so when x is set to 3 the upvalue of f
+// must be set to 3.  This is achieved by having x live in a Cell, which the
+// function holds in a register and f holds as an upvalue; the load, store
+// and newbox opcodes are the only ones that touch its contents.
 type Cell struct {
 	ref *Value
 }
@@ -31,3 +32,11 @@ func (c Cell) get() Value {
 func (c Cell) set(v Value) {
 	*c.ref = v
 }
+
+// BoxValue returns a Value holding the box c.  Such a value lives only in
+// the registers the compiler gives boxes; it never reaches Lua code.
+func BoxValue(c Cell) Value {
+	return Value{iface: c}
+}
+
+var errNotABox = errors.New("register does not hold a box")

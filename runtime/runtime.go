@@ -36,7 +36,6 @@ type Runtime struct {
 	// Object pools used to minimise the overhead of Go memory management.
 	regPool     valuePool   // Reuses register arrays ([]Value).
 	argsPool    valuePool   // Reuses argument arrays ([]Value).
-	cellPool    cellPool    // Reuses upvalue cells ([]Cell).
 	luaContPool luaContPool // Reuses Lua continuations.
 	goContPool  goContPool  // Reuses Go continuations.
 }
@@ -54,7 +53,7 @@ var defaultRuntimeOptions = runtimeOptions{
 // A RuntimeOption configures the Runtime.
 type RuntimeOption func(*runtimeOptions)
 
-// WithRegPoolSize sets how many released register, argument and cell slices
+// WithRegPoolSize sets how many released register and argument slices
 // of the smallest size class (capacity 8) a new Runtime keeps for reuse; each
 // larger class keeps half as many as the one before.  The default is 64.
 func WithRegPoolSize(sz uint) RuntimeOption {
@@ -100,7 +99,6 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 		reservedGlobal: rtOpts.reservedGlobal,
 		regPool:        mkValuePool(rtOpts.regPoolSize),
 		argsPool:       mkValuePool(rtOpts.regPoolSize),
-		cellPool:       mkCellPool(rtOpts.regPoolSize),
 	}
 
 	mainThread := NewThread(r)

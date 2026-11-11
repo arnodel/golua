@@ -57,14 +57,22 @@ func (kc *ConstantCompiler) ProcessCode(c ir.Code) {
 	c = computeLifetimes(c)
 	start := kc.builder.Offset()
 	regAllocator := &regAllocator{
-		registers:    c.Registers,
-		allocations:  make([]regAllocation, len(c.Registers)),
-		upvalueCount: len(c.UpvalueDests),
-		atEntry:      true,
+		registers:   c.Registers,
+		allocations: make([]regAllocation, len(c.Registers)),
+		upvalueOf:   map[ir.Register]int{},
+		atEntry:     true,
+		boxUsed:     boxUses(c),
 	}
-	// First allocate all the registers that will take upvalues.
-	for _, r := range c.UpvalueDests {
-		regAllocator.takeRegister(r)
+	// Register 0 holds the caller's continuation and must get slot 0.  The
+	// registers that receive an upvalue some opcode uses as a box come next,
+	// taken over the whole function: the frame fills them when it is made.
+	// A fixed upvalue that is only read needs no register for its box.
+	regAllocator.takeRegister(0)
+	for i, r := range c.UpvalueDests {
+		regAllocator.upvalueOf[r] = i
+		if regAllocator.boxUsed[r] {
+			regAllocator.takeRegister(r)
+		}
 	}
 	ic := instrCompiler{
 		ConstantCompiler: kc,
@@ -75,16 +83,56 @@ func (kc *ConstantCompiler) ProcessCode(c ir.Code) {
 		instr.ProcessInstr(ic)
 	}
 	end := kc.builder.Offset()
+	// The upvalues some opcode uses as a box go in their registers when the
+	// frame is made; a fixed one that is only read is there as its contents.
+	for i, r := range c.UpvalueDests {
+		if regAllocator.boxUsed[r] {
+			regAllocator.entryLoads = append(regAllocator.entryLoads,
+				code.EntryLoad{Up: uint8(i), Reg: regAllocator.codeReg(r).Idx(), Box: true})
+		}
+	}
 	kc.addCompiled(code.Code{
 		Name:         c.Name,
 		StartOffset:  start,
 		EndOffset:    end,
 		UpvalueCount: int16(len(c.UpvalueDests)),
-		CellCount:    int16(len(regAllocator.cells)),
 		UpNames:      c.UpNames,
 		RegCount:     int16(len(regAllocator.regs)),
 		EntryLoads:   regAllocator.entryLoads,
 	})
+}
+
+// boxUses returns the registers some instruction of c uses as a box: the
+// box of a Load or Store, an upvalue a MkClosure captures.  A Load of a
+// fixed upvalue at the function's entry (before anything but the
+// parameters' recv) is not one: the frame does that load (see
+// instrCompiler.ProcessLoadInstr).
+func boxUses(c ir.Code) map[ir.Register]bool {
+	upvalue := map[ir.Register]bool{}
+	for _, r := range c.UpvalueDests {
+		upvalue[r] = true
+	}
+	used := map[ir.Register]bool{}
+	atEntry := true
+	for _, instr := range c.Instructions {
+		switch x := instr.(type) {
+		case ir.TakeRegister, ir.ReleaseRegister, ir.Receive, ir.ReceiveEtc:
+			continue
+		case ir.Load:
+			if atEntry && upvalue[x.Box] && c.Registers[x.Box].IsFixed {
+				continue
+			}
+			used[x.Box] = true
+		case ir.Store:
+			used[x.Box] = true
+		case ir.MkClosure:
+			for _, u := range x.Upvalues {
+				used[u] = true
+			}
+		}
+		atEntry = false
+	}
+	return used
 }
 
 func (kc *ConstantCompiler) compileConstant(ki uint) {
