@@ -480,9 +480,9 @@ func (r *Runtime) compileLuaStat(name string, stat *ast.BlockStat, statSize uint
 	// Optimise the IR and compile it to code.  Hoisted constants take
 	// registers over whole loops, so a function that runs out of registers
 	// with them is compiled again without them.
-	unit, err := compileIR(name, kidx, ir.Optimise(constants, ir.PropagateCopies, ir.HoistConstants))
+	unit, err := compileIR(name, kidx, ir.Optimise(constants, ir.PropagateCopies, ir.HoistConstants, ir.LoadStoreCells))
 	if errors.Is(err, ircomp.ErrNotEnoughRegisters) {
-		unit, err = compileIR(name, kidx, ir.Optimise(constants, ir.PropagateCopies))
+		unit, err = compileIR(name, kidx, ir.Optimise(constants, ir.PropagateCopies, ir.LoadStoreCells))
 	}
 	if err != nil {
 		return nil, 0, err
