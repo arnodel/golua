@@ -45,6 +45,11 @@ func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 	t.RequireArrSize(unsafe.Sizeof(Value{}), int(clos.RegCount))
 	registers := t.regPool.getIn(clos.regClass, clos.regSize, int(clos.RegCount))
 	registers[0] = ContValue(next)
+	// The loads of fixed upvalues at the function's entry: their contents
+	// cannot change while it runs, so they are read once, here.
+	for _, l := range clos.entryLoads {
+		registers[l.Reg] = *cells[l.Up].ref
+	}
 	cont := t.luaContPool.get()
 	t.RequireSize(unsafe.Sizeof(LuaCont{}))
 	// A continuation from the pool is all zeros, as release left it, and so

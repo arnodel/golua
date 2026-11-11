@@ -363,3 +363,25 @@ print(n, set(), n)
 -- Lua:   0  nil  5
 -- Golua: 5  nil  5
 ```
+
+### GOLUA-047: A fixed upvalue is read when the function's frame is made
+**Test file**: none (db.lua is disabled)
+
+A captured variable that nothing writes once a closure can see it is *fixed* (`ir/fixed.go`). A function reads each fixed upvalue it uses once, when its frame is made (`code.EntryLoad`), instead of at each use. So a function that is running when `debug.setupvalue` or `debug.upvaluejoin` changes one of its fixed upvalues keeps the old value until it returns; later calls see the new one. Setting the environment of a freshly loaded chunk before running it behaves as in Lua.
+
+```lua
+local n = 1
+local setn
+local function f(set)
+  if set then setn(2) end
+  return n
+end
+function setn(v)
+  for i = 1, 2 do
+    if debug.getupvalue(f, i) == "n" then debug.setupvalue(f, i, v) end
+  end
+end
+print(f(true), f(false))
+-- Lua:   2  2
+-- Golua: 1  2
+```

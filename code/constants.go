@@ -20,6 +20,14 @@ type Code struct {
 	CellCount              int16    // Number of cell registers needed to run the code
 	RegCount               int16    // Number of registers needed to run the coee
 	UpNames                []string // Names of the upvalues
+	EntryLoads             []EntryLoad
+}
+
+// An EntryLoad copies the contents of upvalue Up into register Reg when a
+// frame for the code is made.  It is the load of a fixed upvalue, whose
+// contents cannot change while the function runs, done without an opcode.
+type EntryLoad struct {
+	Up, Reg uint8
 }
 
 var _ Constant = Code{}
@@ -27,7 +35,14 @@ var _ spanGetter = Code{}
 
 // ShortString returns a short string describing this constant (e.g. for disassembly)
 func (c Code) ShortString() string {
-	return fmt.Sprintf("function %s [%d - %d]", c.nameString(), c.StartOffset, c.EndOffset-1)
+	s := fmt.Sprintf("function %s [%d - %d]", c.nameString(), c.StartOffset, c.EndOffset-1)
+	for i, l := range c.EntryLoads {
+		if i == 0 {
+			s += " entry:"
+		}
+		s += fmt.Sprintf(" r%d <- u%d", l.Reg, l.Up)
+	}
+	return s
 }
 
 // GetSpan returns the name of the function this code is compiled from, and the

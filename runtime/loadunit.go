@@ -19,6 +19,10 @@ type Code struct {
 	RegCount     int16
 	CellCount    int16
 
+	// entryLoads are the fixed upvalues copied into registers when a frame
+	// is made (code.EntryLoad).
+	entryLoads []code.EntryLoad
+
 	// regClass and regSize are the register pool's class and slice size
 	// for RegCount registers, worked out once rather than at every call.
 	regClass, regSize int
@@ -142,6 +146,7 @@ func (r *Runtime) LoadLuaUnit(unit *code.Unit, env Value) *Closure {
 				UpNames:      k.UpNames,
 				RegCount:     k.RegCount,
 				CellCount:    k.CellCount,
+				entryLoads:   k.EntryLoads,
 			}
 			r.RequireArrSize(unsafe.Sizeof(lookupHint{}), len(c.code))
 			c.slotCache = make([]lookupHint, len(c.code))

@@ -131,6 +131,11 @@ func (w *bwriter) writeCode(c *Code) {
 	for _, n := range c.UpNames {
 		w.writeString(n)
 	}
+	w.consumeBudget(8 + 2*uint64(len(c.entryLoads)))
+	w.write(int64(len(c.entryLoads)))
+	for _, l := range c.entryLoads {
+		w.write(l.Up, l.Reg)
+	}
 }
 
 func (w *bwriter) write(xs ...interface{}) {
@@ -261,6 +266,11 @@ func (r *breader) readCode(c *Code) {
 	c.UpNames = make([]string, sz)
 	for i := range c.UpNames {
 		c.UpNames[i] = r.readString()
+	}
+	r.read(8, &sz)
+	c.entryLoads = make([]code.EntryLoad, sz)
+	for i := range c.entryLoads {
+		r.read(2, &c.entryLoads[i].Up, &c.entryLoads[i].Reg)
 	}
 }
 
