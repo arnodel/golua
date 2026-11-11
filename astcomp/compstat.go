@@ -393,20 +393,43 @@ func (c *compiler) ProcessRepeatStat(s ast.RepeatStat) {
 	c.PopContext()
 }
 
-// ProcessWhileStat compiles a WhileStat.
+// ProcessWhileStat compiles a WhileStat.  The condition is tested after the
+// body, so that each iteration ends with one jump, back to the body if the
+// condition holds; the loop starts with a jump to the test.  A condition that
+// is always true needs no test, and the loop no jump to it.
+//
+//	    jump TEST
+//	BODY:
+//	    ...
+//	TEST:
+//	    if cond jump BODY
 func (c *compiler) ProcessWhileStat(s ast.WhileStat) {
 	c.PushContext()
-	stopLbl := c.DeclareGotoLabelNoLine(breakLblName)
+	c.DeclareGotoLabelNoLine(breakLblName)
 
-	loopLbl := c.GetNewLabel()
-	must(c.EmitLabelNoLine(loopLbl))
-
-	c.compileCond(s.CondStat, stopLbl)
-
-	c.emitInstr(s, ir.Jump{Label: loopLbl}) // TODO: better location
+	bodyLbl := c.GetNewLabel()
+	testLbl := c.GetNewLabel()
+	if !alwaysTrue(s.Cond) {
+		c.emitInstr(s, ir.Jump{Label: testLbl})
+	}
+	must(c.EmitLabelNoLine(bodyLbl))
+	c.CompileStat(s.Body)
+	must(c.EmitLabelNoLine(testLbl))
+	c.compileCondJump(s.Cond, bodyLbl, true)
 
 	must(c.EmitGotoLabel(breakLblName))
 	c.PopContext()
+}
+
+// alwaysTrue is true if e is a constant other than nil and false.
+func alwaysTrue(e ast.ExpNode) bool {
+	switch x := e.(type) {
+	case ast.Bool:
+		return x.Val
+	case ast.Int, ast.Float, ast.String:
+		return true
+	}
+	return false
 }
 
 func (c *compiler) CompileStat(s ast.Stat) {
