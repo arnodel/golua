@@ -1,8 +1,9 @@
 # Cells: making them explicit
 
-Status: design, 9 November 2026, revised 10 November; the run-time half is
-built on this branch, in three steps, each measured (see the end).  It follows #230 (fixed
-registers) and #231 (the call makes the callee's frame).
+Status: design, 9 November 2026, revised 10 November; built, 11 November,
+as a stack of PRs (#233, #234, #235), each step measured (see the end).  It
+follows #230 (fixed registers) and #231 (the call makes the callee's
+frame).
 
 A local that a closure captures lives in a *cell*, so that the function and
 the closure share it.  Today a cell is a kind of register, at every level:
@@ -363,9 +364,36 @@ increments its upvalue 0%.  So a fixed upvalue is now exactly a plain
 register, and the one shape the model taxes, a changing cell, comes out
 even.
 
-What remains is the real format change: operands without the cell bit,
-boxes as values in registers, frames without own cells, and the Go API
-without `Cell`.  The run loop is already the one that change would leave,
-except for the cell bit's three operand bits, which stay reserved and
-tested only in the move and `upval` opcodes.
+## Measured: the format change, 11 November 2026
+
+The real format change (#235): `code.Reg` is an 8-bit index and nothing
+else; `load`, `store` and `newbox` opcodes, `upval` taking a box register;
+a box made where its local is declared; a frame given the boxes it uses
+(or the contents of a fixed upvalue it only reads) when it is made; no
+`CellCount`, no cells in frames, no cell pool; the kind bits reserved and
+zero.  The IR gets `Load`, `Store` and `NewBox` first, in a commit that
+changes no output.
+
+Against the stack top (#234), opcodes **+0.09%** (havlak +1.5, deltablue
++0.6: `newbox`es that were allocations when the frame was made), time
+**−2.76%**: md5 −5.3, permute −5.2, towers −5.0, spectral-norm −5.0,
+queens −4.2, bounce −3.5, list −3.4, deltablue −3.2, storage −3.0,
+fannkuch −2.8, json −2.7, havlak −2.5, richards −2.4; k-nucleotide,
+regex-dna and life within noise; nothing slower.  That is the price of
+the kind bit, which every register access tested.  Against #231 the whole
+cells change is opcodes +0.30%, time **−6.91%**.
+
+Microbenchmarks against the top: calls −3.5 to −5.9%, loops and fixed
+upvalue reads unchanged.  One shape pays: writing a changing upvalue in a
+loop, +8.7% (21.8 → 23.7 ns per iteration, same opcodes), because `store`
+checks that its register holds a box where the old opcode indexed the
+frame's cells; calling a closure that increments its upvalue +2.1%.
+Against #231 everything else is faster.
+
+Two rules the tests taught the code generator: a closure's upvalues stay
+live at its write, since `clos` writes the destination before `upval`
+reads the boxes; and a captured parameter's box is made after the
+`recv`s, which a call storing arguments directly needs to come first.
+Boxes at declaration rather than at frame entry came from the conformance
+test with 200 captured locals, which otherwise needed 400 registers.
 
