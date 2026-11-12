@@ -99,6 +99,26 @@ func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
 	return Type1Pfx | rA.toA() | rB.toB() | rC.toC() | op.encodeX()
 }
 
+// In a Type1 comparison, type1Jump makes the result decide the jump opcode
+// that follows instead of going to rA, and type1JumpNot makes that jump taken
+// when the result is false.  They occupy two of the bits reserved in Type1.
+const (
+	type1Jump    Opcode = 1 << 26
+	type1JumpNot Opcode = 1 << 25
+)
+
+// JumpsOnResult reports whether this Type1 comparison takes or steps over
+// the jump that follows it instead of writing its result.
+func (c Opcode) JumpsOnResult() bool {
+	return c&type1Jump != 0
+}
+
+// JumpOnFalse reports whether a comparison that jumps on its result takes
+// the jump when the result is false.
+func (c Opcode) JumpOnFalse() bool {
+	return c&type1JumpNot != 0
+}
+
 // ==================================================================
 // Type2:  0111F... AAAAAAAA BBBBBBBB CCCCCCCC
 //
@@ -753,6 +773,12 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 			tpl = "%s <= %s"
 		case OpConcat:
 			tpl = "%s .. %s"
+		}
+		if c.JumpsOnResult() {
+			if c.JumpOnFalse() {
+				return fmt.Sprintf("if not "+tpl, rB, rC)
+			}
+			return fmt.Sprintf("if "+tpl, rB, rC)
 		}
 		return fmt.Sprintf("%s <- "+tpl, rA, rB, rC)
 	}

@@ -119,6 +119,9 @@ func (e *Edits) Apply(c Code) Code {
 			case JumpIf:
 				x.Label = to
 				instr = x
+			case JumpIfCmp:
+				x.Label = to
+				instr = x
 			case PrepForLoop:
 				x.Label = to
 				instr = x

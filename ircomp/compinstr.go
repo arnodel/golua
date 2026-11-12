@@ -144,6 +144,17 @@ func (ic instrCompiler) ProcessJumpInstr(j ir.Jump) {
 	ic.EmitJump(opcode, code.Label(j.Label))
 }
 
+// ProcessJumpIfCmpInstr compiles a JumpIfCmp instruction: the comparison,
+// then the jump it takes or steps over.
+func (ic instrCompiler) ProcessJumpIfCmpInstr(j ir.JumpIfCmp) {
+	codeOp, ok := codeBinOp[j.Op]
+	if !ok {
+		panic(fmt.Sprintf("Cannot compile %v: invalid op", j))
+	}
+	ic.Emit(code.CompareJump(codeOp, ic.codeReg(j.Lsrc), ic.codeReg(j.Rsrc), j.Not))
+	ic.EmitJump(code.Jump(0), code.Label(j.Label))
+}
+
 // ProcessJumpIfInstr compiles a JumpIf instruction.
 func (ic instrCompiler) ProcessJumpIfInstr(j ir.JumpIf) {
 	var opcode code.Opcode

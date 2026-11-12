@@ -135,6 +135,11 @@ func TestVerifyOpcodes(t *testing.T) {
 		{"type7 bad C", []code.Opcode{code.AdvForLoop(r0, r0, r2), code.Jump(0)}, false},
 		{"type7 without its jump", []code.Opcode{code.AdvForLoop(r0, r1, r1)}, false},
 		{"type7 followed by something else", []code.Opcode{code.PrepForLoop(r0, r1, r1), code.JumpIf(0, r0)}, false},
+		// A comparison that jumps on its result: B and C are registers, A is
+		// unused, and a jump must follow.
+		{"comparejump in range", []code.Opcode{code.CompareJump(code.OpLt, r1, r0, true), code.Jump(0)}, true},
+		{"comparejump bad C", []code.Opcode{code.CompareJump(code.OpEq, r1, r2, false), code.Jump(0)}, false},
+		{"comparejump without its jump", []code.Opcode{code.CompareJump(code.OpLeq, r1, r0, false)}, false},
 	}
 	for _, c := range callCases {
 		err := testCode(c.ops...).verify()

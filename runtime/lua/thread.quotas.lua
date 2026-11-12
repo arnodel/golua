@@ -21,9 +21,10 @@ print(runtime.callcontext({kill={cpu=10000}}, coroutine.resume, co, 500))
 print(runtime.callcontext({kill={cpu=10000}}, coroutine.resume, co, 500))
 --> =done	true	1000
 
--- 2000 iterations of the loop cost more than 10000 cpu (each costs 7 opcodes
--- since the compiler stopped copying registers for assignments; it was 9).
-print(runtime.callcontext({kill={cpu=10000}}, coroutine.resume, co, 2000))
+-- 3000 iterations of the loop cost more than 10000 cpu: each costs 4 opcodes
+-- (the comparison that jumps, two assignments, the jump back), with the
+-- constants hoisted out of the loop.
+print(runtime.callcontext({kill={cpu=10000}}, coroutine.resume, co, 3000))
 --> =killed
 
 -- If a coroutine ran out of resources, then it becomes dead and it cannot be resumed

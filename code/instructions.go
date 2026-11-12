@@ -7,6 +7,18 @@ func Combine(op BinOp, r1, r2, r3 Reg) Opcode {
 	return mkType1(op, r1, r2, r3)
 }
 
+// CompareJump encodes "if op(r2, r3)" or, with not set, "if not op(r2, r3)":
+// a comparison (OpEq, OpLt or OpLeq) whose result decides the Jump that must
+// follow the opcode, which is taken if the result is as asked, or stepped
+// over otherwise.  No register receives the result.
+func CompareJump(op BinOp, r2, r3 Reg, not bool) Opcode {
+	c := mkType1(op, 0, r2, r3) | type1Jump
+	if not {
+		c |= type1JumpNot
+	}
+	return c
+}
+
 // Transform encodes r1 <- op(r2)
 func Transform(op UnOp, r1, r2 Reg) Opcode {
 	return mkType4a(Off, op, r1, r2)

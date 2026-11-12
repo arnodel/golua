@@ -181,17 +181,32 @@ RunLoop:
 
 			// Comparison
 
+			// A comparison may decide the jump that follows it instead of
+			// writing its result (code/doc.go, Type 1).
+
 			case code.OpEq:
 				var r bool
 				r, err = eq(t, x, y)
+				if opcode.JumpsOnResult() && err == nil {
+					pc = jumpAfter(opcodes, pc, r != opcode.JumpOnFalse())
+					continue RunLoop
+				}
 				res = BoolValue(r)
 			case code.OpLt:
 				var r bool
 				r, err = Lt(t, x, y)
+				if opcode.JumpsOnResult() && err == nil {
+					pc = jumpAfter(opcodes, pc, r != opcode.JumpOnFalse())
+					continue RunLoop
+				}
 				res = BoolValue(r)
 			case code.OpLeq:
 				var r bool
 				r, err = le(t, x, y)
+				if opcode.JumpsOnResult() && err == nil {
+					pc = jumpAfter(opcodes, pc, r != opcode.JumpOnFalse())
+					continue RunLoop
+				}
 				res = BoolValue(r)
 
 			// Concatenation
@@ -685,16 +700,22 @@ RunLoop:
 				setReg(regs, stepReg, step)
 				jump = done
 			}
-			pc++
-			if jump {
-				pc += int32(opcodes[pc].GetOffset())
-			} else {
-				pc++
-			}
+			pc = jumpAfter(opcodes, pc, jump)
 			continue RunLoop
 		}
 	}
 	// return nil, errors.New("Invalid PC")
+}
+
+// jumpAfter returns where execution goes after the opcode at pc and the
+// jump that follows it: the jump's target if it is taken, else the opcode
+// after the jump.
+func jumpAfter(opcodes []code.Opcode, pc int32, taken bool) int32 {
+	pc++
+	if taken {
+		return pc + int32(opcodes[pc].GetOffset())
+	}
+	return pc + 1
 }
 
 // forPassed returns whether v has passed the limit of a for loop with the

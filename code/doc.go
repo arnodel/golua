@@ -57,6 +57,13 @@ X selects the operator (BinOp): the arithmetic operators, the bitwise
 operators, the comparisons ==, < and <= (which produce a boolean), and
 concatenation.  Metamethods apply as in the language.
 
+A comparison with bit 26 set ("if rB op rC", or "if not rB op rC" with bit
+25 set too) writes no result: it is followed by a jump opcode (Type 5,
+OpJump), which it takes if the result is true (false with bit 25) and steps
+over otherwise, as the for loop opcodes do (Type 7).  A is unused.  The
+compiler emits this for a comparison used as a condition, so that "if a < b
+then" costs one dispatch and no register for the boolean.
+
 # Type 2: table access
 
 	0111 F a b c | A | B | C
@@ -205,8 +212,9 @@ iteration, advance when it has another one.  A loop is laid out as
 	END: ...
 
 so that the end of an iteration costs one dispatch, not two.  The jump is an
-ordinary opcode and the verifier requires it; landing on it from elsewhere
-would simply run it, but nothing does.
+ordinary opcode and the verifier requires it, as after a comparison that
+jumps on its result (Type 1); landing on it from elsewhere would simply run
+it, but nothing does.
 
 # Type 0: receiving arguments
 
