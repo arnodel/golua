@@ -50,6 +50,10 @@ import (
 // Named locals keep their copies when they are the destination, so that
 // their value stays observable.
 //
+// Before all that, the copies the compiler marked (see MarkCopyOf: a numeric
+// for loop's variable, a copy of the counter) are read through and removed
+// over the whole function, past labels and jumps.
+//
 // Only copies of named locals and of fixed cells are read through.  A local is live for its
 // whole scope, so reading it instead of its copy costs nothing and lets the
 // copy die early; reading a temporary instead of its copy would keep the
@@ -60,6 +64,7 @@ import (
 // means the same thing throughout, and the counts of its reads and writes
 // over the whole function are exact.
 func PropagateCopies(c Code) Code {
+	c = readThroughMarkedCopies(c)
 	instrs := c.Instructions
 	regs := c.Registers
 	reads := make([]int, len(regs))
@@ -174,6 +179,27 @@ func PropagateCopies(c Code) Code {
 		if mv, ok := asMove(e.Current(i)); ok && !e.Deleted(i) && temp(mv.Dst) && reads[mv.Dst] == 0 {
 			e.Delete(i)
 			reads[mv.Src]--
+		}
+	}
+	return e.Apply(c)
+}
+
+// readThroughMarkedCopies makes every read of a register marked as a copy
+// (RegData.IsCopy) read its source instead, and removes the copies into it.
+// A cell keeps its copies: each one may give a closure a variable of its own.
+func readThroughMarkedCopies(c Code) Code {
+	regs := c.Registers
+	marked := func(r Register) bool { return regs[r].IsCopy && !regs[r].IsCell }
+	e := NewEdits(c)
+	for i, instr := range c.Instructions {
+		if mv, ok := asMove(instr); ok && marked(mv.Dst) && mv.Src == regs[mv.Dst].CopyOf {
+			e.Delete(i)
+			continue
+		}
+		for _, r := range instr.Reads() {
+			if marked(r) {
+				e.ReplaceRead(i, r, regs[r].CopyOf)
+			}
 		}
 	}
 	return e.Apply(c)
