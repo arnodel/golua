@@ -52,12 +52,15 @@ func (c Opcode) HasType0() bool {
 }
 
 // ==================================================================
-// Type1:  1XXXX... AAAAAAAA BBBBBBBB CCCCCCCC
+// Type1:  1XXXXXN. AAAAAAAA BBBBBBBB CCCCCCCC
 //
-// Binary operations: rA <- rB op rC.
+// Binary operations, rA <- rB op rC, and predicates, "if rB op rC", which
+// decide the jump opcode that follows them.
 //
-//   - XXXX is the operator (a BinOp)
-//   - aAAAAAAAA is the destination register rA
+//   - XXXXX is the operator (a BinOp): 0-15 the binary operators, 16-18 the
+//     predicates
+//   - N negates a predicate ("if not rB op rC")
+//   - aAAAAAAAA is the destination register rA (unused by a predicate)
 //   - bBBBBBBBB is the left operand register rB
 //   - cCCCCCCCC is the right operand register rC
 
@@ -84,14 +87,43 @@ const (
 	OpConcat
 )
 
+// The predicates: a comparison that produces no value but decides the jump
+// opcode that follows it, taken if the comparison holds (or doesn't, when
+// the opcode is negated) and stepped over otherwise.  They have their own
+// operator codes so that the run loop dispatches them like any other
+// operator, without testing a flag.
+const (
+	OpIfEq BinOp = 16 + iota
+	OpIfLt
+	OpIfLeq
+)
+
+// Predicate returns the predicate form of a comparison operator.
+func (op BinOp) Predicate() BinOp {
+	switch op {
+	case OpEq:
+		return OpIfEq
+	case OpLt:
+		return OpIfLt
+	case OpLeq:
+		return OpIfLeq
+	}
+	panic("not a comparison")
+}
+
+// IsPredicate reports whether op is a predicate.
+func (op BinOp) IsPredicate() bool {
+	return op >= OpIfEq
+}
+
 // encodeX encodes a BinOp into an opcode.
 func (op BinOp) encodeX() Opcode {
-	return Opcode(op) << 27
+	return Opcode(op) << 26
 }
 
 // GetX decodes the BinOp from this opcode.
 func (c Opcode) GetX() BinOp {
-	return BinOp((c >> 27) & 0xf)
+	return BinOp((c >> 26) & 0x1f)
 }
 
 // mkType1 builds the opcode for rA <- op(rB, rC).
@@ -99,24 +131,14 @@ func mkType1(op BinOp, rA, rB, rC Reg) Opcode {
 	return Type1Pfx | rA.toA() | rB.toB() | rC.toC() | op.encodeX()
 }
 
-// In a Type1 comparison, type1Jump makes the result decide the jump opcode
-// that follows instead of going to rA, and type1JumpNot makes that jump taken
-// when the result is false.  They occupy two of the bits reserved in Type1.
-const (
-	type1Jump    Opcode = 1 << 26
-	type1JumpNot Opcode = 1 << 25
-)
+// type1Not negates a predicate: its jump is taken when the comparison
+// doesn't hold.
+const type1Not Opcode = 1 << 25
 
-// JumpsOnResult reports whether this Type1 comparison takes or steps over
-// the jump that follows it instead of writing its result.
-func (c Opcode) JumpsOnResult() bool {
-	return c&type1Jump != 0
-}
-
-// JumpOnFalse reports whether a comparison that jumps on its result takes
-// the jump when the result is false.
-func (c Opcode) JumpOnFalse() bool {
-	return c&type1JumpNot != 0
+// Negated reports whether this predicate takes its jump when the comparison
+// doesn't hold.
+func (c Opcode) Negated() bool {
+	return c&type1Not != 0
 }
 
 // ==================================================================
@@ -773,9 +795,15 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 			tpl = "%s <= %s"
 		case OpConcat:
 			tpl = "%s .. %s"
+		case OpIfEq:
+			tpl = "%s == %s"
+		case OpIfLt:
+			tpl = "%s < %s"
+		case OpIfLeq:
+			tpl = "%s <= %s"
 		}
-		if c.JumpsOnResult() {
-			if c.JumpOnFalse() {
+		if c.GetX().IsPredicate() {
+			if c.Negated() {
 				return fmt.Sprintf("if not "+tpl, rB, rC)
 			}
 			return fmt.Sprintf("if "+tpl, rB, rC)

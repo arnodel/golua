@@ -82,8 +82,8 @@ func callArgCount(op code.Opcode) int {
 }
 
 // verifyNextJump checks that the opcode after pc is a jump: the run loop
-// takes or steps over it after a for loop opcode or a comparison that jumps
-// on its result, without looking at it.
+// takes or steps over it after a for loop opcode or a predicate, without
+// looking at it.
 func (c *Code) verifyNextJump(pc int) error {
 	if pc+1 >= len(c.code) || !isJump(c.code[pc+1]) {
 		return fmt.Errorf("opcode that decides a jump not followed by one")
@@ -114,7 +114,7 @@ func jumpTarget(pc int, op code.Opcode) (int, bool) {
 // literals or operators.
 func (c *Code) verifyOpcode(pc int, op code.Opcode) error {
 	if op.HasType1() {
-		if op.JumpsOnResult() {
+		if op.GetX().IsPredicate() {
 			if err := c.verifyNextJump(pc); err != nil {
 				return err
 			}

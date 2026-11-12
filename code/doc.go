@@ -44,25 +44,30 @@ left zero.
 	      type        | F  | reserved |    A     |    B    |   C
 
 Type 1 is the exception: it uses only bit 31 as its prefix and takes bits
-30-27 for the operator.
+30-26 for the operator.
 
 The field names below (A, B, C, F, X, Y, Z, J, L, M, N, D) are the ones used
 in this package's accessor methods (GetA, GetF, GetX ...).
 
-# Type 1: binary operations
+# Type 1: binary operations and predicates
 
-	1 XXXX a b c | A | B | C          rA <- rB op rC
+	1 XXXXX N . | A | B | C          rA <- rB op rC       (X = 0 to 15)
+	                                 if [not] rB op rC    (X = 16 to 18)
 
-X selects the operator (BinOp): the arithmetic operators, the bitwise
-operators, the comparisons ==, < and <= (which produce a boolean), and
-concatenation.  Metamethods apply as in the language.
+X selects the operator (BinOp).  Codes 0 to 15 are the binary operators: the
+arithmetic operators, the bitwise operators, the comparisons ==, < and <=
+(which produce a boolean), and concatenation.  Metamethods apply as in the
+language.
 
-A comparison with bit 26 set ("if rB op rC", or "if not rB op rC" with bit
-25 set too) writes no result: it is followed by a jump opcode (Type 5,
-OpJump), which it takes if the result is true (false with bit 25) and steps
-over otherwise, as the for loop opcodes do (Type 7).  A is unused.  The
-compiler emits this for a comparison used as a condition, so that "if a < b
-then" costs one dispatch and no register for the boolean.
+Codes 16 to 18 are the predicates: the three comparisons again, producing
+no value but deciding the jump opcode (Type 5, OpJump) that must follow
+them.  The jump is taken if the comparison holds and stepped over otherwise,
+as the for loop opcodes do (Type 7); N reverses that ("if not rB < rC").  A
+is unused.  The compiler emits a predicate for a comparison used as a
+condition, so that "if a < b then" costs one dispatch and no register for
+the boolean.  A predicate is its own operator code rather than a flag on the
+comparison, so that the run loop dispatches it without testing anything on
+the comparisons that produce a value.
 
 # Type 2: table access
 
@@ -212,9 +217,8 @@ iteration, advance when it has another one.  A loop is laid out as
 	END: ...
 
 so that the end of an iteration costs one dispatch, not two.  The jump is an
-ordinary opcode and the verifier requires it, as after a comparison that
-jumps on its result (Type 1); landing on it from elsewhere would simply run
-it, but nothing does.
+ordinary opcode and the verifier requires it, as after a predicate (Type 1);
+landing on it from elsewhere would simply run it, but nothing does.
 
 # Type 0: receiving arguments
 

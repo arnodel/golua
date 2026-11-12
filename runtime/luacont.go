@@ -181,38 +181,54 @@ RunLoop:
 
 			// Comparison
 
-			// A comparison may decide the jump that follows it instead of
-			// writing its result (code/doc.go, Type 1).
-
 			case code.OpEq:
 				var r bool
 				r, err = eq(t, x, y)
-				if opcode.JumpsOnResult() && err == nil {
-					pc = jumpAfter(opcodes, pc, r != opcode.JumpOnFalse())
-					continue RunLoop
-				}
 				res = BoolValue(r)
 			case code.OpLt:
 				var r bool
 				r, err = Lt(t, x, y)
-				if opcode.JumpsOnResult() && err == nil {
-					pc = jumpAfter(opcodes, pc, r != opcode.JumpOnFalse())
-					continue RunLoop
-				}
 				res = BoolValue(r)
 			case code.OpLeq:
 				var r bool
 				r, err = le(t, x, y)
-				if opcode.JumpsOnResult() && err == nil {
-					pc = jumpAfter(opcodes, pc, r != opcode.JumpOnFalse())
-					continue RunLoop
-				}
 				res = BoolValue(r)
 
 			// Concatenation
 
 			case code.OpConcat:
 				res, err = Concat(t, x, y)
+
+			// Predicates: the comparison decides the jump that follows
+			// (code/doc.go, Type 1).
+
+			case code.OpIfEq:
+				var r bool
+				r, err = eq(t, x, y)
+				if err != nil {
+					c.pc = pc
+					return nil, err
+				}
+				pc = jumpAfter(opcodes, pc, r != opcode.Negated())
+				continue RunLoop
+			case code.OpIfLt:
+				var r bool
+				r, err = Lt(t, x, y)
+				if err != nil {
+					c.pc = pc
+					return nil, err
+				}
+				pc = jumpAfter(opcodes, pc, r != opcode.Negated())
+				continue RunLoop
+			case code.OpIfLeq:
+				var r bool
+				r, err = le(t, x, y)
+				if err != nil {
+					c.pc = pc
+					return nil, err
+				}
+				pc = jumpAfter(opcodes, pc, r != opcode.Negated())
+				continue RunLoop
 			default:
 				panic("unsupported")
 			}
