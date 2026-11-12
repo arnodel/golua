@@ -598,10 +598,14 @@ RunLoop:
 			pc++
 			continue RunLoop
 		case code.Type7Pfx:
+			// A for loop opcode is followed by a jump, which it takes itself
+			// or steps over: prepfor takes it when the loop has no iteration,
+			// advfor when it has another one (code/doc.go, Type 7).
 			startReg, stopReg, stepReg := opcode.GetA(), opcode.GetB(), opcode.GetC()
 			start := getReg(regs, startReg)
 			stop := getReg(regs, stopReg)
 			step := getReg(regs, stepReg)
+			var jump bool
 			if opcode.GetF() {
 				// Advance for loop.  All registers are assumed to contain
 				// numeric values because they have been prepared previously.
@@ -623,10 +627,10 @@ RunLoop:
 					next, _ = Add(start, step)
 					done = forPassed(next, stop, step) || forPassed(start, next, step)
 				}
-				if done {
-					next = NilValue
+				if !done {
+					setReg(regs, startReg, next)
 				}
-				setReg(regs, startReg, next)
+				jump = !done
 			} else {
 				// Prepare for loop
 				start, tstart := ToNumberValue(start)
@@ -665,7 +669,7 @@ RunLoop:
 					c.pc = pc
 					return nil, errors.New("'for' step is zero")
 				}
-				// If the loop is already finished, startReg is set to nil.
+				// The loop may have no iteration at all.
 				var done bool
 				if intLoop {
 					// Make the limit an integer too, so that advancing the
@@ -676,14 +680,17 @@ RunLoop:
 				} else {
 					done = forPassed(start, stop, step)
 				}
-				if done {
-					start = NilValue
-				}
 				setReg(regs, startReg, start)
 				setReg(regs, stopReg, stop)
 				setReg(regs, stepReg, step)
+				jump = done
 			}
 			pc++
+			if jump {
+				pc += int32(opcodes[pc].GetOffset())
+			} else {
+				pc++
+			}
 			continue RunLoop
 		}
 	}

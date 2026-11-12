@@ -158,7 +158,8 @@ func TestPropagateCopies(t *testing.T) {
 	// A register the instruction also writes is not substituted.
 	forloop := []Instruction{
 		move(3, q), move(4, i), move(5, j),
-		PrepForLoop{Start: 3, Stop: 4, Step: 5},
+		PrepForLoop{Start: 3, Stop: 4, Step: 5, Label: 1},
+		DeclareLabel{Label: 1},
 	}
 	check(t, "read-write operands", PropagateCopies(testCode(3, 3, nil, forloop...)), forloop...)
 
@@ -176,7 +177,7 @@ func TestPropagateCopies(t *testing.T) {
 
 // A numeric for loop: the loop variable is a copy of the counter made at the
 // top of every iteration, and the counter is only written by advfor at the
-// bottom.  The body reads the counter, past its branches, and the copy goes;
+// bottom, which jumps back to the top.  The body reads the counter, past its branches, and the copy goes;
 // unless the variable is a cell, when each iteration needs its own.
 func TestForLoopVariable(t *testing.T) {
 	// The counter is r0, the loop variable r1, temporaries r2 and r3.
@@ -188,8 +189,7 @@ func TestForLoopVariable(t *testing.T) {
 		Combine{Op: ops.OpAdd, Dst: 2, Lsrc: v, Rsrc: v},
 		DeclareLabel{Label: 2},
 		Combine{Op: ops.OpMul, Dst: 3, Lsrc: v, Rsrc: 2},
-		AdvForLoop{Start: counter, Stop: 2, Step: 3},
-		JumpIf{Cond: counter, Label: 1},
+		AdvForLoop{Start: counter, Stop: 2, Step: 3, Label: 1},
 	}
 	check(t, "plain", PropagateCopies(testCode(2, 2, nil, loop...)),
 		DeclareLabel{Label: 1},
@@ -197,8 +197,7 @@ func TestForLoopVariable(t *testing.T) {
 		Combine{Op: ops.OpAdd, Dst: 2, Lsrc: counter, Rsrc: counter},
 		DeclareLabel{Label: 2},
 		Combine{Op: ops.OpMul, Dst: 3, Lsrc: counter, Rsrc: 2},
-		AdvForLoop{Start: counter, Stop: 2, Step: 3},
-		JumpIf{Cond: counter, Label: 1},
+		AdvForLoop{Start: counter, Stop: 2, Step: 3, Label: 1},
 	)
 	check(t, "cell", PropagateCopies(testCode(2, 2, []Register{v}, loop...)), loop...)
 

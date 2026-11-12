@@ -843,13 +843,16 @@ func (l DeclareLabel) Reads() []Register                         { return nil }
 func (l DeclareLabel) Writes() []Register                        { return nil }
 func (l DeclareLabel) ReplaceRead(from, to Register) Instruction { return l }
 
-// PrepForLoop prepares a for loop
+// PrepForLoop prepares a numeric for loop: it checks that Start, Stop and
+// Step are numbers, gives them the loop's numeric type, and jumps to Label if
+// the loop has no iteration.
 type PrepForLoop struct {
 	Start, Stop, Step Register
+	Label             Label
 }
 
 func (i PrepForLoop) String() string {
-	return fmt.Sprintf("prepfor %s, %s, %s", i.Start, i.Stop, i.Step)
+	return fmt.Sprintf("prepfor %s, %s, %s jump %s", i.Start, i.Stop, i.Step, i.Label)
 }
 
 func (i PrepForLoop) ProcessInstr(p InstrProcessor) {
@@ -863,14 +866,15 @@ func (i PrepForLoop) ReplaceRead(from, to Register) Instruction {
 	return i
 }
 
-// AdvForLoop advances a for loop
-
+// AdvForLoop advances a numeric for loop: Start <- Start + Step, and if the
+// loop has another iteration it jumps to Label.
 type AdvForLoop struct {
 	Start, Stop, Step Register
+	Label             Label
 }
 
 func (i AdvForLoop) String() string {
-	return fmt.Sprintf("advfor %s, %s, %s", i.Start, i.Stop, i.Step)
+	return fmt.Sprintf("advfor %s, %s, %s jump %s", i.Start, i.Stop, i.Step, i.Label)
 }
 
 func (i AdvForLoop) ProcessInstr(p InstrProcessor) {

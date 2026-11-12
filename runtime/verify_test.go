@@ -114,9 +114,6 @@ func TestVerifyOpcodes(t *testing.T) {
 		// Type6: A and B are registers; M is an index.
 		{"type6 in range", code.LoadEtcLookup(r1, r0, 255), true},
 		{"type6 bad B", code.FillTable(r0, r2, 0), false},
-		// Type7: A, B, C are registers.
-		{"type7 in range", code.PrepForLoop(r0, r1, r1), true},
-		{"type7 bad C", code.AdvForLoop(r0, r0, r2), false},
 		// Type0: only A is a register.
 		{"type0 in range", code.Receive(r1), true},
 		{"type0 bad A", code.ReceiveEtc(r2), false},
@@ -133,6 +130,11 @@ func TestVerifyOpcodes(t *testing.T) {
 		{"jump into the arguments", append(append([]code.Opcode{code.Jump(2), code.CallArgs(r0, 1)}, code.ArgWords([]code.Reg{r1}, nil)...), code.Call(r0)), false},
 		{"jump over the arguments", append(append([]code.Opcode{code.Jump(3), code.CallArgs(r0, 1)}, code.ArgWords([]code.Reg{r1}, nil)...), code.Call(r0)), true},
 		{"argument words are not opcodes", append([]code.Opcode{code.CallArgs(r0, 3)}, code.ArgWords([]code.Reg{r1, r1, r1}, nil)...), true},
+		// Type7: A, B, C are registers, and a jump must follow.
+		{"type7 in range", []code.Opcode{code.PrepForLoop(r0, r1, r1), code.Jump(0)}, true},
+		{"type7 bad C", []code.Opcode{code.AdvForLoop(r0, r0, r2), code.Jump(0)}, false},
+		{"type7 without its jump", []code.Opcode{code.AdvForLoop(r0, r1, r1)}, false},
+		{"type7 followed by something else", []code.Opcode{code.PrepForLoop(r0, r1, r1), code.JumpIf(0, r0)}, false},
 	}
 	for _, c := range callCases {
 		err := testCode(c.ops...).verify()

@@ -188,12 +188,25 @@ of it.  No jump may land inside an operand word; the verifier checks it.
 	                                  C the step
 
 	F = Off    prepare: check the three values are numbers, give A and C
-	           the same numeric type, and set A to nil if the loop must not
-	           run at all
-	F = On     advance: A <- A + C, then set A to nil if the new value has
-	           passed B or the addition wrapped around
+	           the same numeric type and, for an integer loop, make B an
+	           integer too
+	F = On     advance: A <- A + C, unless the new value has passed B or
+	           the addition wrapped around, which ends the loop
 
-In both cases the compiler follows the opcode with a conditional jump on A.
+Both are followed by a jump opcode (Type 5, OpJump), which they execute
+themselves or step over: prepare takes the jump when the loop has no
+iteration, advance when it has another one.  A loop is laid out as
+
+	prepfor A, B, C
+	jump END
+	BODY: ...
+	advfor A, B, C
+	jump BODY
+	END: ...
+
+so that the end of an iteration costs one dispatch, not two.  The jump is an
+ordinary opcode and the verifier requires it; landing on it from elsewhere
+would simply run it, but nothing does.
 
 # Type 0: receiving arguments
 

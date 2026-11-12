@@ -32,24 +32,30 @@ for i = math.maxinteger, 1e100 do end
 It isn't practical to try to implement the semantics of the for loop as
 described above in terms of existing opcodes.
 
-Instead two new opcodes are introduced:
+Instead two new opcodes are introduced, each followed by a jump that the
+opcode itself takes or steps over:
 - `prepfor rStart, rStop, rStep`: makes sure `rStart`, `rStep`, `rStop` are all
-  numbers and converts `rStart` and `rStep` to the same numeric type. If the for
-  loop should already stop then `rStart` is set to nil.
+  numbers and converts `rStart` and `rStep` to the same numeric type.  If the
+  loop has no iteration, it takes the jump.
 - `advfor rStart, rStop, rStep`: increments `rStart` by `rStep`, making sure
-  that it doesn't wrap around if it is an integer.  If it wraps around then the
-  loop should stop. If the loop should stop, `rStart` is set to nil.
+  that it doesn't wrap around if it is an integer.  If it wraps around or
+  passes the limit, the loop is over; otherwise it takes the jump.
 
 With these two new opcodes it becomes easy to compile a numeric for loop.
 Assuming `r1`, `r2`,  `r3` contain the start, stop and step initial values:
 
 ```
      prepfor r1, r2, r3
-     if not r1 jump END
+     jump END
 LOOP:
      r4 <- r1
      [compiled body of loop where the loop variable is r4]
      advfor r1, r2, r3
-     if r1 jump LOOP
+     jump LOOP
 END:
 ```
+
+The loop variable `r4` is a copy of `r1` that copy propagation removes unless
+a closure captures it.  Until November 2026 the jumps were conditional jumps
+on `r1`, which the opcodes set to nil to end the loop; taking the jump from
+the for opcode itself saves one dispatch per iteration (PR #247).

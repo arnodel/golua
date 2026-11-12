@@ -81,6 +81,11 @@ func callArgCount(op code.Opcode) int {
 	return op.GetArgCount()
 }
 
+// isJump reports whether op is an unconditional jump.
+func isJump(op code.Opcode) bool {
+	return !op.HasType1() && op.TypePfx() == code.Type5Pfx && op.GetJ() == code.OpJump
+}
+
 // jumpTarget returns the target of op if it is a jump.
 func jumpTarget(pc int, op code.Opcode) (int, bool) {
 	if op.HasType1() || op.TypePfx() != code.Type5Pfx {
@@ -102,7 +107,13 @@ func (c *Code) verifyOpcode(pc int, op code.Opcode) error {
 		return c.verifyRegisters(op.GetA(), op.GetB(), op.GetC())
 	}
 	switch op.TypePfx() {
-	case code.Type2Pfx, code.Type7Pfx:
+	case code.Type2Pfx:
+		return c.verifyRegisters(op.GetA(), op.GetB(), op.GetC())
+	case code.Type7Pfx:
+		// The run loop takes or steps over the jump that follows.
+		if pc+1 >= len(c.code) || !isJump(c.code[pc+1]) {
+			return fmt.Errorf("for loop opcode not followed by a jump")
+		}
 		return c.verifyRegisters(op.GetA(), op.GetB(), op.GetC())
 	case code.Type8Pfx:
 		if err := c.verifyConstant(op.GetK8().ToKIndex()); err != nil {
