@@ -49,6 +49,10 @@ condition costs an opcode".
 - Control flow: `DeclareLabel` marks a join point, `Jump`/`JumpIf`/tail
   `Call` end a straight-line stretch.  Within a stretch every read and write
   is visible; across stretches assume nothing unless you do real dataflow.
+  `ir/cfg.go` builds the control-flow graph and `ir/analysis.go` wraps it
+  with what passes keep asking; `availableCopies` (`ir/copyprop.go`) and
+  `changedAfterSeen` (`ir/fixed.go`) are two forward dataflows over it to
+  copy from.
 - `TakeRegister`/`ReleaseRegister` are lifetime markers for the code
   generator, which gives a register a slot only between the two.  The code
   generator computes them itself (`ircomp/lifetimes.go`), from liveness over
@@ -83,9 +87,11 @@ reads garbage.  Each one was found by a failing Lua test.
    cell, so not across a `ClearReg` of it.
 4. **Read-write operands keep their name.**  `prepfor`/`advfor` update their
    registers in place; substituting the read side sends the write elsewhere.
-5. **Named locals stay observable.**  Deleting an assignment to a named local
-   changes what `debug.getlocal` and error messages see.  Delete only
-   assignments to temporaries.
+5. **Named locals keep their values while read.**  A copy into a named
+   local may go once nothing reads the local (every read was redirected to
+   the source), as a numeric for loop's variable usually is.  Error messages
+   don't name locals and there is no `debug.getlocal`, so nothing observes
+   the difference; if either comes, this is the rule to revisit.
 
 ## Lua semantics to preserve
 

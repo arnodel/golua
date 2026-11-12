@@ -123,14 +123,37 @@ func TestPropagateCopies(t *testing.T) {
 	}
 	check(t, "copy of a temporary", PropagateCopies(testCode(3, 2, nil, local...)), local...)
 
-	// Nothing is known across a label; a copy before the label is kept and
-	// not read through after it.
+	// A copy is read through past a label when it is available on every
+	// path to it: here the label is only reached from the copy.
 	label := []Instruction{
 		move(3, q),
 		DeclareLabel{Label: 1},
 		SetIndexK{Table: 3, Kidx: 0, Src: i},
 	}
-	check(t, "label", PropagateCopies(testCode(3, 1, nil, label...)), label...)
+	check(t, "label", PropagateCopies(testCode(3, 1, nil, label...)),
+		DeclareLabel{Label: 1},
+		SetIndexK{Table: q, Kidx: 0, Src: i},
+	)
+
+	// Not when a path to the label writes one of the registers: here the
+	// copy is made on both paths but q is written on one of them.
+	join := []Instruction{
+		move(3, q),
+		JumpIf{Cond: i, Label: 1},
+		Lookup{Dst: q, Table: q, Index: i},
+		DeclareLabel{Label: 1},
+		SetIndexK{Table: 3, Kidx: 0, Src: i},
+	}
+	check(t, "join", PropagateCopies(testCode(3, 1, nil, join...)), join...)
+
+	// A path that doesn't make the copy stops it too.
+	missing := []Instruction{
+		JumpIf{Cond: i, Label: 1},
+		move(3, q),
+		DeclareLabel{Label: 1},
+		SetIndexK{Table: 3, Kidx: 0, Src: i},
+	}
+	check(t, "missing on a path", PropagateCopies(testCode(3, 1, nil, missing...)), missing...)
 
 	// A register the instruction also writes is not substituted.
 	forloop := []Instruction{
@@ -151,34 +174,50 @@ func TestPropagateCopies(t *testing.T) {
 	)
 }
 
-// A register marked as a copy is read through over the whole function, past
-// labels and jumps, and the copies into it go, unless it is a cell.
-func TestMarkedCopies(t *testing.T) {
-	// The counter is r0, the loop variable r1, a temporary r2.
+// A numeric for loop: the loop variable is a copy of the counter made at the
+// top of every iteration, and the counter is only written by advfor at the
+// bottom.  The body reads the counter, past its branches, and the copy goes;
+// unless the variable is a cell, when each iteration needs its own.
+func TestForLoopVariable(t *testing.T) {
+	// The counter is r0, the loop variable r1, temporaries r2 and r3.
 	counter, v := Register(0), Register(1)
 	loop := []Instruction{
 		DeclareLabel{Label: 1},
-		move(v, counter), TakeRegister{Reg: v},
+		move(v, counter),
 		JumpIf{Cond: v, Label: 2},
-		DeclareLabel{Label: 3},
 		Combine{Op: ops.OpAdd, Dst: 2, Lsrc: v, Rsrc: v},
 		DeclareLabel{Label: 2},
-		ReleaseRegister{Reg: v},
+		Combine{Op: ops.OpMul, Dst: 3, Lsrc: v, Rsrc: 2},
+		AdvForLoop{Start: counter, Stop: 2, Step: 3},
+		JumpIf{Cond: counter, Label: 1},
 	}
-	code := func(cells []Register) Code {
-		c := testCode(2, 1, cells, loop...)
-		c.Registers[v].IsCopy = true
-		c.Registers[v].CopyOf = counter
-		return c
-	}
-	check(t, "plain", PropagateCopies(code(nil)),
+	check(t, "plain", PropagateCopies(testCode(2, 2, nil, loop...)),
 		DeclareLabel{Label: 1},
-		TakeRegister{Reg: v},
 		JumpIf{Cond: counter, Label: 2},
-		DeclareLabel{Label: 3},
 		Combine{Op: ops.OpAdd, Dst: 2, Lsrc: counter, Rsrc: counter},
 		DeclareLabel{Label: 2},
-		ReleaseRegister{Reg: v},
+		Combine{Op: ops.OpMul, Dst: 3, Lsrc: counter, Rsrc: 2},
+		AdvForLoop{Start: counter, Stop: 2, Step: 3},
+		JumpIf{Cond: counter, Label: 1},
 	)
-	check(t, "cell", PropagateCopies(code([]Register{v})), loop...)
+	check(t, "cell", PropagateCopies(testCode(2, 2, []Register{v}, loop...)), loop...)
+
+	// The counter written in the body: the copy stays where the body reads
+	// the variable after the write.
+	written := []Instruction{
+		DeclareLabel{Label: 1},
+		move(v, counter),
+		Combine{Op: ops.OpAdd, Dst: 2, Lsrc: v, Rsrc: v},
+		Combine{Op: ops.OpAdd, Dst: counter, Lsrc: counter, Rsrc: 2},
+		Combine{Op: ops.OpMul, Dst: 3, Lsrc: v, Rsrc: 2},
+		JumpIf{Cond: counter, Label: 1},
+	}
+	check(t, "counter written", PropagateCopies(testCode(2, 2, nil, written...)),
+		DeclareLabel{Label: 1},
+		move(v, counter),
+		Combine{Op: ops.OpAdd, Dst: 2, Lsrc: counter, Rsrc: counter},
+		Combine{Op: ops.OpAdd, Dst: counter, Lsrc: counter, Rsrc: 2},
+		Combine{Op: ops.OpMul, Dst: 3, Lsrc: v, Rsrc: 2},
+		JumpIf{Cond: counter, Label: 1},
+	)
 }
