@@ -147,12 +147,12 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	// The loop variable is a copy of startReg, which only prepfor and advfor
 	// change.  Lua 5.5 makes the variable read-only, so the body sees startReg
 	// unless a closure captures the variable: then each iteration needs a
-	// variable of its own.
+	// variable of its own.  PropagateCopies reads through the copy and
+	// removes it when it can.
 	iterReg := c.GetFreeRegister()
 	ir.EmitMoveNoLine(c.CodeBuilder, iterReg, startReg)
 	c.DeclareLocal(ir.Name(s.Var.Val), iterReg)
 	c.MarkConstantReg(iterReg)
-	c.MarkCopyOf(iterReg, startReg)
 	c.compileBlock(s.Body)
 	c.PopContext()
 

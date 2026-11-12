@@ -13,12 +13,6 @@ type RegData struct {
 	IsConstant bool
 	IsLocal    bool // the register holds a named local variable
 	IsFixed    bool // no write follows a point where its value is seen (see markFixed)
-
-	// If IsCopy is true, the register holds the value of CopyOf wherever it is
-	// read: it is only written by copies of CopyOf, and CopyOf doesn't change
-	// while the register is live.  See MarkCopyOf.
-	IsCopy bool
-	CopyOf Register
 }
 
 const regHasUpvalue uint = 1
@@ -261,14 +255,6 @@ func (c *CodeBuilder) GetGlobalDeclType(name Name) GlobalDeclType {
 
 func (c *CodeBuilder) MarkConstantReg(reg Register) {
 	c.registers[reg].IsConstant = true
-}
-
-// MarkCopyOf records that reg is only written by copies of src, and that src
-// doesn't change while reg is taken, so that a read of reg can read src
-// instead.  PropagateCopies then removes the copies, unless reg is a cell.
-func (c *CodeBuilder) MarkCopyOf(reg, src Register) {
-	c.registers[reg].IsCopy = true
-	c.registers[reg].CopyOf = src
 }
 
 func (c *CodeBuilder) IsConstantReg(reg Register) bool {
