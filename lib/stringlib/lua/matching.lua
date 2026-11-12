@@ -252,3 +252,34 @@ do
     print(string.gmatch("abc", "b", math.maxinteger)())
     --> =nil
 end
+
+do
+    -- A start past the end of the subject never matches, even for an anchored
+    -- pattern that matches the empty string. One past the last character is
+    -- still a valid start.
+    print(string.match("abc", "^", 5))
+    --> =nil
+
+    print(string.match("abc", "^", math.maxinteger))
+    --> =nil
+
+    print(string.match("", "^", 2))
+    --> =nil
+
+    print(string.match("abc", "^", 4) == "")
+    --> =true
+
+    -- A position capture past the end is nil, not a position.
+    print(string.match("abc", "^()", 5))
+    --> =nil
+
+    print(string.match("abc", "^()", 4))
+    --> =4
+
+    -- The start is checked before the pattern is read, as in find.
+    print(pcall(string.match, "abc", "[", 5))
+    --> =true	nil
+
+    print(pcall(string.find, "abc", "[", 5))
+    --> =true	nil
+end

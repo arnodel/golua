@@ -94,6 +94,10 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		si = 0
 	}
 	next := c.Next()
+	if si > len(s) {
+		t.Push1(next, rt.NilValue)
+		return next, nil
+	}
 	pat, ptnErr := pattern.New(string(ptn))
 	if ptnErr != nil {
 		return nil, ptnErr
