@@ -210,6 +210,9 @@ func rep(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if sz1/n != len(s) || sz2/(n-1) != len(sep) || sz < 0 {
 		return nil, errors.New("rep causes overflow")
 	}
+	if sz == 0 {
+		return c.PushingNext1(t.Runtime, rt.StringValue("")), nil
+	}
 	t.RequireBytes(n*len(s) + (n-1)*len(sep))
 	builder.Grow(sz)
 	builder.Write(s)
