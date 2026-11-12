@@ -95,10 +95,6 @@ func match(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	}
 	next := c.Next()
 	if si > len(s) {
-		// A start past the end of the subject cannot match, as in reference
-		// Lua, which checks it before it reads the pattern (find does the
-		// same). An anchored pattern that matches the empty string would
-		// otherwise match there and slice past the subject.
 		t.Push1(next, rt.NilValue)
 		return next, nil
 	}
