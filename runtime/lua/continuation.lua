@@ -113,6 +113,25 @@ do
     --> =to Go	0	1
     --> =to Go	0	2
     --> =to Go	0	3
+
+    -- The same for a tail call, to a Lua function and to a Go function.
+    local function tail(f)
+        return f("tail call", callcc(function(c) k = c; return 1 end))
+    end
+    for _, f in ipairs{show, print} do
+        calls.n = 0
+        tail(f)
+        calls.n = calls.n + 1
+        if calls.n < 3 then
+            k(calls.n + 1)
+        end
+    end
+    --> =tail call	1
+    --> =tail call	2
+    --> =tail call	3
+    --> =tail call	1
+    --> =tail call	2
+    --> =tail call	3
 end
 
 -- A local variable that lives in a register is part of the frame: each time
@@ -311,6 +330,25 @@ do
         error("n is " .. n)
     end))
     --> ~false\t.*:\d+: n is 2
+
+    -- So do the frames it returns to, which are not copied until it does:
+    -- an error can be theirs, and a traceback goes through them.
+    local trace
+    local function leaf()
+        local n = callcc(function(c) k = c; return 1 end)
+        if n < 2 then
+            k(n + 1)
+        end
+        trace = debug.traceback()
+        error("the caller's fault", 2)
+    end
+    local function caller()
+        leaf() -- the error is here
+    end
+    print(pcall(function() caller() end))
+    --> ~^false\t.*:\d+: the caller's fault$
+    print(select(2, trace:gsub("in function", "")) >= 3)
+    --> =true
 end
 
 -- A continuation holds the Lua functions that are running and not the Go
@@ -366,6 +404,21 @@ do
         return load(function() k("out of load") end)
     end))
     --> =out of load
+
+    -- A Go function that calls a function last, without waiting for it, is
+    -- not left: there is nothing of it to leave.
+    print(callcc(function(k)
+        return testtailcall(k, "called by Go in the same loop")
+    end))
+    --> =called by Go in the same loop
+
+    -- A Go function that keeps every error of what it calls to itself does
+    -- not let the call of a continuation through, which it should (see
+    -- IsContinuationCall): it gets a message.
+    print(callcc(function(k)
+        return testcatch(k, "not reached")
+    end))
+    --> =attempt to call a continuation across a Go function that does not let it through
 
     -- The variables to be closed of what is left behind are closed, as they
     -- are when a block ends without an error.
