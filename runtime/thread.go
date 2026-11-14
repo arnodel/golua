@@ -65,10 +65,9 @@ type Thread struct {
 	// exceed maxRunContinuationDepth.
 	runContinuationDepth int
 
-	// The RunContinuation loop that is running, and how many have started:
-	// each has a number of its own, by which a Continuation knows the loop
-	// it was captured in.
-	loop, loops uint64
+	// The RunContinuation loop that is running, for the continuations
+	// captured in it; nil until there is one.
+	loop *runLoop
 
 	// Depth of __call metamethod chain (Lua 5.5).  This should not exceed
 	// maxCallChainLength to prevent infinite loops through chained __call metamethods.
@@ -113,11 +112,13 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 		return errors.New("stack overflow")
 	}
 	t.runContinuationDepth++
-	outer := t.loop
-	t.loops++
-	t.loop = t.loops
+	outer, closeStackBase := t.loop, t.closeStack.size()
+	t.loop = nil
 	defer func() {
 		t.runContinuationDepth--
+		if t.loop != nil {
+			t.loop.done = true
+		}
 		t.loop = outer
 	}()
 
@@ -133,6 +134,20 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 		t.currentCont = c
 		next, err = c.RunInThread(t)
 		if err != nil {
+			if call, ok := err.(*continuationCall); ok {
+				// A continuation was called under Go code that this loop
+				// was waiting for, which has now returned.  If it was
+				// captured in this loop, it carries on here.  If not, this
+				// loop is itself under Go code that the continuation's
+				// loop is waiting for: it finishes, closing the variables
+				// to be closed of the frames it leaves behind.
+				if call.k.loop != t.loop {
+					return t.cleanupCloseStack(c, closeStackBase, err)
+				}
+				c, err = call.k.resume(t), nil
+				c.PushEtc(t.Runtime, call.args)
+				continue
+			}
 			rtErr := ToError(err)
 			if rtErr.Handled() {
 				return rtErr
@@ -405,7 +420,7 @@ func (t *Thread) cleanupCloseStack(c Cont, h int, err error) error {
 			// Lua 5.5: __close receives 1 arg (the object) when closing normally,
 			// and 2 args (the object and the error) when closing due to an error.
 			var args []Value
-			if err == nil {
+			if err == nil || IsContinuationCall(err) {
 				args = []Value{v}
 			} else {
 				args = []Value{v, ErrorValue(err)}

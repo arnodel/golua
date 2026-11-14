@@ -242,9 +242,13 @@ func Continue(t *Thread, f Value, next Cont) (Cont, error) {
 // __call metamethod.
 func continueCall(t *Thread, f Value, next Cont) (Cont, error) {
 	if k, ok := f.iface.(*Continuation); ok {
-		// The frame to run next is the one k gives, and the continuation
-		// of the call is not used: the call does not return.
-		return k.reinstate(t)
+		if t.loop == k.loop {
+			// The frame to run next is the one k gives, and the
+			// continuation of the call is not used: the call does not
+			// return.
+			return k.resume(t), nil
+		}
+		return k.Continuation(t, next), nil
 	}
 	// Not callable, need to use __call metamethod
 	// Check if we've exceeded the chain limit (Lua 5.5)

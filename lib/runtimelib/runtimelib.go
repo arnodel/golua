@@ -118,6 +118,9 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr error) {
 	}, func() error {
 		return rt.Call(t, f, fArgs, res)
 	})
+	if rt.IsContinuationCall(err) {
+		return nil, err
+	}
 	t.Push1(next, newContextValue(t.Runtime, ctx))
 	switch ctx.Status() {
 	case rt.StatusDone:

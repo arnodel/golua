@@ -313,26 +313,116 @@ do
     --> ~false\t.*:\d+: n is 2
 end
 
--- What is not copied is the Go code that waits for frames to finish: pcall,
--- a metamethod call, the body of a coroutine.  So a continuation can only be
--- called while the Go code it was captured under is still waiting, and not
--- from under more Go code.  For now this includes leaving a pcall by calling
--- a continuation captured outside it.
+-- A continuation holds the Lua functions that are running and not the Go
+-- code that waits for them to finish: a pcall, a metamethod call, a function
+-- of the library that was given a Lua function.  Calling a continuation from
+-- under such Go code makes that code return first, to no one: this is how to
+-- leave a pcall.
+do
+    print(callcc(function(k)
+        print(pcall(function() k("out of pcall") end))
+        return "not reached"
+    end))
+    --> =out of pcall
+
+    -- Out of several, and the handler of xpcall is not called: nothing has
+    -- gone wrong.
+    print(callcc(function(k)
+        pcall(function()
+            xpcall(function()
+                pcall(k, "out of three")
+            end, print)
+        end)
+        return "not reached"
+    end))
+    --> =out of three
+
+    -- Out of a metamethod.
+    print(callcc(function(k)
+        local t = setmetatable({}, {
+            __index = function(_, key) k("out of __index", key) end,
+        })
+        return t.x
+    end))
+    --> =out of __index	x
+
+    -- Out of functions of the library, which is an early exit they do not
+    -- have.
+    print(callcc(function(k)
+        table.sort({3, 1, 2}, function(a, b) k("out of table.sort") end)
+    end))
+    --> =out of table.sort
+
+    print(callcc(function(k)
+        return (("a b c"):gsub("%a", function(c)
+            if c == "b" then
+                k("out of gsub", c)
+            end
+        end))
+    end))
+    --> =out of gsub	b
+
+    print(callcc(function(k)
+        return load(function() k("out of load") end)
+    end))
+    --> =out of load
+
+    -- The variables to be closed of what is left behind are closed, as they
+    -- are when a block ends without an error.
+    print(callcc(function(k)
+        pcall(function()
+            local x <close> = setmetatable({}, {
+                __close = function(_, err) print("closed", err) end,
+            })
+            k("after closing")
+        end)
+    end))
+    --> =closed	nil
+    --> =after closing
+
+    -- A coroutine does the same within itself.
+    print(coroutine.resume(coroutine.create(function()
+        return callcc(function(k) pcall(k, "out of pcall in a coroutine") end)
+    end)))
+    --> =true	out of pcall in a coroutine
+
+    -- The continuation is as it was, and can be called again.
+    local k
+    local calls = {n = 0}
+    print(callcc(function(c) k = c; return "first" end))
+    calls.n = calls.n + 1
+    if calls.n < 3 then
+        pcall(k, "again " .. calls.n)
+    end
+    --> =first
+    --> =again 1
+    --> =again 2
+end
+
+-- What a continuation cannot do is carry on in Go code that has returned: it
+-- cannot be called once the pcall, metamethod call or coroutine it was
+-- captured in is over.  Nor can it be called from another coroutine.
 do
     local k
     local done = {}
 
     pcall(function() callcc(function(c) k = c end) end)
     print(pcall(k))
-    --> ~false\t.*attempt to call a continuation across a Go call boundary
+    --> ~false\t.*attempt to call a continuation captured in a Go call that has returned
+
+    -- So what has left a pcall cannot go back into it.
+    local back
+    print(callcc(function(out)
+        pcall(function()
+            callcc(function(c) back = c; out("left") end)
+            print("not reached")
+        end)
+    end))
+    --> =left
+    print(pcall(back))
+    --> ~false\t.*attempt to call a continuation captured in a Go call that has returned
 
     callcc(function(c) k = c end)
-    if not done.pcall then
-        done.pcall = true
-        print(pcall(k))
-        --> ~false\t.*attempt to call a continuation across a Go call boundary
-    end
-
     if not done.thread then
         done.thread = true
         print(coroutine.resume(coroutine.create(k)))

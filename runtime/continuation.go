@@ -22,8 +22,8 @@ import (
 // the boxes of captured variables.
 type Continuation struct {
 	thread *Thread
-	loop   uint64 // The thread's loop at the capture, see reinstate
-	cont   Cont   // A frozen frame, or a continuation that is not a frame
+	loop   *runLoop // The thread's loop at the capture, see call
+	cont   Cont     // A frozen frame, or a continuation that is not a frame
 
 	goFunction *GoFunction // Calls k, for Go code; made when first needed
 }
@@ -47,6 +47,10 @@ func callcc(t *Thread, c *GoCont) (Cont, error) {
 	if frame, ok := next.(*LuaCont); ok {
 		next = (*frozenCont)(frame)
 	}
+	if t.loop == nil {
+		t.RequireSize(unsafe.Sizeof(runLoop{}))
+		t.loop = new(runLoop)
+	}
 	t.RequireSize(unsafe.Sizeof(Continuation{}))
 	k := &Continuation{thread: t, loop: t.loop, cont: next}
 
@@ -59,35 +63,27 @@ func callcc(t *Thread, c *GoCont) (Cont, error) {
 	return fc, nil
 }
 
-// reinstate returns a continuation that carries on the computation k was
-// captured from, for its caller to push values into and run in place of the
-// running one.
-//
-// A frame returns to the frame that called it, and so on down to a
-// continuation that is not a frame: that is where the Go code that started
-// them waits for them to finish, in RunContinuation, and that cannot be
-// captured.  So a Continuation is of no use once that Go code has returned,
-// or from within other Go code that has called back into Lua since, or in
-// another thread.  All three are errors, and the first two are told by the
-// thread not being in the loop it was in at the capture.
-func (k *Continuation) reinstate(t *Thread) (Cont, error) {
-	if t != k.thread {
-		return nil, errors.New("attempt to call a continuation from another thread")
-	}
-	if t.loop != k.loop {
-		return nil, errors.New("attempt to call a continuation across a Go call boundary")
-	}
-	if frame, ok := k.cont.(*frozenCont); ok {
-		return frame.thaw(t), nil
-	}
-	return k.cont, nil
+// A runLoop is what a Continuation keeps of the RunContinuation loop it was
+// captured in: whether it has finished.  A thread makes one for a loop when
+// a continuation is first captured in it (Thread.loop).
+type runLoop struct {
+	done bool
 }
 
-// Continuation implements Callable.Continuation.  This is how Go code calls
-// a function, and it may well run what it gets in a loop of its own, so k is
-// reinstated when the call runs and not here: the call is that of a Go
-// function which does it.  Lua code calling k does not come this way, see
-// continueCall.
+// resume returns a continuation that carries on the computation k was
+// captured from, for its caller to push values into and run in place of the
+// running one.  The thread must be in the loop k was captured in.
+func (k *Continuation) resume(t *Thread) Cont {
+	if frame, ok := k.cont.(*frozenCont); ok {
+		return frame.thaw(t)
+	}
+	return k.cont
+}
+
+// Continuation implements Callable.Continuation.  The call is that of a Go
+// function, k.call, which decides what to do when it runs: Go code may well
+// run what it gets here in a loop of its own.  Lua code calling k in the
+// loop k was captured in does not come this way, see continueCall.
 func (k *Continuation) Continuation(t *Thread, next Cont) Cont {
 	if k.goFunction == nil {
 		t.RequireSize(unsafe.Sizeof(GoFunction{}))
@@ -102,13 +98,58 @@ func (k *Continuation) Continuation(t *Thread, next Cont) Cont {
 	return NewGoCont(t, k.goFunction, next)
 }
 
+// call calls k with the arguments of c.
+//
+// A frame returns to the frame that called it, and so on down to a
+// continuation that is not a frame: that is where the Go code that started
+// them waits for them to finish, in a RunContinuation loop.  That Go code
+// is not part of what k holds, so k carries on in the loop it was captured
+// in and nowhere else.
+//
+//   - In that loop, the frame k holds runs next.
+//   - Under Go code which that loop is waiting for (a pcall, a metamethod
+//     call, a function given to table.sort), that Go code has to return
+//     first.  The call returns as an error does, a continuationCall, which
+//     Go code passes on as it does errors and the loop takes up.
+//   - Once that loop has finished there is nowhere to carry on, and in
+//     another thread it is not this thread's to run: both are errors.
 func (k *Continuation) call(t *Thread, c *GoCont) (Cont, error) {
-	cont, err := k.reinstate(t)
-	if err != nil {
-		return nil, err
+	switch {
+	case t.loop == k.loop:
+		cont := k.resume(t)
+		cont.PushEtc(t.Runtime, c.Etc())
+		return cont, nil
+	case t != k.thread:
+		return nil, errors.New("attempt to call a continuation from another thread")
+	case k.loop.done:
+		return nil, errors.New("attempt to call a continuation captured in a Go call that has returned")
 	}
-	cont.PushEtc(t.Runtime, c.Etc())
-	return cont, nil
+	// The arguments are the function's until it returns.
+	t.RequireArrSize(unsafe.Sizeof(Value{}), len(c.Etc()))
+	return nil, &continuationCall{k: k, args: append([]Value(nil), c.Etc()...)}
+}
+
+// A continuationCall is the call of a continuation on its way to the loop
+// that can run it, through the Go code that loop is waiting for.  It travels
+// as an error so that this Go code returns, and it is not one.
+type continuationCall struct {
+	k    *Continuation
+	args []Value
+}
+
+// Error implements error.  This is what a Go function gets if it makes a
+// message of the errors of the Lua code it calls, instead of returning them.
+func (*continuationCall) Error() string {
+	return "attempt to call a continuation across a Go function that does not let it through"
+}
+
+// IsContinuationCall reports whether err is the call of a continuation on
+// its way through Go code (see Thread.RunContinuation).  A Go function that
+// turns the errors of the Lua code it calls into values, as pcall does, must
+// return this one as it is.
+func IsContinuationCall(err error) bool {
+	_, ok := err.(*continuationCall)
+	return ok
 }
 
 // A frozenCont is a frame that was captured, or that a captured frame

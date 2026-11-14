@@ -19,13 +19,17 @@
 // assigns, are shared with the rest of the program and keep their changes.
 //
 // A continuation holds the Lua functions that are running, not the Go
-// functions that have called them: it cannot be called once the pcall,
-// metamethod call or coroutine it was captured in has returned, nor from
-// inside another one, nor from another coroutine.  Each is an error.
+// functions that have called them, such as pcall, a metamethod call, or
+// table.sort calling its comparison function.  Calling a continuation from
+// under one of these leaves it: the Go function returns to no one, and the
+// to-be-closed variables of the Lua functions it had called are closed.  So
+// a continuation is a way out of a pcall.  It is not a way back in: it is an
+// error to call a continuation once the pcall, metamethod call or coroutine
+// it was captured in has returned, and to call it from another coroutine.
 //
-// To-be-closed variables and continuations do not work together yet:
-// calling a continuation does not close the variables of the blocks it
-// leaves at that point.
+// Apart from that, to-be-closed variables and continuations do not work
+// together yet: calling a continuation does not close the variables of the
+// blocks it leaves when no Go function is left with them.
 package contlib
 
 import (
