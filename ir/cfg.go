@@ -12,7 +12,8 @@ import (
 // The instructions are cut into blocks, runs entered only at their first
 // instruction and left only after their last.  A block starts at a label
 // (consecutive labels share a block) or after an instruction that ends one,
-// and ends after a Jump, a JumpIf or a tail Call, or just before a label.
+// and ends after a Jump, a JumpIf, a for loop instruction or a tail Call, or
+// just before a label.
 // The blocks are the nodes of a directed graph whose edges are the jumps and
 // the fall-throughs from one block to the next; a loop is a cycle in it.
 //
@@ -202,14 +203,18 @@ func (g *Graph) cutBlocks(instrs []Instruction) {
 }
 
 // controlFlow says where execution can go after instr: to lbl if jumps is
-// true, and to the next instruction if next is true.  A Jump only jumps, a
-// JumpIf does both, a tail Call does neither: it leaves the function.  Every
-// other instruction goes to the next one.
+// true, and to the next instruction if next is true.  A Jump only jumps; a
+// JumpIf and the for loop instructions do both; a tail Call does neither: it
+// leaves the function.  Every other instruction goes to the next one.
 func controlFlow(instr Instruction) (lbl Label, jumps, next bool) {
 	switch x := instr.(type) {
 	case Jump:
 		return x.Label, true, false
 	case JumpIf:
+		return x.Label, true, true
+	case PrepForLoop:
+		return x.Label, true, true
+	case AdvForLoop:
 		return x.Label, true, true
 	case Call:
 		return 0, false, !x.Tail

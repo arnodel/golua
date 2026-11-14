@@ -275,16 +275,17 @@ func CheckNotDefined(rTable, rIndex Reg) Opcode {
 	return mkType4a(Off, OpCheckNotDefined, rTable, rIndex)
 }
 
-// PrepForLoop makes sure rStart, rStep, rStop are all numbers and converts
-// rStart and rStep to the same numeric type. If the for loop should already
-// stop then rStart is set to nil
+// PrepForLoop encodes prepfor rStart, rStop, rStep: check that the three are
+// numbers and give rStart and rStep the same numeric type.  The opcode must
+// be followed by a Jump, which it takes if the loop has no iteration.
 func PrepForLoop(rStart, rStop, rStep Reg) Opcode {
 	return mkType7(Off, rStart, rStop, rStep)
 }
 
-// AdvForLoop increments rStart by rStep, making sure that it doesn't wrap
-// around if it is an integer.  If it wraps around then the loop should stop. If
-// the loop should stop, rStart is set to nil
+// AdvForLoop encodes advfor rStart, rStop, rStep: rStart <- rStart + rStep,
+// unless that passes rStop or wraps around, which ends the loop.  The opcode
+// must be followed by a Jump, which it takes if the loop has another
+// iteration.
 func AdvForLoop(rStart, rStop, rStep Reg) Opcode {
 	return mkType7(On, rStart, rStop, rStep)
 }

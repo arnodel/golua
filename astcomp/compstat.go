@@ -117,15 +117,16 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	r = c.compileExp(s.Step, stepReg)
 	ir.EmitMoveNoLine(c.CodeBuilder, stepReg, r)
 
-	// Prepare the for loop
+	c.PushContext()
+	endLbl := c.DeclareGotoLabelNoLine(breakLblName)
+
+	// Prepare the for loop; if it has no iteration, this jumps to the end.
 	c.emitInstr(s, ir.PrepForLoop{
 		Start: startReg,
 		Stop:  stopReg,
 		Step:  stepReg,
+		Label: endLbl,
 	})
-
-	c.PushContext()
-	endLbl := c.DeclareGotoLabelNoLine(breakLblName)
 
 	// The control registers are the loop's hidden locals: they live for the
 	// whole loop, so copies of them are read through like those of a local.
@@ -133,12 +134,6 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	c.DeclareLocal(loopStopName, stopReg)
 	c.DeclareLocal(loopStepName, stepReg)
 
-	// If startReg is nil, then there are no iterations in the loop
-	c.EmitNoLine(ir.JumpIf{
-		Cond:  startReg,
-		Label: endLbl,
-		Not:   true,
-	})
 	bodyLbl := c.GetNewLabel()
 	must(c.EmitLabelNoLine(bodyLbl))
 
@@ -156,16 +151,12 @@ func (c *compiler) ProcessForStat(s ast.ForStat) {
 	c.compileBlock(s.Body)
 	c.PopContext()
 
-	//Advance the for loop
+	// Advance the for loop; if it has another iteration, this jumps back to
+	// the body.
 	c.emitInstr(s, ir.AdvForLoop{
 		Start: startReg,
 		Stop:  stopReg,
 		Step:  stepReg,
-	})
-	// If startReg is not nil, it means the loop continues.  The jump goes
-	// past the entry test, which would only find startReg not nil again.
-	c.EmitNoLine(ir.JumpIf{
-		Cond:  startReg,
 		Label: bodyLbl,
 	})
 
