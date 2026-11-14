@@ -10,11 +10,14 @@ import (
 // than this, nor a closure more upvalues.
 const maxRegCount = 256
 
-// verify checks that running c cannot touch anything outside its frame: the
-// register counts make sense, every register operand of every opcode is
-// within them, and every jump lands inside the code on an opcode (not on one
-// of the operand words that list a call's arguments).  The run loop relies on
-// this to access registers without checking their index.
+// verify checks that running c cannot touch anything outside its frame, its
+// code or its constants: the register counts make sense, every register
+// operand of every opcode is within them, every constant an opcode names is
+// in the constant table, every jump lands inside the code on an opcode (not
+// on one of the operand words that list a call's arguments), and execution
+// cannot run past the end of the code, whichever way it goes.  Without
+// quotas, the run loop relies on this to access registers, opcodes and
+// constants without checking their index (luacont_access_noquotas.go).
 //
 // Code produced by the compiler should always pass; code loaded from a binary
 // chunk cannot be trusted to.
@@ -36,6 +39,10 @@ func (c *Code) verify() error {
 		case l.Reg == 0 || int(l.Reg) >= int(c.RegCount):
 			return fmt.Errorf("entry load into register %d outside the frame (%d registers)", l.Reg, c.RegCount)
 		}
+	}
+	// Execution starts at the first opcode.
+	if len(c.code) == 0 {
+		return fmt.Errorf("no code")
 	}
 	// First the opcodes and the operand words of calls, which are not
 	// opcodes and must be known before jump targets can be checked.
@@ -69,7 +76,60 @@ func (c *Code) verify() error {
 			return fmt.Errorf("opcode %d: jump to %d, inside the arguments of a call", pc, target)
 		}
 	}
+	return c.verifyEnd()
+}
+
+// verifyEnd checks that execution cannot run past the end of the code: it
+// follows every way execution can go from the first opcode, and each opcode
+// it goes on to must be there.  Code that nothing reaches is not looked at:
+// the compiler leaves some after a return (the closing of a scope that the
+// return has left).  The opcodes and jump targets must have been verified.
+func (c *Code) verifyEnd() error {
+	reached := make([]bool, len(c.code))
+	reached[0] = true
+	todo := []int{0}
+	for len(todo) > 0 {
+		pc := todo[len(todo)-1]
+		todo = todo[:len(todo)-1]
+		op := c.code[pc]
+		// Where execution can go from pc: at most two places.
+		var next [2]int
+		n := 0
+		switch target, isJump := jumpTarget(pc, op); {
+		case !op.HasType1() && op.TypePfx() == code.Type7Pfx:
+			// It takes the jump after it (which goes to its target and
+			// nowhere else, so is not looked at itself) or steps over it.
+			target, _ = jumpTarget(pc+1, c.code[pc+1])
+			next, n = [2]int{target, pc + 2}, 2
+		case isJump && op.GetJ() == code.OpJump:
+			next, n = [2]int{target}, 1
+		case isJump:
+			next, n = [2]int{target, pc + 1}, 2
+		case goesOn(op):
+			next, n = [2]int{pc + 1 + code.ArgWordCount(callArgCount(op))}, 1
+		}
+		for _, to := range next[:n] {
+			if to >= len(c.code) {
+				return fmt.Errorf("opcode %d: execution runs past the end of the code", pc)
+			}
+			if !reached[to] {
+				reached[to] = true
+				todo = append(todo, to)
+			}
+		}
+	}
 	return nil
+}
+
+// goesOn reports whether execution goes on to the opcode after op (after
+// its operand words, for a call that returns here), op not being a jump.
+// It doesn't after a tail call, which leaves the frame for good, or a call
+// of r0, which is a return.
+func goesOn(op code.Opcode) bool {
+	if op.HasType1() || op.TypePfx() != code.Type5Pfx || op.GetJ() != code.OpCall {
+		return true
+	}
+	return !op.GetF() && op.GetA() != code.ValueReg(0)
 }
 
 // callArgCount returns the number of arguments listed after op if it is a
