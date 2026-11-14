@@ -39,6 +39,7 @@ These are minor incompatibilities or intentional design choices that we accept.
 | GOLUA-040 | Runtime | File metatable `__name` is "file" not "FILE*" |
 | GOLUA-041 | Runtime | `load()` accepts "B" mode (no fixed buffer concept) |
 | GOLUA-043 | Runtime | `io.lines` accepts unlimited arguments |
+| GOLUA-048 | Runtime | A chunk name with no `=` or `@` mark is shown as it is |
 
 ---
 
@@ -384,4 +385,18 @@ end
 print(f(true), f(false))
 -- Lua:   2  2
 -- Golua: 1  2
+```
+
+### GOLUA-048: A chunk name with no `=` or `@` mark is shown as it is
+**Test file**: errors.lua (adapted), db.lua (disabled)
+
+Messages and tracebacks show a chunk name that starts with `=` or `@` as Lua does: without the mark, cut to 59 bytes (the start of a `=` name; `...` and the end of a file name). They differ for every other name. Lua takes such a name for the source text of the chunk and shows its first line as `[string "..."]`; golua shows the name as it is. The names given by default differ too: a string loaded with no name is named after its own text in Lua and `chunk` in golua, and a file is `@` and its path in Lua, its path alone in golua (so a long path is never shortened). `debug.getinfo` has no `short_src` field.
+
+```lua
+print(pcall(load("error('x')", "my chunk")))
+-- Lua:   false  [string "my chunk"]:1: x
+-- Golua: false  my chunk:1: x
+print(pcall(load("error('x')")))
+-- Lua:   false  [string "error('x')"]:1: x
+-- Golua: false  chunk:1: x
 ```
