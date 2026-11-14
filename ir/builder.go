@@ -160,6 +160,26 @@ func (c *CodeBuilder) PopContext() {
 	c.emitClearReg(top)
 }
 
+// PoppingEmits reports whether popping the n innermost contexts would emit
+// instructions: closing the to-be-closed variables declared in them, or
+// clearing the registers of their locals that closures capture.
+func (c *CodeBuilder) PoppingEmits(n int) bool {
+	ctx := c.context
+	for ; n > 0; n-- {
+		var top lexicalScope
+		ctx, top = ctx.pop()
+		if top.height > ctx.top().height {
+			return true
+		}
+		for _, tr := range top.regs() {
+			if tr.tags&regHasUpvalue != 0 && tr.reg >= 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (c *CodeBuilder) emitClearReg(m lexicalScope) {
 	for _, tr := range m.regs() {
 		if tr.tags&regHasUpvalue != 0 && tr.reg >= 0 {

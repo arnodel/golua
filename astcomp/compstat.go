@@ -58,6 +58,11 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 	c.DeclareLocal(loopSRegName, sReg)
 	c.DeclareLocal(loopVarRegName, varReg)
 
+	// The loop ends when the first variable is nil: the nil is loaded once,
+	// and each iteration tests the variable against it with one instruction.
+	nilReg := c.GetFreeRegister()
+	c.emitLoadConst(s, ir.NilType{}, nilReg)
+
 	loopLbl := c.GetNewLabel()
 	must(c.EmitLabelNoLine(loopLbl))
 
@@ -79,16 +84,8 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 	})
 	var1, _ := c.GetRegister(ir.Name(s.Vars[0].Val))
 
-	testReg := c.GetFreeRegister()
-	c.emitLoadConst(s, ir.NilType{}, testReg)
-	c.emitInstr(s, ir.Combine{
-		Dst:  testReg,
-		Op:   ops.OpEq,
-		Lsrc: var1,
-		Rsrc: testReg,
-	})
 	endLbl := c.DeclareGotoLabelNoLine(breakLblName)
-	c.emitInstr(s, ir.JumpIf{Cond: testReg, Label: endLbl})
+	c.emitInstr(s, ir.JumpIfCmp{Op: ops.OpEq, Lsrc: var1, Rsrc: nilReg, Label: endLbl})
 	c.emitInstr(s, ir.Transform{Dst: varReg, Op: ops.OpId, Src: var1})
 	c.compileBlock(s.Body)
 
@@ -353,11 +350,24 @@ func (c *compiler) ProcessRepeatStat(s ast.RepeatStat) {
 
 	loopLbl := c.GetNewLabel()
 	must(c.EmitLabelNoLine(loopLbl))
-	pop := c.compileBlockNoPop(s.Body, false)
-	// The condition can see the body's locals, so it is computed before the
-	// body's scope closes, and tested after: the code that closes the scope
-	// must run whichever way the loop goes.  So it is a value, but a "not" in
-	// front of it goes into the jump.
+	pop, depth := c.compileBlockNoPop(s.Body, false)
+	// The condition can see the body's locals, so it is compiled before the
+	// body's scope closes.  Usually closing the scope emits nothing, and the
+	// condition compiles as a condition: one jump, with its comparison if it
+	// is one.  (A closure in the condition capturing a local of the body
+	// makes the scope clear that local's register on the way out only, which
+	// is fine: clearing only lets go of the box.)
+	if !c.PoppingEmits(depth) {
+		c.compileCondJump(s.Cond, loopLbl, false)
+		pop()
+		must(c.EmitGotoLabel(breakLblName))
+		c.PopContext()
+		return
+	}
+	// Otherwise the code that closes the scope must run after the condition
+	// is evaluated, whichever way the loop goes: so the condition is computed
+	// as a value before, and tested after.  A "not" in front of it still goes
+	// into the jump.
 	cond, loopIf := s.Cond, false
 	for {
 		u, ok := asUnOp(cond)
@@ -412,10 +422,14 @@ func (c *compiler) CompileStat(s ast.Stat) {
 //
 
 func (c *compiler) compileBlock(s ast.BlockStat) {
-	c.compileBlockNoPop(s, true)()
+	pop, _ := c.compileBlockNoPop(s, true)
+	pop()
 }
 
-func (c *compiler) compileBlockNoPop(s ast.BlockStat, complete bool) func() {
+// compileBlockNoPop compiles a block without closing the scopes its local
+// declarations open.  It returns the function that closes them and how many
+// there are.
+func (c *compiler) compileBlockNoPop(s ast.BlockStat, complete bool) (pop func(), depth int) {
 	totalDepth := 0
 	noBackLabels := getLabels(c.CodeBuilder, s.Stats)
 	truncLen := len(s.Stats)
@@ -451,7 +465,7 @@ func (c *compiler) compileBlockNoPop(s ast.BlockStat, complete bool) func() {
 		for ; totalDepth > 0; totalDepth-- {
 			c.PopContext()
 		}
-	}
+	}, totalDepth
 }
 
 // Declares goto labels for the statements in order, stopping when encountering

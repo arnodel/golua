@@ -102,16 +102,43 @@ jump L0 if r3 is not true
 jump L1
 L0:
 `},
-		// r6 holds the condition, computed before the body's scope closes.
+		// The condition of a repeat loop is compiled as a condition like any
+		// other, as long as closing the body's scope emits nothing.
 		{"repeat a = 1 until not a", `
 L1:
-jump L1 if r6 is not false
+jump L1 if r2 is not false
 L0:
 `},
 		{"repeat local d = a until d", `
 L1:
+jump L1 if r5 is not true
+L0:
+`},
+		{"repeat a = 1 until a == b", `
+L1:
+if not OpEq(r2, r3) jump L1
+L0:
+`},
+		// When closing the scope emits code (a to-be-closed variable, a local
+		// captured by a closure), the condition is a value computed before,
+		// and tested after.
+		{"repeat local d <close> = a until d", `
+L1:
 jump L1 if r6 is not true
 L0:
+`},
+		{"repeat local d = a; local function f() return d end until d == b", `
+L1:
+jump L1 if r7 is not true
+L0:
+`},
+		// A generic for loop tests its first variable against a nil loaded
+		// once, before the loop.
+		{"for k in a do a = 1 end", `
+L0:
+if OpEq(r10, r9) jump L1
+jump L0
+L1:
 `},
 		// A constant condition needs no test.
 		{"repeat a = 1 until false", `
