@@ -123,6 +123,19 @@ func (t *Table) resetString(k, v Value) (wasSet bool) {
 	return t.hashTable.resetString(k, v)
 }
 
+// setInArrayRoom implements t[k] = v for a key that has no value in t, when
+// that needs nothing but a store: v is not nil, k is an integer that the
+// array part has room for, and t has no "__newindex" metamethod to be asked
+// first.  It reports whether it did.  This is what most appends are, the
+// array part growing by doubling.
+func (t *Table) setInArrayRoom(k, v Value) bool {
+	if v.IsNil() || t.meta != nil && !t.meta.metaField(metaNewindex).IsNil() {
+		return false
+	}
+	i, ok := ToIntNoString(k)
+	return ok && t.array.setValue(i, v)
+}
+
 // Set implements t[k] = v (doesn't check if k is nil). It returns the number
 // of bytes the table allocated to store v: zero when v fits in storage the
 // table already has, the size of the new storage when the table had to grow.

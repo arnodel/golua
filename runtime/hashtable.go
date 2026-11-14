@@ -115,6 +115,20 @@ func (t *mixedTable) insert(k, v Value) {
 	if ok && t.array.setValue(i, v) {
 		return
 	}
+	// Appending: the key is the one after the last that the array part has
+	// room for.  The array part doubles to take it, rather than the value
+	// going to the hash part to be moved to the array part when that fills
+	// up.  That is only right for an array that is in use: when less than
+	// half of it holds values (a queue, say, filled at one end and emptied
+	// at the other) the key goes the ordinary way, which grows the array
+	// part by what the table holds, not by where it is written.
+	if sz := t.array.size(); ok && uint64(i) == uint64(sz)+1 && 2*t.array.itemCount() >= sz {
+		if t.growArray(max(2*sz, minArraySize)) {
+			t.hashTable.cleanup()
+		}
+		t.array.setValue(i, v)
+		return
+	}
 	if t.hashTable.full() {
 		t.grow()
 		if ok && t.array.setValue(i, v) {
@@ -245,19 +259,33 @@ func (t *mixedTable) grow() {
 		return
 	}
 
-	array := t.array.grow(newSize)
-	for i := range t.hashTable.slots {
-		it := &t.hashTable.slots[i]
-		if it.value.IsNil() {
-			continue
-		}
-		j, ok := it.key.TryInt()
-		if ok && array.setValue(j, it.value) {
-			it.value = NilValue
+	t.growArray(newSize)
+	t.hashTable.cleanup()
+}
+
+// minArraySize is the size an array part starts at when it is appended to.
+const minArraySize = 4
+
+// growArray makes the array part sz values long and moves into it the values
+// that the hash part holds for keys the array part now covers.  It reports
+// whether it moved any, which leaves the hash part to be cleaned up.
+func (t *mixedTable) growArray(sz uintptr) (moved bool) {
+	array := t.array.grow(sz)
+	if h := t.hashTable; h != nil {
+		for i := range h.slots {
+			it := &h.slots[i]
+			if it.value.IsNil() {
+				continue
+			}
+			j, ok := it.key.TryInt()
+			if ok && array.setValue(j, it.value) {
+				it.value = NilValue
+				moved = true
+			}
 		}
 	}
 	t.array = array
-	t.hashTable.cleanup()
+	return moved
 }
 
 //
