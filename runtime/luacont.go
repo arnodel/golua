@@ -563,7 +563,7 @@ RunLoop:
 						c.pc = pc
 						return nil, errors.New("to be closed value missing a __close metamethod")
 					}
-					t.closeStack.push(v)
+					t.pushClose(v)
 				} else {
 					// Truncate close stack
 					h := c.closeStackBase + int(opcode.GetClStackOffset())

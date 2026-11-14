@@ -246,7 +246,7 @@ func continueCall(t *Thread, f Value, next Cont) (Cont, error) {
 			// The frame to run next is the one k gives, and the
 			// continuation of the call is not used: the call does not
 			// return.
-			return k.resume(t), nil
+			return k.resume(t)
 		}
 		return k.Continuation(t, next), nil
 	}

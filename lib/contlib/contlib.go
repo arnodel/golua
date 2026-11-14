@@ -27,9 +27,13 @@
 // error to call a continuation once the pcall, metamethod call or coroutine
 // it was captured in has returned, and to call it from another coroutine.
 //
-// Apart from that, to-be-closed variables and continuations do not work
-// together yet: calling a continuation does not close the variables of the
-// blocks it leaves when no Go function is left with them.
+// Calling a continuation leaves blocks, as break and return do, and their
+// to-be-closed variables are closed, the innermost first.  The exception is
+// a block in which a continuation was captured: it can be entered again, by
+// calling that continuation, so its variable stays pending, as that of a
+// coroutine which has yielded does, and is closed when the block ends.  A
+// block that is entered several times ends several times, and its variable
+// is closed once.
 package contlib
 
 import (

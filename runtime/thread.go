@@ -144,9 +144,12 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 				if call.k.loop != t.loop {
 					return t.cleanupCloseStack(c, closeStackBase, err)
 				}
-				c, err = call.k.resume(t), nil
-				c.PushEtc(t.Runtime, call.args)
-				continue
+				if next, err = call.k.resume(t); err == nil {
+					next.PushEtc(t.Runtime, call.args)
+					c = next
+					continue
+				}
+				// Closing a variable failed: that is an error like any.
 			}
 			rtErr := ToError(err)
 			if rtErr.Handled() {
@@ -380,61 +383,149 @@ func (t *Thread) CallContext(def RuntimeContextDef, f func() error) (ctx Runtime
 // close stack operations
 //
 
+// A closeStack is the stack of the values to be closed that are pending in a
+// thread.  Its height counts every value pushed, and it only holds those
+// that are to be closed in fact, not nil or false: each knows the height of
+// the stack it is the top of.
+//
+// The values are linked from the top down rather than held in an array, so
+// that a continuation can keep the stack as it was when it was captured (see
+// switchCloseStack).  With continuations the pending values of a thread form
+// a tree, of which the thread's closeStack is the branch that is running.
 type closeStack struct {
-	stack []Value
+	top    *closeNode
+	height int
+}
+
+// A closeNode is a value to be closed and the ones pushed before it.
+type closeNode struct {
+	value  Value
+	height int // Height of the stack with this value on top
+	next   *closeNode
+
+	// A continuation was captured with this value pending: the block it is
+	// in can be entered again.
+	captured bool
+
+	// The value was closed.  Copies of a frame share it, and it is closed
+	// once.
+	closed bool
 }
 
 func (s closeStack) size() int {
-	return len(s.stack)
+	return s.height
 }
 
-func (s *closeStack) push(v Value) {
-	s.stack = append(s.stack, v)
-}
-
-func (s *closeStack) pop() (Value, bool) {
-	sz := len(s.stack)
-	if sz == 0 {
-		return NilValue, false
-	}
-	sz--
-	v := s.stack[sz]
-	s.stack = s.stack[:sz]
-	return v, true
-}
-
+// truncate brings the stack down to height h without closing anything.
 func (s *closeStack) truncate(h int) {
-	sz := len(s.stack)
-	if sz > h {
-		s.stack = s.stack[:h]
+	for s.top != nil && s.top.height > h {
+		s.top = s.top.next
+	}
+	if s.height > h {
+		s.height = h
+	}
+}
+
+// pushClose pushes v on the thread's close stack.
+func (t *Thread) pushClose(v Value) {
+	s := &t.closeStack
+	s.height++
+	if Truth(v) {
+		t.RequireSize(unsafe.Sizeof(closeNode{}))
+		s.top = &closeNode{value: v, height: s.height, next: s.top}
 	}
 }
 
 // Truncate the close stack to size h, calling the __close metamethods in the
 // context of the given continuation c and feeding them with the given error.
 func (t *Thread) cleanupCloseStack(c Cont, h int, err error) error {
-	closeStack := &t.closeStack
-	for closeStack.size() > h {
-		v, _ := closeStack.pop()
-		if Truth(v) {
-			// Lua 5.5: __close receives 1 arg (the object) when closing normally,
-			// and 2 args (the object and the error) when closing due to an error.
-			var args []Value
-			if err == nil || IsContinuationCall(err) {
-				args = []Value{v}
-			} else {
-				args = []Value{v, ErrorValue(err)}
+	s := &t.closeStack
+	if s.height <= h {
+		return err
+	}
+	for s.top != nil && s.top.height > h {
+		n := s.top
+		s.top, s.height = n.next, n.height-1
+		closeErr, ok := t.closeValue(c, n, err)
+		if !ok {
+			return errors.New("to be closed value missing a __close metamethod")
+		}
+		if closeErr != nil {
+			err = closeErr
+		}
+	}
+	s.height = h
+	return err
+}
+
+// closeValue calls the __close metamethod of the value of n, unless that
+// was done already.  It returns the error of the call, and false if there is
+// no metamethod to call.
+func (t *Thread) closeValue(c Cont, n *closeNode, err error) (error, bool) {
+	if n.closed {
+		return nil, true
+	}
+	n.closed = true
+	// Lua 5.5: __close receives 1 arg (the object) when closing normally,
+	// and 2 args (the object and the error) when closing due to an error.
+	var args []Value
+	if err == nil || IsContinuationCall(err) {
+		args = []Value{n.value}
+	} else {
+		args = []Value{n.value, ErrorValue(err)}
+	}
+	return metacall(t, n.value, metaClose, args, NewTerminationWith(c, 0, false))
+}
+
+// capture returns the close stack for a continuation to keep, with its
+// pending values marked as captured.
+func (s *closeStack) capture() closeStack {
+	// A captured value has only captured values under it.
+	for n := s.top; n != nil && !n.captured; n = n.next {
+		n.captured = true
+	}
+	return *s
+}
+
+// switchCloseStack makes to, the close stack a continuation has kept, the
+// thread's, as the continuation is about to run.
+//
+// The two stacks are branches of one tree: they have the values in common
+// that were pending before they parted, and the blocks of the others are
+// left by the switch.  A block that is left is over if no continuation was
+// captured in it, as nothing can run it again, and then its value is closed.
+// If one was, the block may be entered again, by calling that continuation:
+// its value stays pending, and is closed when the block ends, as that of a
+// coroutine which has yielded.
+func (t *Thread) switchCloseStack(to closeStack) error {
+	s := &t.closeStack
+	if s.top != to.top {
+		// Where the branches part: the first value they have in common.
+		a, b := s.top, to.top
+		for a != b {
+			switch {
+			case b == nil || (a != nil && a.height > b.height):
+				a = a.next
+			case a == nil || b.height > a.height:
+				b = b.next
+			default:
+				a, b = a.next, b.next
 			}
-			closeErr, ok := metacall(t, v, metaClose, args, NewTerminationWith(c, 0, false))
+		}
+		for s.top != a && !s.top.captured {
+			n := s.top
+			s.top, s.height = n.next, n.height-1
+			closeErr, ok := t.closeValue(t.currentCont, n, nil)
 			if !ok {
 				return errors.New("to be closed value missing a __close metamethod")
 			}
 			if closeErr != nil {
-				err = closeErr
+				return closeErr
 			}
 		}
 	}
-	return err
+	*s = to
+	return nil
 }
 
 //

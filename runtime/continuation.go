@@ -25,6 +25,9 @@ type Continuation struct {
 	loop   *runLoop // The thread's loop at the capture, see call
 	cont   Cont     // A frozen frame, or a continuation that is not a frame
 
+	// The values to be closed that were pending at the capture.
+	closeStack closeStack
+
 	goFunction *GoFunction // Calls k, for Go code; made when first needed
 }
 
@@ -52,7 +55,7 @@ func callcc(t *Thread, c *GoCont) (Cont, error) {
 		t.loop = new(runLoop)
 	}
 	t.RequireSize(unsafe.Sizeof(Continuation{}))
-	k := &Continuation{thread: t, loop: t.loop, cont: next}
+	k := &Continuation{thread: t, loop: t.loop, cont: next, closeStack: t.closeStack.capture()}
 
 	// f returns where callcc would: this is a tail call.
 	fc, err := Continue(t, c.Arg(0), next)
@@ -72,12 +75,18 @@ type runLoop struct {
 
 // resume returns a continuation that carries on the computation k was
 // captured from, for its caller to push values into and run in place of the
-// running one.  The thread must be in the loop k was captured in.
-func (k *Continuation) resume(t *Thread) Cont {
-	if frame, ok := k.cont.(*frozenCont); ok {
-		return frame.thaw(t)
+// running one.  The thread must be in the loop k was captured in.  The
+// values to be closed that are pending become those of k, which closes those
+// of the blocks that are left for good (see switchCloseStack), and that can
+// fail.
+func (k *Continuation) resume(t *Thread) (Cont, error) {
+	if err := t.switchCloseStack(k.closeStack); err != nil {
+		return nil, err
 	}
-	return k.cont
+	if frame, ok := k.cont.(*frozenCont); ok {
+		return frame.thaw(t), nil
+	}
+	return k.cont, nil
 }
 
 // Continuation implements Callable.Continuation.  The call is that of a Go
@@ -116,7 +125,10 @@ func (k *Continuation) Continuation(t *Thread, next Cont) Cont {
 func (k *Continuation) call(t *Thread, c *GoCont) (Cont, error) {
 	switch {
 	case t.loop == k.loop:
-		cont := k.resume(t)
+		cont, err := k.resume(t)
+		if err != nil {
+			return nil, err
+		}
 		cont.PushEtc(t.Runtime, c.Etc())
 		return cont, nil
 	case t != k.thread:
