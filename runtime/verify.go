@@ -17,7 +17,7 @@ const maxRegCount = 256
 // on one of the operand words that list a call's arguments), and execution
 // cannot run past the end of the code, whichever way it goes.  Without
 // quotas, the run loop relies on this to access registers, opcodes and
-// constants without checking their index (access_noquotas.go).
+// constants without checking their index (luacont_access_noquotas.go).
 //
 // Code produced by the compiler should always pass; code loaded from a binary
 // chunk cannot be trusted to.

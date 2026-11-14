@@ -8,7 +8,7 @@ import "github.com/arnodel/golua/code"
 // function's code, its constants and its lookup hints, through the accessors
 // below.  Code.verify has established, before a function can run, that none
 // of these can be out of bounds, and the build without quotas relies on it
-// to index without a check (access_noquotas.go).  This build is the one that
+// to index without a check (luacont_access_noquotas.go).  This build is the one that
 // runs code it does not trust, and its speed comes second: it keeps Go's
 // bounds checks as a second line of defence, so that a mistake in the
 // verifier is a panic rather than a read or a write outside a frame.

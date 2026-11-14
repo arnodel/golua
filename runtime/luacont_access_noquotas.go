@@ -22,7 +22,7 @@ import (
 //     a function make Code.slotCache as long as its code).
 //
 // The build with quotas, which is the one that runs code it does not trust,
-// keeps the checks (access.go).
+// keeps the checks (luacont_access.go).
 
 // setReg and getReg access a register.  A box's contents are reached only
 // through the load and store opcodes (ir.LowerCells).
