@@ -15,6 +15,7 @@ library is mostly implemented.
 		- [Safe execution environment (alpha)](#safe-execution-environment-alpha)
 		- [Importing and using Go packages](#importing-and-using-go-packages)
 	- [Quick start: embedding golua](#quick-start-embedding-golua)
+		- [A faster build with golua's profile](#a-faster-build-with-goluas-profile)
 	- [Quick start: extending golua](#quick-start-extending-golua)
 	- [Aim](#aim)
 	- [Design constraints](#design-constraints)
@@ -196,6 +197,32 @@ It's very easy to embed the golua compiler / runtime in a Go program. The exampl
 	// --> 42
 	fmt.Println(sum.AsInt())
 ```
+
+### A faster build with golua's profile
+
+The `golua` command is built with profile-guided optimisation: the Go compiler
+reads [`default.pgo`](default.pgo), a CPU profile of golua running its
+benchmarks, and optimises the paths the profile shows are hot.  That makes it
+7 to 9% faster on those benchmarks, and it happens by itself when you build or
+install the command.
+
+The compiler only looks for that file in the directory of the program it is
+building, so a program that embeds golua has to be given it.  The profile comes
+with the module:
+
+```sh
+# use golua's profile for your program
+cat "$(go list -m -f '{{.Dir}}' github.com/arnodel/golua)/default.pgo" > default.pgo
+
+# or, if you have a profile of your own program, merge the two
+go tool pprof -proto mine.pprof \
+    "$(go list -m -f '{{.Dir}}' github.com/arnodel/golua)/default.pgo" > default.pgo
+```
+
+Put `default.pgo` in the directory of your `main` package, or give its path to
+`go build` with `-pgo`.  The profile names golua's functions, so it changes
+nothing in your own code.  [benchmarks/README.md](benchmarks/README.md#the-profile)
+says how it is made.
 
 ## Quick start: extending golua
 

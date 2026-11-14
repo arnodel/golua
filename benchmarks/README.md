@@ -40,6 +40,10 @@ reference Lua runs as a separate process for all of a benchmark's iterations,
 so its time includes starting it and loading the benchmark, spread over the
 iterations.
 
+The `golua` command is built with a profile (see [below](#the-profile)), which
+`go test` does not use: add `-pgo=default.pgo` to time what a build of the
+command gets.
+
 To see the effect of a change, compare runs before and after it with
 [benchstat](https://pkg.go.dev/golang.org/x/perf/cmd/benchstat):
 
@@ -64,7 +68,8 @@ benchmarks/gauge.sh -l /path/to/lua ed8ba02 lua5.5 my-branch
 ```
 
 Every revision runs this checkout's benchmarks, so old revisions are timed on
-programs added since, and all of them are built with `-tags noquotas`.  The
+programs added since, and all of them are built with `-tags noquotas`, and
+with the revision's own profile if it has one.  The
 revisions run in turn for a few rounds (`-n`, 3 by default) and the best time
 counts.  A benchmark that a revision fails is shown as `-` and left out of
 the geomean.  Each revision is a separate binary, so a difference of a few
@@ -72,6 +77,42 @@ percent on one benchmark can come from where the Go linker puts code; to
 measure one change, compare the same binary with the change switched on and
 off.  [`notes/benchmark-checkpoints.md`](../notes/benchmark-checkpoints.md)
 keeps the results over time.
+
+## The profile
+
+[`default.pgo`](../default.pgo), at the root of the repository, is a CPU
+profile that the Go compiler optimises golua with (profile-guided
+optimisation): it inlines the calls the profile shows are hot, and turns hot
+calls through an interface into direct ones.  `go build` and `go install` find
+it beside `main.go` by themselves; a program that embeds golua has to be given
+it (see the main [README](../README.md#a-faster-build-with-goluas-profile)).
+
+[`pgo.sh`](pgo.sh) makes it: it runs every benchmark for the same time, in the
+build with quotas and in the one without, both compiled without a profile, and
+merges the two profiles.
+
+```sh
+benchmarks/pgo.sh
+```
+
+Three things to know about it:
+
+  - **It is not tuned to the benchmarks.**  A profile made from the 14 Are We
+    Fast Yet programs alone speeds up the 9 other programs, which it has never
+    seen, as much as the full profile does (4.4% against 4.4% when this was
+    introduced): what it records is which paths of the interpreter are hot,
+    and those are much the same for any Lua program.
+  - **It goes stale.**  The profile names functions and the lines of the calls
+    in them, counted from the start of the function.  A change that moves the
+    lines of the run loop (`RunInThread`) loses what the compiler does inside
+    it, about a third of the gain, until the profile is made again; the rest
+    survives.  Nothing breaks: a call the compiler cannot match is compiled as
+    without a profile.  So make it again in a change that adds or removes
+    lines in the run loop, and before a release.
+  - **It gets in the way of measuring such a change.**  When two revisions
+    differ in the lines of the run loop, building both with the same profile
+    favours the one the profile was made from.  Compare them with `-pgo=off`
+    on both sides, or with a profile made for each.
 
 ## Are We Fast Yet
 

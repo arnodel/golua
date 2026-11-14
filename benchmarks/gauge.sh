@@ -5,13 +5,15 @@
 #   benchmarks/gauge.sh [-n rounds] [-l lua] REV...
 #
 # Each revision's interpreter is built with this checkout's benchmarks/ in
-# place of its own, so every revision runs the same programs, and with
-# -tags noquotas, the build performance work targets.  The revisions run in
-# turn, round after round, so that a machine getting slower or faster affects
-# them all alike; C Lua runs once per round.  The table gives each
-# benchmark's best time over the rounds as a multiple of C Lua's best (below
-# 1× is faster than C Lua).  A benchmark a revision fails to run is shown as
-# "-" and reported, and the geomean is over the benchmarks every revision ran.
+# place of its own, so every revision runs the same programs, with
+# -tags noquotas, the build performance work targets, and with the revision's
+# own profile (default.pgo) if it has one, as a build of its golua command
+# would be.  The revisions run in turn, round after round, so that a machine
+# getting slower or faster affects them all alike; C Lua runs once per round.
+# The table gives each benchmark's best time over the rounds as a multiple of
+# C Lua's best (below 1× is faster than C Lua).  A benchmark a revision fails
+# to run is shown as "-" and reported, and the geomean is over the benchmarks
+# every revision ran.
 
 set -e
 rounds=3
@@ -39,7 +41,9 @@ for rev in "$@"; do
 	git -C "$top" archive "$rev" | tar -x -C "$work/$i"
 	rm -rf "$work/$i/benchmarks"
 	cp -R "$top/benchmarks" "$work/$i/benchmarks"
-	(cd "$work/$i" && go test -c -tags noquotas -o "$work/$i.test" ./benchmarks)
+	pgo=off
+	[ -f "$work/$i/default.pgo" ] && pgo="$work/$i/default.pgo"
+	(cd "$work/$i" && go test -c -pgo="$pgo" -tags noquotas -o "$work/$i.test" ./benchmarks)
 done
 
 for round in $(seq "$rounds"); do
