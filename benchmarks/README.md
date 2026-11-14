@@ -92,10 +92,11 @@ build with quotas and in the one without, both compiled without a profile, and
 merges the two profiles.
 
 ```sh
-benchmarks/pgo.sh
+benchmarks/pgo.sh       # make the profile, about 3 minutes
+benchmarks/pgo.sh -c    # check that it is up to date
 ```
 
-Three things to know about it:
+Four things to know about it:
 
   - **It is not tuned to the benchmarks.**  A profile made from the 14 Are We
     Fast Yet programs alone speeds up the 9 other programs, which it has never
@@ -107,8 +108,15 @@ Three things to know about it:
     lines of the run loop (`RunInThread`) loses what the compiler does inside
     it, about a third of the gain, until the profile is made again; the rest
     survives.  Nothing breaks: a call the compiler cannot match is compiled as
-    without a profile.  So make it again in a change that adds or removes
-    lines in the run loop, and before a release.
+    without a profile.
+  - **It is made again for each release, not for each change.**  The profile
+    is 90K that git cannot store as a difference, and one commit in four
+    changes the run loop: making it again each time would soon outweigh the
+    rest of the repository.  A release is what `go install` gives, so that is
+    when it has to be right.  `pgo.sh` records the run loop it made the
+    profile for in [`pgo.sum`](pgo.sum), `pgo.sh -c` fails if the run loop has
+    changed since, and CI runs that check on a release tag.  Before tagging,
+    run the check, and make the profile again if it fails.
   - **It gets in the way of measuring such a change.**  When two revisions
     differ in the lines of the run loop, building both with the same profile
     favours the one the profile was made from.  Compare them with `-pgo=off`
