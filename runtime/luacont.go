@@ -290,7 +290,7 @@ RunLoop:
 			dst := opcode.GetA()
 			if opcode.GetF() {
 				// dst must contain a continuation
-				cont := getReg(regs, dst).AsCont()
+				cont := contToPush(t, regs, dst)
 				cont.Push(t.Runtime, val)
 			} else {
 				setReg(regs, dst, val)
@@ -358,7 +358,7 @@ RunLoop:
 					}
 					err = errNotABox
 				case code.OpEtcId:
-					cont := getReg(regs, dst).AsCont()
+					cont := contToPush(t, regs, dst)
 					var etc []Value
 					etc, err = expandVarargs(t, val)
 					if err != nil {
@@ -423,7 +423,7 @@ RunLoop:
 				return nil, err
 			}
 			if opcode.GetF() {
-				getReg(regs, dst).AsCont().Push(t.Runtime, res)
+				contToPush(t, regs, dst).Push(t.Runtime, res)
 			} else {
 				setReg(regs, dst, res)
 			}
@@ -448,18 +448,20 @@ RunLoop:
 
 				// The register holds either a continuation or the callee,
 				// whose frame the call makes: Continue inlined by hand, as
-				// for the cont opcodes.  r0 always holds the caller's
-				// continuation, so "call r0", a return, needs no test; a
-				// continuation anywhere else was made by a cont opcode.  A
-				// callee stays in its register, which the call leaves alone:
-				// it may be a local.
+				// for the cont opcodes.  A Lua frame is told first: it is
+				// where most returns go, and what a cont opcode makes for
+				// a Lua function.  r0 always holds the caller's
+				// continuation whatever its kind, and one that is a frozen
+				// frame is replaced with a copy that can run.  A callee
+				// stays in its register, which the call leaves alone: it
+				// may be a local.
 				callee := getReg(regs, contReg)
 				var next Cont
 				isCont := true
-				if contReg == code.ValueReg(0) {
-					next = callee.AsCont()
-				} else if lc, ok := callee.iface.(*LuaCont); ok {
+				if lc, ok := callee.iface.(*LuaCont); ok {
 					next = lc
+				} else if contReg == code.ValueReg(0) {
+					next = contToPush(t, regs, contReg)
 				} else {
 					isCont = false
 					var cnext Cont = c
@@ -807,4 +809,17 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 
 func (c *LuaCont) clearReg(reg code.Reg) {
 	c.registers[reg] = NilValue
+}
+
+// contToPush returns the continuation in a register, for the run loop to
+// push values into.  A frozen frame is first replaced, in the register too,
+// with a copy that can run (see frozenCont).
+func contToPush(t *Thread, regs []Value, reg code.Reg) Cont {
+	v := getReg(regs, reg)
+	if frame, ok := v.iface.(*frozenCont); ok {
+		c := frame.thaw(t)
+		setReg(regs, reg, Value{iface: c})
+		return c
+	}
+	return v.AsCont()
 }

@@ -93,6 +93,12 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
 	}
 	t.RequireCPU(1)
 
+	// The function pushes its results into the next continuation: a frozen
+	// frame is replaced with a copy that can run.
+	if frame, ok := c.next.(*frozenCont); ok && !c.keepsNext {
+		c.next = frame.thaw(t)
+	}
+
 	t.goFunctionCallDepth++
 	defer func() { t.goFunctionCallDepth-- }()
 
