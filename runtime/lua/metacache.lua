@@ -71,3 +71,20 @@ local function setidx(m, v) m.__index = v end
 setidx(late, {x = "later"})
 print(d.x)
 --> =later
+
+-- The length of a table is its own until its metatable has "__len", and
+-- again once it is taken away.
+local lt = setmetatable({1, 2, 3}, {})
+local lmt = getmetatable(lt)
+print(#lt, #"abc", #{})
+--> =3	3	0
+lmt.__len = function() return 42 end
+print(#lt)
+--> =42
+lmt.__len = nil
+print(#lt)
+--> =3
+lt[#lt + 1] = 4
+table.insert(lt, 5)
+print(#lt)
+--> =5
