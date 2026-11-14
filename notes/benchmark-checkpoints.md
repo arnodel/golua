@@ -34,6 +34,101 @@ for its interpreter alone).  Shopify/go-lua has no command-line interpreter
 and implements Lua 5.2, which the benchmarks outgrow; apogee's own harness
 drives it as a library and publishes 4.8× C Lua for it.
 
+## 2026-11-14, golua over its revisions, Apple M1 Max
+
+Taken with [`benchmarks/gauge.sh`](../benchmarks/gauge.sh), 3 rounds,
+against C Lua 5.5.1 (Homebrew), all four built the same day with Go 1.27.4:
+the previous checkpoint (f3b177e, #235), lua5.5 after the work on loops and
+conditions (b2af912: #245 to #248, #251, #252), after the run loop lost its
+bounds checks (8775256: #253), and lua5.5 built with a profile (00791a0:
+#254, #255).
+
+| benchmark | f3b177e | b2af912 | 8775256 | 00791a0 |
+|---|---|---|---|---|
+| bounce | 2.61× | 2.39× | 2.30× | 2.09× |
+| cd | 1.86× | 1.80× | 1.77× | 1.59× |
+| deltablue | 2.45× | 2.38× | 2.34× | 2.16× |
+| havlak | 1.70× | 1.66× | 1.64× | 1.52× |
+| json | 2.59× | 2.52× | 2.46× | 2.21× |
+| list | 2.10× | 2.08× | 1.99× | 1.89× |
+| mandelbrot | 1.92× | 1.72× | 1.60× | 1.42× |
+| nbody | 2.34× | 2.23× | 2.14× | 1.87× |
+| permute | 2.65× | 2.48× | 2.39× | 2.26× |
+| queens | 2.54× | 2.41× | 2.33× | 2.26× |
+| richards | 2.45× | 2.41× | 2.31× | 2.15× |
+| sieve | 2.82× | 2.34× | 2.17× | 2.14× |
+| storage | 1.83× | 1.76× | 1.74× | 1.65× |
+| towers | 2.98× | 2.92× | 2.81× | 2.67× |
+| binary-trees | 2.56× | 2.50× | 2.48× | 2.42× |
+| fannkuch-redux | 2.18× | 1.76× | 1.70× | 1.67× |
+| spectral-norm | 2.49× | 2.33× | 2.17× | 2.07× |
+| fasta | 2.72× | 2.45× | 2.37× | 2.28× |
+| k-nucleotide | 1.72× | 1.65× | 1.62× | 1.45× |
+| regex-dna | 1.31× | 1.31× | 1.31× | 1.26× |
+| coroutine-ring | 5.07× | 4.93× | 4.89× | 4.60× |
+| md5 | 2.69× | 2.64× | 2.48× | 2.34× |
+| life | 1.41× | 1.30× | 1.27× | 1.26× |
+| **geomean of 23** | **2.30×** | **2.17×** | **2.10×** | **1.97×** |
+
+Notes:
+
+- golua is below 2× C Lua for the first time: 1.97×, from 2.34× three days
+  ago, 16% faster.  The four steps are of four different kinds: the Go
+  toolchain, the code the compiler generates, the run loop's fixed costs,
+  and how golua itself is compiled.
+- The previous checkpoint read 2.34× for f3b177e and this one reads 2.30×:
+  that is Go 1.25.4 to 1.27.4.  It is not a uniform gain.  What allocates
+  is faster, from the new collector (binary-trees 2.94× to 2.56×,
+  coroutine-ring 5.52× to 5.07×, k-nucleotide 1.88× to 1.72×, deltablue
+  2.58× to 2.45×, havlak 1.81× to 1.70×); loops that only compute are a
+  little slower (sieve 2.65× to 2.82×, md5 2.56× to 2.69×, spectral-norm
+  2.38× to 2.49×).
+- f3b177e to b2af912 is the generated code: a numeric for loop's body reads
+  the counter instead of a copy of it (#245, #246), a for loop opcode takes
+  the jump that follows it (#247), a comparison used as a condition is one
+  opcode that decides its jump, with no register for the boolean (#248),
+  and generic for loops and repeat loops test their conditions the same way
+  (#251).  Executed opcodes fall by about 12%.  The loop benchmarks gain
+  most: fannkuch 2.18× to 1.76×, sieve 2.82× to 2.34×, mandelbrot 1.92× to
+  1.72×, fasta 2.72× to 2.45×, bounce 2.61× to 2.39×.  The call-heavy ones
+  hardly move (towers 2.98× to 2.92×, richards 2.45× to 2.41×).  #252, in
+  the same step, makes the resource accounting calls of the build without
+  quotas compile to nothing, which they did not quite.
+- b2af912 to 8775256 is #253: without quotas, the run loop reads
+  registers, opcodes, constants and lookup hints without bounds checks,
+  relying on the verifier.  3% across the board, most where opcodes are
+  cheapest (mandelbrot 1.72× to 1.60×, sieve 2.34× to 2.17×, spectral-norm
+  2.33× to 2.17×, md5 2.64× to 2.48×).  Timed alone, the checks on
+  registers, on opcodes and on constants were each worth next to nothing;
+  the gain appears when all are gone.
+- 8775256 to 00791a0 changes no Go code: it is the profile-guided build
+  (#254).  The Go compiler reads `default.pgo`, a CPU profile of golua
+  running these benchmarks, inlines the calls it shows are hot and turns
+  hot interface calls into direct ones.  6%, the largest single step:
+  mandelbrot 1.60× to 1.42×, nbody 2.14× to 1.87×, json 2.46× to 2.21×, cd
+  1.77× to 1.59×, k-nucleotide 1.62× to 1.45×, bounce 2.30× to 2.09×.  It
+  is not the benchmarks being learnt: a profile made from the 14 Are We
+  Fast Yet programs alone speeds up the 9 others as much as the full
+  profile does ([`benchmarks/README.md`](../benchmarks/README.md#the-profile)).
+  `gauge.sh` now builds each revision with its own profile if it has one,
+  as a build of its `golua` command would be, so this column is what
+  `go install` gives.
+- The profile in 00791a0 was made before #253 and not again since
+  (`benchmarks/pgo.sh -c` says so): #253 changed the text of the run loop
+  but not its lines, so the profile still applies.  It is made again for a
+  release.
+- regex-dna (1.26×) and life (1.26×) are the closest to C Lua, one because
+  its time is in the string library, the other in the collector.
+  coroutine-ring stays the outlier at 4.6×: its time is in the Go
+  scheduler, a coroutine being a goroutine.
+- Where the time goes now, from a CPU profile set against the count of
+  executed opcodes (taken at b2af912, before the last two steps): calls are
+  13% of the opcodes and 24% of the run loop's time, a third of that in
+  making and releasing frames; field access is the most executed kind of
+  opcode and costs three times what it does in C Lua, a store into a table
+  nearly three times, an append five.  Arithmetic and loops are the closest,
+  at less than twice.
+
 ## 2026-11-11, golua over its revisions, Apple M1 Max
 
 Taken with [`benchmarks/gauge.sh`](../benchmarks/gauge.sh), 3 rounds,
