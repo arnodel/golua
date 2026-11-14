@@ -137,7 +137,7 @@ func SetIndex(t *Thread, coll Value, idx Value, val Value) error {
 			if idx.IsNaN() {
 				return errTableIndexIsNaN
 			}
-			if tbl.Reset(idx, val) {
+			if tbl.Reset(idx, val) || tbl.setInArrayRoom(idx, val) {
 				return nil
 			}
 		}
