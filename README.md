@@ -111,6 +111,21 @@ $ curl http://localhost:7777/hello/golua
 hi there from Lua! You requested /hello/golua
 ```
 
+A package is imported by building a Go plugin for it, with the `go` command,
+the first time; the plugin is kept, in `~/.golua/goplugins` or in the directory
+that `GOLUA_PLUGINS_ROOT` names, and opened from there afterwards.  Go only lets
+a program open a plugin built exactly as the program was, so:
+
+- the `go` command must be of the version of Go that golua was built with
+  (golua says so if it is not);
+- the plugins of each version of Go are kept apart, so building golua again
+  with a newer Go builds them again;
+- a plugin is built with the profile golua was built with (see
+  [below](#a-faster-build-with-goluas-profile)), which must still be where it
+  was then.
+
+This is not available on Windows, where Go has no plugins.
+
 To run a lua file:
 
 ```sh
