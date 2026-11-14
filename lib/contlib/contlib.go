@@ -26,6 +26,8 @@
 // a continuation is a way out of a pcall.  It is not a way back in: it is an
 // error to call a continuation once the pcall, metamethod call or coroutine
 // it was captured in has returned, and to call it from another coroutine.
+// Nor is it a way out of a context (runtime.callcontext), which ends with an
+// error instead.
 //
 // Calling a continuation leaves blocks, as break and return do, and their
 // to-be-closed variables are closed, the innermost first.  The exception is
