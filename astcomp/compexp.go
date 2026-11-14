@@ -182,7 +182,18 @@ func (c *expCompiler) ProcessStringExp(s ast.String) {
 
 // ProcessTableConstructorExp compiles a TableConstructorExp.
 func (c *expCompiler) ProcessTableConstructorExp(t ast.TableConstructor) {
-	c.emitInstr(t, ir.MkTable{Dst: c.dst})
+	// The table is made with capacity for what the constructor lists: values
+	// without a key go to its array part, the rest are counted as fields.
+	// A last value that may be several (a call, "...") is not counted.
+	var nvalues, nfields int
+	for i, field := range t.Fields {
+		if _, noKey := field.Key.(ast.NoTableKey); !noKey {
+			nfields++
+		} else if _, tail := field.Value.(ast.TailExpNode); !tail || i < len(t.Fields)-1 {
+			nvalues++
+		}
+	}
+	c.emitInstr(t, ir.MkTable{Dst: c.dst, NValues: nvalues, NFields: nfields})
 	currImplicitKey := 1
 	for i, field := range t.Fields {
 		keyExp := field.Key

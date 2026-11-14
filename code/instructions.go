@@ -89,6 +89,18 @@ func LoadEmptyTable(r Reg) Opcode {
 	return mkType4b(Off, OpTable, r, 0)
 }
 
+// MaxTableCapacity is the largest capacity, for values and for fields, that
+// LoadTable can ask a new table to have.
+const MaxTableCapacity = 15
+
+// LoadTable encodes r <- {}, a new empty table with capacity for nvalues
+// values in its array part and nfields fields in its hash part, as the
+// constructor that makes it is about to give it.  More than MaxTableCapacity
+// of either is not asked for: the table grows.
+func LoadTable(r Reg, nvalues, nfields int) Opcode {
+	return mkType4b(Off, OpTable, r, Lit8(min(nvalues, MaxTableCapacity)<<4|min(nfields, MaxTableCapacity)))
+}
+
 // LoadNil encodes r <- nil
 func LoadNil(r Reg) Opcode {
 	return mkType4b(Off, OpNil, r, 0)

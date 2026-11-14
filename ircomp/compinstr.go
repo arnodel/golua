@@ -223,7 +223,7 @@ func (ic instrCompiler) ProcessClearRegInstr(i ir.ClearReg) {
 
 // ProcessMkTableInstr compiles a MkTable instruction.
 func (ic instrCompiler) ProcessMkTableInstr(m ir.MkTable) {
-	opcode := code.LoadEmptyTable(ic.codeReg(m.Dst))
+	opcode := code.LoadTable(ic.codeReg(m.Dst), m.NValues, m.NFields)
 	ic.Emit(opcode)
 }
 

@@ -470,9 +470,12 @@ func (n NewBox) String() string {
 	return fmt.Sprintf("%s := newbox()", n.Dst)
 }
 
-// MkTable creates a new empty table and puts it i Dst.
+// MkTable creates a new empty table and puts it in Dst.  NValues and NFields
+// are how many values and fields the table is about to be given, when the
+// compiler knows: the table is made with capacity for them.
 type MkTable struct {
-	Dst Register
+	Dst              Register
+	NValues, NFields int
 }
 
 // ProcessInstr makes the InstrProcessor process this instruction.
@@ -485,7 +488,10 @@ func (m MkTable) Writes() []Register                        { return []Register{
 func (m MkTable) ReplaceRead(from, to Register) Instruction { return m }
 
 func (m MkTable) String() string {
-	return fmt.Sprintf("%s := mktable()", m.Dst)
+	if m.NValues == 0 && m.NFields == 0 {
+		return fmt.Sprintf("%s := mktable()", m.Dst)
+	}
+	return fmt.Sprintf("%s := mktable(%d, %d)", m.Dst, m.NValues, m.NFields)
 }
 
 // MkVarargTable creates a table whose array part points to the vararg data in Etc.

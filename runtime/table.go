@@ -26,6 +26,18 @@ func (r *Runtime) NewTable() *Table {
 	return NewTable()
 }
 
+// NewTableWithCapacity returns an empty table with room for nvalues values
+// in its array part and nfields fields in its hash part, charging the table
+// and that room to the current context.  A table about to be given a known
+// number of values or fields is best made this way: it does not grow as it
+// gets them.  A table constructor's is: the compiler counts what the
+// constructor lists.
+func (r *Runtime) NewTableWithCapacity(nvalues, nfields int) *Table {
+	t := NewTableWithCapacity(nvalues, nfields)
+	r.RequireMem(TableHeaderSize + t.storage().allocatedSince(tableStorage{}))
+	return t
+}
+
 // NewTableFromSlice creates a table whose array part references the given slice.
 // The slice is NOT copied - modifications to the table affect the underlying slice.
 func NewTableFromSlice(values []Value) *Table {
