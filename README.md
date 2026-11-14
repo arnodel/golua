@@ -203,7 +203,7 @@ $ golua again.lua
 ```
 
 Early exits, generators and backtracking can all be written with it: there are
-examples in [the library's tests](lib/contlib/lua/callcc.lua), and
+examples in [its tests](runtime/lua/continuation.lua), and
 [its documentation](lib/contlib/contlib.go) says what a continuation holds and
 where it cannot be called.
 
