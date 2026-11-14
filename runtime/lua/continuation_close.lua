@@ -107,6 +107,25 @@ do
     --> =walk ends
     --> =close source	nil
     --> =nil
+
+    -- The walk and its consumer can each have a variable, in blocks of which
+    -- neither is inside the other: each is closed when its own block ends.
+    next = generator(function(yield)
+        local w <close> = closing("the walk's")
+        yield(1)
+        yield(2)
+    end)
+    print(next())
+    do
+        local c <close> = closing("the consumer's")
+        print(next())
+        print(next())
+    end
+    --> =1
+    --> =2
+    --> =close the walk's	nil
+    --> =nil
+    --> =close the consumer's	nil
 end
 
 -- A block that is entered several times ends several times, and its variable
@@ -165,4 +184,25 @@ do
         end)
     end))
     --> =false	cannot close
+
+    -- Also when a Go function makes the call.
+    print(pcall(function()
+        callcc(function(k)
+            local v <close> = setmetatable({}, {__close = function() error("cannot close", 0) end})
+            testtailcall(k, "not reached")
+        end)
+    end))
+    --> =false	cannot close
+
+    -- A value which has lost its way of being closed since it was declared
+    -- is such an error.
+    print(pcall(function()
+        callcc(function(k)
+            local mt = {__close = function() end}
+            local v <close> = setmetatable({}, mt)
+            mt.__close = nil
+            k("not reached")
+        end)
+    end))
+    --> ~^false\t.*to be closed value missing a __close metamethod
 end
