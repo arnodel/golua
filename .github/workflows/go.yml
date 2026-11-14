@@ -106,3 +106,15 @@ jobs:
     - name: Run Lua Test Suite
       run: ../golua -u -e "_U=true" -e "_port=true" all.lua
       working-directory: ./lua-test-suite
+
+  # A release must not ship a profile made for another run loop: see
+  # benchmarks/README.md, "The profile".
+  profile:
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check that default.pgo is up to date
+      run: benchmarks/pgo.sh -c
