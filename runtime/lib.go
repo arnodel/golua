@@ -326,35 +326,26 @@ func concatError(x, y Value, okx, oky bool) error {
 	return fmt.Errorf("attempt to concatenate a %s value", wrongVal.CustomTypeName())
 }
 
-// IntLen returns the length of v as an int64, possibly calling the '__len'
-// metamethod.  This is an optimization of Len for an integer output.
-func IntLen(t *Thread, v Value) (int64, error) {
+// plainLen returns the length of v when no metamethod has a say in it: v is
+// a string, or a table without a "__len" metamethod.  This is nearly every
+// use of the length operator, and it must not pay for the others: calling a
+// metamethod takes a continuation to receive its result and a list of
+// arguments, both of which were once made before finding out that there was
+// nothing to call.
+func plainLen(v Value) (n int64, ok bool) {
 	if s, ok := v.TryString(); ok {
-		return int64(len(s)), nil
+		return int64(len(s)), true
 	}
-	res := NewTerminationWith(t.CurrentCont(), 1, false)
-	err, ok := metacall(t, v, metaLen, []Value{v}, res)
-	if ok {
-		if err != nil {
-			return 0, err
-		}
-		l, ok := ToInt(res.Get(0))
-		if !ok {
-			err = errors.New("len should return an integer")
-		}
-		return l, err
+	if tbl, ok := v.TryTable(); ok && (tbl.meta == nil || tbl.meta.metaField(metaLen).IsNil()) {
+		return tbl.Len(), true
 	}
-	if tbl, ok := v.TryTable(); ok {
-		return tbl.Len(), nil
-	}
-	return 0, lenError(v)
+	return 0, false
 }
 
-// Len returns the length of v, possibly calling the '__len' metamethod.
-func Len(t *Thread, v Value) (Value, error) {
-	if s, ok := v.TryString(); ok {
-		return IntValue(int64(len(s))), nil
-	}
+// metaLenValue returns the length of v by calling its "__len" metamethod.
+// It is the rest of Len and IntLen, for a v that plainLen gives no length
+// for.
+func metaLenValue(t *Thread, v Value) (Value, error) {
 	res := NewTerminationWith(t.CurrentCont(), 1, false)
 	err, ok := metacall(t, v, metaLen, []Value{v}, res)
 	if ok {
@@ -363,10 +354,32 @@ func Len(t *Thread, v Value) (Value, error) {
 		}
 		return res.Get(0), nil
 	}
-	if tbl, ok := v.TryTable(); ok {
-		return IntValue(tbl.Len()), nil
-	}
 	return NilValue, lenError(v)
+}
+
+// IntLen returns the length of v as an int64, possibly calling the '__len'
+// metamethod.  This is an optimization of Len for an integer output.
+func IntLen(t *Thread, v Value) (int64, error) {
+	if n, ok := plainLen(v); ok {
+		return n, nil
+	}
+	res, err := metaLenValue(t, v)
+	if err != nil {
+		return 0, err
+	}
+	l, ok := ToInt(res)
+	if !ok {
+		return l, errors.New("len should return an integer")
+	}
+	return l, nil
+}
+
+// Len returns the length of v, possibly calling the '__len' metamethod.
+func Len(t *Thread, v Value) (Value, error) {
+	if n, ok := plainLen(v); ok {
+		return IntValue(n), nil
+	}
+	return metaLenValue(t, v)
 }
 
 func lenError(x Value) error {
