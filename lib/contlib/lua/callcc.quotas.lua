@@ -1,28 +1,36 @@
 local callcc = require("cont").callcc
 
--- A context is run by Go code, as a pcall is.  Calling a continuation
--- captured outside it leaves the context, which is then over: what runs next
--- runs in the context the continuation was captured in.
-runtime.callcontext({kill={cpu=100000}}, function()
+-- A context is not left by calling a continuation, as a pcall is: the code
+-- that starts a context gets it back, whatever runs in it.  Calling a
+-- continuation captured outside the context ends it with an error.
+do
     local k
     local done = {}
-    local used = runtime.context().used.cpu
     print(callcc(function(c) k = c; return "first" end))
     if not done.out then
         done.out = true
-        runtime.callcontext({kill={cpu=10000}}, function()
-            for i = 1, 1000 do end
-            k("left the context")
-        end)
-        print("not reached")
+        print(runtime.callcontext({kill={cpu=10000}}, function()
+            k("not reached")
+        end))
+        -- A pcall in the context lets the call through, and the context
+        -- does not.
+        print(runtime.callcontext({kill={cpu=10000}}, function()
+            pcall(k, "not reached")
+            return "nor this"
+        end))
+        print("the contexts are over")
     end
     --> =first
-    --> =left the context
+    --> ~^error\t.*attempt to leave a context by calling a continuation
+    --> ~^error\t.*attempt to leave a context by calling a continuation
+    --> =the contexts are over
+end
 
-    -- What the context used is counted where it was started from.
-    print(runtime.context().used.cpu - used >= 1000)
-    --> =true
-end)
+-- Inside a context continuations are what they are outside one.
+print(runtime.callcontext({kill={cpu=10000}}, function()
+    return callcc(function(k) pcall(k, "out of a pcall, in the context") end)
+end))
+--> =done	out of a pcall, in the context
 
 -- A continuation captured inside a context is not a way back into it.
 do
