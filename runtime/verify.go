@@ -16,8 +16,8 @@ const maxRegCount = 256
 // in the constant table, every jump lands inside the code on an opcode (not
 // on one of the operand words that list a call's arguments), and execution
 // cannot run past the end of the code, whichever way it goes.  The run loop
-// relies on this to fetch opcodes and constants without checking their index
-// (opcodeAt, constAt).
+// relies on this to access registers, opcodes and constants without checking
+// their index (getReg, setReg, opcodeAt, constAt).
 //
 // Code produced by the compiler should always pass; code loaded from a binary
 // chunk cannot be trusted to.

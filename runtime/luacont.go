@@ -809,24 +809,31 @@ func (c *LuaCont) clearReg(reg code.Reg) {
 	c.registers[reg] = NilValue
 }
 
+// The run loop reads and writes registers, and reads the words of a
+// function's code, its constants and its lookup hints, on every opcode.  The
+// accessors below index without a bounds check, and rely on what Code.verify
+// has established before the function could run:
+//
+//   - every register an opcode names (or lists as an argument of a call) is
+//     within the register count that NewLuaCont sizes the frame from;
+//   - execution never leaves the code: every jump lands inside it, and
+//     wherever execution goes on to after an opcode is there;
+//   - every constant an opcode names is in the constant table;
+//   - there is a lookup hint for every word of code (the two ways of loading
+//     a function make Code.slotCache as long as its code).
+
 // setReg and getReg access a register.  A box's contents are reached only
 // through the load and store opcodes (ir.LowerCells).
 func setReg(regs []Value, reg code.Reg, val Value) {
-	regs[reg] = val
+	*(*Value)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(regs)), uintptr(reg)*unsafe.Sizeof(Value{}))) = val
 }
 
 func getReg(regs []Value, reg code.Reg) Value {
-	return regs[reg]
+	return *(*Value)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(regs)), uintptr(reg)*unsafe.Sizeof(Value{})))
 }
 
 // opcodeAt, constAt and hintAt read the word at pc of a function's code, a
-// constant, and the lookup hint of the opcode at pc, without a bounds check.
-// The run loop pays for a check on every opcode it fetches, so it relies on
-// what Code.verify has established before the function could run: execution
-// never leaves the code (every jump lands inside it, and no opcode that goes
-// on to the next one is the last), every constant an opcode names is in the
-// constant table, and there is a hint for every word of code (the two ways
-// of loading a function make Code.slotCache as long as its code).
+// constant, and the lookup hint of the opcode at pc.
 func opcodeAt(opcodes []code.Opcode, pc int32) code.Opcode {
 	return *(*code.Opcode)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(opcodes)), uintptr(pc)*unsafe.Sizeof(code.Opcode(0))))
 }
