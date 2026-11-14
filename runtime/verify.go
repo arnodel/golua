@@ -15,9 +15,9 @@ const maxRegCount = 256
 // operand of every opcode is within them, every constant an opcode names is
 // in the constant table, every jump lands inside the code on an opcode (not
 // on one of the operand words that list a call's arguments), and execution
-// cannot run past the end of the code, whichever way it goes.  The run loop
-// relies on this to access registers, opcodes and constants without checking
-// their index (getReg, setReg, opcodeAt, constAt).
+// cannot run past the end of the code, whichever way it goes.  Without
+// quotas, the run loop relies on this to access registers, opcodes and
+// constants without checking their index (access_noquotas.go).
 //
 // Code produced by the compiler should always pass; code loaded from a binary
 // chunk cannot be trusted to.
