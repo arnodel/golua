@@ -99,3 +99,44 @@ do
     print(s)
     --> =120
 end
+
+-- Appending grows the array part, which takes over the integer keys it
+-- grows past.
+do
+    local t = {}
+    for i = 1, 4 do t[i] = i end
+    t[10] = "ten"
+    for i = 5, 12 do
+        if i ~= 10 then t[i] = i end
+    end
+    print(#t, t[10], t[12], t[13])
+    --> =12	ten	12	nil
+    local n, sum = 0, 0
+    for k, v in pairs(t) do
+        n = n + 1
+        if k ~= 10 then sum = sum + v end
+    end
+    print(n, sum)
+    --> =12	68
+
+    -- A queue, written at one end and emptied at the other.
+    local q, head = {}, 1
+    for tail = 1, 1000 do
+        q[tail] = tail
+        if tail - head >= 3 then
+            q[head] = nil
+            head = head + 1
+        end
+    end
+    print(head, q[head], q[1000], q[head - 1])
+    --> =998	998	1000	nil
+
+    -- Appending to a table that has a metatable: __newindex is asked for a
+    -- key that has no value, even one the array part has room for.
+    local log = {}
+    local p = setmetatable({}, {__newindex = function(t, k, v) log[#log + 1] = k; rawset(t, k, v) end})
+    for i = 1, 6 do p[i] = i * 10 end
+    p[3] = 33
+    print(#p, p[3], #log, log[6])
+    --> =6	33	6	6
+end

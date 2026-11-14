@@ -312,3 +312,40 @@ func TestMixedTablePowerOfTwoKeys(t *testing.T) {
 		}
 	}
 }
+
+// Appending puts values in the array part, which doubles to take them.
+func TestAppendFillsArrayPart(t *testing.T) {
+	tbl := NewTable()
+	for i := int64(1); i <= 1000; i++ {
+		tbl.Set(IntValue(i), IntValue(i))
+	}
+	if sz := tbl.array.size(); sz != 1024 {
+		t.Errorf("array part of %d values, want 1024", sz)
+	}
+	if tbl.hashTable != nil {
+		t.Errorf("appending made a hash part of %d slots", len(tbl.hashTable.slots))
+	}
+	if l := tbl.Len(); l != 1000 {
+		t.Errorf("length %d, want 1000", l)
+	}
+}
+
+// A queue is written at one end and emptied at the other: the array part
+// must grow by what the table holds, not by where it is written.
+func TestQueueDoesNotGrowArrayPart(t *testing.T) {
+	tbl := NewTable()
+	for i := int64(1); i <= 100000; i++ {
+		tbl.Set(IntValue(i), IntValue(i))
+		if i > 4 {
+			tbl.Set(IntValue(i-4), NilValue)
+		}
+	}
+	if sz := tbl.array.size(); sz > 64 {
+		t.Errorf("array part of %d values for a queue of 4", sz)
+	}
+	for i := int64(99997); i <= 100000; i++ {
+		if v := tbl.Get(IntValue(i)); v.AsInt() != i {
+			t.Errorf("t[%d] = %v", i, v)
+		}
+	}
+}
