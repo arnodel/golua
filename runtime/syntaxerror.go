@@ -24,7 +24,7 @@ func NewSyntaxError(file string, err parsing.Error) *SyntaxError {
 
 // Error implements the error interface.
 func (e *SyntaxError) Error() string {
-	return fmt.Sprintf("%s:%s", e.File, e.Err)
+	return fmt.Sprintf("%s:%s", shortSource(e.File), e.Err)
 }
 
 // IsUnexpectedEOF returns true if the error signals that EOF was encountered

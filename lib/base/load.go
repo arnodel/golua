@@ -3,6 +3,7 @@ package base
 import (
 	"bytes"
 	"errors"
+	"strings"
 
 	rt "github.com/arnodel/golua/runtime"
 )
@@ -40,8 +41,10 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 			if err != nil {
 				return nil, err
 			}
+			// A name that starts with "=" or "@" is kept whole and
+			// shortened where it is shown; any other is cut here.
 			chunkName = name
-			if len(name) > maxChunkNameLen {
+			if len(name) > maxChunkNameLen && !strings.HasPrefix(name, "=") && !strings.HasPrefix(name, "@") {
 				chunkName = chunkName[:maxChunkNameLen]
 			}
 		}
