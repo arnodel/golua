@@ -377,9 +377,10 @@ func (l Lit8) ToStr1() []byte {
 }
 
 // ToBool converts a Lit8 to a boolean.
-// TableRoom returns the room an OpTable opcode asks its new table to have:
-// for nvalues values in the array part and nfields fields in the hash part.
-func (l Lit8) TableRoom() (nvalues, nfields int) {
+// TableCapacity returns the capacity an OpTable opcode asks its new table to
+// have: for nvalues values in the array part and nfields fields in the hash
+// part.
+func (l Lit8) TableCapacity() (nvalues, nfields int) {
 	return int(l >> 4), int(l & 0xf)
 }
 
@@ -883,7 +884,7 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 			k = "CC"
 		case OpTable:
 			k = "{}"
-			if nvalues, nfields := c.GetL().TableRoom(); nvalues+nfields > 0 {
+			if nvalues, nfields := c.GetL().TableCapacity(); nvalues+nfields > 0 {
 				k = fmt.Sprintf("{} (%d values, %d fields)", nvalues, nfields)
 			}
 		case OpStr0:

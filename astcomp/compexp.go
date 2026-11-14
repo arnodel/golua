@@ -182,7 +182,7 @@ func (c *expCompiler) ProcessStringExp(s ast.String) {
 
 // ProcessTableConstructorExp compiles a TableConstructorExp.
 func (c *expCompiler) ProcessTableConstructorExp(t ast.TableConstructor) {
-	// The table is made with room for what the constructor lists: values
+	// The table is made with capacity for what the constructor lists: values
 	// without a key go to its array part, the rest are counted as fields.
 	// A last value that may be several (a call, "...") is not counted.
 	var nvalues, nfields int

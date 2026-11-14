@@ -402,7 +402,7 @@ RunLoop:
 				case code.OpCC:
 					res = ContValue(c)
 				case code.OpTable:
-					res = TableValue(t.NewTableWithCapacity(opcode.GetL().TableRoom()))
+					res = TableValue(t.NewTableWithCapacity(opcode.GetL().TableCapacity()))
 				case code.OpStr0:
 					res = StringValue("")
 				case code.OpStr1:

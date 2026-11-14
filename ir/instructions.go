@@ -472,7 +472,7 @@ func (n NewBox) String() string {
 
 // MkTable creates a new empty table and puts it in Dst.  NValues and NFields
 // are how many values and fields the table is about to be given, when the
-// compiler knows: the table is made with room for them.
+// compiler knows: the table is made with capacity for them.
 type MkTable struct {
 	Dst              Register
 	NValues, NFields int

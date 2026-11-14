@@ -135,7 +135,7 @@ value goes to rA (F = Off) or is pushed into the continuation in rA (F = On):
 	OpBool      the boolean L != 0
 	OpStr0      ""
 	OpStr1      the 1-byte string L
-	OpTable     a new empty table, with room for the number of values in
+	OpTable     a new empty table, with capacity for the number of values in
 	            the high four bits of L and of fields in the low four
 	            (what the constructor is about to give it)
 	OpCC        the current continuation (the frame itself)
