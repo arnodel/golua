@@ -89,6 +89,18 @@ func LoadEmptyTable(r Reg) Opcode {
 	return mkType4b(Off, OpTable, r, 0)
 }
 
+// MaxTableRoom is the most values, and the most fields, that LoadTable can
+// ask a new table to have room for.
+const MaxTableRoom = 15
+
+// LoadTable encodes r <- {}, a new empty table with room for nvalues values
+// in its array part and nfields fields in its hash part, as the constructor
+// that makes it is about to give it.  Room for more than MaxTableRoom of
+// either is not asked for: the table grows.
+func LoadTable(r Reg, nvalues, nfields int) Opcode {
+	return mkType4b(Off, OpTable, r, Lit8(min(nvalues, MaxTableRoom)<<4|min(nfields, MaxTableRoom)))
+}
+
 // LoadNil encodes r <- nil
 func LoadNil(r Reg) Opcode {
 	return mkType4b(Off, OpNil, r, 0)

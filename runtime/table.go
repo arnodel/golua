@@ -3,6 +3,7 @@ package runtime
 import (
 	"unsafe"
 
+	"github.com/arnodel/golua/code"
 	"github.com/arnodel/golua/runtime/internal/luagc"
 )
 
@@ -24,6 +25,28 @@ func NewTable() *Table {
 func (r *Runtime) NewTable() *Table {
 	r.RequireMem(TableHeaderSize)
 	return NewTable()
+}
+
+// newTableWithRoom returns the empty table that a table constructor starts
+// from: with room for the values and the fields the compiler counted in the
+// constructor (code.LoadTable), so that being given them does not make it
+// grow.  The room is charged to the current context with the table's header.
+func (r *Runtime) newTableWithRoom(room code.Lit8) *Table {
+	if room == 0 {
+		return r.NewTable()
+	}
+	return r.NewTableWithCapacity(room.TableRoom())
+}
+
+// NewTableWithCapacity returns an empty table with room for nvalues values
+// in its array part and nfields fields in its hash part, charging the table
+// and that room to the current context.  A table about to be given a known
+// number of values or fields is best made this way: it does not grow as it
+// gets them.
+func (r *Runtime) NewTableWithCapacity(nvalues, nfields int) *Table {
+	t := NewTableWithCapacity(nvalues, nfields)
+	r.RequireMem(TableHeaderSize + t.storage().allocatedSince(tableStorage{}))
+	return t
 }
 
 // NewTableFromSlice creates a table whose array part references the given slice.
