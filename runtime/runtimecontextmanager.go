@@ -6,6 +6,7 @@ package runtime
 import (
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/arnodel/golua/safeio"
@@ -43,6 +44,17 @@ type runtimeContextManager struct {
 	weakRefPool *WeakPool
 	gcPolicy    GCPolicy
 
+	// pending is shared by all the contexts of a runtime.  It is raised by
+	// Interrupt.Trigger, and RequireCPU takes its slow path while it is up, so
+	// that a context without any limit pays nothing for interrupts it does not
+	// use.  It is cleared by checkPending once the installed interrupts have
+	// been looked at.
+	pending *atomic.Bool
+
+	// interrupts are the interrupts the current context runs under, those
+	// installed by it and by its parents.
+	interrupts *interruptChain
+
 	fsAccess *safeio.FSAccess
 
 	// workDir is the directory relative paths resolve against, or empty for
@@ -53,6 +65,7 @@ type runtimeContextManager struct {
 var _ RuntimeContext = (*runtimeContextManager)(nil)
 
 func (m *runtimeContextManager) initRoot() {
+	m.pending = new(atomic.Bool)
 	m.gcPolicy = IsolateGCPolicy
 	m.weakRefPool = NewWeakPool()
 	m.fsAccess = safeio.Unrestricted
@@ -118,6 +131,7 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 	m.hardLimits = m.hardLimits.Remove(m.usedResources).Merge(ctx.HardLimits)
 	m.softLimits = m.hardLimits.Merge(m.softLimits).Merge(ctx.SoftLimits)
 	m.usedResources = RuntimeResources{}
+	m.nextCpuThreshold = 0
 	m.requiredFlags |= ctx.RequiredFlags
 
 	if ctx.HardLimits.Cpu > 0 {
@@ -137,6 +151,10 @@ func (m *runtimeContextManager) PushContext(ctx RuntimeContextDef) {
 		m.requiredFlags |= ComplyIoSafe
 	} else if m.requiredFlags&ComplyIoSafe != 0 && m.fsAccess.IsUnrestricted() {
 		m.fsAccess = safeio.NoAccess
+	}
+	if ctx.Interrupt != nil {
+		m.interrupts = &interruptChain{interrupt: ctx.Interrupt, next: m.interrupts}
+		ctx.Interrupt.install(m.pending)
 	}
 	m.trackTime = m.hardLimits.Millis > 0 || m.softLimits.Millis > 0
 	m.trackCpu = m.hardLimits.Cpu > 0 || m.softLimits.Cpu > 0 || m.trackTime
@@ -169,13 +187,22 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 	if m.fsAccess != m.parent.fsAccess {
 		_ = m.fsAccess.Close()
 	}
+	if m.interrupts != m.parent.interrupts {
+		m.interrupts.interrupt.uninstall(m.pending)
+	}
 	mCopy := *m
 	if mCopy.status == StatusLive {
 		mCopy.status = StatusDone
 	}
-	m.parent.RequireCPU(m.usedResources.Cpu)
-	m.parent.RequireMem(m.usedResources.Memory)
+	// Restore the parent before charging it with what the child used.
+	// Charging can terminate the parent, and terminating panics out of
+	// PopContext: if the parent were not current yet, the enclosing
+	// CallContext would pop the wrong level, leaving a killed context
+	// current, where TerminateContext does nothing and code that should have
+	// stopped keeps running.
 	*m = *m.parent
+	m.RequireCPU(mCopy.usedResources.Cpu)
+	m.RequireMem(mCopy.usedResources.Memory)
 	if m.trackTime {
 		m.updateTimeUsed()
 	}
@@ -183,7 +210,7 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 }
 
 func (m *runtimeContextManager) RequireCPU(cpuAmount uint64) {
-	if m.trackCpu {
+	if m.trackCpu || m.pending.Load() {
 		// The path with limit is "outlined" so RequireCPU can be inlined,
 		// minimising the overhead when there is no limit.
 		m.requireCPU(cpuAmount)
@@ -199,11 +226,37 @@ func (m *runtimeContextManager) requireCPU(cpuAmount uint64) {
 	if atLimit(cpuUsed, m.hardLimits.Cpu) {
 		m.TerminateContext("CPU limit of %d exceeded", m.hardLimits.Cpu)
 	}
-	if m.trackTime && m.nextCpuThreshold <= cpuUsed {
+	if m.nextCpuThreshold <= cpuUsed {
+		// Time limits and interrupts are checked every cpuThresholdIncrement
+		// ticks rather than on every tick, which would slow the runtime down
+		// for little benefit.  (A context with no CPU limit only gets here
+		// while an interrupt is pending.)
 		m.nextCpuThreshold = cpuUsed + cpuThresholdIncrement
-		m.updateTimeUsed()
+		if m.trackTime {
+			m.updateTimeUsed()
+		}
+		if m.pending.Load() {
+			m.checkPending()
+		}
 	}
 	m.usedResources.Cpu = cpuUsed
+}
+
+// checkPending terminates the context if one of the interrupts it runs under
+// has been triggered.  The flag is cleared first, so that a Trigger arriving
+// meanwhile is not lost.  When an interrupt is found it is raised again: the
+// contexts enclosing this one (a protected call returns control to its
+// caller) have to stop too.  When none of the context's interrupts is
+// triggered, the flag was raised for an interrupt that belongs to a context
+// that has finished, and stays down.
+func (m *runtimeContextManager) checkPending() {
+	if !m.pending.Swap(false) {
+		return
+	}
+	if reason, ok := m.interrupts.triggered(); ok {
+		m.pending.Store(true)
+		m.TerminateContext("%s", reason)
+	}
 }
 
 func (m *runtimeContextManager) UnusedCPU() uint64 {
