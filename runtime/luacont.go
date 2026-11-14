@@ -198,37 +198,6 @@ RunLoop:
 
 			case code.OpConcat:
 				res, err = Concat(t, x, y)
-
-			// Predicates: the comparison decides the jump that follows
-			// (code/doc.go, Type 1).
-
-			case code.OpIfEq:
-				var r bool
-				r, err = eq(t, x, y)
-				if err != nil {
-					c.pc = pc
-					return nil, err
-				}
-				pc = jumpAfter(opcodes, pc, r != opcode.Negated())
-				continue RunLoop
-			case code.OpIfLt:
-				var r bool
-				r, err = Lt(t, x, y)
-				if err != nil {
-					c.pc = pc
-					return nil, err
-				}
-				pc = jumpAfter(opcodes, pc, r != opcode.Negated())
-				continue RunLoop
-			case code.OpIfLeq:
-				var r bool
-				r, err = le(t, x, y)
-				if err != nil {
-					c.pc = pc
-					return nil, err
-				}
-				pc = jumpAfter(opcodes, pc, r != opcode.Negated())
-				continue RunLoop
 			default:
 				panic("unsupported")
 			}
@@ -629,15 +598,14 @@ RunLoop:
 			pc++
 			continue RunLoop
 		case code.Type7Pfx:
-			// A for loop opcode is followed by a jump, which it takes itself
-			// or steps over: prepfor takes it when the loop has no iteration,
-			// advfor when it has another one (code/doc.go, Type 7).
-			startReg, stopReg, stepReg := opcode.GetA(), opcode.GetB(), opcode.GetC()
-			start := getReg(regs, startReg)
-			stop := getReg(regs, stopReg)
-			step := getReg(regs, stepReg)
-			var jump bool
-			if opcode.GetF() {
+			// An opcode that decides the jump following it, which it takes
+			// itself or steps over (code/doc.go, Type 7).
+			switch opcode.GetP() {
+			case code.OpAdvFor:
+				startReg, stopReg, stepReg := opcode.GetA(), opcode.GetB(), opcode.GetC()
+				start := getReg(regs, startReg)
+				stop := getReg(regs, stopReg)
+				step := getReg(regs, stepReg)
 				// Advance for loop.  All registers are assumed to contain
 				// numeric values because they have been prepared previously.
 				// The loop is done if the next value has passed the limit, or
@@ -661,12 +629,13 @@ RunLoop:
 				if !done {
 					setReg(regs, startReg, next)
 				}
-				jump = !done
-			} else {
-				// Prepare for loop
-				start, tstart := ToNumberValue(start)
-				stop, tstop := ToNumberValue(stop)
-				step, tstep := ToNumberValue(step)
+				pc = jumpAfter(opcodes, pc, !done)
+				continue RunLoop
+			case code.OpPrepFor:
+				startReg, stopReg, stepReg := opcode.GetA(), opcode.GetB(), opcode.GetC()
+				start, tstart := ToNumberValue(getReg(regs, startReg))
+				stop, tstop := ToNumberValue(getReg(regs, stopReg))
+				step, tstep := ToNumberValue(getReg(regs, stepReg))
 				if tstart == NaN || tstop == NaN || tstep == NaN {
 					c.pc = pc
 					var (
@@ -714,10 +683,38 @@ RunLoop:
 				setReg(regs, startReg, start)
 				setReg(regs, stopReg, stop)
 				setReg(regs, stepReg, step)
-				jump = done
+				pc = jumpAfter(opcodes, pc, done)
+				continue RunLoop
+
+			// The predicates: the comparison decides the jump.
+
+			case code.OpIfEq:
+				r, err := eq(t, getReg(regs, opcode.GetB()), getReg(regs, opcode.GetC()))
+				if err != nil {
+					c.pc = pc
+					return nil, err
+				}
+				pc = jumpAfter(opcodes, pc, r != opcode.Negated())
+				continue RunLoop
+			case code.OpIfLt:
+				r, err := Lt(t, getReg(regs, opcode.GetB()), getReg(regs, opcode.GetC()))
+				if err != nil {
+					c.pc = pc
+					return nil, err
+				}
+				pc = jumpAfter(opcodes, pc, r != opcode.Negated())
+				continue RunLoop
+			case code.OpIfLeq:
+				r, err := le(t, getReg(regs, opcode.GetB()), getReg(regs, opcode.GetC()))
+				if err != nil {
+					c.pc = pc
+					return nil, err
+				}
+				pc = jumpAfter(opcodes, pc, r != opcode.Negated())
+				continue RunLoop
+			default:
+				panic("unsupported")
 			}
-			pc = jumpAfter(opcodes, pc, jump)
-			continue RunLoop
 		}
 	}
 	// return nil, errors.New("Invalid PC")

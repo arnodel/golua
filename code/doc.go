@@ -44,30 +44,20 @@ left zero.
 	      type        | F  | reserved |    A     |    B    |   C
 
 Type 1 is the exception: it uses only bit 31 as its prefix and takes bits
-30-26 for the operator.
+30-27 for the operator.  Type 7 makes one field, P, of F and the three
+reserved bits.
 
 The field names below (A, B, C, F, X, Y, Z, J, L, M, N, D) are the ones used
 in this package's accessor methods (GetA, GetF, GetX ...).
 
-# Type 1: binary operations and predicates
+# Type 1: binary operations
 
-	1 XXXXX N . | A | B | C          rA <- rB op rC       (X = 0 to 15)
-	                                 if [not] rB op rC    (X = 16 to 18)
+	1 XXXX . . . | A | B | C          rA <- rB op rC
 
-X selects the operator (BinOp).  Codes 0 to 15 are the binary operators: the
-arithmetic operators, the bitwise operators, the comparisons ==, < and <=
-(which produce a boolean), and concatenation.  Metamethods apply as in the
-language.
-
-Codes 16 to 18 are the predicates: the three comparisons again, producing
-no value but deciding the jump opcode (Type 5, OpJump) that must follow
-them.  The jump is taken if the comparison holds and stepped over otherwise,
-as the for loop opcodes do (Type 7); N reverses that ("if not rB < rC").  A
-is unused.  The compiler emits a predicate for a comparison used as a
-condition, so that "if a < b then" costs one dispatch and no register for
-the boolean.  A predicate is its own operator code rather than a flag on the
-comparison, so that the run loop dispatches it without testing anything on
-the comparisons that produce a value.
+X selects the operator (BinOp): the arithmetic operators, the bitwise
+operators, the comparisons ==, < and <= (which produce a boolean), and
+concatenation.  Metamethods apply as in the language.  A comparison used as
+a condition is not computed as a value but is a predicate (Type 7).
 
 # Type 2: table access
 
@@ -194,20 +184,27 @@ of it.  No jump may land inside an operand word; the verifier checks it.
 	F = On     fill rA, M, rB           rA[M+i] <- i-th value of the etc rB,
 	                                    for every i
 
-# Type 7: numeric for loops
+# Type 7: opcodes that decide a jump
 
-	0010 F a b c | A | B | C          A is the loop variable, B the limit,
-	                                  C the step
+	0010 P P P P | A | B | C
 
-	F = Off    prepare: check the three values are numbers, give A and C
-	           the same numeric type and, for an integer loop, make B an
-	           integer too
-	F = On     advance: A <- A + C, unless the new value has passed B or
-	           the addition wrapped around, which ends the loop
+P selects the operation (JumpDecider).  Each is followed by a jump opcode
+(Type 5, OpJump), which it executes itself or steps over:
 
-Both are followed by a jump opcode (Type 5, OpJump), which they execute
-themselves or step over: prepare takes the jump when the loop has no
-iteration, advance when it has another one.  A loop is laid out as
+	OpPrepFor   prepfor A, B, C: prepare a numeric for loop over the
+	            variable A with limit B and step C: check the three values
+	            are numbers, give A and C the same numeric type and, for an
+	            integer loop, make B an integer too.  The jump is taken
+	            when the loop has no iteration.
+	OpAdvFor    advfor A, B, C: A <- A + C, unless the new value has passed
+	            B or the addition wrapped around.  The jump is taken when
+	            the loop has another iteration.
+	OpIfEq      if rB == rC
+	OpIfLt      if rB < rC        the predicates: the jump is taken when the
+	OpIfLeq     if rB <= rC       comparison holds, or with A = 1 when it
+	            doesn't ("if not rB < rC").  No register receives a value.
+
+A loop is laid out as
 
 	prepfor A, B, C
 	jump END
@@ -216,9 +213,16 @@ iteration, advance when it has another one.  A loop is laid out as
 	jump BODY
 	END: ...
 
-so that the end of an iteration costs one dispatch, not two.  The jump is an
-ordinary opcode and the verifier requires it, as after a predicate (Type 1);
-landing on it from elsewhere would simply run it, but nothing does.
+so that the end of an iteration costs one dispatch, not two.  The compiler
+emits a predicate for a comparison used as a condition, so that "if a < b
+then" costs one dispatch and no register for the boolean; a comparison
+whose value is needed is a Type 1 operation.  The jump is an ordinary
+opcode and the verifier requires it; landing on it from elsewhere would
+simply run it, but nothing does.
+
+The five operations are one field rather than a flag and a code, so that
+the run loop dispatches them with one switch and the comparisons that
+produce a value (Type 1) carry nothing for the predicates.
 
 # Type 0: receiving arguments
 

@@ -114,12 +114,6 @@ func jumpTarget(pc int, op code.Opcode) (int, bool) {
 // literals or operators.
 func (c *Code) verifyOpcode(pc int, op code.Opcode) error {
 	if op.HasType1() {
-		if op.GetX().IsPredicate() {
-			if err := c.verifyNextJump(pc); err != nil {
-				return err
-			}
-			return c.verifyRegisters(op.GetB(), op.GetC())
-		}
 		return c.verifyRegisters(op.GetA(), op.GetB(), op.GetC())
 	}
 	switch op.TypePfx() {
@@ -129,7 +123,17 @@ func (c *Code) verifyOpcode(pc int, op code.Opcode) error {
 		if err := c.verifyNextJump(pc); err != nil {
 			return err
 		}
-		return c.verifyRegisters(op.GetA(), op.GetB(), op.GetC())
+		switch p := op.GetP(); p {
+		case code.OpPrepFor, code.OpAdvFor:
+			return c.verifyRegisters(op.GetA(), op.GetB(), op.GetC())
+		case code.OpIfEq, code.OpIfLt, code.OpIfLeq:
+			if a := op.GetA(); a > 1 {
+				return fmt.Errorf("predicate with A = %d, not 0 or 1", a)
+			}
+			return c.verifyRegisters(op.GetB(), op.GetC())
+		default:
+			return fmt.Errorf("unknown jump-deciding operation %d", p)
+		}
 	case code.Type8Pfx:
 		if err := c.verifyConstant(op.GetK8().ToKIndex()); err != nil {
 			return err

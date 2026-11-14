@@ -12,9 +12,9 @@ func Combine(op BinOp, r1, r2, r3 Reg) Opcode {
 // decides the Jump that must follow it: taken if the comparison holds (or
 // doesn't, with not), stepped over otherwise.  No register receives a value.
 func CompareJump(op BinOp, r2, r3 Reg, not bool) Opcode {
-	c := mkType1(op.Predicate(), 0, r2, r3)
+	c := mkType7(op.predicate(), 0, r2, r3)
 	if not {
-		c |= type1Not
+		c |= type7Not
 	}
 	return c
 }
@@ -291,7 +291,7 @@ func CheckNotDefined(rTable, rIndex Reg) Opcode {
 // numbers and give rStart and rStep the same numeric type.  The opcode must
 // be followed by a Jump, which it takes if the loop has no iteration.
 func PrepForLoop(rStart, rStop, rStep Reg) Opcode {
-	return mkType7(Off, rStart, rStop, rStep)
+	return mkType7(OpPrepFor, rStart, rStop, rStep)
 }
 
 // AdvForLoop encodes advfor rStart, rStop, rStep: rStart <- rStart + rStep,
@@ -299,5 +299,5 @@ func PrepForLoop(rStart, rStop, rStep Reg) Opcode {
 // must be followed by a Jump, which it takes if the loop has another
 // iteration.
 func AdvForLoop(rStart, rStop, rStep Reg) Opcode {
-	return mkType7(On, rStart, rStop, rStep)
+	return mkType7(OpAdvFor, rStart, rStop, rStep)
 }
