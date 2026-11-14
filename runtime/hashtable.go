@@ -20,28 +20,26 @@ const uintptrLen = 8 * unsafe.Sizeof(uintptr(0))
 // }
 
 type mixedTable struct {
-	*hashTable
-	*array
+	hashTable
+	array
 }
 
 // tableStorage identifies the memory a mixedTable currently holds: its
 // hash and array parts and their backing slices.  Comparing two snapshots
 // tells what was allocated in between.
 type tableStorage struct {
-	hash   *hashTable
 	slots  *hashTableSlot
 	nSlots int
-	arr    *array
 	values *Value
 	nVals  int
 }
 
 func (t *mixedTable) storage() (s tableStorage) {
-	if s.hash = t.hashTable; s.hash != nil && len(s.hash.slots) > 0 {
-		s.slots, s.nSlots = &s.hash.slots[0], len(s.hash.slots)
+	if len(t.slots) > 0 {
+		s.slots, s.nSlots = &t.slots[0], len(t.slots)
 	}
-	if s.arr = t.array; s.arr != nil && len(s.arr.values) > 0 {
-		s.values, s.nVals = &s.arr.values[0], len(s.arr.values)
+	if len(t.values) > 0 {
+		s.values, s.nVals = &t.values[0], len(t.values)
 	}
 	return
 }
@@ -50,14 +48,8 @@ func (t *mixedTable) storage() (s tableStorage) {
 // storage s: new hash or array parts, and every new backing slice (growing
 // copies the old slice into a new one, so the whole new slice is counted).
 func (s tableStorage) allocatedSince(before tableStorage) (n uint64) {
-	if s.hash != before.hash {
-		n += uint64(unsafe.Sizeof(hashTable{}))
-	}
 	if s.slots != before.slots {
 		n += uint64(s.nSlots) * uint64(unsafe.Sizeof(hashTableSlot{}))
-	}
-	if s.arr != before.arr {
-		n += uint64(unsafe.Sizeof(array{}))
 	}
 	if s.values != before.values {
 		n += uint64(s.nVals) * uint64(unsafe.Sizeof(Value{}))
@@ -69,32 +61,21 @@ func (s tableStorage) allocatedSince(before tableStorage) (n uint64) {
 // nseq: capacity hint for array part (sequence elements)
 // nrec: capacity hint for hash part (record/key-value pairs)
 func newMixedTableWithCapacity(nseq, nrec int) *mixedTable {
-	var arr *array
+	t := &mixedTable{}
 	if nseq > 0 {
-		// Array can have arbitrary size. The grow() logic handles non-power-of-2
-		// sizes by checking if items can actually be moved from hashtable to array.
-		arr = &array{
-			values: make([]Value, nseq),
-			len:    0, // Table is empty, just preallocated
-		}
+		// The array part can have any size.  The table is empty, just
+		// preallocated: its length stays 0.
+		t.values = make([]Value, nseq)
 	}
-
-	var hash *hashTable
 	if nrec > 0 {
-		// Hash table size must be power of 2
+		// The size of the hash part must be a power of 2.
 		base := uint8(bits.Len(uint(nrec - 1)))
 		sz := 1 << base
-		hash = &hashTable{
-			slots:    make([]hashTableSlot, sz),
-			nextFree: uintptr(sz - 1),
-			base:     base,
-		}
+		t.slots = make([]hashTableSlot, sz)
+		t.nextFree = uintptr(sz - 1)
+		t.base = base
 	}
-
-	return &mixedTable{
-		array:     arr,
-		hashTable: hash,
-	}
+	return t
 }
 
 // Return v such that k => v, else return nil.
@@ -200,7 +181,7 @@ func (t *mixedTable) next(k Value) (next Value, v Value, ok bool) {
 	var i int64
 	var isInt bool
 	if k.IsNil() {
-		if t.array == nil {
+		if len(t.values) == 0 {
 			return t.hashTable.next(k)
 		}
 		// If there is an array, we pretend that k == 0
@@ -246,7 +227,7 @@ func (t *mixedTable) grow() {
 
 	// If there are no possible index values, just grow the hash table
 	if idxCount == 0 {
-		t.hashTable = t.hashTable.grow()
+		t.hashTable.grow()
 		return
 	}
 
@@ -255,7 +236,7 @@ func (t *mixedTable) grow() {
 	newSize := calculateNewArraySize(&idxCountByBucket, arrSize, arrayItems)
 
 	if newSize == 0 {
-		t.hashTable = t.hashTable.grow()
+		t.hashTable.grow()
 		return
 	}
 
@@ -270,21 +251,18 @@ const minArraySize = 4
 // that the hash part holds for keys the array part now covers.  It reports
 // whether it moved any, which leaves the hash part to be cleaned up.
 func (t *mixedTable) growArray(sz uintptr) (moved bool) {
-	array := t.array.grow(sz)
-	if h := t.hashTable; h != nil {
-		for i := range h.slots {
-			it := &h.slots[i]
-			if it.value.IsNil() {
-				continue
-			}
-			j, ok := it.key.TryInt()
-			if ok && array.setValue(j, it.value) {
-				it.value = NilValue
-				moved = true
-			}
+	t.array.grow(sz)
+	for i := range t.slots {
+		it := &t.slots[i]
+		if it.value.IsNil() {
+			continue
+		}
+		j, ok := it.key.TryInt()
+		if ok && t.array.setValue(j, it.value) {
+			it.value = NilValue
+			moved = true
 		}
 	}
-	t.array = array
 	return moved
 }
 
@@ -397,7 +375,7 @@ const (
 )
 
 func (t *hashTable) reset(k, v Value) bool {
-	if t == nil {
+	if len(t.slots) == 0 {
 		return false
 	}
 	return resetKeyValue(t.slots, (1<<t.base)-1, k, v, anyKey)
@@ -405,14 +383,14 @@ func (t *hashTable) reset(k, v Value) bool {
 
 // resetString is reset for a key known to be a string.
 func (t *hashTable) resetString(k, v Value) bool {
-	if t == nil {
+	if len(t.slots) == 0 {
 		return false
 	}
 	return resetKeyValue(t.slots, (1<<t.base)-1, k, v, stringKey)
 }
 
 func (t *hashTable) find(k Value) Value {
-	if t == nil {
+	if len(t.slots) == 0 {
 		return NilValue
 	}
 	it, _ := findSlot(t.slots, (1<<t.base)-1, k, anyKey)
@@ -424,7 +402,7 @@ func (t *hashTable) find(k Value) Value {
 
 // findString is find for a key known to be a string.
 func (t *hashTable) findString(k Value) Value {
-	if t == nil {
+	if len(t.slots) == 0 {
 		return NilValue
 	}
 	it, _ := findSlot(t.slots, (1<<t.base)-1, k, stringKey)
@@ -435,21 +413,21 @@ func (t *hashTable) findString(k Value) Value {
 }
 
 func (t *hashTable) removeKey(k Value) (wasSet bool) {
-	if t == nil {
+	if len(t.slots) == 0 {
 		return false
 	}
 	return removeKey(t.slots, (1<<t.base)-1, k)
 }
 
 func (t *hashTable) full() bool {
-	return t == nil || t.nextFree == noNextFree
+	return len(t.slots) == 0 || t.nextFree == noNextFree
 }
 
-func (t *hashTable) grow() *hashTable {
-	if t == nil {
-		return &hashTable{
-			slots: make([]hashTableSlot, 1),
-		}
+func (t *hashTable) grow() {
+	if len(t.slots) == 0 {
+		t.slots = make([]hashTableSlot, 1)
+		t.nextFree, t.base = 0, 0
+		return
 	}
 	var (
 		base          = t.base + 1
@@ -462,11 +440,10 @@ func (t *hashTable) grow() *hashTable {
 	t.nextFree = copyItems(items, t.slots, mask, mask)
 	t.base = base
 	t.slots = items
-	return t
 }
 
 func (t *hashTable) cleanup() {
-	if t == nil {
+	if len(t.slots) == 0 {
 		return
 	}
 	mask := uintptr(len(t.slots) - 1)
@@ -476,7 +453,7 @@ func (t *hashTable) cleanup() {
 }
 
 func (t *hashTable) next(k Value) (next Value, v Value, ok bool) {
-	if t == nil {
+	if len(t.slots) == 0 {
 		return NilValue, NilValue, k.IsNil()
 	}
 
@@ -524,7 +501,7 @@ const maxArrayIndex = 1 << 40
 //
 // Indices beyond maxArrayIndex are ignored (kept in hashtable).
 func (t *hashTable) classifyIndices(idxCountByBucket *[uintptrLen]uintptr, arrSize uintptr) (idxCount uintptr) {
-	if t == nil {
+	if len(t.slots) == 0 {
 		return
 	}
 	for _, it := range t.slots {
@@ -669,7 +646,7 @@ type array struct {
 }
 
 func (a *array) get(i int64) (v Value, ok bool) {
-	ok = a != nil && 1 <= i && i <= int64(len(a.values))
+	ok = 1 <= i && i <= int64(len(a.values))
 	if ok {
 		v = a.values[i-1]
 	}
@@ -677,7 +654,7 @@ func (a *array) get(i int64) (v Value, ok bool) {
 }
 
 func (a *array) setValue(i int64, v Value) (ok bool) {
-	ok = a != nil && 1 <= i && i <= int64(len(a.values))
+	ok = 1 <= i && i <= int64(len(a.values))
 	if ok {
 		a.values[i-1] = v
 		if a.len < uintptr(i) {
@@ -688,7 +665,7 @@ func (a *array) setValue(i int64, v Value) (ok bool) {
 }
 
 func (a *array) resetValue(i int64, v Value) (ok bool, wasSet bool) {
-	ok = a != nil && 1 <= i && i <= int64(len(a.values))
+	ok = 1 <= i && i <= int64(len(a.values))
 	if ok {
 		wasSet = !a.values[i-1].IsNil()
 		if wasSet {
@@ -699,7 +676,7 @@ func (a *array) resetValue(i int64, v Value) (ok bool, wasSet bool) {
 }
 
 func (a *array) remove(i int64) (ok bool, wasSet bool) {
-	ok = a != nil && 1 <= i && i <= int64(len(a.values))
+	ok = 1 <= i && i <= int64(len(a.values))
 	if !ok {
 		return
 	}
@@ -719,21 +696,15 @@ func (a *array) remove(i int64) (ok bool, wasSet bool) {
 }
 
 func (a *array) size() uintptr {
-	if a == nil {
-		return 0
-	}
 	return uintptr(len(a.values))
 }
 
 func (a *array) getLen() uintptr {
-	if a == nil {
-		return 0
-	}
 	return a.len
 }
 
 func (a *array) next(i int64) (next int64, v Value, ok bool) {
-	ok = a != nil && 0 <= i && i <= int64(a.len)
+	ok = 0 <= i && i <= int64(a.len)
 	if !ok {
 		return
 	}
@@ -750,21 +721,14 @@ func (a *array) next(i int64) (next int64, v Value, ok bool) {
 	}
 }
 
-func (a *array) grow(sz uintptr) *array {
+func (a *array) grow(sz uintptr) {
 	values := make([]Value, sz)
-	if a == nil {
-		return &array{values: values}
-	}
 	copy(values, a.values)
 	a.values = values
-	return a
 }
 
 // itemCount returns the number of non-nil items in the array.
 func (a *array) itemCount() uintptr {
-	if a == nil {
-		return 0
-	}
 	var count uintptr
 	for _, v := range a.values[:a.len] {
 		if !v.IsNil() {

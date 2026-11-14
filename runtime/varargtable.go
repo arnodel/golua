@@ -18,8 +18,8 @@ const maxVarargN = 1<<30 - 1
 // The table's array part references the slice directly, and t.n is set to the length.
 func (r *Runtime) newVarargTable(values []Value) *Table {
 	// The backing slice is already accounted for by the varargs. Only the
-	// table and its new array wrapper are allocated here.
-	r.RequireMem(TableHeaderSize + uint64(unsafe.Sizeof(array{})))
+	// table is allocated here.
+	r.RequireMem(TableHeaderSize)
 	t := NewTableFromSlice(values)
 	r.RequireMem(t.Set(varargN, IntValue(int64(len(values)))))
 	return t
@@ -43,7 +43,7 @@ func expandVarargs(t *Thread, v Value) ([]Value, error) {
 	}
 	// Fast path: if the table's array part covers all n elements,
 	// return a sub-slice directly (no allocation).
-	if tbl.array != nil && int64(len(tbl.array.values)) >= n {
+	if int64(len(tbl.array.values)) >= n {
 		return tbl.array.values[:n], nil
 	}
 	// Slow path: some elements are in the hash part, build a new slice.

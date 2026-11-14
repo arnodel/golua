@@ -25,11 +25,7 @@ func TestConstructorRoom(t *testing.T) {
 		if n := int(tbl.array.size()); n != c.nvalues {
 			t.Errorf("%s: array part of %d values, want %d", c.src, n, c.nvalues)
 		}
-		n := 0
-		if tbl.hashTable != nil {
-			n = len(tbl.hashTable.slots)
-		}
-		if n != c.nslots {
+		if n := len(tbl.hashTable.slots); n != c.nslots {
 			t.Errorf("%s: hash part of %d slots, want %d", c.src, n, c.nslots)
 		}
 	}

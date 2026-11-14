@@ -54,7 +54,7 @@ func (r *Runtime) NewTableWithCapacity(nvalues, nfields int) *Table {
 func NewTableFromSlice(values []Value) *Table {
 	return &Table{
 		mixedTable: &mixedTable{
-			array: &array{
+			array: array{
 				values: values,
 				len:    uintptr(len(values)),
 			},
@@ -87,8 +87,8 @@ func (t *Table) SetMetatable(m *Table) {
 // key into a table with a metatable asks for __newindex), so t remembers
 // the ones it lacks, in a word of its hash part that any new key clears.
 func (t *Table) metaField(id metaID) Value {
-	h := t.hashTable
-	if h == nil || h.metaAbsent&(1<<id) != 0 {
+	h := &t.hashTable
+	if len(h.slots) == 0 || h.metaAbsent&(1<<id) != 0 {
 		return NilValue
 	}
 	v := h.findString(metaNames[id])
@@ -121,14 +121,14 @@ func (t *Table) Get(k Value) Value {
 // loop, which falls back to Index or SetIndex when it returns nil.
 func arraySlot(coll, k Value) *Value {
 	tbl, ok := coll.TryTable()
-	if !ok || tbl.array == nil {
+	if !ok {
 		return nil
 	}
 	i, ok := k.TryInt()
-	if !ok || uint64(i-1) >= uint64(len(tbl.array.values)) {
+	if !ok || uint64(i-1) >= uint64(len(tbl.values)) {
 		return nil
 	}
-	return &tbl.array.values[i-1]
+	return &tbl.values[i-1]
 }
 
 // getString returns t[k] for a key known to be a string: a string is never

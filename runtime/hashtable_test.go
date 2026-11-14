@@ -9,11 +9,11 @@ func v(i interface{}) Value {
 }
 
 func TestHashTable(t *testing.T) {
-	var ht *hashTable
+	ht := new(hashTable)
 	if !ht.full() {
-		t.Error("Expected nil hashTable to be full")
+		t.Error("Expected empty hashTable to be full")
 	}
-	ht = ht.grow()
+	ht.grow()
 	if ht.full() {
 		t.Error("Expected growed hashTable not to be full")
 	}
@@ -322,8 +322,8 @@ func TestAppendFillsArrayPart(t *testing.T) {
 	if sz := tbl.array.size(); sz != 1024 {
 		t.Errorf("array part of %d values, want 1024", sz)
 	}
-	if tbl.hashTable != nil {
-		t.Errorf("appending made a hash part of %d slots", len(tbl.hashTable.slots))
+	if n := len(tbl.hashTable.slots); n != 0 {
+		t.Errorf("appending made a hash part of %d slots", n)
 	}
 	if l := tbl.Len(); l != 1000 {
 		t.Errorf("length %d, want 1000", l)
