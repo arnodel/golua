@@ -98,7 +98,7 @@ func (e *Error) AddContext(c Cont, depth int) *Error {
 	e.source = info.Source
 	s, ok := e.message.TryString()
 	if ok && e.lineno > 0 {
-		e.message = StringValue(fmt.Sprintf("%s:%d: %s", e.source, e.lineno, s))
+		e.message = StringValue(fmt.Sprintf("%s:%d: %s", shortSource(e.source), e.lineno, s))
 	}
 	return e
 }
@@ -140,7 +140,7 @@ func (r *Runtime) Traceback(pfx string, c Cont) string {
 				r.RequireBytes(1)
 				sb.WriteByte('\n')
 			}
-			sourceInfo := info.Source
+			sourceInfo := shortSource(info.Source)
 			if info.CurrentLine > 0 {
 				sourceInfo = fmt.Sprintf("%s:%d", sourceInfo, info.CurrentLine)
 			}
