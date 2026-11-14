@@ -5,7 +5,6 @@ package runtime
 import (
 	"io"
 	"testing"
-	"unsafe"
 )
 
 func TestNewTableChargesHeader(t *testing.T) {
@@ -39,8 +38,8 @@ func TestNewTableChecksLimitFirst(t *testing.T) {
 func TestNewVarargTableChargesHeaderAndN(t *testing.T) {
 	values := []Value{IntValue(1), IntValue(2), IntValue(3)}
 	// The slice is borrowed from the varargs, so the new allocations are the
-	// table, its array part and the storage for n.
-	want := TableHeaderSize + uint64(unsafe.Sizeof(array{})) + NewTableFromSlice(values).Set(varargN, IntValue(3))
+	// table and the storage for n.
+	want := TableHeaderSize + NewTableFromSlice(values).Set(varargN, IntValue(3))
 	r := New(io.Discard)
 	defer r.Close(nil)
 	r.PushContext(RuntimeContextDef{HardLimits: RuntimeResources{Memory: 1 << 20}})

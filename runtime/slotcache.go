@@ -65,8 +65,8 @@ func hintMiss(h *hashTable, k Value, hint *uint16) *hashTableSlot {
 func indexStringAt(t *Thread, coll Value, k Value, hint *lookupHint) (Value, error) {
 	t.RequireCPU(1)
 	tbl, isTable := coll.TryTable()
-	if isTable && tbl.hashTable != nil {
-		if val := hintedString(tbl.hashTable, k, &hint.slot); !val.IsNil() {
+	if isTable && len(tbl.slots) != 0 {
+		if val := hintedString(&tbl.hashTable, k, &hint.slot); !val.IsNil() {
 			return val, nil
 		}
 	}
@@ -75,15 +75,15 @@ func indexStringAt(t *Thread, coll Value, k Value, hint *lookupHint) (Value, err
 	// keeps the chain's length limit where it was.  A table's metatable is
 	// one table per site, like the class, so __index is hinted in it too.
 	var idxVal Value
-	if isTable && tbl.meta != nil && tbl.meta.hashTable != nil {
-		idxVal = hintedString(tbl.meta.hashTable, metaNames[metaIndex], &hint.metaSlot)
+	if isTable && tbl.meta != nil && len(tbl.meta.slots) != 0 {
+		idxVal = hintedString(&tbl.meta.hashTable, metaNames[metaIndex], &hint.metaSlot)
 	} else {
 		idxVal = t.metaGet(coll, metaIndex)
 	}
 	if idx, ok := idxVal.TryTable(); ok {
 		t.RequireCPU(1)
-		if idx.hashTable != nil {
-			if val := hintedString(idx.hashTable, k, &hint.indexSlot); !val.IsNil() {
+		if len(idx.slots) != 0 {
+			if val := hintedString(&idx.hashTable, k, &hint.indexSlot); !val.IsNil() {
 				return val, nil
 			}
 		}
@@ -120,8 +120,8 @@ func keySlotMiss(h *hashTable, k Value, hint *uint16) *hashTableSlot {
 func setIndexStringAt(t *Thread, coll Value, k, v Value, hint *lookupHint) error {
 	t.RequireCPU(1)
 	tbl, isTable := coll.TryTable()
-	if isTable && tbl.hashTable != nil {
-		if it := keySlot(tbl.hashTable, k, &hint.slot); it != nil {
+	if isTable && len(tbl.slots) != 0 {
+		if it := keySlot(&tbl.hashTable, k, &hint.slot); it != nil {
 			if it.value.IsNil() && tbl.meta != nil && !tbl.meta.metaField(metaNewindex).IsNil() {
 				return setIndexChain(t, coll, k, v, tbl, stringKey)
 			}
