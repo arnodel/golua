@@ -10,6 +10,11 @@ local function test(src)
     end
 end
 
+-- The variable of a numeric for loop is read-only, and so is the first
+-- variable of a generic for loop, its control variable: the loop passes it
+-- back to the iterator.  The other variables of a generic for loop are
+-- ordinary locals.
+
 -- Test 1: Numeric for-loop variable assignment should fail
 test[[
   for i = 1, 10 do
@@ -27,14 +32,40 @@ test[[
 ]]
 --> ~false\t.*attempt to reassign constant variable 'k'
 
--- Test 3: For-in loop variable assignment should fail (second variable)
-test[[
-  local t = {a = 1, b = 2}
-  for k, v in pairs(t) do
-    v = 100
+-- Test 3: The other variables of a for-in loop can be assigned to.  The
+-- assignment lasts until the end of the iteration and changes nothing in
+-- the table or in the iteration.
+do
+  local t = {10, 20, 30}
+  local sum = 0
+  for i, v in ipairs(t) do
+    v = v + i
+    sum = sum + v
   end
-]]
---> ~false\t.*attempt to reassign constant variable 'v'
+  print(sum, t[1], t[2], t[3])
+end
+--> =66	10	20	30
+
+do
+  local out = {}
+  for i, a, b in function(_, i) if i < 3 then return i + 1, "a", nil end end, nil, 0 do
+    b = b or "default"
+    a, b = b, a
+    out[#out + 1] = i .. a .. b
+  end
+  print(table.concat(out, " "))
+end
+--> =1defaulta 2defaulta 3defaulta
+
+-- A closure can assign to them too, and each iteration has its own.
+do
+  local fs = {}
+  for i, v in ipairs{"x", "y"} do
+    fs[i] = function(s) v = v .. s return v end
+  end
+  print(fs[1]("1"), fs[2]("2"), fs[1]("3"))
+end
+--> =x1	y2	x13
 
 -- Test 4: Reading loop variables is allowed
 do
@@ -65,10 +96,19 @@ test[[
 ]]
 --> ~false\t.*attempt to reassign constant variable 'i'
 
--- Test 7: Multiple for-in variables, all are const
+-- Test 7: Several for-in variables: the first is const, whatever is done
+-- with the others
 test[[
   for a, b, c in string.gmatch("x y z", "%S+") do
+    b, c = c, b
     a = "modified"
+  end
+]]
+--> ~false\t.*attempt to reassign constant variable 'a'
+
+test[[
+  for a, b, c in string.gmatch("x y z", "%S+") do
+    b, a = 1, 2
   end
 ]]
 --> ~false\t.*attempt to reassign constant variable 'a'
