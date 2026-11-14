@@ -405,6 +405,21 @@ do
     end))
     --> =out of load
 
+    -- A Go function that calls a function last, without waiting for it, is
+    -- not left: there is nothing of it to leave.
+    print(callcc(function(k)
+        return testtailcall(k, "called by Go in the same loop")
+    end))
+    --> =called by Go in the same loop
+
+    -- A Go function that keeps every error of what it calls to itself does
+    -- not let the call of a continuation through, which it should (see
+    -- IsContinuationCall): it gets a message.
+    print(callcc(function(k)
+        return testcatch(k, "not reached")
+    end))
+    --> =attempt to call a continuation across a Go function that does not let it through
+
     -- The variables to be closed of what is left behind are closed, as they
     -- are when a block ends without an error.
     print(callcc(function(k)
