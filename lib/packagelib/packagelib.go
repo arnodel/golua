@@ -49,6 +49,30 @@ func (l Loader) Run(r *rt.Runtime) func() {
 	return cleanup
 }
 
+// OnRequire returns a Loader that does not load the library l but makes
+// require(l.Name) load it: for a library a program asks for, which is not a
+// global variable of every program.  The package library must be loaded
+// before it.
+func (l Loader) OnRequire() Loader {
+	return Loader{Load: func(r *rt.Runtime) (rt.Value, func()) {
+		var cleanup func()
+		load := rt.NewGoFunction(func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+			var pkg rt.Value
+			pkg, cleanup = l.Load(t.Runtime)
+			return c.PushingNext1(t.Runtime, pkg), nil
+		}, l.Name, 0, false)
+		// As require itself.
+		load.SolemnlyDeclareCompliance(rt.ComplyIoSafe)
+		preload := pkgTable(r).Get(preloadKey).AsTable()
+		r.SetTable(preload, rt.StringValue(l.Name), rt.FunctionValue(load))
+		return rt.NilValue, func() {
+			if cleanup != nil {
+				cleanup()
+			}
+		}
+	}}
+}
+
 // LibLoader allows loading the package lib.
 var LibLoader = Loader{
 	Load: load,

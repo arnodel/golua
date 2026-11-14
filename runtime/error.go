@@ -82,6 +82,9 @@ func (e *Error) AddContext(c Cont, depth int) *Error {
 			if _, ok := c.(*LuaCont); ok {
 				break
 			}
+			if _, ok := c.(*frozenCont); ok {
+				break
+			}
 			c = c.Parent()
 		}
 	}

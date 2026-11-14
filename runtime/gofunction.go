@@ -11,6 +11,11 @@ type GoFunction struct {
 	name        string
 	nArgs       int
 	hasEtc      bool
+
+	// keepsNext is set for a function that does not push values into its
+	// next continuation: it is not given a copy of a frozen frame to return
+	// to (see frozenCont).
+	keepsNext bool
 }
 
 var _ Callable = (*GoFunction)(nil)

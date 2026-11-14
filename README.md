@@ -14,6 +14,7 @@ library is mostly implemented.
 	- [Quick start: running golua](#quick-start-running-golua)
 		- [Safe execution environment (alpha)](#safe-execution-environment-alpha)
 		- [Importing and using Go packages](#importing-and-using-go-packages)
+		- [First-class continuations](#first-class-continuations)
 	- [Quick start: embedding golua](#quick-start-embedding-golua)
 		- [A faster build with golua's profile](#a-faster-build-with-goluas-profile)
 	- [Quick start: extending golua](#quick-start-extending-golua)
@@ -187,6 +188,39 @@ in function foo (file err.lua:3)
 in function bar (file err.lua:8)
 in function <main chunk> (file err.lua:11)
 ```
+
+### First-class continuations
+
+Golua's runtime has no call stack: a running function is a continuation, and
+the `cont` library lets a Lua program capture one.  `callcc(f)` calls `f(k)`,
+where `k` stands for the rest of the program from that call: calling `k` makes
+the call of `callcc` return again, whenever and as many times as you like.  If
+the file `again.lua` contains:
+
+```lua
+local callcc = require('cont').callcc
+
+local k
+local n = callcc(function(c) k = c; return 1 end)
+print(n)
+if n < 3 then
+    k(n + 1)
+end
+```
+
+Then:
+
+```sh
+$ golua again.lua
+1
+2
+3
+```
+
+Early exits, generators and backtracking can all be written with it: there are
+examples in [the library's tests](lib/contlib/lua/callcc.lua), and
+[its documentation](lib/contlib/contlib.go) says what a continuation holds and
+where it cannot be called.
 
 ## Quick start: embedding golua
 
@@ -440,3 +474,5 @@ lua library.
   are implemented - line hooks may not be as accurate as for C Lua.
 - `os` package is almost complete - `exit` doesn't support "closing" the Lua
   state (need to figure out what it means.)
+- `contlib`: the `cont` library, which is not part of Lua.  It provides
+  `callcc`, and a program gets it with `require("cont")`.
