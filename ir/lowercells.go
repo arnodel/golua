@@ -72,7 +72,11 @@ func LowerCells(c Code) Code {
 	// an argument straight into the register the callee's recv names), so
 	// its box is made right after the parameters are received, before the
 	// store into it; so is the box of a cell whose first mention is not a
-	// write, which comes before everything else.
+	// write, which comes before everything else.  A cell that is first
+	// written by receiving the results of a call is a local declared there
+	// ("local a, b = f()", the variables of a generic for loop): its box is
+	// made after the receive, before the store into it, so that in a loop
+	// it is a new one each time round, like any other local's.
 	afterParams := 0
 	for afterParams < len(c.Instructions) && receives(c.Instructions[afterParams]) {
 		afterParams++
@@ -85,10 +89,13 @@ func LowerCells(c Code) Code {
 				continue
 			}
 			boxed[r] = true
-			if slices.Contains(writes, r) && !receives(instr) {
-				e.InsertBefore(i, NewBox{Dst: r})
-			} else {
+			switch {
+			case !slices.Contains(writes, r) || receives(instr) && i < afterParams:
 				e.InsertBefore(afterParams, NewBox{Dst: r})
+			case receives(instr):
+				e.InsertBefore(i+1, NewBox{Dst: r})
+			default:
+				e.InsertBefore(i, NewBox{Dst: r})
 			}
 		}
 	}
