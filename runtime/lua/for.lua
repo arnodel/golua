@@ -122,6 +122,74 @@ do
     --> =1	2	3
 end
 
+-- So has each iteration of a generic for loop, for every one of its
+-- variables: a closure called after the loop has ended, when the iterator's
+-- last call has returned nil, still sees the value of its own iteration.
+do
+    local fs = {}
+    for i, v in ipairs{"a", "b", "c"} do fs[i] = function() return i, v end end
+    print(fs[1]())
+    --> =1	a
+    print(fs[3]())
+    --> =3	c
+
+    local function inside()
+        local gs = {}
+        for k, v in pairs{x = 1} do gs[1] = function() return k, v end end
+        return gs[1]()
+    end
+    print(inside())
+    --> =x	1
+
+    -- Called while the loop runs, and leaving it with break.
+    local seen, last = {}
+    for i, v in ipairs{5, 6, 7} do
+        local f = function() return v end
+        seen[i] = f()
+        if i == 2 then last = f break end
+    end
+    print(seen[1], seen[2], seen[3], last())
+    --> =5	6	nil	6
+
+    -- Nested loops: each closure has the variables of both its iterations.
+    local hs = {}
+    for i, a in ipairs{"p", "q"} do
+        for j, b in ipairs{"r", "s"} do
+            hs[#hs + 1] = function() return a .. b end
+        end
+    end
+    print(hs[1](), hs[2](), hs[3](), hs[4]())
+    --> =pr	ps	qr	qs
+end
+
+-- And so has each execution of a local statement that takes its values from
+-- a call: a closure that changes such a local changes its own.
+do
+    local function two() return 1, 2 end
+    local fs = {}
+    for i = 1, 2 do
+        local a, b = two()
+        fs[i] = function() b = b + 1 return a, b end
+    end
+    print(fs[1]())
+    --> =1	3
+    print(fs[2]())
+    --> =1	3
+    print(fs[1]())
+    --> =1	4
+
+    local n = 0
+    local function next3() n = n + 1 if n <= 3 then return n, n * 10 end end
+    local gs = {}
+    while true do
+        local k, v = next3()
+        if not k then break end
+        gs[k] = function() return v end
+    end
+    print(gs[1](), gs[2](), gs[3]())
+    --> =10	20	30
+end
+
 -- The body reads the loop variable as the loop counts it, also after a branch.
 do
     local t = {}
