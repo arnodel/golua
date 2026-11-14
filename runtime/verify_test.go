@@ -33,7 +33,7 @@ func TestVerifyCounts(t *testing.T) {
 			t.Errorf("%s: got %v, want an error about the %s", c.name, err, c.want)
 		}
 	}
-	ok := &Code{RegCount: 256, UpvalueCount: 256, UpNames: make([]string, 256)}
+	ok := &Code{code: []code.Opcode{code.Call(r0)}, RegCount: 256, UpvalueCount: 256, UpNames: make([]string, 256)}
 	if err := ok.verify(); err != nil {
 		t.Errorf("largest frame: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestVerifyCounts(t *testing.T) {
 
 func TestVerifyEntryLoads(t *testing.T) {
 	load := func(up, reg uint8) *Code {
-		return &Code{RegCount: 2, UpvalueCount: 1, UpNames: []string{"x"}, entryLoads: []code.EntryLoad{{Up: up, Reg: reg}}}
+		return &Code{code: []code.Opcode{code.Call(r0)}, RegCount: 2, UpvalueCount: 1, UpNames: []string{"x"}, entryLoads: []code.EntryLoad{{Up: up, Reg: reg}}}
 	}
 	if err := load(0, 1).verify(); err != nil {
 		t.Errorf("valid entry load: %v", err)
@@ -126,7 +126,6 @@ func TestVerifyOpcodes(t *testing.T) {
 	}{
 		{"call with arguments in range", append([]code.Opcode{code.CallArgs(r0, 4)}, code.ArgWords([]code.Reg{r1, r1, r0, r1}, nil)...), true},
 		{"call with a bad argument", append([]code.Opcode{code.CallArgs(r0, 4)}, code.ArgWords([]code.Reg{r1, r1, r2, r1}, nil)...), false},
-		{"call whose arguments run past the end", []code.Opcode{code.CallArgs(r0, 1)}, false},
 		{"jump into the arguments", append(append([]code.Opcode{code.Jump(2), code.CallArgs(r0, 1)}, code.ArgWords([]code.Reg{r1}, nil)...), code.Call(r0)), false},
 		{"jump over the arguments", append(append([]code.Opcode{code.Jump(3), code.CallArgs(r0, 1)}, code.ArgWords([]code.Reg{r1}, nil)...), code.Call(r0)), true},
 		{"argument words are not opcodes", append([]code.Opcode{code.CallArgs(r0, 3)}, code.ArgWords([]code.Reg{r1, r1, r1}, nil)...), true},
@@ -144,7 +143,7 @@ func TestVerifyOpcodes(t *testing.T) {
 		{"type7 unknown operation", []code.Opcode{code.Type7Pfx | 9<<24, code.Jump(0)}, false},
 	}
 	for _, c := range callCases {
-		err := testCode(c.ops...).verify()
+		err := testCode(append(c.ops, code.Call(r0))...).verify()
 		if c.ok && err != nil {
 			t.Errorf("%s: unexpected error %v", c.name, err)
 		}
@@ -153,7 +152,41 @@ func TestVerifyOpcodes(t *testing.T) {
 		}
 	}
 	for _, c := range cases {
-		err := testCode(c.op).verify()
+		err := testCode(c.op, code.Call(r0)).verify()
+		if c.ok && err != nil {
+			t.Errorf("%s: unexpected error %v", c.name, err)
+		}
+		if !c.ok && err == nil {
+			t.Errorf("%s: expected an error", c.name)
+		}
+	}
+}
+
+// Execution must not be able to run past the end of the code: the run loop
+// fetches opcodes without checking where.
+func TestVerifyEnd(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		ops  []code.Opcode
+		ok   bool
+	}{
+		{"no code", nil, false},
+		{"ends with a return", []code.Opcode{code.LoadNil(r1), code.Call(r0)}, true},
+		{"ends with a tail call", []code.Opcode{code.TailCall(r1)}, true},
+		{"ends with a jump", []code.Opcode{code.LoadNil(r1), code.Jump(-1)}, true},
+		{"ends with a load", []code.Opcode{code.LoadNil(r1)}, false},
+		{"ends with a load nothing reaches", []code.Opcode{code.Call(r0), code.LoadNil(r1)}, true},
+		{"ends with a load a jump reaches", []code.Opcode{code.Jump(2), code.Call(r0), code.LoadNil(r1)}, false},
+		{"ends with a conditional jump", []code.Opcode{code.JumpIf(0, r1)}, false},
+		{"ends with a call that returns here", []code.Opcode{code.Call(r1)}, false},
+		{"ends with the arguments of a return", append([]code.Opcode{code.CallArgs(r0, 1)}, code.ArgWords([]code.Reg{r1}, nil)...), true},
+		{"ends with the arguments of a call that returns here", append([]code.Opcode{code.CallArgs(r1, 1)}, code.ArgWords([]code.Reg{r1}, nil)...), false},
+		{"call whose arguments run past the end", []code.Opcode{code.CallArgs(r0, 1)}, false},
+		{"predicate whose jump is the last word", []code.Opcode{code.CompareJump(code.OpLt, r1, r0, false), code.Jump(0)}, false},
+		{"predicate with an opcode to step to", []code.Opcode{code.CompareJump(code.OpLt, r1, r0, false), code.Jump(0), code.Call(r0)}, true},
+		{"for loop whose jump is the last word", []code.Opcode{code.AdvForLoop(r0, r1, r1), code.Jump(0)}, false},
+	} {
+		err := testCode(c.ops...).verify()
 		if c.ok && err != nil {
 			t.Errorf("%s: unexpected error %v", c.name, err)
 		}

@@ -118,7 +118,7 @@ RunLoop:
 				}
 			}
 		}
-		opcode := opcodes[pc]
+		opcode := opcodeAt(opcodes, pc)
 		if opcode.HasType1() {
 			dst := opcode.GetA()
 			x := getReg(regs, opcode.GetB())
@@ -257,8 +257,8 @@ RunLoop:
 		case code.Type8Pfx:
 			reg := opcode.GetA()
 			coll := getReg(regs, opcode.GetB())
-			key := consts[opcode.GetK8()]
-			hint := &c.slotCache[pc]
+			key := constAt(consts, uintptr(opcode.GetK8()))
+			hint := hintAt(c.slotCache, pc)
 			if !opcode.GetF() {
 				val, err := indexStringAt(t, coll, key, hint)
 				if err != nil {
@@ -281,9 +281,9 @@ RunLoop:
 			case code.OpStr2:
 				val = StringValue(string(code.Lit16(n).ToStr2()))
 			case code.OpK:
-				val = consts[n]
+				val = constAt(consts, uintptr(n))
 			case code.OpClosureK:
-				val = FunctionValue(NewClosure(t.Runtime, consts[n].AsCode()))
+				val = FunctionValue(NewClosure(t.Runtime, constAt(consts, uintptr(n)).AsCode()))
 			default:
 				panic("Unsupported opcode")
 			}
@@ -491,7 +491,7 @@ RunLoop:
 				if n := opcode.GetArgCount(); n > 0 {
 					lnext, isLua := next.(*LuaCont)
 					for ; n > 0; pc++ {
-						w := opcodes[pc]
+						w := opcodeAt(opcodes, pc)
 						clear := w.ArgClears()
 						for k, reg := range [3]code.Reg{w.GetA(), w.GetB(), w.GetC()} {
 							if n == 0 {
@@ -726,7 +726,7 @@ RunLoop:
 func jumpAfter(opcodes []code.Opcode, pc int32, taken bool) int32 {
 	pc++
 	if taken {
-		return pc + int32(opcodes[pc].GetOffset())
+		return pc + int32(opcodeAt(opcodes, pc).GetOffset())
 	}
 	return pc + 1
 }
@@ -817,4 +817,24 @@ func setReg(regs []Value, reg code.Reg, val Value) {
 
 func getReg(regs []Value, reg code.Reg) Value {
 	return regs[reg]
+}
+
+// opcodeAt, constAt and hintAt read the word at pc of a function's code, a
+// constant, and the lookup hint of the opcode at pc, without a bounds check.
+// The run loop pays for a check on every opcode it fetches, so it relies on
+// what Code.verify has established before the function could run: execution
+// never leaves the code (every jump lands inside it, and no opcode that goes
+// on to the next one is the last), every constant an opcode names is in the
+// constant table, and there is a hint for every word of code (the two ways
+// of loading a function make Code.slotCache as long as its code).
+func opcodeAt(opcodes []code.Opcode, pc int32) code.Opcode {
+	return *(*code.Opcode)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(opcodes)), uintptr(pc)*unsafe.Sizeof(code.Opcode(0))))
+}
+
+func constAt(consts []Value, k uintptr) Value {
+	return *(*Value)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(consts)), k*unsafe.Sizeof(Value{})))
+}
+
+func hintAt(hints []lookupHint, pc int32) *lookupHint {
+	return (*lookupHint)(unsafe.Add(unsafe.Pointer(unsafe.SliceData(hints)), uintptr(pc)*unsafe.Sizeof(lookupHint{})))
 }
