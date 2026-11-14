@@ -81,6 +81,16 @@ func callArgCount(op code.Opcode) int {
 	return op.GetArgCount()
 }
 
+// verifyNextJump checks that the opcode after pc is a jump: the run loop
+// takes or steps over it after a for loop opcode or a predicate, without
+// looking at it.
+func (c *Code) verifyNextJump(pc int) error {
+	if pc+1 >= len(c.code) || !isJump(c.code[pc+1]) {
+		return fmt.Errorf("opcode that decides a jump not followed by one")
+	}
+	return nil
+}
+
 // isJump reports whether op is an unconditional jump.
 func isJump(op code.Opcode) bool {
 	return !op.HasType1() && op.TypePfx() == code.Type5Pfx && op.GetJ() == code.OpJump
@@ -110,11 +120,20 @@ func (c *Code) verifyOpcode(pc int, op code.Opcode) error {
 	case code.Type2Pfx:
 		return c.verifyRegisters(op.GetA(), op.GetB(), op.GetC())
 	case code.Type7Pfx:
-		// The run loop takes or steps over the jump that follows.
-		if pc+1 >= len(c.code) || !isJump(c.code[pc+1]) {
-			return fmt.Errorf("for loop opcode not followed by a jump")
+		if err := c.verifyNextJump(pc); err != nil {
+			return err
 		}
-		return c.verifyRegisters(op.GetA(), op.GetB(), op.GetC())
+		switch p := op.GetP(); p {
+		case code.OpPrepFor, code.OpAdvFor:
+			return c.verifyRegisters(op.GetA(), op.GetB(), op.GetC())
+		case code.OpIfEq, code.OpIfLt, code.OpIfLeq:
+			if a := op.GetA(); a > 1 {
+				return fmt.Errorf("predicate with A = %d, not 0 or 1", a)
+			}
+			return c.verifyRegisters(op.GetB(), op.GetC())
+		default:
+			return fmt.Errorf("unknown jump-deciding operation %d", p)
+		}
 	case code.Type8Pfx:
 		if err := c.verifyConstant(op.GetK8().ToKIndex()); err != nil {
 			return err

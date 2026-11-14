@@ -7,6 +7,18 @@ func Combine(op BinOp, r1, r2, r3 Reg) Opcode {
 	return mkType1(op, r1, r2, r3)
 }
 
+// CompareJump encodes the predicate "if op(r2, r3)" or, with not set, "if
+// not op(r2, r3)", for a comparison op (OpEq, OpLt or OpLeq).  The predicate
+// decides the Jump that must follow it: taken if the comparison holds (or
+// doesn't, with not), stepped over otherwise.  No register receives a value.
+func CompareJump(op BinOp, r2, r3 Reg, not bool) Opcode {
+	c := mkType7(op.predicate(), 0, r2, r3)
+	if not {
+		c |= type7Not
+	}
+	return c
+}
+
 // Transform encodes r1 <- op(r2)
 func Transform(op UnOp, r1, r2 Reg) Opcode {
 	return mkType4a(Off, op, r1, r2)
@@ -279,7 +291,7 @@ func CheckNotDefined(rTable, rIndex Reg) Opcode {
 // numbers and give rStart and rStep the same numeric type.  The opcode must
 // be followed by a Jump, which it takes if the loop has no iteration.
 func PrepForLoop(rStart, rStop, rStep Reg) Opcode {
-	return mkType7(Off, rStart, rStop, rStep)
+	return mkType7(OpPrepFor, rStart, rStop, rStep)
 }
 
 // AdvForLoop encodes advfor rStart, rStop, rStep: rStart <- rStart + rStep,
@@ -287,5 +299,5 @@ func PrepForLoop(rStart, rStop, rStep Reg) Opcode {
 // must be followed by a Jump, which it takes if the loop has another
 // iteration.
 func AdvForLoop(rStart, rStop, rStep Reg) Opcode {
-	return mkType7(On, rStart, rStop, rStep)
+	return mkType7(OpAdvFor, rStart, rStop, rStep)
 }

@@ -63,19 +63,44 @@ func (c condJumpCompiler) ProcessUnOpExp(u ast.UnOp) {
 }
 
 // ProcessBinOpExp compiles a BinOp: "and" and "or" jump on each operand, and
-// "x ~= y", which is "not (x == y)", puts the "not" into the jump unless its
-// value is needed.
+// a comparison is one instruction with its jump, unless its value is needed.
 func (c condJumpCompiler) ProcessBinOpExp(b ast.BinOp) {
 	switch {
 	case b.OpType == ops.OpAnd || b.OpType == ops.OpOr:
 		c.logicalJump(b)
-	case len(b.Right) == 1 && b.Right[0].Op == ops.OpNeq && !c.keep:
-		b.Right = []ast.Operation{{Op: ops.OpEq, Operand: b.Right[0].Operand}}
-		r := c.compileExpNoDestHint(b)
-		c.emitInstr(b, ir.JumpIf{Cond: r, Label: c.lbl, Not: c.jumpIf})
+	case len(b.Right) == 1 && isComparison(b.Right[0].Op) && !c.keep:
+		c.compareJump(b)
 	default:
 		c.jumpOnValue(b)
 	}
+}
+
+func isComparison(op ops.Op) bool {
+	switch op {
+	case ops.OpEq, ops.OpNeq, ops.OpLt, ops.OpLeq, ops.OpGt, ops.OpGeq:
+		return true
+	}
+	return false
+}
+
+// compareJump compiles a comparison as a condition: the comparison and the
+// jump are one instruction, and no register holds the boolean.  As when a
+// comparison is computed as a value (compexp.go), "x > y" is "y < x", "x >=
+// y" is "y <= x", and "x ~= y" is "x == y" with the jump's direction swapped.
+func (c condJumpCompiler) compareJump(b ast.BinOp) {
+	op := b.Right[0].Op
+	lsrc := c.compileExpNoDestHint(b.Left)
+	rsrc := c.compileExpNoDestHint(b.Right[0].Operand)
+	not := !c.jumpIf
+	switch op {
+	case ops.OpNeq:
+		op, not = ops.OpEq, !not
+	case ops.OpGt:
+		op, lsrc, rsrc = ops.OpLt, rsrc, lsrc
+	case ops.OpGeq:
+		op, lsrc, rsrc = ops.OpLeq, rsrc, lsrc
+	}
+	c.emitInstr(b, ir.JumpIfCmp{Op: op, Lsrc: lsrc, Rsrc: rsrc, Label: c.lbl, Not: not})
 }
 
 // logicalJump compiles a chain of "and" or of "or".  In an "and" chain a

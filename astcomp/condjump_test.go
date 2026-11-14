@@ -25,7 +25,7 @@ func controlFlow(t *testing.T, src string, moves bool) string {
 	var b strings.Builder
 	for _, instr := range consts[kidx].(*ir.Code).Instructions {
 		switch x := instr.(type) {
-		case ir.DeclareLabel, ir.Jump, ir.JumpIf:
+		case ir.DeclareLabel, ir.Jump, ir.JumpIf, ir.JumpIfCmp:
 			b.WriteString(instr.String() + "\n")
 		case ir.Transform:
 			if x.Op == ops.OpNot || moves && x.Op == ops.OpId {
@@ -55,9 +55,38 @@ L2:
 L1:
 L0:
 `},
-		// r5 is a == b.
+		// A comparison is one instruction with its jump: no register holds
+		// the boolean.  "~=" is "==" with the jump's direction swapped, ">"
+		// and ">=" are "<" and "<=" with the operands swapped.
 		{"if a ~= b then a = 1 end", `
-jump L1 if r5 is not false
+if OpEq(r2, r3) jump L1
+L1:
+L0:
+`},
+		{"if a < b then a = 1 end", `
+if not OpLt(r2, r3) jump L1
+L1:
+L0:
+`},
+		{"if a >= b then a = 1 end", `
+if not OpLeq(r3, r2) jump L1
+L1:
+L0:
+`},
+		{"if not (a > b) then a = 1 end", `
+if OpLt(r3, r2) jump L1
+L1:
+L0:
+`},
+		{"while a <= b do a = 1 end", `
+L1:
+if not OpLeq(r2, r3) jump L0
+jump L1
+L0:
+`},
+		{"if a < b and b == c then a = 1 end", `
+if not OpLt(r2, r3) jump L1
+if not OpEq(r3, r4) jump L1
 L1:
 L0:
 `},

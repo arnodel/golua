@@ -624,22 +624,72 @@ func mkType6(f Flag, rA, rB Reg, i Index8) Opcode {
 }
 
 // ==================================================================
-// Type7:  0010F... AAAAAAAA BBBBBBBB CCCCCCCC
+// Type7:  0010PPPP AAAAAAAA BBBBBBBB CCCCCCCC
 //
-// Numeric for loops, over the variable rA with limit rB and step rC.  F Off
-// prepares the loop (checks the values are numbers, gives rA and rC the same
-// numeric type, sets rA to nil if the loop must not run); F On advances it
-// (rA <- rA + rC, then sets rA to nil if the limit is passed or the addition
-// wrapped around).  A conditional jump on rA follows.
+// Opcodes that decide the jump opcode following them, which they take
+// themselves or step over.  P selects the operation (a JumpDecider):
 //
-//   - F selects between preparing and advancing
-//   - aAAAAAAAA is the loop variable rA
-//   - bBBBBBBBB is the limit rB
-//   - cCCCCCCCC is the step rC
+//   - OpPrepFor prepares a numeric for loop over the variable rA with limit
+//     rB and step rC: checks the three are numbers, gives rA and rC the same
+//     numeric type and, for an integer loop, makes rB an integer too.  The
+//     jump is taken if the loop has no iteration.
+//   - OpAdvFor advances the loop: rA <- rA + rC, unless that passes rB or
+//     wraps around.  The jump is taken if the loop has another iteration.
+//   - OpIfEq, OpIfLt and OpIfLeq are the predicates "if rB == rC", "if rB <
+//     rC" and "if rB <= rC": the jump is taken if the comparison holds, or
+//     if it doesn't when A is 1 ("if not rB < rC").  No register receives a
+//     value.
+//
+// P takes the F position and the three bits after it, so that the run loop
+// dispatches the five operations with one switch.
+
+// JumpDecider is the operation of a Type7 opcode.
+type JumpDecider uint8
+
+// The operations that decide a jump.
+const (
+	OpPrepFor JumpDecider = iota
+	OpAdvFor
+	OpIfEq
+	OpIfLt
+	OpIfLeq
+)
+
+// predicate returns the predicate for a comparison operator.
+func (op BinOp) predicate() JumpDecider {
+	switch op {
+	case OpEq:
+		return OpIfEq
+	case OpLt:
+		return OpIfLt
+	case OpLeq:
+		return OpIfLeq
+	}
+	panic("not a comparison")
+}
+
+// encodeP encodes a JumpDecider into an opcode.
+func (op JumpDecider) encodeP() Opcode {
+	return Opcode(op) << 24
+}
+
+// GetP decodes the JumpDecider from this opcode.
+func (c Opcode) GetP() JumpDecider {
+	return JumpDecider((c >> 24) & 0xf)
+}
+
+// type7Not is the field A set to 1, which negates a predicate.
+const type7Not Opcode = 1 << 16
+
+// Negated reports whether this predicate takes its jump when the comparison
+// doesn't hold.
+func (c Opcode) Negated() bool {
+	return c&type7Not != 0
+}
 
 // mkType7 builds a Type7 opcode from its constituents.
-func mkType7(f Flag, rA, rB, rC Reg) Opcode {
-	return Type7Pfx | f.encodeF() | rA.toA() | rB.toB() | rC.toC()
+func mkType7(op JumpDecider, rA, rB, rC Reg) Opcode {
+	return Type7Pfx | op.encodeP() | rA.toA() | rB.toB() | rC.toC()
 }
 
 // ==================================================================
@@ -661,8 +711,9 @@ func mkType0(f Flag, rA Reg) Opcode {
 // ==================================================================
 // Fields shared by several types of opcodes.
 
-// Flag is the On / Off switch at bit 27 of every opcode but Type1.  Its
-// meaning depends on the type.
+// Flag is the On / Off switch at bit 27 of every opcode but Type1 and
+// Type7, whose operation field takes its place.  Its meaning depends on the
+// type.
 type Flag uint8
 
 // The two values of a Flag.
@@ -909,12 +960,26 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 		}
 		return fmt.Sprintf("%s <- etclookup(%s, %d)", rA, rB, m)
 	case Type7Pfx:
-		rStart, rStop, rStep := c.GetA(), c.GetB(), c.GetC()
-		action := "prep"
-		if c.GetF() {
-			action = "adv"
+		rA, rB, rC := c.GetA(), c.GetB(), c.GetC()
+		var tpl string
+		switch c.GetP() {
+		case OpPrepFor:
+			return fmt.Sprintf("prepfor %s, %s, %s", rA, rB, rC)
+		case OpAdvFor:
+			return fmt.Sprintf("advfor %s, %s, %s", rA, rB, rC)
+		case OpIfEq:
+			tpl = "%s == %s"
+		case OpIfLt:
+			tpl = "%s < %s"
+		case OpIfLeq:
+			tpl = "%s <= %s"
+		default:
+			return "???"
 		}
-		return fmt.Sprintf("%sfor %s, %s, %s", action, rStart, rStop, rStep)
+		if c.Negated() {
+			return fmt.Sprintf("if not "+tpl, rB, rC)
+		}
+		return fmt.Sprintf("if "+tpl, rB, rC)
 	default:
 		return "???"
 	}

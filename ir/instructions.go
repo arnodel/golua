@@ -55,6 +55,7 @@ type InstrProcessor interface {
 	ProcessPushInstr(Push)
 	ProcessJumpInstr(Jump)
 	ProcessJumpIfInstr(JumpIf)
+	ProcessJumpIfCmpInstr(JumpIfCmp)
 	ProcessCallInstr(Call)
 	ProcessMkClosureInstr(MkClosure)
 	ProcessMkContInstr(MkCont)
@@ -842,6 +843,37 @@ func (l DeclareLabel) ProcessInstr(p InstrProcessor) {
 func (l DeclareLabel) Reads() []Register                         { return nil }
 func (l DeclareLabel) Writes() []Register                        { return nil }
 func (l DeclareLabel) ReplaceRead(from, to Register) Instruction { return l }
+
+// JumpIfCmp compares Lsrc and Rsrc with Op (OpEq, OpLt or OpLeq) and jumps
+// to Label if the result is true, or false if Not is set.  It is a Combine
+// and a JumpIf in one, with no register for the boolean: the AST compiler
+// emits it for a comparison used as a condition.
+type JumpIfCmp struct {
+	Op         ops.Op
+	Lsrc, Rsrc Register
+	Label      Label
+	Not        bool
+}
+
+func (j JumpIfCmp) String() string {
+	not := ""
+	if j.Not {
+		not = "not "
+	}
+	return fmt.Sprintf("if %s%s(%s, %s) jump %s", not, j.Op, j.Lsrc, j.Rsrc, j.Label)
+}
+
+// ProcessInstr makes the InstrProcessor process this instruction.
+func (j JumpIfCmp) ProcessInstr(p InstrProcessor) {
+	p.ProcessJumpIfCmpInstr(j)
+}
+
+func (j JumpIfCmp) Reads() []Register  { return []Register{j.Lsrc, j.Rsrc} }
+func (j JumpIfCmp) Writes() []Register { return nil }
+func (j JumpIfCmp) ReplaceRead(from, to Register) Instruction {
+	j.Lsrc, j.Rsrc = sub(j.Lsrc, from, to), sub(j.Rsrc, from, to)
+	return j
+}
 
 // PrepForLoop prepares a numeric for loop: it checks that Start, Stop and
 // Step are numbers, gives them the loop's numeric type, and jumps to Label if

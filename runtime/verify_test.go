@@ -135,6 +135,13 @@ func TestVerifyOpcodes(t *testing.T) {
 		{"type7 bad C", []code.Opcode{code.AdvForLoop(r0, r0, r2), code.Jump(0)}, false},
 		{"type7 without its jump", []code.Opcode{code.AdvForLoop(r0, r1, r1)}, false},
 		{"type7 followed by something else", []code.Opcode{code.PrepForLoop(r0, r1, r1), code.JumpIf(0, r0)}, false},
+		// A predicate (Type7 too): B and C are registers, A is 0 or 1, and a
+		// jump must follow.
+		{"predicate in range", []code.Opcode{code.CompareJump(code.OpLt, r1, r0, true), code.Jump(0)}, true},
+		{"predicate bad C", []code.Opcode{code.CompareJump(code.OpEq, r1, r2, false), code.Jump(0)}, false},
+		{"predicate without its jump", []code.Opcode{code.CompareJump(code.OpLeq, r1, r0, false)}, false},
+		{"predicate with A beyond 1", []code.Opcode{code.CompareJump(code.OpLt, r1, r0, false) | 2<<16, code.Jump(0)}, false},
+		{"type7 unknown operation", []code.Opcode{code.Type7Pfx | 9<<24, code.Jump(0)}, false},
 	}
 	for _, c := range callCases {
 		err := testCode(c.ops...).verify()
