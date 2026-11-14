@@ -64,6 +64,13 @@ var benchmarks = []benchmark{
 	clbg("coroutine-ring", "return tostring(f(100000))", "407"),
 	extra("md5", "return f(20)", "a831e91e0f70eddcb70dc61c6f82f6cd"),
 	extra("life", "return f(40, 20, 200)", "sha256:ea614de27597fdca26940414b93eef6eab93648115cd15b831bf8794505cbacc"),
+
+	// And for what tables are mostly used for outside benchmarks: arrays
+	// built by appending and walked with ipairs and the length operator,
+	// records made by constructors, dictionaries indexed by computed strings
+	// and walked with pairs.
+	extra("arrays", "return f(800)", "159832000"),
+	extra("records", "return f(400)", "16290800"),
 }
 
 // awfy is an Are We Fast Yet benchmark, run with the given inner iterations

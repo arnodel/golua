@@ -200,12 +200,14 @@ once before timing them.
 
 ## Other programs
 
-[`extra/`](extra) holds two programs from neither suite.
+[`extra/`](extra) holds four programs from neither suite.
 
 | Benchmark | What it does | From |
 |---|---|---|
 | md5 | hashing 16 KB of text 20 times; the bitwise operators | md5test.lua from [Lua BitOp](https://bitop.luajit.org/) 1.0.3, public domain |
 | life | 200 generations of Conway's Game of Life on 40×20 cells; building strings by concatenation, global variables | test/life.lua from Lua 5.1.5, MIT |
+| arrays | arrays of 200 numbers built and walked 800 times; appending with `t[#t + 1]` and `table.insert`, a stack popped with `table.remove`, `ipairs`, the length operator | written for these benchmarks |
+| records | 100 records made and walked 400 times; constructors with fields, a dictionary indexed by computed strings, `pairs` | written for these benchmarks |
 
 md5 used the bit library, which Lua 5.3 replaced with operators.  It now
 uses the operators, and still passes the original's test vectors.  life drew
@@ -234,10 +236,25 @@ The last six benchmarks fill those gaps:
 
 Floor division, `^` and error handling with `pcall` are still not covered.
 
+Tables are in every benchmark, but mostly as Are We Fast Yet uses them:
+objects with fields named in the source, and arrays indexed by a counter.
+What Lua programs do with tables all the time hardly appears.  The length
+operator is 0.13% of the opcodes of those 23 benchmarks, and 2% of the one
+that uses it most (json); few of them append to an array in a loop that
+matters, make records with a constructor, index a table by a string they
+have computed, or walk one with `pairs`.  The last two benchmarks do little
+else:
+
+| | in the other 23 | in arrays and records |
+|---|---|---|
+| the length operator | 0.13% of opcodes, at most 2% (json) | 6.6% (arrays) |
+| a store with a computed key, `t[k] = v` | 4.5%, mostly into slots that hold a value already | 8.1% (arrays), nearly all appends |
+| iterator calls of `pairs` and `ipairs` | rare | a fifth of records' opcodes receive their results |
+
 ## Sizes
 
 The first 17 benchmarks run at the sizes apogee uses, so results can be set
 beside its own: cd with 10 aircraft, deltablue with chains of 1000 variables,
 havlak at its smallest size, mandelbrot at 500×500, and one inner iteration
-for the others.  The last six have sizes chosen to take 10 to 50
+for the others.  The last eight have sizes chosen to take 10 to 50
 milliseconds in PUC Lua.
