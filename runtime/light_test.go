@@ -18,18 +18,17 @@ func TestLightCoroutines(t *testing.T) {
 	hasGoroutine := func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		return c.PushingNext1(t.Runtime, rt.BoolValue(t.HasGoroutine())), nil
 	}
-	// Both are declared never to call Lua, but only liar does.
-	honest := r.SetEnvGoFunc(env, "honest", hasGoroutine, 0, false)
-	rt.DeclareNeverCallsLua(honest)
+	// Both honest and liar are declared NoYieldAcross, but only liar calls
+	// Lua.
+	r.SetEnvGoFunc(env, "honest", hasGoroutine, 0, false, rt.NoYieldAcross)
 	r.SetEnvGoFunc(env, "unknown", hasGoroutine, 0, false)
-	liar := r.SetEnvGoFunc(env, "liar", func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	r.SetEnvGoFunc(env, "liar", func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		res, err := rt.Call1(t, c.Arg(0))
 		if err != nil {
 			return nil, err
 		}
 		return c.PushingNext1(t.Runtime, res), nil
-	}, 1, false)
-	rt.DeclareNeverCallsLua(liar)
+	}, 1, false, rt.NoYieldAcross)
 
 	run := func(t *testing.T, src string) (rt.Value, error) {
 		t.Helper()
@@ -131,7 +130,7 @@ func TestLightCoroutines(t *testing.T) {
 		})
 	}
 
-	t.Run("a function declared never to call Lua that does", func(t *testing.T) {
+	t.Run("a function declared NoYieldAcross that calls Lua", func(t *testing.T) {
 		// The main thread has a goroutine: no problem there.
 		got, err := run(t, `return liar(function() return 1 end)`)
 		if err != nil || got != rt.IntValue(1) {
@@ -141,7 +140,7 @@ func TestLightCoroutines(t *testing.T) {
 		_, err = run(t, `return coroutine.wrap(function()
 			return liar(function() return 1 end)
 		end)()`)
-		if err == nil || !strings.Contains(err.Error(), "declared never to call Lua") {
+		if err == nil || !strings.Contains(err.Error(), "declared NoYieldAcross") {
 			t.Errorf("light coroutine: got error %v", err)
 		}
 	})

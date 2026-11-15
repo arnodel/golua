@@ -16,24 +16,21 @@ var LibLoader = packagelib.Loader{
 func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
 
-	fs := []*rt.GoFunction{
-		r.SetEnvGoFunc(pkg, "close", close, 1, false), // Lua 5.4
-		r.SetEnvGoFunc(pkg, "create", create, 1, false),
-		r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 1, false),
-		r.SetEnvGoFunc(pkg, "resume", resume, 1, true),
-		r.SetEnvGoFunc(pkg, "running", running, 0, false),
-		r.SetEnvGoFunc(pkg, "status", status, 1, false),
-		r.SetEnvGoFunc(pkg, "wrap", wrap, 1, false),
-		r.SetEnvGoFunc(pkg, "yield", yield, 0, true),
-	}
-	rt.SolemnlyDeclareCompliance(
-		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
-		fs...,
-	)
 	// None of them calls Lua in the thread that calls it: resume runs
 	// another thread, and close closes one.  So a coroutine can call them
 	// without needing a goroutine.
-	rt.DeclareNeverCallsLua(fs...)
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
+
+		r.SetEnvGoFunc(pkg, "close", close, 1, false, rt.NoYieldAcross), // Lua 5.4
+		r.SetEnvGoFunc(pkg, "create", create, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "resume", resume, 1, true, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "running", running, 0, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "status", status, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "wrap", wrap, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "yield", yield, 0, true, rt.NoYieldAcross),
+	)
 
 	return rt.TableValue(pkg), nil
 }
@@ -67,7 +64,8 @@ func create(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err != nil {
 		return nil, err
 	}
-	co := rt.NewCoroutine(t.Runtime, f)
+	co := rt.NewThread(t.Runtime)
+	co.Start(f)
 	return c.PushingNext1(t.Runtime, rt.ThreadValue(co)), nil
 }
 
@@ -138,16 +136,16 @@ func wrap(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err != nil {
 		return nil, err
 	}
-	co := rt.NewCoroutine(t.Runtime, f)
+	co := rt.NewThread(t.Runtime)
+	co.Start(f)
 	w := t.NewGoFunction(func(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		res, err := co.Resume(t, c.Etc())
 		if err != nil {
 			return nil, err
 		}
 		return c.PushingNext(t.Runtime, res...), nil
-	}, "wrap", 0, true)
+	}, "wrap", 0, true, rt.NoYieldAcross)
 	w.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyTimeSafe | rt.ComplyIoSafe)
-	rt.DeclareNeverCallsLua(w)
 	next := c.Next()
 	t.Push1(next, rt.FunctionValue(w))
 	return next, nil

@@ -88,7 +88,7 @@ FillEtc:
 
 // RunInThread implements Cont.RunInThread.
 func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
-	if t.light && !c.neverCallsLua {
+	if t.light && !c.noYieldAcross {
 		// The function may call Lua code that yields: its frame on the Go
 		// stack would then have to be kept, which takes a goroutine.
 		return nil, errNeedsGoroutine
