@@ -5,9 +5,11 @@ import (
 	"unsafe"
 )
 
-// A Continuation is a function that stands for the rest of a computation:
-// calling it makes the call it was captured at return its arguments.  It can
-// be called any number of times, before or after that call has returned.
+// A ContFunction is a function that stands for a continuation: calling it
+// makes the continuation carry on with the arguments of the call as the
+// values pushed into it.  It is made by Thread.CaptureCont and can be called
+// any number of times.  To Lua it is a function, next to Closure and
+// GoFunction.
 //
 // A Cont cannot do this by itself.  Running a frame changes its registers
 // and its place in the code, so a frame runs from a given state once.  A
@@ -20,7 +22,7 @@ import (
 // each time the continuation is called, whereas what the frame shares with
 // the rest of the program is not copied and keeps its changes: tables, and
 // the boxes of captured variables.
-type Continuation struct {
+type ContFunction struct {
 	thread *Thread
 	loop   *runLoop // The thread's loop at the capture, see call
 	cont   Cont     // A frozen frame, or a continuation that is not a frame
@@ -31,22 +33,25 @@ type Continuation struct {
 	goFunction *GoFunction // Calls k, for Go code; made when first needed
 }
 
-var _ Callable = (*Continuation)(nil)
+var _ Callable = (*ContFunction)(nil)
 
-// NewCallCC returns a function callcc(f), which calls f(k) and returns what
-// f returns, where k is the continuation of the call of callcc.
-func NewCallCC() *GoFunction {
-	return &GoFunction{f: callcc, name: "callcc", nArgs: 1, keepsNext: true}
-}
-
-func callcc(t *Thread, c *GoCont) (Cont, error) {
-	if err := c.Check1Arg(); err != nil {
-		return nil, err
-	}
-	// The caller's frame is frozen from here on.  This function says it
-	// keeps its next continuation as it finds it (keepsNext), so that a
-	// frame that is frozen already is not copied to be frozen again.
-	next := c.next
+// CaptureCont returns a function k that stands for next, and the
+// continuation to use in place of next from now on.
+//
+// If next is a frame, it is frozen: it must not run any more, because
+// running it would change what k holds.  The continuation returned is the
+// frozen frame, which is copied when values are pushed into it, as it is
+// each time k is called.  This is how a Go function gives its caller's
+// continuation to Lua code (call/cc):
+//
+//	k, next := t.CaptureCont(c.Next())
+//	// then call f with k as its argument, returning to next
+//
+// k carries on in the RunContinuation loop that is running, so next must be
+// part of that loop, as the continuation a Go function is given is: not one
+// made to start a loop of its own, such as a Termination.  k also keeps the
+// values to be closed that are pending, which calling k makes pending again.
+func (t *Thread) CaptureCont(next Cont) (Value, Cont) {
 	if frame, ok := next.(*LuaCont); ok {
 		next = (*frozenCont)(frame)
 	}
@@ -54,19 +59,12 @@ func callcc(t *Thread, c *GoCont) (Cont, error) {
 		t.RequireSize(unsafe.Sizeof(runLoop{}))
 		t.loop = new(runLoop)
 	}
-	t.RequireSize(unsafe.Sizeof(Continuation{}))
-	k := &Continuation{thread: t, loop: t.loop, cont: next, closeStack: t.closeStack.capture()}
-
-	// f returns where callcc would: this is a tail call.
-	fc, err := Continue(t, c.Arg(0), next)
-	if err != nil {
-		return nil, err
-	}
-	fc.Push(t.Runtime, Value{iface: k})
-	return fc, nil
+	t.RequireSize(unsafe.Sizeof(ContFunction{}))
+	k := &ContFunction{thread: t, loop: t.loop, cont: next, closeStack: t.closeStack.capture()}
+	return Value{iface: k}, next
 }
 
-// A runLoop is what a Continuation keeps of the RunContinuation loop it was
+// A runLoop is what a ContFunction keeps of the RunContinuation loop it was
 // captured in: whether it has finished.  A thread makes one for a loop when
 // a continuation is first captured in it (Thread.loop).
 type runLoop struct {
@@ -79,7 +77,7 @@ type runLoop struct {
 // values to be closed that are pending become those of k, which closes those
 // of the blocks that are left for good (see switchCloseStack), and that can
 // fail.
-func (k *Continuation) resume(t *Thread) (Cont, error) {
+func (k *ContFunction) resume(t *Thread) (Cont, error) {
 	if err := t.switchCloseStack(k.closeStack); err != nil {
 		return nil, err
 	}
@@ -93,7 +91,7 @@ func (k *Continuation) resume(t *Thread) (Cont, error) {
 // function, k.call, which decides what to do when it runs: Go code may well
 // run what it gets here in a loop of its own.  Lua code calling k in the
 // loop k was captured in does not come this way, see continueCall.
-func (k *Continuation) Continuation(t *Thread, next Cont) Cont {
+func (k *ContFunction) Continuation(t *Thread, next Cont) Cont {
 	if k.goFunction == nil {
 		t.RequireSize(unsafe.Sizeof(GoFunction{}))
 		k.goFunction = &GoFunction{
@@ -122,7 +120,7 @@ func (k *Continuation) Continuation(t *Thread, next Cont) Cont {
 //     Go code passes on as it does errors and the loop takes up.
 //   - Once that loop has finished there is nowhere to carry on, and in
 //     another thread it is not this thread's to run: both are errors.
-func (k *Continuation) call(t *Thread, c *GoCont) (Cont, error) {
+func (k *ContFunction) call(t *Thread, c *GoCont) (Cont, error) {
 	switch {
 	case t.loop == k.loop:
 		cont, err := k.resume(t)
@@ -145,7 +143,7 @@ func (k *Continuation) call(t *Thread, c *GoCont) (Cont, error) {
 // that can run it, through the Go code that loop is waiting for.  It travels
 // as an error so that this Go code returns, and it is not one.
 type continuationCall struct {
-	k    *Continuation
+	k    *ContFunction
 	args []Value
 }
 
