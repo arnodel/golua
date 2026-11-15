@@ -262,7 +262,7 @@ func (v Value) Type() ValueType {
 		return TableType
 	case *Code:
 		return CodeType
-	case *GoFunction, *Closure, *Continuation:
+	case *GoFunction, *Closure, *ContFunction:
 		return FunctionType
 	case *Thread:
 		return ThreadType
@@ -291,7 +291,7 @@ func (v Value) TypeName() string {
 		// return getName("table", v.iface.(*Table).Metatable())
 	case *Code:
 		return "code"
-	case *GoFunction, *Closure, *Continuation:
+	case *GoFunction, *Closure, *ContFunction:
 		return "function"
 	case *Thread:
 		return "thread"
@@ -320,7 +320,7 @@ func (v Value) CustomTypeName() string {
 		return getName("table", v.iface.(*Table).Metatable())
 	case *Code:
 		return "code"
-	case *GoFunction, *Closure, *Continuation:
+	case *GoFunction, *Closure, *ContFunction:
 		return "function"
 	case *Thread:
 		return "thread"
@@ -355,7 +355,7 @@ func (v Value) ToString() (string, bool) {
 		return fmt.Sprintf("gofunction: %s", x.name), false
 	case *Closure:
 		return fmt.Sprintf("function: %p", x), false
-	case *Continuation:
+	case *ContFunction:
 		return fmt.Sprintf("continuation: %p", x), false
 	case *Thread:
 		return fmt.Sprintf("thread: %p", x), false
@@ -485,7 +485,7 @@ func (v Value) AsCallable() Callable {
 		return c
 	case *GoFunction:
 		return c
-	case *Continuation:
+	case *ContFunction:
 		return c
 	default:
 		panic("value is not a Callable")
@@ -530,7 +530,7 @@ func (v Value) TryCallable() (c Callable, ok bool) {
 		return c, true
 	case *GoFunction:
 		return c, true
-	case *Continuation:
+	case *ContFunction:
 		return c, true
 	default:
 		return nil, false

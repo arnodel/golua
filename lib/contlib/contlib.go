@@ -49,8 +49,22 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
-	callcc := rt.NewCallCC()
-	callcc.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyTimeSafe | rt.ComplyIoSafe)
-	r.SetEnv(pkg, "callcc", rt.FunctionValue(callcc))
+	r.SetEnvGoFunc(pkg, "callcc", callcc, 1, false).SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyTimeSafe | rt.ComplyIoSafe)
 	return rt.TableValue(pkg), nil
+}
+
+// callcc(f) calls f(k), where k is the continuation of the call of callcc.
+func callcc(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	if err := c.Check1Arg(); err != nil {
+		return nil, err
+	}
+	k, next := t.CaptureCont(c.Next())
+
+	// f returns where callcc would: this is a tail call.
+	fc, err := rt.Continue(t, c.Arg(0), next)
+	if err != nil {
+		return nil, err
+	}
+	fc.Push(t.Runtime, k)
+	return fc, nil
 }
