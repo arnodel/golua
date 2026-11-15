@@ -262,9 +262,17 @@ func (t *Thread) Close(caller *Thread) (bool, error) {
 	return true, err
 }
 
+var errYieldAcrossGo = errors.New("attempt to yield across a Go-call boundary")
+
 // Yield to the caller thread.  The yielding thread's status switches to
 // suspended.  The caller's status must be OK.
 func (t *Thread) Yield(args []Value) ([]Value, error) {
+	if t.status == ThreadDead {
+		// A dead thread still runs code: the __close handlers of the
+		// values it had left to close.  They are called from Go, by the
+		// thread's own ending, which cannot be suspended.
+		return nil, errYieldAcrossGo
+	}
 	t.mux.Lock()
 	if t.status != ThreadOK {
 		panic("Thread to yield is not running")
