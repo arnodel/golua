@@ -38,6 +38,15 @@ func NewGoCont(t *Thread, f *GoFunction, next Cont) *GoCont {
 	return cont
 }
 
+// clone returns a new GoCont for the same call as c, with the arguments that
+// have been pushed into c, and returning to next.
+func (c *GoCont) clone(t *Thread, next Cont) *GoCont {
+	d := NewGoCont(t, c.GoFunction, next)
+	d.PushEtc(t.Runtime, c.args[:c.nArgs])
+	d.PushEtc(t.Runtime, c.etc)
+	return d
+}
+
 // Push implements Cont.Push.
 func (c *GoCont) Push(r *Runtime, v Value) {
 	if c.nArgs < len(c.args) {
@@ -95,8 +104,8 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
 
 	// The function pushes its results into the next continuation: a frozen
 	// frame is replaced with a copy that can run.
-	if frame, ok := c.next.(*frozenCont); ok && !c.keepsNext {
-		c.next = frame.thaw(t)
+	if fc, ok := c.next.(*frozenCont); ok && !c.keepsNext {
+		c.next = fc.thaw(t)
 	}
 
 	t.goFunctionCallDepth++

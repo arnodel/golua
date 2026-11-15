@@ -59,6 +59,30 @@ func (c *LuaCont) release(r *Runtime) {
 	r.ReleaseSize(unsafe.Sizeof(LuaCont{}))
 }
 
+// clone returns a new frame in the state c is in: the same function at the
+// same place, with the same values in its registers and its accumulator.  It
+// is not running, whether c is or not.  It comes from the pools as a frame
+// made by NewLuaCont does, and is released as any frame is.  The values are
+// copied as they are, so the clone returns to where c returns.
+func (c *LuaCont) clone(t *Thread) *LuaCont {
+	n := int(c.RegCount)
+	t.RequireCPU(uint64(n))
+	t.RequireArrSize(unsafe.Sizeof(Value{}), n)
+	registers := t.regPool.getIn(c.regClass, c.regSize, n)
+	copy(registers, c.registers)
+	d := t.luaContPool.get()
+	t.RequireSize(unsafe.Sizeof(LuaCont{}))
+	d.Closure = c.Closure
+	d.registers = registers
+	d.pc = c.pc
+	d.closeStackBase = c.closeStackBase
+	if len(c.acc) > 0 {
+		t.RequireArrSize(unsafe.Sizeof(Value{}), len(c.acc))
+		d.acc = append([]Value(nil), c.acc...)
+	}
+	return d
+}
+
 // Push implements Cont.Push.
 func (c *LuaCont) Push(r *Runtime, val Value) {
 	opcode := c.code[c.pc]
@@ -816,8 +840,8 @@ func (c *LuaCont) clearReg(reg code.Reg) {
 // with a copy that can run (see frozenCont).
 func contToPush(t *Thread, regs []Value, reg code.Reg) Cont {
 	v := getReg(regs, reg)
-	if frame, ok := v.iface.(*frozenCont); ok {
-		c := frame.thaw(t)
+	if fc, ok := v.iface.(*frozenCont); ok {
+		c := fc.thaw(t)
 		setReg(regs, reg, Value{iface: c})
 		return c
 	}
