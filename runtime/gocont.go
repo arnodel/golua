@@ -88,6 +88,11 @@ FillEtc:
 
 // RunInThread implements Cont.RunInThread.
 func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
+	if t.light && !c.neverCallsLua {
+		// The function may call Lua code that yields: its frame on the Go
+		// stack would then have to be kept, which takes a goroutine.
+		return nil, errNeedsGoroutine
+	}
 	if err := t.CheckRequiredFlags(c.safetyFlags); err != nil {
 		return nil, err
 	}
@@ -108,6 +113,12 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
 		// longer referenced, so it's OK.
 		return
 	}
+	c.release(t)
+	return
+}
+
+// release gives c and its arguments back to their pools.
+func (c *GoCont) release(t *Thread) {
 	if c.args != nil {
 		t.ReleaseArrSize(unsafe.Sizeof(Value{}), c.nArgs)
 		t.argsPool.release(c.args)
@@ -118,7 +129,16 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
 	}
 	t.ReleaseSize(unsafe.Sizeof(GoCont{}))
 	t.goContPool.release(c)
-	return
+}
+
+// resumeWith ends a call that was left waiting (a yield): it gives the
+// values to the continuation the call returns to, which it returns, and
+// releases c.
+func (c *GoCont) resumeWith(t *Thread, vals []Value) Cont {
+	next := c.Next()
+	next.PushEtc(t.Runtime, vals)
+	c.release(t)
+	return next
 }
 
 // Next returns the next continuation.

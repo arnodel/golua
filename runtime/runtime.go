@@ -23,7 +23,9 @@ type Runtime struct {
 	Stdout     io.Writer // This is useful for testing / repls
 	mainThread *Thread   // An initialised Runtimes comes with this thread
 	gcThread   *Thread   // Thread for running Lua finalizers
-	registry   *Table    // The registry table can store data global to the runtime
+
+	resumeDepth int    // How deep resumes of light threads are nested
+	registry    *Table // The registry table can store data global to the runtime
 
 	warner         Warner // Lua 5.4 introduces a warning system, implemented by this
 	reservedGlobal bool   // when true, "global" is a reserved keyword (LUA_COMPAT_GLOBAL off)

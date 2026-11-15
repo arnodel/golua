@@ -11,6 +11,25 @@ type GoFunction struct {
 	name        string
 	nArgs       int
 	hasEtc      bool
+
+	// neverCallsLua is true for a function declared never to call Lua in
+	// the thread that calls it.  A light thread can call it and stay light.
+	neverCallsLua bool
+}
+
+// DeclareNeverCallsLua declares that the functions never call Lua in the
+// thread that calls them: neither a function they are given, nor a
+// metamethod of a value they handle.  A coroutine that calls only such Go
+// functions needs no goroutine (see notes/coroutines.md); one that calls any
+// other Go function is given a goroutine first, in case the function calls
+// Lua code that yields.
+//
+// A function that calls Lua in spite of the declaration gets an error from
+// the call when a coroutine without a goroutine calls it.
+func DeclareNeverCallsLua(fs ...*GoFunction) {
+	for _, f := range fs {
+		f.neverCallsLua = true
+	}
 }
 
 var _ Callable = (*GoFunction)(nil)
