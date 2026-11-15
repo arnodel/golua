@@ -74,3 +74,20 @@ print(debug.traceback({}))
 
 print(pcall(debug.traceback, "foo", "bar"))
 --> ~false\t.*#2 must be an integer
+
+-- A traceback shows the name of a chunk without its mark.
+load("print(debug.traceback('marked'))", "=name")()
+--> =marked
+--> =in function <main chunk> (file name:1)
+--> ~in function <main chunk> \(file luatest:\d+\)
+
+-- A coroutine that died of an error keeps the place where it stopped.
+do
+    local function fail() local x = nil; x.y = 1 end
+    local co = coroutine.create(function() fail() end)
+    print((coroutine.resume(co)))
+    --> =false
+    print(debug.traceback(co, "dead"))
+    --> =dead
+    --> ~in function <lua function> \(file luatest:\d+\)
+end

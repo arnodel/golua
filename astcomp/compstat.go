@@ -66,10 +66,17 @@ func (c *compiler) ProcessForInStat(s ast.ForInStat) {
 	loopLbl := c.GetNewLabel()
 	must(c.EmitLabelNoLine(loopLbl))
 
+	// The first variable is the control variable, which is read-only in
+	// Lua 5.5: the loop passes it back to the iterator.  The others are
+	// ordinary locals.
 	nameAttribs := make([]ast.NameAttrib, len(s.Vars))
 	for i, name := range s.Vars {
-		constDeclAttrib := ast.NewDeclAttrib(ast.Location{}, ast.ConstAttrib)
-		nameAttribs[i] = ast.NewNameAttrib(name, &constDeclAttrib) // Loop variables are read-only in Lua 5.5
+		var attrib *ast.DeclAttrib
+		if i == 0 {
+			constDeclAttrib := ast.NewDeclAttrib(ast.Location{}, ast.ConstAttrib)
+			attrib = &constDeclAttrib
+		}
+		nameAttribs[i] = ast.NewNameAttrib(name, attrib)
 	}
 	c.CompileStat(ast.LocalStat{
 		NameAttribs: nameAttribs,
