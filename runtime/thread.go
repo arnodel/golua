@@ -107,22 +107,19 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 	if t.runContinuationDepth >= maxRunContinuationDepth {
 		return errors.New("stack overflow")
 	}
-	// The loop leaves the thread's current continuation as it found it.  A
-	// call made from Go (a metamethod, a callback, a call by the host
-	// program) receives its results in a termination whose parent is the
-	// current continuation; if the loop left its last continuation there,
-	// which is that termination, the next call's would be chained to it and
-	// none would be freed before the function making the calls returned.
+	// On the way out, put back the continuation the thread was running.
+	// Otherwise it stays on the termination this loop ended on, and the next
+	// call from Go makes its own termination with that one as parent: a
+	// chain that grows with every call and keeps all their results alive.
 	//
-	// The one loop that does not is the loop a coroutine runs in (the thread
-	// has a caller and no loop under this one): when it returns the
-	// coroutine is dead, and it keeps the continuation it stopped in, which
-	// is what a traceback of a coroutine that died of an error shows.
+	// Not when a coroutine's own loop ends: the coroutine is dead, and its
+	// traceback shows the continuation it stopped in.
 	current := t.currentCont
 	t.runContinuationDepth++
 	defer func() {
 		t.runContinuationDepth--
-		if t.runContinuationDepth > 0 || t.caller == nil {
+		coroutineEnds := t.runContinuationDepth == 0 && t.caller != nil
+		if !coroutineEnds {
 			t.currentCont = current
 		}
 	}()
