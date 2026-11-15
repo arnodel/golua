@@ -525,10 +525,10 @@ RunLoop:
 					c.clearReg(contReg)
 				}
 
-				if isTail {
-					// As we're leaving this continuation for good, perform all
-					// the pending close actions.  It must be done before debug
-					// hooks are called.
+				if isTail && t.closeStack.size() > c.closeStackBase {
+					// Leaving this continuation for good: close what it has
+					// left to close, before debug hooks are called.  There is
+					// seldom anything, hence the test before the call.
 					if err := t.cleanupCloseStack(c, c.closeStackBase, nil); err != nil {
 						return nil, err
 					}
