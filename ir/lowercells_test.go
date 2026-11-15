@@ -76,6 +76,21 @@ func TestLowerCells(t *testing.T) {
 	check(t, "captured parameter", LowerCells(param),
 		Receive{Dst: []Register{2}}, newbox(1), store(1, 2), MkClosure{Dst: 0, Code: 0, Upvalues: []Register{1}})
 
+	// A cell first written by receiving the results of a call is a local
+	// declared there: its box is made after that receive, so that a loop
+	// makes a new one each time round.  Here r0 is a parameter and the label
+	// is the top of a loop.
+	results := testCode(0, 3, []Register{1, 2},
+		Receive{Dst: []Register{0}},
+		DeclareLabel{Label: 0},
+		Receive{Dst: []Register{1, 2}},
+		MkClosure{Dst: 0, Code: 0, Upvalues: []Register{1, 2}})
+	check(t, "captured results", LowerCells(results),
+		Receive{Dst: []Register{0}},
+		DeclareLabel{Label: 0},
+		Receive{Dst: []Register{3, 4}}, newbox(1), newbox(2), store(1, 3), store(2, 4),
+		MkClosure{Dst: 0, Code: 0, Upvalues: []Register{1, 2}})
+
 	// Not when only a nested closure captures it.
 	captured := testCode(0, 2, []Register{0}, MkClosure{Dst: 1, Code: 0, Upvalues: []Register{0}})
 	captured.UpvalueDests = []Register{0}

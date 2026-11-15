@@ -111,6 +111,14 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 	if t.runContinuationDepth >= maxRunContinuationDepth {
 		return errors.New("stack overflow")
 	}
+	// On the way out, put back the continuation the thread was running.
+	// Otherwise it stays on the termination this loop ended on, and the next
+	// call from Go makes its own termination with that one as parent: a
+	// chain that grows with every call and keeps all their results alive.
+	//
+	// Not when a coroutine's own loop ends: the coroutine is dead, and its
+	// traceback shows the continuation it stopped in.
+	current := t.currentCont
 	t.runContinuationDepth++
 	outer, closeStackBase := t.loop, t.closeStack.size()
 	t.loop = nil
@@ -120,6 +128,10 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 			t.loop.done = true
 		}
 		t.loop = outer
+		coroutineEnds := t.runContinuationDepth == 0 && t.caller != nil
+		if !coroutineEnds {
+			t.currentCont = current
+		}
 	}()
 
 	var next Cont
