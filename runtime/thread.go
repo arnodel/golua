@@ -66,7 +66,7 @@ type Thread struct {
 	runContinuationDepth int
 
 	// The RunContinuation loop that is running, and how many have started:
-	// each has a number of its own, by which a Continuation knows the loop
+	// each has a number of its own, by which a ContFunction knows the loop
 	// it was captured in.
 	loop, loops uint64
 

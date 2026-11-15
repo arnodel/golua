@@ -241,7 +241,7 @@ func Continue(t *Thread, f Value, next Cont) (Cont, error) {
 // continueCall is Continue for a value that is not a function, through its
 // __call metamethod.
 func continueCall(t *Thread, f Value, next Cont) (Cont, error) {
-	if k, ok := f.iface.(*Continuation); ok {
+	if k, ok := f.iface.(*ContFunction); ok {
 		// The frame to run next is the one k gives, and the continuation
 		// of the call is not used: the call does not return.
 		return k.reinstate(t)
