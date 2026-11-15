@@ -48,8 +48,8 @@ var _ Callable = (*ContFunction)(nil)
 // part of that loop, as the continuation a Go function is given is: not one
 // made to start a loop of its own, such as a Termination.
 func (t *Thread) CaptureCont(next Cont) (Value, Cont) {
-	if frame, ok := next.(*LuaCont); ok {
-		next = (*frozenCont)(frame)
+	if lc, ok := next.(*LuaCont); ok {
+		next = (*frozenCont)(lc)
 	}
 	t.RequireSize(unsafe.Sizeof(ContFunction{}))
 	k := &ContFunction{thread: t, loop: t.loop, cont: next}
@@ -74,8 +74,8 @@ func (k *ContFunction) reinstate(t *Thread) (Cont, error) {
 	if t.loop != k.loop {
 		return nil, errors.New("attempt to call a continuation across a Go call boundary")
 	}
-	if frame, ok := k.cont.(*frozenCont); ok {
-		return frame.thaw(t), nil
+	if fc, ok := k.cont.(*frozenCont); ok {
+		return fc.thaw(t), nil
 	}
 	return k.cont, nil
 }
@@ -122,26 +122,12 @@ type frozenCont LuaCont
 
 var _ Cont = (*frozenCont)(nil)
 
-// thaw returns a copy of the frame that can run: the same function at the
-// same place with the same values in its registers.  It is made as
-// NewLuaCont makes a frame, so it is released as any frame is.
+// thaw returns a copy of the frame that can run (see LuaCont.clone), linked
+// so that running it changes nothing that is frozen.
 func (f *frozenCont) thaw(t *Thread) *LuaCont {
 	src := (*LuaCont)(f)
-	n := int(src.RegCount)
-	t.RequireCPU(uint64(n))
-	t.RequireArrSize(unsafe.Sizeof(Value{}), n)
-	registers := t.regPool.getIn(src.regClass, src.regSize, n)
-	copy(registers, src.registers)
-	c := t.luaContPool.get()
-	t.RequireSize(unsafe.Sizeof(LuaCont{}))
-	c.Closure = src.Closure
-	c.registers = registers
-	c.pc = src.pc
-	c.closeStackBase = src.closeStackBase
-	if len(src.acc) > 0 {
-		t.RequireArrSize(unsafe.Sizeof(Value{}), len(src.acc))
-		c.acc = append([]Value(nil), src.acc...)
-	}
+	c := src.clone(t)
+	registers := c.registers
 
 	// The frame this one returns to is frozen too.
 	if parent, ok := registers[0].iface.(*LuaCont); ok {
@@ -151,8 +137,9 @@ func (f *frozenCont) thaw(t *Thread) *LuaCont {
 	// The other frames a frame can hold are those it has made for calls
 	// whose arguments it is still computing ("f(x, g())" makes the frame of
 	// f before it calls g).  They have not run but they hold arguments, and
-	// they return to this frame or where it returns: they are copied too.
-	for i := 1; i < n; i++ {
+	// they return to this frame or where it returns: they are copied too,
+	// to return to the copy or where it returns.
+	for i := 1; i < len(registers); i++ {
 		switch callee := registers[i].iface.(type) {
 		case *LuaCont:
 			d := (*frozenCont)(callee).thaw(t)
@@ -160,10 +147,7 @@ func (f *frozenCont) thaw(t *Thread) *LuaCont {
 			registers[i] = Value{iface: d}
 		case *GoCont:
 			next, _ := calleeNext(callee.next, src, c).TryCont()
-			d := NewGoCont(t, callee.GoFunction, next)
-			d.PushEtc(t.Runtime, callee.args[:callee.nArgs])
-			d.PushEtc(t.Runtime, callee.etc)
-			registers[i] = Value{iface: d}
+			registers[i] = Value{iface: callee.clone(t, next)}
 		}
 	}
 	return c
