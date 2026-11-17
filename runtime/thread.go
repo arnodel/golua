@@ -136,16 +136,30 @@ var errErrorInMessageHandler = StringValue("error in error handling")
 // RunContinuation runs the continuation c in the thread. It keeps running until
 // the next continuation is nil or an error occurs, in which case it returns the
 // error.
-//
-// This is a new loop for the continuations captured in it (see runLoop), and
-// the one that was running is the thread's again when it is over, also if it
-// is a panic that ends it.  A thread that goes on in a goroutine does not
-// come this way: it is still in the loop it was in.
 func (t *Thread) RunContinuation(c Cont) error {
-	outer := t.loop
-	t.loop = nil
-	defer func() { t.loop = outer }()
 	return t.runContinuation(c, true)
+}
+
+// enterLoop is called when a loop starts running continuations in the
+// thread, and leaveLoop when it has ended, with what enterLoop returned.
+// They count the loops under way and keep the record of the one that is
+// running (see runLoop): a call from Go is a new loop, whereas a thread that
+// goes on in a goroutine is still in the loop it was in.
+//
+// Each is one line of runContinuation, in the place of a line that was
+// there: the build's profile counts lines (see benchmarks/README.md).
+func (t *Thread) enterLoop(isCall bool) (outer *runLoop) {
+	t.runContinuationDepth++
+	outer = t.loop
+	if isCall {
+		t.loop = nil
+	}
+	return outer
+}
+
+func (t *Thread) leaveLoop(outer *runLoop) {
+	t.runContinuationDepth--
+	t.loop = outer
 }
 
 // runContinuation is RunContinuation, with the choice of whether c is the
@@ -175,12 +189,12 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 	// Not when a coroutine's own loop ends: the coroutine is dead, and its
 	// traceback shows the continuation it stopped in.
 	current := t.currentCont
-	t.runContinuationDepth++
+	outer := t.enterLoop(isCall)
 	defer func() {
 		if noYield {
 			t.noYieldDepth--
 		}
-		t.runContinuationDepth--
+		t.leaveLoop(outer)
 		coroutineEnds := t.runContinuationDepth == 0 && t.caller != nil
 		if !coroutineEnds {
 			t.currentCont = current
