@@ -425,6 +425,28 @@ do
     --> =closed	nil
     --> =after closing
 
+    -- If closing fails, that is an error where the continuation was called:
+    -- a pcall there stops it, and what is outside the pcall is not left.
+    print(callcc(function(k)
+        local _ = called[function()
+            local outside <close> = setmetatable({}, {
+                __close = function() print("closed outside") end,
+            })
+            print(pcall(function()
+                local v <close> = setmetatable({}, {
+                    __close = function() error("cannot close", 0) end,
+                })
+                k("not reached")
+            end))
+            print("still under Go code")
+        end]
+        return "returned"
+    end))
+    --> =false	cannot close
+    --> =still under Go code
+    --> =closed outside
+    --> =returned
+
     -- A coroutine does the same within itself, whether it has a goroutine
     -- or not (a metamethod call gives it one).
     print(coroutine.resume(coroutine.create(function()

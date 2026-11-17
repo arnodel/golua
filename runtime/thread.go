@@ -259,15 +259,32 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 // loop is waiting for: it closes the variables to be closed of the frames it
 // leaves behind, and ends with the call for that Go code to pass on.
 func (t *Thread) contAfterError(c Cont, err error) (Cont, error) {
-	if call, ok := err.(*contFunctionCall); ok {
-		if call.k.loop != t.loop {
-			// The variables to be closed of the frames this loop leaves
-			// behind are closed.
-			return nil, t.cleanupCloseStack(c, t.loopCloseBase, err)
+	for {
+		call, ok := err.(*contFunctionCall)
+		if !ok {
+			break
 		}
-		next := call.k.reinstate(t)
-		next.PushEtc(t.Runtime, call.args)
-		return next, nil
+		if call.k.loop == t.loop {
+			next := call.k.reinstate(t)
+			next.PushEtc(t.Runtime, call.args)
+			return next, nil
+		}
+		// The call leaves this loop, one protected call at a time: the
+		// variables to be closed of the frames it leaves behind are closed,
+		// as far as the protected call c is part of.  If closing fails, that
+		// is an error like any in c, for that protected call to stop.
+		p := protectedCallFor(c)
+		h := t.loopCloseBase
+		if p != nil {
+			h = p.closeStackHeight
+		}
+		err = t.cleanupCloseStack(c, h, err)
+		if IsContFunctionCall(err) {
+			if p == nil {
+				return nil, err
+			}
+			c = p
+		}
 	}
 	rtErr := ToError(err)
 	if !rtErr.Handled() {
