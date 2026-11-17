@@ -74,14 +74,16 @@ func TestLightCoroutines(t *testing.T) {
 			want: "ynn",
 		},
 		{
-			name: "a pcall gives the coroutine a goroutine",
+			name: "a pcall does not, nor a yield or an error inside it",
 			src: `local function yn(b) return b and "y" or "n" end
-			return coroutine.wrap(function()
-				local a = light()
-				local _, b = pcall(light)
-				return yn(a) .. yn(b) .. yn(light())
-			end)()`,
-			want: "ynn",
+			local co = coroutine.wrap(function()
+				local _, a = pcall(light)
+				local _, b = pcall(function() coroutine.yield() return light() end)
+				local ok = xpcall(error, function(e) return e end, "x")
+				return yn(a) .. yn(b) .. yn(not ok) .. yn(light())
+			end)
+			co() return co()`,
+			want: "yyyy",
 		},
 		{
 			name: "a metamethod called by an opcode gives the coroutine a goroutine",
@@ -132,7 +134,7 @@ func TestLightCoroutines(t *testing.T) {
 			name: "a coroutine that has a goroutine keeps it",
 			src: `local function yn(b) return b and "y" or "n" end
 			local co = coroutine.wrap(function()
-				pcall(light)
+				unknown()
 				coroutine.yield()
 				return yn(light())
 			end)
