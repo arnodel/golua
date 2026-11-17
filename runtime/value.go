@@ -454,6 +454,8 @@ func (v Value) AsCont() Cont {
 		return cont
 	case *frozenCont:
 		return cont
+	case *protectedCall:
+		return cont
 	default:
 		panic("value is not a continuation")
 	}
@@ -590,6 +592,8 @@ func (v Value) TryCont() (c Cont, ok bool) {
 	case *messageHandlerCont:
 		return cont, true
 	case *frozenCont:
+		return cont, true
+	case *protectedCall:
 		return cont, true
 	default:
 		return nil, false

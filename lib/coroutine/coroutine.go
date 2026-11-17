@@ -16,17 +16,19 @@ var LibLoader = packagelib.Loader{
 func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
 
+	// None of them calls Lua in the thread that calls it: resume runs
+	// another thread, and close closes one.
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
-		r.SetEnvGoFunc(pkg, "close", close, 1, false), // Lua 5.4
-		r.SetEnvGoFunc(pkg, "create", create, 1, false),
-		r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 1, false),
-		r.SetEnvGoFunc(pkg, "resume", resume, 1, true),
-		r.SetEnvGoFunc(pkg, "running", running, 0, false),
-		r.SetEnvGoFunc(pkg, "status", status, 1, false),
-		r.SetEnvGoFunc(pkg, "wrap", wrap, 1, false),
-		r.SetEnvGoFunc(pkg, "yield", yield, 0, true),
+		r.SetEnvGoFunc(pkg, "close", close, 1, false, rt.NoYieldAcross), // Lua 5.4
+		r.SetEnvGoFunc(pkg, "create", create, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "isyieldable", isyieldable, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "resume", resume, 1, true, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "running", running, 0, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "status", status, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "wrap", wrap, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "yield", yield, 0, true, rt.NoYieldAcross),
 	)
 
 	return rt.TableValue(pkg), nil
@@ -88,11 +90,7 @@ func resume(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 }
 
 func yield(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
-	res, err := t.Yield(c.Etc())
-	if err != nil {
-		return nil, err
-	}
-	return c.PushingNext(t.Runtime, res...), nil
+	return t.YieldFrom(c)
 }
 
 func isyieldable(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
@@ -106,7 +104,7 @@ func isyieldable(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 			return nil, err
 		}
 	}
-	return c.PushingNext1(t.Runtime, rt.BoolValue(!co.IsMain())), nil
+	return c.PushingNext1(t.Runtime, rt.BoolValue(co.IsYieldable())), nil
 }
 
 func status(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
@@ -145,7 +143,7 @@ func wrap(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 			return nil, err
 		}
 		return c.PushingNext(t.Runtime, res...), nil
-	}, "wrap", 0, true)
+	}, "wrap", 0, true, rt.NoYieldAcross)
 	w.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyTimeSafe | rt.ComplyIoSafe)
 	next := c.Next()
 	t.Push1(next, rt.FunctionValue(w))

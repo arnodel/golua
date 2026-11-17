@@ -25,7 +25,7 @@ func ipairsIteratorF(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	return next, nil
 }
 
-var ipairsIterator = rt.NewGoFunction(ipairsIteratorF, "ipairsiterator", 2, false)
+var ipairsIterator = rt.NewGoFunction(ipairsIteratorF, "ipairsiterator", 2, false, rt.NoYieldAcross)
 
 // ipairsIterator and nextGoFunc are shared by every runtime, so their
 // compliance is declared once here rather than in Load: declaring it in Load

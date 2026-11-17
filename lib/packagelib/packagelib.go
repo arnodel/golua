@@ -96,8 +96,8 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	// These functions only access the filesystem via safeio.
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyIoSafe,
-		r.SetEnvGoFunc(pkg, "searchpath", searchpath, 4, false),
-		r.SetEnvGoFunc(env, "require", require, 1, false),
+		r.SetEnvGoFunc(pkg, "searchpath", searchpath, 4, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "require", require, 1, false, rt.NoYieldAcross),
 	)
 
 	return pkgVal, nil

@@ -26,20 +26,20 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
-		r.SetEnvGoFunc(pkg, "clock", clock, 0, false),
-		r.SetEnvGoFunc(pkg, "date", date, 2, false),
-		r.SetEnvGoFunc(pkg, "difftime", difftime, 2, false),
-		r.SetEnvGoFunc(pkg, "time", timef, 1, false),
-		r.SetEnvGoFunc(pkg, "getenv", getenv, 1, false),
-		r.SetEnvGoFunc(pkg, "tmpname", tmpname, 0, false),
-		r.SetEnvGoFunc(pkg, "remove", remove, 1, false),
-		r.SetEnvGoFunc(pkg, "rename", rename, 2, false),
+		r.SetEnvGoFunc(pkg, "clock", clock, 0, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "date", date, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "difftime", difftime, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "time", timef, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "getenv", getenv, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "tmpname", tmpname, 0, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "remove", remove, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "rename", rename, 2, false, rt.NoYieldAcross),
 	)
 	// These functions are not safe - I don't know what compliance category to
 	// put them in.
-	r.SetEnvGoFunc(pkg, "setlocale", setlocale, 2, false)
-	r.SetEnvGoFunc(pkg, "exit", exit, 2, false)
-	r.SetEnvGoFunc(pkg, "execute", execute, 1, false)
+	r.SetEnvGoFunc(pkg, "setlocale", setlocale, 2, false, rt.NoYieldAcross)
+	r.SetEnvGoFunc(pkg, "exit", exit, 2, false, rt.NoYieldAcross)
+	r.SetEnvGoFunc(pkg, "execute", execute, 1, false, rt.NoYieldAcross)
 	return rt.TableValue(pkg), nil
 }
 

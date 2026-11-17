@@ -22,15 +22,15 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
-		r.SetEnvGoFunc(pkg, "gethook", gethook, 1, false),
-		r.SetEnvGoFunc(pkg, "getinfo", getinfo, 3, false),
-		r.SetEnvGoFunc(pkg, "getupvalue", getupvalue, 2, false),
-		r.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false),
-		r.SetEnvGoFunc(pkg, "upvaluejoin", upvaluejoin, 4, false),
-		r.SetEnvGoFunc(pkg, "setmetatable", setmetatable, 2, false),
-		r.SetEnvGoFunc(pkg, "sethook", sethook, 4, false),
-		r.SetEnvGoFunc(pkg, "traceback", traceback, 3, false),
-		r.SetEnvGoFunc(pkg, "upvalueid", upvalueid, 2, false),
+		r.SetEnvGoFunc(pkg, "gethook", gethook, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "getinfo", getinfo, 3, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "getupvalue", getupvalue, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "setupvalue", setupvalue, 3, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "upvaluejoin", upvaluejoin, 4, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "setmetatable", setmetatable, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "sethook", sethook, 4, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "traceback", traceback, 3, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "upvalueid", upvalueid, 2, false, rt.NoYieldAcross),
 	)
 
 	return pkgVal, nil
@@ -339,4 +339,4 @@ func traceback(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	return c.PushingNext1(t.Runtime, tb), nil
 }
 
-var Traceback = rt.NewGoFunction(traceback, "traceback", 3, false)
+var Traceback = rt.NewGoFunction(traceback, "traceback", 3, false, rt.NoYieldAcross)

@@ -36,8 +36,14 @@ func (h *DebugHooks) callHook(t *Thread, c Cont, args ...Value) error {
 	if h.DebugHookFlags&hookFlagInHook != 0 || c == nil {
 		return nil
 	}
+	// A hook cannot yield: it is called from Go, from the middle of what
+	// the thread is doing.
 	h.DebugHookFlags |= hookFlagInHook
-	defer func() { h.DebugHookFlags &= ^hookFlagInHook }()
+	t.noYieldDepth++
+	defer func() {
+		t.noYieldDepth--
+		h.DebugHookFlags &= ^hookFlagInHook
+	}()
 	term := NewTerminationWith(c, 0, false)
 	return Call(t, h.Hook, args, term)
 }

@@ -101,4 +101,35 @@ func TestCallFromGoRestoresCurrentCont(t *testing.T) {
 			t.Errorf("current continuation is %v after the call, was %v", after, before)
 		}
 	})
+
+	t.Run("calls by a Go function in a thread that has no goroutine", func(t *testing.T) {
+		// many calls probe a hundred times, in a coroutine that stays
+		// light: its loop must count as the thread's own for the calls to
+		// find the current continuation as they left it.
+		r.SetEnvGoFunc(env, "many", func(t *Thread, c *GoCont) (Cont, error) {
+			for i := 0; i < 100; i++ {
+				if _, err := Call1(t, FunctionValue(probeFn)); err != nil {
+					return nil, err
+				}
+			}
+			return c.PushingNext1(t.Runtime, BoolValue(t.HasGoroutine())), nil
+		}, 0, false, NoYieldAcross)
+		body, err := r.CompileAndLoadLuaChunk("test", []byte(`return many()`), TableValue(env))
+		if err != nil {
+			t.Fatal(err)
+		}
+		co := NewThread(r)
+		co.Start(body)
+		longest = 0
+		res, err := co.Resume(r.MainThread(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(res) != 1 || res[0] != BoolValue(false) {
+			t.Errorf("got %v, want a thread with no goroutine", res)
+		}
+		if longest != 1 {
+			t.Errorf("%d terminations chained, want 1", longest)
+		}
+	})
 }

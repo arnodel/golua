@@ -115,7 +115,16 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
 		return nil, errors.New("stack overflow")
 	}
 	next, err = c.f(t, c)
-	_ = t.triggerReturn(t, c)
+	if err == errLightYield {
+		// The thread is suspended in the function, which has not returned:
+		// it is run again when the thread is resumed.
+		return nil, err
+	}
+	if t.DebugHookFlags&HookFlagReturn != 0 && (err != nil || next == c.next) {
+		// A function that hands over to another continuation has not
+		// returned: that is for what it handed over to (a protected call).
+		_ = t.triggerReturn(t, c)
+	}
 
 	if err != nil {
 		// If there is an error, c is still potentially needed for error
