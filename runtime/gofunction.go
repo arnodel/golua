@@ -28,10 +28,10 @@ type GoFunctionOption func(*GoFunction)
 // metamethod of a value it handles.
 //
 // A coroutine that calls only such Go functions needs no goroutine (see
-// notes/coroutines.md); one that calls any other Go function is given a
-// goroutine first, in case the function calls Lua code that yields.  A
-// function that calls Lua in spite of the declaration gets an error from the
-// call when a coroutine that has no goroutine calls it.
+// lightthread.go); one that calls any other Go function is given a goroutine
+// first, in case the function calls Lua code that yields.  A function that
+// calls Lua in spite of the declaration gets an error from the call when a
+// coroutine that has no goroutine calls it.
 func NoYieldAcross(f *GoFunction) {
 	f.noYieldAcross = true
 }

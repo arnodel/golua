@@ -86,8 +86,8 @@ do
     end))
     --> =return call return call
 
-    -- Waiting for a coroutine it has resumed, which sets the hook: the first
-    -- event is the return of that resume.
+    -- Waiting for a coroutine it has resumed, which sets the hook: the events
+    -- start after the return of that resume, which Lua reports (GOLUA-049).
     print(events(function(hook)
         local co
         co = coroutine.create(function()
@@ -98,5 +98,5 @@ do
         end)
         coroutine.resume(co)
     end))
-    --> =return call return call
+    --> =call return call
 end
