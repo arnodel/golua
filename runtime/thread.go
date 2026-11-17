@@ -65,8 +65,9 @@ type Thread struct {
 	// exceed maxRunContinuationDepth.
 	runContinuationDepth int
 
-	// The RunContinuation loop that is running, for the continuations
-	// captured in it; nil until there is one.
+	// The RunContinuation loop that is running, as the continuations
+	// captured in it know it (see runLoop).  It is nil until a continuation
+	// is captured in the loop.
 	loop *runLoop
 
 	// Depth of __call metamethod chain (Lua 5.5).  This should not exceed
@@ -120,8 +121,9 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 	// traceback shows the continuation it stopped in.
 	current := t.currentCont
 	t.runContinuationDepth++
-	outer, closeStackBase := t.loop, t.closeStack.size()
+	outer := t.loop
 	t.loop = nil
+	closeStackBase := t.closeStack.size()
 	defer func() {
 		t.runContinuationDepth--
 		if t.loop != nil {
@@ -146,7 +148,7 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 		t.currentCont = c
 		next, err = c.RunInThread(t)
 		if err != nil {
-			if call, ok := err.(*continuationCall); ok {
+			if call, ok := err.(*contFunctionCall); ok {
 				// A continuation was called under Go code that this loop
 				// was waiting for, which has now returned.  If it was
 				// captured in this loop, it carries on here.  If not, this
@@ -156,7 +158,7 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 				if call.k.loop != t.loop {
 					return t.cleanupCloseStack(c, closeStackBase, err)
 				}
-				if next, err = call.k.resume(t); err == nil {
+				if next, err = call.k.reinstate(t); err == nil {
 					next.PushEtc(t.Runtime, call.args)
 					c = next
 					continue
@@ -395,10 +397,10 @@ func (t *Thread) CallContext(def RuntimeContextDef, f func() error) (ctx Runtime
 // close stack operations
 //
 
-// A closeStack is the stack of the values to be closed that are pending in a
-// thread.  Its height counts every value pushed, and it only holds those
-// that are to be closed in fact, not nil or false: each knows the height of
-// the stack it is the top of.
+// A closeStack is the stack of the pending to-be-closed values of a thread.
+// Its height counts every value pushed, but it only holds the values that
+// have something to close: nil and false are counted and not kept.  Each
+// value that is kept knows the height of the stack it is the top of.
 //
 // The values are linked from the top down rather than held in an array, so
 // that a continuation can keep the stack as it was when it was captured (see
@@ -424,6 +426,8 @@ type closeNode struct {
 	closed bool
 }
 
+var errNoCloseMetamethod = errors.New("to be closed value missing a __close metamethod")
+
 func (s closeStack) size() int {
 	return s.height
 }
@@ -436,6 +440,44 @@ func (s *closeStack) truncate(h int) {
 	if s.height > h {
 		s.height = h
 	}
+}
+
+// pop takes the top value off the stack, which must have one, and returns
+// it.
+func (s *closeStack) pop() *closeNode {
+	n := s.top
+	s.top, s.height = n.next, n.height-1
+	return n
+}
+
+// capture returns the close stack for a continuation to keep, with its
+// pending values marked as captured.
+func (s *closeStack) capture() closeStack {
+	// A captured value has only captured values under it.
+	for n := s.top; n != nil && !n.captured; n = n.next {
+		n.captured = true
+	}
+	return *s
+}
+
+// commonCloseNode returns the top value that the stacks with a and b on top
+// have in common, or nil if they have none: where two branches of the tree
+// of pending values part.
+func commonCloseNode(a, b *closeNode) *closeNode {
+	// A value is at one height in every stack that has it.  So of two
+	// different values the higher is not in the other's stack, and at the
+	// same height neither is in the other's.
+	for a != b {
+		switch {
+		case b == nil || (a != nil && a.height > b.height):
+			a = a.next
+		case a == nil || b.height > a.height:
+			b = b.next
+		default:
+			a, b = a.next, b.next
+		}
+	}
+	return a
 }
 
 // pushClose pushes v on the thread's close stack.
@@ -456,11 +498,9 @@ func (t *Thread) cleanupCloseStack(c Cont, h int, err error) error {
 		return err
 	}
 	for s.top != nil && s.top.height > h {
-		n := s.top
-		s.top, s.height = n.next, n.height-1
-		closeErr, ok := t.closeValue(c, n, err)
+		closeErr, ok := t.closeValue(c, s.pop(), err)
 		if !ok {
-			return errors.New("to be closed value missing a __close metamethod")
+			return errNoCloseMetamethod
 		}
 		if closeErr != nil {
 			err = closeErr
@@ -481,22 +521,12 @@ func (t *Thread) closeValue(c Cont, n *closeNode, err error) (error, bool) {
 	// Lua 5.5: __close receives 1 arg (the object) when closing normally,
 	// and 2 args (the object and the error) when closing due to an error.
 	var args []Value
-	if err == nil || IsContinuationCall(err) {
+	if err == nil || IsContFunctionCall(err) {
 		args = []Value{n.value}
 	} else {
 		args = []Value{n.value, ErrorValue(err)}
 	}
 	return metacall(t, n.value, metaClose, args, NewTerminationWith(c, 0, false))
-}
-
-// capture returns the close stack for a continuation to keep, with its
-// pending values marked as captured.
-func (s *closeStack) capture() closeStack {
-	// A captured value has only captured values under it.
-	for n := s.top; n != nil && !n.captured; n = n.next {
-		n.captured = true
-	}
-	return *s
 }
 
 // switchCloseStack makes to, the close stack a continuation has kept, the
@@ -511,29 +541,15 @@ func (s *closeStack) capture() closeStack {
 // coroutine which has yielded.
 func (t *Thread) switchCloseStack(to closeStack) error {
 	s := &t.closeStack
-	if s.top != to.top {
-		// Where the branches part: the first value they have in common.
-		a, b := s.top, to.top
-		for a != b {
-			switch {
-			case b == nil || (a != nil && a.height > b.height):
-				a = a.next
-			case a == nil || b.height > a.height:
-				b = b.next
-			default:
-				a, b = a.next, b.next
-			}
+	common := commonCloseNode(s.top, to.top)
+	// The values that are not captured are above those that are.
+	for s.top != common && !s.top.captured {
+		closeErr, ok := t.closeValue(t.currentCont, s.pop(), nil)
+		if !ok {
+			return errNoCloseMetamethod
 		}
-		for s.top != a && !s.top.captured {
-			n := s.top
-			s.top, s.height = n.next, n.height-1
-			closeErr, ok := t.closeValue(t.currentCont, n, nil)
-			if !ok {
-				return errors.New("to be closed value missing a __close metamethod")
-			}
-			if closeErr != nil {
-				return closeErr
-			}
+		if closeErr != nil {
+			return closeErr
 		}
 	}
 	*s = to

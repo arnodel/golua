@@ -472,13 +472,11 @@ RunLoop:
 
 				// The register holds either a continuation or the callee,
 				// whose frame the call makes: Continue inlined by hand, as
-				// for the cont opcodes.  A Lua frame is told first: it is
-				// where most returns go, and what a cont opcode makes for
-				// a Lua function.  r0 always holds the caller's
-				// continuation whatever its kind, and one that is a frozen
-				// frame is replaced with a copy that can run.  A callee
-				// stays in its register, which the call leaves alone: it
-				// may be a local.
+				// for the cont opcodes.  The test for a Lua frame is first:
+				// most returns go to one, and a cont opcode makes one for a
+				// Lua function.  r0 always holds the caller's continuation,
+				// where contToPush replaces a frozen frame with a copy.  A
+				// callee stays in its register, which may be a local.
 				callee := getReg(regs, contReg)
 				var next Cont
 				isCont := true
@@ -585,7 +583,7 @@ RunLoop:
 					v := getReg(regs, opcode.GetA())
 					if Truth(v) && t.metaGet(v, metaClose).IsNil() {
 						c.pc = pc
-						return nil, errors.New("to be closed value missing a __close metamethod")
+						return nil, errNoCloseMetamethod
 					}
 					t.pushClose(v)
 				} else {
@@ -842,7 +840,7 @@ func contToPush(t *Thread, regs []Value, reg code.Reg) Cont {
 	v := getReg(regs, reg)
 	if fc, ok := v.iface.(*frozenCont); ok {
 		c := fc.thaw(t)
-		setReg(regs, reg, Value{iface: c})
+		setReg(regs, reg, ContValue(c))
 		return c
 	}
 	return v.AsCont()
