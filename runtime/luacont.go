@@ -112,7 +112,7 @@ RunLoop:
 		if t.DebugHooks.areFlagsEnabled(HookFlagLine) {
 			line := lines[pc]
 			if line > 0 && line != lastLine {
-				lastLine = line
+				lastLine, c.pc = line, pc // the hook can ask where this is
 				if err := t.triggerLine(t, c, line); err != nil {
 					return nil, err
 				}
