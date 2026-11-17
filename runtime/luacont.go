@@ -518,13 +518,6 @@ RunLoop:
 				c.acc = nil
 				c.running = false
 
-				// We clear the register containing the continuation to allow
-				// garbage collection.  A continuation can only be called once
-				// anyway, so that's ok semantically.
-				if isCont {
-					c.clearReg(contReg)
-				}
-
 				if isTail && t.closeStack.size() > c.closeStackBase {
 					// Leaving this continuation for good: close what it has
 					// left to close, before debug hooks are called.  There is
@@ -532,6 +525,13 @@ RunLoop:
 					if err := t.cleanupCloseStack(c, c.closeStackBase, nil); err != nil {
 						return nil, err
 					}
+				}
+
+				// We clear the register containing the continuation to allow
+				// garbage collection, once nothing can fail that needs to
+				// know where this returns (an error in closing, above).
+				if isCont {
+					c.clearReg(contReg)
 				}
 
 				if t.areFlagsEnabled(HookFlagCall | HookFlagReturn) {

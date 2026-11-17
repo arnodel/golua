@@ -30,7 +30,7 @@ func Load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(env, "ipairs", ipairs, 1, false, rt.NoYieldAcross),
 		r.SetEnvGoFunc(env, "load", load, 4, false, rt.NoYieldAcross),
 		r.SetEnvGoFunc(env, "pairs", pairs, 1, false, rt.NoYieldAcross),
-		r.SetEnvGoFunc(env, "pcall", pcall, 1, true),
+		r.SetEnvGoFunc(env, "pcall", pcall, 1, true, rt.NoYieldAcross),
 		r.SetEnvGoFunc(env, "print", print, 0, true, rt.NoYieldAcross), // print only writes to the host-controlled stdout, so it's safe in restricted contexts
 		r.SetEnvGoFunc(env, "rawequal", rawequal, 2, false, rt.NoYieldAcross),
 		r.SetEnvGoFunc(env, "rawget", rawget, 2, false, rt.NoYieldAcross),
@@ -42,7 +42,7 @@ func Load(r *rt.Runtime) (rt.Value, func()) {
 		r.SetEnvGoFunc(env, "tostring", tostring, 1, false, rt.NoYieldAcross),
 		r.SetEnvGoFunc(env, "type", typeString, 1, false, rt.NoYieldAcross),
 		r.SetEnvGoFunc(env, "warn", warn, 0, true, rt.NoYieldAcross), // Added in Lua 5.4
-		r.SetEnvGoFunc(env, "xpcall", xpcall, 2, true),
+		r.SetEnvGoFunc(env, "xpcall", xpcall, 2, true, rt.NoYieldAcross),
 	)
 	// These functions only access the filesystem via safeio.
 	rt.SolemnlyDeclareCompliance(

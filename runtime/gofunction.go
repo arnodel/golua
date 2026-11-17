@@ -32,7 +32,11 @@ type GoFunctionOption func(*GoFunction)
 // a yield cross it: a coroutine that calls one is given a goroutine first,
 // and is slower from then on.  So declare a function that calls no Lua, or
 // that does not need what it calls to be able to yield; the standard library
-// is declared, but for pcall, xpcall and dofile.
+// is declared, but for dofile.
+//
+// A function that hands over to Lua code by returning its continuation, as
+// pcall does (see Thread.ProtectedCall), is not waiting for it: that code
+// can yield whatever the function declares.
 func NoYieldAcross(f *GoFunction) {
 	f.noYieldAcross = true
 }

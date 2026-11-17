@@ -351,9 +351,10 @@ of `runtime/lightthread.go`.
 - **The declaration is about yields, not about calling Lua.**  A Go function
   declared `NoYieldAcross` may call Lua, and that Lua code cannot yield: it
   gets the error Lua gives for a yield across a C function.  The whole
-  standard library is declared but for `pcall`, `xpcall` and `dofile`, which
-  matches where Lua allows a yield and where it does not (`__pairs` is called
-  as a tail call, so it needs no exception).  So the sentence in step 1,
+  standard library is declared but for `dofile`, which with `pcall` and
+  `xpcall` (below) matches where Lua allows a yield and where it does not
+  (`__pairs` is called as a tail call, so it needs no exception).  So the
+  sentence in step 1,
   "yields inside library callbacks included", no longer holds: a yield in a
   `table.sort` comparison or a `string.gsub` replacement is an error, where
   golua used to allow it.  A Go function of an embedding program keeps the
@@ -363,6 +364,14 @@ of `runtime/lightthread.go`.
   goroutine, and the hook events of a light coroutine are those of any other.
 - **While Lua code that cannot yield is running, a light coroutine can do
   anything**: nothing there can be left waiting on the Go stack by a yield.
+- **`pcall` and `xpcall` have no Go frame** (step 2, in
+  `runtime/protectedcall.go`).  The function they call returns to a
+  continuation that stays in the chain while it runs and marks where an error
+  stops; the loop that sees an error looks for it down the chain.  So a
+  coroutine that uses them keeps having no goroutine, and can yield inside
+  them.  The message handler of `xpcall` is found the same way, which also
+  means it is the handler of the `xpcall` the error is in: it used to be the
+  handler of whichever `xpcall` had started last, in any coroutine.
 - **A light coroutine stops and goes on by running its current continuation
   again**: after a yield it is the call of `yield`, which returns the values
   of the resume the second time.  That answers the open questions about what
