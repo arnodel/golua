@@ -49,6 +49,28 @@ A frame can also hold frames it has made for calls whose arguments it is
 still computing (`f(x, g())` makes the frame of `f` before it calls `g`).
 They are copied with it.
 
+### Protected calls
+
+The function that `pcall` calls does not return to the frame that called
+`pcall` but to a `protectedCall`, a continuation that stays between the two
+and marks where an error stops (`runtime/protectedcall.go`).  It is not a
+frame, but like a frame it is changed by being returned into: it keeps the
+results until the variables of the function are closed.  So it is copied as
+a frame is.  A copy of a frame that returns to a protected call returns to a
+copy of that (`protectedCall.clone`), which in turn returns to what the
+original did, frozen.
+
+The first idea was to freeze what a protected call returns to and leave the
+call itself shared between the copies of the frame, since it holds results
+only from the return of the function to its own run.  But closing a variable
+comes in between, and a `__close` handler can call a continuation there:
+the results of the return that was left would be given with those of the
+next one.
+
+The thread counts the protected calls it is in, to limit their depth.  A
+`ContFunction` keeps the count at its capture, which is the count again when
+it is called.
+
 ### What a copy shares
 
 A copy has the values of the registers.  A local variable that lives in a
@@ -79,25 +101,36 @@ with the same memory.  The alternative was a flag in `LuaCont`.
 
 `Thread.RunContinuation` is a loop that runs continuations one after the
 other.  A Lua call or return is one turn of the loop, and so is the call of a
-Go function that returns the continuation to run next.  A Go function that
-needs the results of Lua code before it can go on (`pcall`, a metamethod
-call, the comparison function of `table.sort`, the body of a coroutine)
-starts a loop of its own and waits for it.  So the loops of a thread are
-nested as the Go calls that started them are.
+Go function that returns the continuation to run next, as `pcall` does.  A
+Go function that needs the results of Lua code before it can go on (a
+metamethod call, the comparison function of `table.sort`) starts a loop of
+its own and waits for it.  So the loops of a thread are nested as the Go
+calls that started them are.
 
     Go stack of a thread                 frames (each returns to the next)
 
     RunContinuation  loop 1  -- runs -->  main chunk ... Termination 1
-      pcall (waiting)
+      table.sort (waiting)
         RunContinuation  loop 2  -- runs -->  g, h ... Termination 2
 
 A continuation captured in `h` holds `h`, `g` and Termination 2: "carry on in
-`h`, and when `g` returns, give `pcall` its results".  The Go frame of
-`pcall` is not part of it and cannot be copied.  So that continuation can
-carry on in loop 2 and nowhere else, and a `ContFunction` keeps the loop it
-was captured in (a `runLoop`, which a thread makes for a loop when a
+`h`, and when `g` returns, give `table.sort` its result".  The Go frame of
+`table.sort` is not part of it and cannot be copied.  So that continuation
+can carry on in loop 2 and nowhere else, and a `ContFunction` keeps the loop
+it was captured in (a `runLoop`, which a thread makes for a loop when a
 continuation is first captured in it).  Calling it in another loop is an
 error, as is calling it in another thread.
+
+A coroutine has a loop of its own, which is the first of its thread.  While
+the coroutine has no goroutine (`runtime/lightthread.go`) that loop returns
+at each yield and starts again at the next resume, and if the coroutine is
+given a goroutine it goes on there.  It is one loop all along for a
+continuation: the frames are the same, and nothing waits for them on a Go
+stack.  So the thread keeps its `runLoop` through all of this.
+
+`callcc` and the Go function that calls a `ContFunction` are declared
+`NoYieldAcross`: they hand over to a continuation and wait for nothing.
+Without the declaration a coroutine would be given a goroutine to call them.
 
 ## The first version, and what this one costs
 
@@ -108,6 +141,7 @@ it allocation: 17.5 µs to capture under 105 frames.
 With frozen frames a capture is a pointer conversion and an allocation, and a
 capture followed by a call is about 185 ns at any depth (M1 Max, without
 quotas).  A generator made of two continuations gives a value in about
-815 ns, where a coroutine takes about 600 ns.  Programs that do not capture
+815 ns, where a coroutine takes about 140 ns since it needs no goroutine
+(it took about 600 ns before).  Programs that do not capture
 continuations run the same code as before, apart from the order of two type
 tests at a return.

@@ -18,10 +18,13 @@
 // time k is called.  Tables, and variables that a function captures and
 // assigns, are shared with the rest of the program and keep their changes.
 //
-// A continuation holds the Lua functions that are running, not the Go
-// functions that have called them: it cannot be called once the pcall,
-// metamethod call or coroutine it was captured in has returned, nor from
-// inside another one, nor from another coroutine.  Each is an error.
+// A continuation holds the Lua functions that are running and the protected
+// calls (pcall, xpcall) they are in: it is a way out of a pcall, and a way
+// back into one that has returned.  It does not hold the Go functions that
+// are waiting for Lua code they have called, such as a metamethod call or
+// table.sort calling its comparison function: it cannot be called once the
+// one it was captured under has returned, nor from under another one.  Nor
+// can it be called from another coroutine.  Each is an error.
 //
 // To-be-closed variables and continuations do not work together yet:
 // calling a continuation does not close the variables of the blocks it
@@ -47,13 +50,15 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
-		r.SetEnvGoFunc(pkg, "callcc", callcc, 1, false),
+		r.SetEnvGoFunc(pkg, "callcc", callcc, 1, false, rt.NoYieldAcross),
 	)
 
 	return rt.TableValue(pkg), nil
 }
 
 // callcc(f) calls f(k), where k is the continuation of the call of callcc.
+// It hands over to f and does not wait for it, so f can yield: hence
+// NoYieldAcross, without which a coroutine would need a goroutine to call it.
 func callcc(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err := c.Check1Arg(); err != nil {
 		return nil, err

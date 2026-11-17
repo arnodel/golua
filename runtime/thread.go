@@ -65,9 +65,9 @@ type Thread struct {
 	// exceed maxRunContinuationDepth.
 	runContinuationDepth int
 
-	// The RunContinuation loop that is running, as the continuations
-	// captured in it know it (see runLoop).  It is nil until a continuation
-	// is captured in the loop.
+	// The loop that is running, as the continuations captured in it know it
+	// (see runLoop).  It is nil until a continuation is captured in the
+	// loop.
 	loop *runLoop
 
 	// Number of calls of Lua code under way that a yield cannot cross: those
@@ -169,7 +169,12 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 	current := t.currentCont
 	t.runContinuationDepth++
 	outer := t.loop
-	t.loop = nil
+	if isCall {
+		// A new loop.  If c is the rest of what a light thread was running,
+		// this is still that thread's loop, where the continuations captured
+		// so far carry on.
+		t.loop = nil
+	}
 	defer func() {
 		if noYield {
 			t.noYieldDepth--

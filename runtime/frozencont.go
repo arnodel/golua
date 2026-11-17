@@ -17,11 +17,27 @@ package runtime
 // only way to reach them, and they get the type one at a time: a copy made
 // by thaw refers to the frame it returns to as a frozenCont.  So a
 // frozenCont is found in a ContFunction and where a continuation keeps the
-// one it returns to (register 0 of a frame, the next of a GoCont), and
-// nowhere else.
+// one it returns to (register 0 of a frame, the next of a GoCont or of a
+// protected call), and nowhere else.
 type frozenCont LuaCont
 
 var _ Cont = (*frozenCont)(nil)
+
+// frozen returns c as a captured continuation keeps it, c being what a
+// captured frame, or the capture itself, returns to.  A frame is frozen.  A
+// protected call, which a function returns into as it does into a frame, is
+// replaced with a copy that nothing will be pushed into (see
+// protectedCall.clone).  Any other continuation is not changed by being
+// run, and is kept as it is.
+func frozen(t *Thread, c Cont) Cont {
+	switch c := c.(type) {
+	case *LuaCont:
+		return (*frozenCont)(c)
+	case *protectedCall:
+		return c.clone(t)
+	}
+	return c
+}
 
 // isLuaFrame reports whether c is the frame of a Lua function, frozen or
 // not.
@@ -40,9 +56,9 @@ func (f *frozenCont) thaw(t *Thread) *LuaCont {
 	c := src.clone(t)
 	registers := c.registers
 
-	// The frame this one returns to is frozen too.
-	if parent, ok := registers[0].iface.(*LuaCont); ok {
-		registers[0] = ContValue((*frozenCont)(parent))
+	// What this frame returns to is frozen too.
+	if next, ok := registers[0].TryCont(); ok {
+		registers[0] = ContValue(frozen(t, next))
 	}
 
 	// The other frames a frame can hold are those it has made for calls

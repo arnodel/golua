@@ -345,23 +345,27 @@ do
     --> =true
 end
 
--- What is not copied is the Go code that waits for frames to finish: pcall,
--- a metamethod call, the body of a coroutine.  So a continuation can only be
--- called while the Go code it was captured under is still waiting, and not
--- from under more Go code.  For now this includes leaving a pcall by calling
--- a continuation captured outside it.
+-- What is not copied is the Go code that waits for frames to finish: a
+-- metamethod call, a library function that calls a function it is given.
+-- So a continuation can only be called while the Go code it was captured
+-- under is still waiting, and not from under more Go code.  For now this
+-- includes leaving such Go code by calling a continuation captured outside
+-- it.
 do
     local k
     local done = {}
 
-    pcall(function() callcc(function(c) k = c end) end)
+    -- Indexing this table with a function calls the function, from Go.
+    local called = setmetatable({}, {__index = function(_, f) return f() end})
+
+    local _ = called[function() callcc(function(c) k = c end) end]
     print(pcall(k))
     --> ~false\t.*attempt to call a continuation across a Go call boundary
 
     callcc(function(c) k = c end)
-    if not done.pcall then
-        done.pcall = true
-        print(pcall(k))
+    if not done.meta then
+        done.meta = true
+        print(pcall(function() return called[k] end))
         --> ~false\t.*attempt to call a continuation across a Go call boundary
     end
 
@@ -371,15 +375,112 @@ do
         --> ~false\t.*attempt to call a continuation from another thread
     end
 
-    -- Within one pcall, or one coroutine, all is well.
-    print(pcall(function()
-        local n = callcc(function(c) k = c; return 1 end)
-        if n < 3 then
-            k(n + 1)
+    print(pcall(callcc))
+    --> ~false\t.*bad argument #1
+    print(pcall(callcc, 1))
+    --> ~false\t.*attempt to call a number value
+end
+
+-- A protected call is not Go code that waits: the function that pcall calls
+-- returns to a continuation like any other, which a captured continuation
+-- holds.  So a continuation is a way out of a pcall, and a way back into one
+-- that has returned.
+do
+    local k
+    local count = {n = 0}
+
+    -- Calls k with the given values, twice in all.
+    local function again(...)
+        count.n = count.n + 1
+        if count.n < 3 then
+            k(...)
         end
-        return n
+        count.n = 0
+    end
+
+    -- Out: it is callcc that returns, not pcall.
+    print(callcc(function(c)
+        pcall(function() c("out") end)
+        return "not out"
     end))
-    --> =true	3
+    --> =out
+
+    -- Back in: pcall returns again, with the values of this time.
+    print(pcall(function()
+        return "in", (callcc(function(c) k = c; return "first" end))
+    end))
+    --> =true	in	first
+    --> =true	in	again
+    --> =true	in	again
+    again("again")
+
+    -- The same when it is pcall that calls callcc: the continuation is then
+    -- the protected call itself.
+    print(pcall(callcc, function(c) k = c; return "first" end))
+    --> =true	first
+    --> =true	again
+    --> =true	again
+    again("again")
+
+    -- And through two protected calls.
+    print(pcall(pcall, callcc, function(c) k = c; return "first" end))
+    --> =true	true	first
+    --> =true	true	again
+    --> =true	true	again
+    again("again")
+
+    -- An error after going back in stops at the pcall, each time.
+    print(pcall(function()
+        local v = callcc(function(c) k = c; return "first" end)
+        error("failed " .. v, 0)
+    end))
+    --> =false	failed first
+    --> =false	failed again
+    --> =false	failed again
+    again("again")
+
+    -- It goes through the message handler of an xpcall.
+    print(xpcall(function()
+        local v = callcc(function(c) k = c; return "first" end)
+        error("failed " .. v, 0)
+    end, function(e) return "handled: " .. e end))
+    --> =false	handled: failed first
+    --> =false	handled: failed again
+    --> =false	handled: failed again
+    again("again")
+
+    -- The protected calls that count towards the limit on their depth are
+    -- those the program is in.  Leaving them by a continuation takes them
+    -- off the count,
+    for i = 1, 1500 do
+        callcc(function(c) pcall(function() c() end) end)
+    end
+    print(pcall(function() return "not too deep" end))
+    --> =true	not too deep
+
+    -- and going back into them puts them on it again: 990 deep, 20 more are
+    -- too many, also when coming from outside all of them.
+    local function nest(n, f)
+        if n == 0 then
+            return f()
+        end
+        return select(2, pcall(nest, n - 1, f))
+    end
+    print(nest(990, function()
+        local v = callcc(function(c) k = c; return "first" end)
+        return v .. ": " .. nest(20, function() return "not too deep" end)
+    end))
+    --> =first: stack overflow
+    --> =again: stack overflow
+    --> =again: stack overflow
+    again("again")
+end
+
+-- A coroutine has a loop of its own, which stops at a yield and goes on at
+-- the next resume: a continuation captured in a coroutine can be called in
+-- it later on.
+do
+    local k
 
     print(coroutine.resume(coroutine.create(function()
         local n = callcc(function(c) k = c; return 1 end)
@@ -390,8 +491,28 @@ do
     end)))
     --> =true	3
 
-    print(pcall(callcc))
-    --> ~false\t.*bad argument #1
-    print(pcall(callcc, 1))
-    --> ~false\t.*attempt to call a number value
+    -- After a yield and a resume.
+    local co = coroutine.wrap(function()
+        local n = callcc(function(c) k = c; return 1 end)
+        coroutine.yield(n)
+        if n < 3 then
+            k(n + 1)
+        end
+        return "end"
+    end)
+    print(co(), co(), co(), co())
+    --> =1	2	3	end
+
+    -- After the coroutine was given a goroutine, here for a metamethod call
+    -- (see runtime/lightthread.go).
+    co = coroutine.wrap(function()
+        local n = callcc(function(c) k = c; return 1 end)
+        local _ = setmetatable({}, {__index = function() return 1 end}).x
+        if n < 3 then
+            k(n + 1)
+        end
+        return n
+    end)
+    print(co())
+    --> =3
 end

@@ -26,22 +26,26 @@ import (
 // See notes/continuations.md for the design.
 type ContFunction struct {
 	loop *runLoop // The loop k was captured in, where it can carry on
-	cont Cont     // A frozen frame, or a continuation that is not a frame
+	cont Cont     // What k carries on with, as frozen returns it
+
+	protectedCallDepth int // The thread's depth of protected calls at the capture
 
 	goFunction *GoFunction // Calls k, for Go code; made when first needed
 }
 
 var _ Callable = (*ContFunction)(nil)
 
-// A runLoop is one call of Thread.RunContinuation, which runs continuations
-// one after the other until one of them ends the loop.
+// A runLoop is a loop that runs continuations one after the other until one
+// of them ends it: a call of Thread.RunContinuation, or the loop of a
+// coroutine, which stops when the coroutine yields and goes on when it is
+// resumed, if need be in a goroutine (see lightthread.go).
 //
 // A Lua call or return is one turn of the loop that is running, and so is
-// the call of a Go function that returns the continuation to run next.  A Go
-// function that needs the results of Lua code before it can go on (pcall, a
-// metamethod call, the comparison function of table.sort, the body of a
-// coroutine) starts a loop of its own and waits for it to end.  So the loops
-// of a thread are nested as the Go calls that started them are, and a frame
+// the call of a Go function that returns the continuation to run next, as
+// pcall does.  A Go function that needs the results of Lua code before it
+// can go on (a metamethod call, the comparison function of table.sort)
+// starts a loop of its own and waits for it to end.  So the loops of a
+// thread are nested as the Go calls that started them are, and a frame
 // belongs to one loop: the one that ends when the frames it returns through
 // have all returned.
 //
@@ -65,28 +69,40 @@ type runLoop struct {
 //	k, next := t.CaptureCont(c.Next())
 //	// then call f with k as its argument, returning to next
 //
+// If next is a protected call (pcall called the Go function), k holds one
+// that nothing has returned into, and what next returns to is frozen.
+//
 // k carries on in the loop that is running and in no other (see runLoop), so
 // next must be a continuation of that loop.  The next continuation of the
 // Go function that is running is one.
 func (t *Thread) CaptureCont(next Cont) (Value, Cont) {
-	if lc, ok := next.(*LuaCont); ok {
-		next = (*frozenCont)(lc)
+	cont := frozen(t, next)
+	switch c := next.(type) {
+	case *LuaCont:
+		next = cont
+	case *protectedCall:
+		c.freezeNext(t)
 	}
 	if t.loop == nil {
 		t.RequireSize(unsafe.Sizeof(runLoop{}))
 		t.loop = &runLoop{thread: t}
 	}
 	t.RequireSize(unsafe.Sizeof(ContFunction{}))
-	k := &ContFunction{loop: t.loop, cont: next}
+	k := &ContFunction{loop: t.loop, cont: cont, protectedCallDepth: t.protectedCallDepth}
 	return FunctionValue(k), next
 }
 
 // reinstate returns a continuation that carries on the computation k was
 // captured from, for its caller to push values into and run in place of the
-// running one.  The thread must be in the loop k was captured in.
+// running one.  The thread must be in the loop k was captured in.  The
+// protected calls under way are from now on those the computation is in.
 func (k *ContFunction) reinstate(t *Thread) Cont {
-	if fc, ok := k.cont.(*frozenCont); ok {
-		return fc.thaw(t)
+	t.protectedCallDepth = k.protectedCallDepth
+	switch c := k.cont.(type) {
+	case *frozenCont:
+		return c.thaw(t)
+	case *protectedCall:
+		return c.clone(t)
 	}
 	return k.cont
 }
@@ -103,6 +119,8 @@ func (k *ContFunction) Continuation(t *Thread, next Cont) Cont {
 			name:        "continuation",
 			hasEtc:      true,
 			safetyFlags: ComplyCpuSafe | ComplyMemSafe | ComplyTimeSafe | ComplyIoSafe,
+
+			noYieldAcross: true,
 		}
 	}
 	return NewGoCont(t, k.goFunction, next)
