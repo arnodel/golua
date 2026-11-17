@@ -47,6 +47,15 @@ func (c *GoCont) clone(t *Thread, next Cont) *GoCont {
 	return d
 }
 
+// thawNext replaces a frozen next continuation with a copy that can run (see
+// frozenCont), before the function runs: it pushes its results into the next
+// continuation.
+func (c *GoCont) thawNext(t *Thread) {
+	if fc, ok := c.next.(*frozenCont); ok {
+		c.next = fc.thaw(t)
+	}
+}
+
 // Push implements Cont.Push.
 func (c *GoCont) Push(r *Runtime, v Value) {
 	if c.nArgs < len(c.args) {
@@ -101,13 +110,7 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
 		return nil, err
 	}
 	t.RequireCPU(1)
-
-	// The function pushes its results into the next continuation: a frozen
-	// frame is replaced with a copy that can run.
-	if fc, ok := c.next.(*frozenCont); ok {
-		c.next = fc.thaw(t)
-	}
-
+	c.thawNext(t) // On a line that was empty: the profile counts lines
 	t.goFunctionCallDepth++
 	defer func() { t.goFunctionCallDepth-- }()
 
