@@ -108,6 +108,16 @@ func TestLightCoroutines(t *testing.T) {
 			want: "true",
 		},
 		{
+			name: "a debug hook set while it waits for another coroutine does too",
+			src: `return coroutine.wrap(function()
+				local a = honest()
+				local me = coroutine.running()
+				coroutine.wrap(function() debug.sethook(me, function() end, "c") end)()
+				return tostring(a) .. tostring(honest())
+			end)()`,
+			want: "falsetrue",
+		},
+		{
 			name: "a coroutine that has a goroutine keeps it",
 			src: `local co = coroutine.wrap(function()
 				pcall(honest)

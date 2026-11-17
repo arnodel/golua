@@ -105,6 +105,13 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
 		return nil, errors.New("stack overflow")
 	}
 	next, err = c.f(t, c)
+	if t.light && t.DebugHookFlags != 0 && err == nil {
+		// A hook was set on the thread while the function was running
+		// another thread (a resume): the thread needs a goroutine before
+		// it goes on, as hooks are called from Go.  The first call is for
+		// the return of this function.
+		return nil, &needsGoroutine{c: next, returning: c}
+	}
 	_ = t.triggerReturn(t, c)
 
 	if err != nil {
@@ -137,6 +144,7 @@ func (c *GoCont) release(t *Thread) {
 func (c *GoCont) resumeWith(t *Thread, vals []Value) Cont {
 	next := c.Next()
 	next.PushEtc(t.Runtime, vals)
+	_ = t.triggerReturn(t, c)
 	c.release(t)
 	return next
 }

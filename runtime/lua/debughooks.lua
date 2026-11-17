@@ -49,3 +49,54 @@ do
     print(wrong)
     --> =0
 end
+
+-- A hook set on a coroutine from outside it is called from then on, with no
+-- event missing and none made up, whatever the coroutine was doing.
+do
+    local function events(setup)
+        local log = {}
+        local function hook(ev) log[#log + 1] = ev end
+        setup(hook)
+        return table.concat(log, " ")
+    end
+
+    -- Before its first resume: the first event is the call of its body.
+    print(events(function(hook)
+        local co = coroutine.create(function()
+            local function f() end
+            f()
+            debug.sethook()
+        end)
+        debug.sethook(co, hook, "cr")
+        coroutine.resume(co)
+    end))
+    --> =call call return call
+
+    -- Suspended in a yield: the first event is the return of the yield.
+    print(events(function(hook)
+        local co = coroutine.create(function()
+            coroutine.yield()
+            local function f() end
+            f()
+            debug.sethook()
+        end)
+        coroutine.resume(co)
+        debug.sethook(co, hook, "cr")
+        coroutine.resume(co)
+    end))
+    --> =return call return call
+
+    -- Waiting for a coroutine it has resumed, which sets the hook: the first
+    -- event is the return of that resume.
+    print(events(function(hook)
+        local co
+        co = coroutine.create(function()
+            coroutine.wrap(function() debug.sethook(co, hook, "cr") end)()
+            local function f() end
+            f()
+            debug.sethook()
+        end)
+        coroutine.resume(co)
+    end))
+    --> =return call return call
+end

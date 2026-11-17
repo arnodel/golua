@@ -24,7 +24,7 @@ type GoFunctionOption func(*GoFunction)
 // NoYieldAcross declares that a yield never crosses the function: no Lua
 // code that could yield runs while the function is under way.  A function
 // cannot know what the Lua code it is given will do, so in practice it is
-// one that calls no Lua at all: nor a function it is given, nor a
+// one that calls no Lua at all: neither a function it is given, nor a
 // metamethod of a value it handles.
 //
 // A coroutine that calls only such Go functions needs no goroutine (see

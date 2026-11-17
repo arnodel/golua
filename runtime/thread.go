@@ -89,8 +89,9 @@ type Thread struct {
 	//	running                         run by a Resume, on the goroutine of the
 	//	                                thread that called it
 	//
-	// and it has none of them once it is dead, or has a goroutine.  Only
-	// takeResumption, suspendAt and die change these fields.
+	// and it has none of them once it is dead, or has a goroutine.  Start
+	// makes a thread light and startGoroutine ends that; between the two
+	// only takeResumption, suspendAt and die change these fields.
 	light       bool
 	body        Callable
 	suspendedIn *GoCont
@@ -100,7 +101,7 @@ type Thread struct {
 // NewThread creates a new thread out of a Runtime.  Its initial
 // status is suspended.  Call Resume to run it.
 func NewThread(r *Runtime) *Thread {
-	r.RequireSize(unsafe.Sizeof(Thread{}) + 100) // 100 is my guess at the size of a channel
+	r.RequireSize(unsafe.Sizeof(Thread{}))
 	return &Thread{
 		status:  ThreadSuspended,
 		Runtime: r,
@@ -109,9 +110,12 @@ func NewThread(r *Runtime) *Thread {
 
 // ensureResumeCh makes the channel that the thread waits on for values from
 // another thread, if it has none.  A thread needs it from when it has a
-// goroutine, or waits for one that has: a light thread does neither.
+// goroutine, or waits for one that has: it must be there before the other
+// goroutine can send to it.  A light thread that resumes only light threads
+// never has one.
 func (t *Thread) ensureResumeCh() {
 	if t.resumeCh == nil {
+		t.RequireSize(100) // A guess at the size of a channel
 		t.resumeCh = make(chan valuesError)
 	}
 }
@@ -134,7 +138,14 @@ var errErrorInMessageHandler = StringValue("error in error handling")
 // RunContinuation runs the continuation c in the thread. It keeps running until
 // the next continuation is nil or an error occurs, in which case it returns the
 // error.
-func (t *Thread) RunContinuation(c Cont) (err error) {
+func (t *Thread) RunContinuation(c Cont) error {
+	return t.runContinuation(c, true)
+}
+
+// runContinuation is RunContinuation, with the choice of whether c is the
+// start of a call, which the call hook is told of, or the rest of something
+// that was under way (a coroutine that goes on in a goroutine).
+func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 	if t.light && t.runContinuationDepth > 0 {
 		// Go code of a light thread is calling Lua: the thread needs a
 		// goroutine first.  Nothing of the call has run yet.
@@ -162,7 +173,9 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 
 	var next Cont
 	var errContCount = 0
-	_ = t.triggerCall(t, c)
+	if isCall {
+		_ = t.triggerCall(t, c)
+	}
 	for c != nil {
 		// Checked at every continuation, so twice per call: the check is
 		// one load, inline, and the work only when there is some.
@@ -177,11 +190,12 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 				// A light thread has yielded: back to Resume.
 				return err
 			case errNeedsGoroutine, errLuaCallRefused:
-				// A light thread needs a goroutine before c can run: back
-				// to Resume, which gives it one.
-				if err = askForGoroutine(c, err); isNeedsGoroutine(err) {
-					return err
-				}
+				err = askForGoroutine(c, err)
+			}
+			if isNeedsGoroutine(err) {
+				// A light thread needs a goroutine to go on: back to
+				// Resume, which gives it one.
+				return err
 			}
 			rtErr := ToError(err)
 			if rtErr.Handled() {
@@ -231,7 +245,9 @@ func (t *Thread) HasGoroutine() bool {
 // startGoroutine gives the thread the goroutine it runs in from now on.  The
 // goroutine runs the continuation that first returns, after waiting for a
 // resume if wait is true: first is then given the values of that resume.
-func (t *Thread) startGoroutine(wait bool, first func(args []Value) Cont) {
+// With the continuation first tells whether it is the start of a call (the
+// body of the thread) or the rest of what the thread was doing.
+func (t *Thread) startGoroutine(wait bool, first func(args []Value) (c Cont, isCall bool)) {
 	t.light = false
 	t.ensureResumeCh()
 	t.RequireBytes(2 << 10) // A goroutine starts off with 2k stack
@@ -260,7 +276,7 @@ func (t *Thread) startGoroutine(wait bool, first func(args []Value) Cont) {
 			args, err = t.getResumeValues()
 		}
 		if err == nil {
-			err = t.RunContinuation(first(args))
+			err = t.runContinuation(first(args))
 			args = t.term.Etc()
 		}
 	}()
@@ -287,10 +303,13 @@ var (
 )
 
 // needsGoroutine is the error with which the loop of a light thread returns
-// to Resume when the continuation c, which has not begun, cannot run until
-// the thread has a goroutine.  It is what the goroutine runs first.
+// to Resume when the thread cannot go on without a goroutine.  The
+// continuation c is the next to run and has not begun: it is what the
+// goroutine runs first.  If the thread has just run a Go function to its end
+// but for the return hook, that is returning.
 type needsGoroutine struct {
-	c Cont
+	c         Cont
+	returning *GoCont
 }
 
 func (*needsGoroutine) Error() string {
@@ -311,7 +330,7 @@ func askForGoroutine(c Cont, err error) error {
 		// The call was refused to a Go function already under way.
 		return fmt.Errorf("Go function %s was declared NoYieldAcross, but called Lua", c.DebugInfo().Name)
 	}
-	return &needsGoroutine{c}
+	return &needsGoroutine{c: c}
 }
 
 // maxResumeDepth is how deep resumes of light threads can nest: each is a
@@ -329,15 +348,18 @@ func (t *Thread) resumeLight(caller *Thread, args []Value) ([]Value, error) {
 	t.status = ThreadOK
 	if t.DebugHooks.DebugHookFlags != 0 {
 		// A hook is called from Go: this is a thread for a goroutine.
-		t.startGoroutine(true, t.takeResumption)
+		t.startGoroutine(true, func(args []Value) (Cont, bool) {
+			starts := t.body != nil
+			return t.takeResumption(args), starts
+		})
 		return t.handOver(caller, args)
 	}
 	err := t.runLight(t.takeResumption(args))
-	switch {
-	case err == errThreadYield:
+	if err == errThreadYield {
 		return t.yielded(), nil
-	case isNeedsGoroutine(err):
-		return t.moveToGoroutine(caller, err.(*needsGoroutine).c)
+	}
+	if needs, ok := err.(*needsGoroutine); ok {
+		return t.moveToGoroutine(caller, needs)
 	}
 	// The thread has run to its end or died of an error.
 	t.die(err)
@@ -399,10 +421,18 @@ func (t *Thread) yielded() []Value {
 }
 
 // moveToGoroutine gives the running light thread t, which was resumed by
-// caller, a goroutine that starts by running c.  The caller waits for the
-// thread to yield or end, as it does for any thread that has a goroutine.
-func (t *Thread) moveToGoroutine(caller *Thread, c Cont) ([]Value, error) {
-	t.startGoroutine(false, func([]Value) Cont { return c })
+// caller, a goroutine that goes on from where the thread stopped.  The
+// caller waits for the thread to yield or end, as it does for any thread
+// that has a goroutine.
+func (t *Thread) moveToGoroutine(caller *Thread, needs *needsGoroutine) ([]Value, error) {
+	caller.ensureResumeCh()
+	t.startGoroutine(false, func([]Value) (Cont, bool) {
+		if c := needs.returning; c != nil {
+			_ = t.triggerReturn(t, c)
+			c.release(t)
+		}
+		return needs.c, false
+	})
 	return caller.getResumeValues()
 }
 
@@ -442,7 +472,6 @@ func (t *Thread) Status() ThreadStatus {
 // Resume execution of a suspended thread.  Its status switches to
 // running while its caller's status switches to suspended.
 func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, error) {
-	caller.ensureResumeCh() // It may have to wait for a goroutine
 	if t.light {
 		// No other goroutine has to do with a light thread.
 		if t.status != ThreadSuspended {
@@ -474,6 +503,7 @@ func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, error) {
 // handOver gives the values of a resume to the thread's goroutine and waits
 // for what the thread yields or returns.
 func (t *Thread) handOver(caller *Thread, args []Value) ([]Value, error) {
+	caller.ensureResumeCh()
 	t.sendResumeValues(args, nil, nil)
 	return caller.getResumeValues()
 }
@@ -504,7 +534,7 @@ func (t *Thread) Close(caller *Thread) (bool, error) {
 		caller.mux.Unlock()
 		return true, nil
 	}
-	caller.ensureResumeCh() // It has to wait for the goroutine
+	caller.ensureResumeCh()
 	// The thread needs to go back to running to empty its close stack, before
 	// becoming dead.
 	t.caller = caller
@@ -567,8 +597,10 @@ func (t *Thread) end(args []Value, err error, exception interface{}) {
 	t.caller = nil
 	err = t.cleanupCloseStack(nil, 0, err) // TODO: not nil
 	t.closeErr = err
-	caller.sendResumeValues(args, err, exception)
+	// Before the caller gets the values: from then on it is the caller that
+	// runs, and this goroutine must touch nothing they share.
 	t.ReleaseBytes(2 << 10) // The goroutine will terminate after this
+	caller.sendResumeValues(args, err, exception)
 }
 
 func (t *Thread) call(c Callable, args []Value, next Cont) error {
