@@ -342,6 +342,32 @@ Open questions for the first step:
 - The call hook at a coroutine's first resume.
 - The 0.4 to 0.7% more instructions seen on call-heavy benchmarks.
 
+## What was built
+
+Step 1 is in two parts, and both differ from the plan above in ways worth
+knowing before reading the code.  The code's own map is the comment at the top
+of `runtime/lightthread.go`.
+
+- **The declaration is about yields, not about calling Lua.**  A Go function
+  declared `NoYieldAcross` may call Lua, and that Lua code cannot yield: it
+  gets the error Lua gives for a yield across a C function.  The whole
+  standard library is declared but for `pcall`, `xpcall` and `dofile`, which
+  matches where Lua allows a yield and where it does not (`__pairs` is called
+  as a tail call, so it needs no exception).  So the sentence in step 1,
+  "yields inside library callbacks included", no longer holds: a yield in a
+  `table.sort` comparison or a `string.gsub` replacement is an error, where
+  golua used to allow it.  A Go function of an embedding program keeps the
+  choice: undeclared, it can be yielded across and costs the coroutine its
+  goroutine.
+- **A debug hook cannot yield either**, so a hook is no reason for a
+  goroutine, and the hook events of a light coroutine are those of any other.
+- **While Lua code that cannot yield is running, a light coroutine can do
+  anything**: nothing there can be left waiting on the Go stack by a yield.
+- **A light coroutine stops and goes on by running its current continuation
+  again**: after a yield it is the call of `yield`, which returns the values
+  of the resume the second time.  That answers the open questions about what
+  a suspended light coroutine remembers.
+
 ## Found on the way
 
 Each call from Go into Lua left its result holder reachable from the thread,

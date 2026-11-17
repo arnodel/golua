@@ -26,7 +26,7 @@ These are minor incompatibilities or intentional design choices that we accept.
 | GOLUA-009 | Runtime | Unary metamethods receive 1 arg (not 2) |
 | GOLUA-011 | Runtime | Coroutine close behavior differs |
 | GOLUA-012 | Runtime | Stack overflow detection differs |
-| GOLUA-013 | Runtime | Yielding allowed in more contexts |
+| GOLUA-013 | Runtime | A yield can cross Go functions that allow it |
 | GOLUA-014 | Runtime | `debug.getinfo` differences |
 | GOLUA-015 | Runtime | Weak table GC timing differs |
 | GOLUA-016 | Runtime | `debug.upvalueid` fails for Go functions |
@@ -40,7 +40,6 @@ These are minor incompatibilities or intentional design choices that we accept.
 | GOLUA-041 | Runtime | `load()` accepts "B" mode (no fixed buffer concept) |
 | GOLUA-043 | Runtime | `io.lines` accepts unlimited arguments |
 | GOLUA-048 | Runtime | A chunk name with no `=` or `@` mark is shown as it is |
-| GOLUA-049 | Runtime | A hook set on a coroutine waiting for another misses one return |
 
 ---
 
@@ -205,10 +204,17 @@ Go doesn't detect stack overflow the same way as C Lua. Tests that rely on stack
 
 ---
 
-### GOLUA-013: Yielding allowed in more contexts
+### GOLUA-013: A yield can cross Go functions that allow it
 **Test file**: coroutine.lua
 
-Golua allows yielding from contexts where reference Lua does not (e.g., `string.gsub` callbacks).
+A yield cannot cross a function of the standard library that calls Lua, as in Lua: a `table.sort` comparison, a `string.gsub` replacement, a metamethod called by `tostring`, `print`, `string.format`, `ipairs` or the `table` functions, the reader of `load`, a module loaded by `require`, and a debug hook. It is an error where the yield is, and `coroutine.isyieldable` is false there. `pcall`, `xpcall`, `dofile` and `__pairs` can be yielded across, as in Lua.
+
+What differs:
+
+- The message is "attempt to yield across a Go-call boundary" where Lua says "C-call boundary".
+- A Go function of a program that embeds golua can be yielded across unless it is declared `NoYieldAcross`.
+- An error in a call or return hook, this one included, is dropped; Lua raises it in the code the hook was called for.
+- One test of the suite is still skipped under this code, for another reason: it needs `coroutine.close()` to close the running coroutine.
 
 ---
 
@@ -401,10 +407,3 @@ print(pcall(load("error('x')")))
 -- Lua:   false  [string "error('x')"]:1: x
 -- Golua: false  chunk:1: x
 ```
-
----
-
-### GOLUA-049: A hook set on a coroutine waiting for another misses one return
-**Test file**: none (golua's own `runtime/lua/debughooks.lua`)
-
-A coroutine that has resumed another one is waiting in that call of `coroutine.resume` (or of a function made by `coroutine.wrap`). If a return hook is set on it at that moment, by the coroutine it is waiting for, Lua calls the hook for the return of that call. Golua calls it from the next event on: a coroutine has no goroutine until it needs one, a hook is one of the things it needs one for, and it gets it once that call has returned.
