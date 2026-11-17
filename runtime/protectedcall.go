@@ -53,6 +53,13 @@ const maxProtectedCallDepth = 1000
 // with the error where it happens, whose result replaces the error.  The
 // name is that of the function making the call, as tracebacks will show it
 // (pcall and xpcall are written with this).
+//
+// The thread counts the call as under way before f is given its
+// continuation, not after: if f is a continuation (a ContFunction), that is
+// where the thread goes back to the depth of its capture, and the call is
+// not under way at all.  It is counted in the test of the depth, on a line
+// that was there, because the build's profile counts lines (see
+// benchmarks/README.md).
 func (t *Thread) ProtectedCall(name string, f Value, args []Value, handler Callable, next Cont) Cont {
 	t.RequireSize(unsafe.Sizeof(protectedCall{}))
 	p := &protectedCall{
@@ -62,17 +69,14 @@ func (t *Thread) ProtectedCall(name string, f Value, args []Value, handler Calla
 		closeStackHeight: t.closeStack.size(),
 		depth:            t.protectedCallDepth + 1,
 	}
-	if p.depth > maxProtectedCallDepth {
+	if t.protectedCallDepth = p.depth; p.depth > maxProtectedCallDepth {
 		return p.caught(t, errors.New("stack overflow"))
 	}
-	// The depth is counted before f is given its continuation: if f is a
-	// continuation (a ContFunction), that is where the thread goes back to
-	// the depth of its capture.
-	t.protectedCallDepth = p.depth
 	c, err := Continue(t, f, p)
 	if err != nil {
 		return p.caught(t, err)
 	}
+	// The call was counted above: see the comment of the function.
 	t.Push(c, args...)
 	_ = t.triggerCall(t, c)
 	return c
@@ -100,7 +104,7 @@ func (p *protectedCall) PushEtc(r *Runtime, etc []Value) {
 // as for a frame (see frozenCont).  So results pushed into one by a return
 // that did not get to its end, because closing a variable failed, are not
 // seen by the next.  All that the copies share is what they return to,
-// which is frozen and is copied when one of them runs (nextToPush).
+// which is frozen and is copied when one of them runs (thawNext).
 
 // clone returns a protected call in the state p is in, for a copy of the
 // frame that returns to p.  What p returns to is part of a captured
@@ -126,11 +130,12 @@ func (p *protectedCall) freezeNext(t *Thread) {
 	p.next = frozen(t, p.next)
 }
 
-// nextToPush returns the continuation that p gives its outcome to: the one
-// it returns to, or a copy if that is frozen.
-func (p *protectedCall) nextToPush(t *Thread) Cont {
+// thawNext returns the continuation that p gives its outcome to: the one it
+// returns to, which is first replaced with a copy that can run if it is
+// frozen.  A protected call gives its outcome once.
+func (p *protectedCall) thawNext(t *Thread) Cont {
 	if fc, ok := p.next.(*frozenCont); ok {
-		return fc.thaw(t)
+		p.next = fc.thaw(t)
 	}
 	return p.next
 }
@@ -139,10 +144,9 @@ func (p *protectedCall) nextToPush(t *Thread) Cont {
 func (p *protectedCall) RunInThread(t *Thread) (Cont, error) {
 	t.protectedCallDepth = p.depth - 1
 	_ = t.triggerReturn(t, p)
-	next := p.nextToPush(t)
-	next.Push(t.Runtime, BoolValue(true))
-	next.PushEtc(t.Runtime, p.results)
-	return next, nil
+	p.thawNext(t).Push(t.Runtime, BoolValue(true))
+	p.next.PushEtc(t.Runtime, p.results)
+	return p.next, nil
 }
 
 // caught is called when the function has failed with err.  It returns the
@@ -153,10 +157,9 @@ func (p *protectedCall) caught(t *Thread, err error) Cont {
 	// are closed, with the error.  If that fails the error is the new one.
 	err = t.cleanupCloseStack(p, p.closeStackHeight, err)
 	_ = t.triggerReturn(t, p)
-	next := p.nextToPush(t)
-	next.Push(t.Runtime, BoolValue(false))
-	next.Push(t.Runtime, ErrorValue(err))
-	return next
+	p.thawNext(t).Push(t.Runtime, BoolValue(false))
+	p.next.Push(t.Runtime, ErrorValue(err))
+	return p.next
 }
 
 // Next implements Cont.Next.

@@ -136,7 +136,15 @@ var errErrorInMessageHandler = StringValue("error in error handling")
 // RunContinuation runs the continuation c in the thread. It keeps running until
 // the next continuation is nil or an error occurs, in which case it returns the
 // error.
+//
+// This is a new loop for the continuations captured in it (see runLoop), and
+// the one that was running is the thread's again when it is over, also if it
+// is a panic that ends it.  A thread that goes on in a goroutine does not
+// come this way: it is still in the loop it was in.
 func (t *Thread) RunContinuation(c Cont) error {
+	outer := t.loop
+	t.loop = nil
+	defer func() { t.loop = outer }()
 	return t.runContinuation(c, true)
 }
 
@@ -168,19 +176,11 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 	// traceback shows the continuation it stopped in.
 	current := t.currentCont
 	t.runContinuationDepth++
-	outer := t.loop
-	if isCall {
-		// A new loop.  If c is the rest of what a light thread was running,
-		// this is still that thread's loop, where the continuations captured
-		// so far carry on.
-		t.loop = nil
-	}
 	defer func() {
 		if noYield {
 			t.noYieldDepth--
 		}
 		t.runContinuationDepth--
-		t.loop = outer
 		coroutineEnds := t.runContinuationDepth == 0 && t.caller != nil
 		if !coroutineEnds {
 			t.currentCont = current
