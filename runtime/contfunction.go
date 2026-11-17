@@ -22,15 +22,36 @@ import (
 // each time the continuation is called, whereas what the frame shares with
 // the rest of the program is not copied and keeps its changes: tables, and
 // the boxes of captured variables.
+//
+// See notes/continuations.md for the design.
 type ContFunction struct {
-	thread *Thread
-	loop   uint64 // The thread's loop at the capture, see reinstate
-	cont   Cont   // A frozen frame, or a continuation that is not a frame
+	loop *runLoop // The loop k was captured in, where it can carry on
+	cont Cont     // A frozen frame, or a continuation that is not a frame
 
 	goFunction *GoFunction // Calls k, for Go code; made when first needed
 }
 
 var _ Callable = (*ContFunction)(nil)
+
+// A runLoop is one call of Thread.RunContinuation, which runs continuations
+// one after the other until one of them ends the loop.
+//
+// A Lua call or return is one turn of the loop that is running, and so is
+// the call of a Go function that returns the continuation to run next.  A Go
+// function that needs the results of Lua code before it can go on (pcall, a
+// metamethod call, the comparison function of table.sort, the body of a
+// coroutine) starts a loop of its own and waits for it to end.  So the loops
+// of a thread are nested as the Go calls that started them are, and a frame
+// belongs to one loop: the one that ends when the frames it returns through
+// have all returned.
+//
+// A ContFunction keeps the loop it was captured in because that is the only
+// place where the frames it holds can carry on: the Go code that waits for
+// them to return is not part of what it holds.  A thread makes the runLoop
+// of a loop when a continuation is first captured in it (see Thread.loop).
+type runLoop struct {
+	thread *Thread
+}
 
 // CaptureCont returns a function k that stands for next, and the
 // continuation to use in place of next from now on.
@@ -44,47 +65,36 @@ var _ Callable = (*ContFunction)(nil)
 //	k, next := t.CaptureCont(c.Next())
 //	// then call f with k as its argument, returning to next
 //
-// k carries on in the RunContinuation loop that is running, so next must be
-// part of that loop, as the continuation a Go function is given is: not one
-// made to start a loop of its own, such as a Termination.
+// k carries on in the loop that is running and in no other (see runLoop), so
+// next must be a continuation of that loop.  The next continuation of the
+// Go function that is running is one.
 func (t *Thread) CaptureCont(next Cont) (Value, Cont) {
 	if lc, ok := next.(*LuaCont); ok {
 		next = (*frozenCont)(lc)
 	}
+	if t.loop == nil {
+		t.RequireSize(unsafe.Sizeof(runLoop{}))
+		t.loop = &runLoop{thread: t}
+	}
 	t.RequireSize(unsafe.Sizeof(ContFunction{}))
-	k := &ContFunction{thread: t, loop: t.loop, cont: next}
-	return Value{iface: k}, next
+	k := &ContFunction{loop: t.loop, cont: next}
+	return FunctionValue(k), next
 }
 
 // reinstate returns a continuation that carries on the computation k was
 // captured from, for its caller to push values into and run in place of the
-// running one.
-//
-// A frame returns to the frame that called it, and so on down to a
-// continuation that is not a frame: that is where the Go code that started
-// them waits for them to finish, in RunContinuation, and that cannot be
-// captured.  So a ContFunction is of no use once that Go code has returned,
-// or from within other Go code that has called back into Lua since, or in
-// another thread.  All three are errors, and the first two are told by the
-// thread not being in the loop it was in at the capture.
-func (k *ContFunction) reinstate(t *Thread) (Cont, error) {
-	if t != k.thread {
-		return nil, errors.New("attempt to call a continuation from another thread")
-	}
-	if t.loop != k.loop {
-		return nil, errors.New("attempt to call a continuation across a Go call boundary")
-	}
+// running one.  The thread must be in the loop k was captured in.
+func (k *ContFunction) reinstate(t *Thread) Cont {
 	if fc, ok := k.cont.(*frozenCont); ok {
-		return fc.thaw(t), nil
+		return fc.thaw(t)
 	}
-	return k.cont, nil
+	return k.cont
 }
 
-// Continuation implements Callable.Continuation.  This is how Go code calls
-// a function, and it may well run what it gets in a loop of its own, so k is
-// reinstated when the call runs and not here: the call is that of a Go
-// function which does it.  Lua code calling k does not come this way, see
-// continueCall.
+// Continuation implements Callable.Continuation.  The call is that of a Go
+// function, k.call, which decides what to do when it runs: Go code may well
+// run what it gets here in a loop of its own.  Lua code calling k in the
+// loop k was captured in does not come this way, see continueCall.
 func (k *ContFunction) Continuation(t *Thread, next Cont) Cont {
 	if k.goFunction == nil {
 		t.RequireSize(unsafe.Sizeof(GoFunction{}))
@@ -92,105 +102,28 @@ func (k *ContFunction) Continuation(t *Thread, next Cont) Cont {
 			f:           k.call,
 			name:        "continuation",
 			hasEtc:      true,
-			keepsNext:   true,
 			safetyFlags: ComplyCpuSafe | ComplyMemSafe | ComplyTimeSafe | ComplyIoSafe,
 		}
 	}
 	return NewGoCont(t, k.goFunction, next)
 }
 
-func (k *ContFunction) call(t *Thread, c *GoCont) (Cont, error) {
-	cont, err := k.reinstate(t)
-	if err != nil {
-		return nil, err
-	}
-	cont.PushEtc(t.Runtime, c.Etc())
-	return cont, nil
-}
-
-// A frozenCont is a frame that was captured, or that a captured frame
-// returns to.  It is a LuaCont that does not change any more: it has the
-// same memory, and another type so that the places which push values into
-// a continuation, and tell a LuaCont from the others already, find it among
-// the others.  There they make a copy of it with thaw and use that.
+// call calls k with the arguments of c.  k carries on in the loop it was
+// captured in and nowhere else (see runLoop):
 //
-// Only the frame at the capture is given this type then.  The frames it
-// returns through are frozen just the same, because the captured frame was
-// the only way to them, and they get the type one at a time: a copy refers
-// to the frame it returns to as a frozenCont.
-type frozenCont LuaCont
-
-var _ Cont = (*frozenCont)(nil)
-
-// thaw returns a copy of the frame that can run (see LuaCont.clone), linked
-// so that running it changes nothing that is frozen.
-func (f *frozenCont) thaw(t *Thread) *LuaCont {
-	src := (*LuaCont)(f)
-	c := src.clone(t)
-	registers := c.registers
-
-	// The frame this one returns to is frozen too.
-	if parent, ok := registers[0].iface.(*LuaCont); ok {
-		registers[0] = Value{iface: (*frozenCont)(parent)}
+//   - In that loop, the frame k holds runs next.
+//   - In another thread it is not this thread's to run, which is an error.
+//   - Anywhere else in its thread, the Go code that waits for the frames of
+//     k to return has returned itself, or other Go code has called back into
+//     Lua since and is waiting in its turn.  Both are errors.
+func (k *ContFunction) call(t *Thread, c *GoCont) (Cont, error) {
+	switch {
+	case t.loop == k.loop:
+		cont := k.reinstate(t)
+		cont.PushEtc(t.Runtime, c.Etc())
+		return cont, nil
+	case t != k.loop.thread:
+		return nil, errors.New("attempt to call a continuation from another thread")
 	}
-
-	// The other frames a frame can hold are those it has made for calls
-	// whose arguments it is still computing ("f(x, g())" makes the frame of
-	// f before it calls g).  They have not run but they hold arguments, and
-	// they return to this frame or where it returns: they are copied too,
-	// to return to the copy or where it returns.
-	for i := 1; i < len(registers); i++ {
-		switch callee := registers[i].iface.(type) {
-		case *LuaCont:
-			d := (*frozenCont)(callee).thaw(t)
-			d.registers[0] = calleeNext(callee.registers[0].iface, src, c)
-			registers[i] = Value{iface: d}
-		case *GoCont:
-			next, _ := calleeNext(callee.next, src, c).TryCont()
-			registers[i] = Value{iface: callee.clone(t, next)}
-		}
-	}
-	return c
-}
-
-// calleeNext returns what a copy of a callee of the frame src returns to,
-// given what the callee returns to: the copy c of src, or where c returns.
-func calleeNext(next interface{}, src, c *LuaCont) Value {
-	if next == interface{}(src) {
-		return Value{iface: c}
-	}
-	return c.registers[0]
-}
-
-// A frozen frame is not pushed into: what is about to push thaws it first
-// (contToPush in the run loop, GoCont.RunInThread for a Go function).
-
-// Push implements Cont.Push.
-func (f *frozenCont) Push(*Runtime, Value) {
-	panic("push into a frozen frame")
-}
-
-// PushEtc implements Cont.PushEtc.
-func (f *frozenCont) PushEtc(*Runtime, []Value) {
-	panic("push into a frozen frame")
-}
-
-// RunInThread implements Cont.RunInThread.
-func (f *frozenCont) RunInThread(t *Thread) (Cont, error) {
-	return f.thaw(t), nil
-}
-
-// Next implements Cont.Next.
-func (f *frozenCont) Next() Cont {
-	return (*LuaCont)(f).Next()
-}
-
-// Parent implements Cont.Parent.
-func (f *frozenCont) Parent() Cont {
-	return (*LuaCont)(f).Parent()
-}
-
-// DebugInfo implements Cont.DebugInfo.
-func (f *frozenCont) DebugInfo() *DebugInfo {
-	return (*LuaCont)(f).DebugInfo()
+	return nil, errors.New("attempt to call a continuation across a Go call boundary")
 }

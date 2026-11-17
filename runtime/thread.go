@@ -65,10 +65,10 @@ type Thread struct {
 	// exceed maxRunContinuationDepth.
 	runContinuationDepth int
 
-	// The RunContinuation loop that is running, and how many have started:
-	// each has a number of its own, by which a ContFunction knows the loop
-	// it was captured in.
-	loop, loops uint64
+	// The RunContinuation loop that is running, as the continuations
+	// captured in it know it (see runLoop).  It is nil until a continuation
+	// is captured in the loop.
+	loop *runLoop
 
 	// Depth of __call metamethod chain (Lua 5.5).  This should not exceed
 	// maxCallChainLength to prevent infinite loops through chained __call metamethods.
@@ -122,8 +122,7 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 	current := t.currentCont
 	t.runContinuationDepth++
 	outer := t.loop
-	t.loops++
-	t.loop = t.loops
+	t.loop = nil
 	defer func() {
 		t.runContinuationDepth--
 		t.loop = outer

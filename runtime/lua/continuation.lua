@@ -1,13 +1,7 @@
 -- callcc(f) calls f(k), where k is the continuation of the call of callcc.
+-- The cont library itself is tested in lib/contlib/lua/cont.lua.
 
--- The library is not a global: a program asks for it.
-print(cont, callcc)
---> =nil	nil
-
-local cont = require("cont")
-local callcc = cont.callcc
-print(require("cont") == cont)
---> =true
+local callcc = require("cont").callcc
 
 -- Not calling k: callcc returns what f returns.
 print(callcc(function(k) return 1, 2 end))
