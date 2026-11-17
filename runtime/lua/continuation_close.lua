@@ -251,6 +251,31 @@ do
     end))
     --> =false	cannot close
 
+    -- A __close handler can call a continuation itself, and then it is that
+    -- call which goes on.
+    print(callcc(function(outer)
+        print(callcc(function(k)
+            local v <close> = setmetatable({}, {
+                __close = function() outer("the handler's call") end,
+            })
+            k("not reached")
+        end))
+        return "nor this"
+    end))
+    --> =the handler's call
+
+    -- Also when the first call comes from under Go code.
+    print(callcc(function(outer)
+        print(callcc(function(k)
+            local v <close> = setmetatable({}, {
+                __close = function() outer("the handler's call, under Go code") end,
+            })
+            local _ = setmetatable({}, {__index = function() k("not reached") end}).x
+        end))
+        return "nor this"
+    end))
+    --> =the handler's call, under Go code
+
     -- A value which has lost its way of being closed since it was declared
     -- is such an error.
     print(pcall(function()
