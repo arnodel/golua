@@ -65,11 +65,14 @@ func (t *Thread) ProtectedCall(name string, f Value, args []Value, handler Calla
 	if p.depth > maxProtectedCallDepth {
 		return p.caught(t, errors.New("stack overflow"))
 	}
+	// The depth is counted before f is given its continuation: if f is a
+	// continuation (a ContFunction), that is where the thread goes back to
+	// the depth of its capture.
+	t.protectedCallDepth = p.depth
 	c, err := Continue(t, f, p)
 	if err != nil {
 		return p.caught(t, err)
 	}
-	t.protectedCallDepth = p.depth
 	t.Push(c, args...)
 	_ = t.triggerCall(t, c)
 	return c
