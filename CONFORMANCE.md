@@ -40,6 +40,7 @@ These are minor incompatibilities or intentional design choices that we accept.
 | GOLUA-041 | Runtime | `load()` accepts "B" mode (no fixed buffer concept) |
 | GOLUA-043 | Runtime | `io.lines` accepts unlimited arguments |
 | GOLUA-048 | Runtime | A chunk name with no `=` or `@` mark is shown as it is |
+| GOLUA-049 | Runtime | A hook set on a coroutine waiting for another misses one return |
 
 ---
 
@@ -400,3 +401,10 @@ print(pcall(load("error('x')")))
 -- Lua:   false  [string "error('x')"]:1: x
 -- Golua: false  chunk:1: x
 ```
+
+---
+
+### GOLUA-049: A hook set on a coroutine waiting for another misses one return
+**Test file**: none (golua's own `runtime/lua/debughooks.lua`)
+
+A coroutine that has resumed another one is waiting in that call of `coroutine.resume` (or of a function made by `coroutine.wrap`). If a return hook is set on it at that moment, by the coroutine it is waiting for, Lua calls the hook for the return of that call. Golua calls it from the next event on: a coroutine has no goroutine until it needs one, a hook is one of the things it needs one for, and it gets it once that call has returned.

@@ -555,13 +555,13 @@ RunLoop:
 				return next, nil
 			case code.OpClStack:
 				if opcode.GetF() {
-					// Push to close stack
+					// Push to close stack, if the value can be closed and
+					// the thread can have one to close
 					v := getReg(regs, opcode.GetA())
-					if Truth(v) && t.metaGet(v, metaClose).IsNil() {
+					if err := t.pushToBeClosed(v); err != nil {
 						c.pc = pc
-						return nil, errors.New("to be closed value missing a __close metamethod")
+						return nil, err
 					}
-					t.closeStack.push(v)
 				} else {
 					// Truncate close stack
 					h := c.closeStackBase + int(opcode.GetClStackOffset())
