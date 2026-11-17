@@ -104,7 +104,7 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
 
 	// The function pushes its results into the next continuation: a frozen
 	// frame is replaced with a copy that can run.
-	if fc, ok := c.next.(*frozenCont); ok && !c.keepsNext {
+	if fc, ok := c.next.(*frozenCont); ok {
 		c.next = fc.thaw(t)
 	}
 

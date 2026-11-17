@@ -49,7 +49,13 @@ var LibLoader = packagelib.Loader{
 
 func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
-	r.SetEnvGoFunc(pkg, "callcc", callcc, 1, false).SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyTimeSafe | rt.ComplyIoSafe)
+
+	rt.SolemnlyDeclareCompliance(
+		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
+
+		r.SetEnvGoFunc(pkg, "callcc", callcc, 1, false),
+	)
+
 	return rt.TableValue(pkg), nil
 }
 

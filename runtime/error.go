@@ -78,13 +78,7 @@ func (e *Error) AddContext(c Cont, depth int) *Error {
 			depth--
 		}
 	} else {
-		for c != nil {
-			if _, ok := c.(*LuaCont); ok {
-				break
-			}
-			if _, ok := c.(*frozenCont); ok {
-				break
-			}
+		for c != nil && !isLuaFrame(c) {
 			c = c.Parent()
 		}
 	}

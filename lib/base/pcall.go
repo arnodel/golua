@@ -14,7 +14,7 @@ func pcall(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	_, err = t.CallContext(rt.RuntimeContextDef{}, func() error {
 		return rt.Call(t, c.Arg(0), c.Etc(), res)
 	})
-	if rt.IsContinuationCall(err) {
+	if rt.IsContFunctionCall(err) {
 		return nil, err
 	}
 	if err != nil {
@@ -47,7 +47,7 @@ func xpcall(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	}, func() error {
 		return rt.Call(t, c.Arg(0), c.Etc(), res)
 	})
-	if rt.IsContinuationCall(err) {
+	if rt.IsContFunctionCall(err) {
 		return nil, err
 	}
 	if err != nil {

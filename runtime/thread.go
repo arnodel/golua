@@ -65,8 +65,9 @@ type Thread struct {
 	// exceed maxRunContinuationDepth.
 	runContinuationDepth int
 
-	// The RunContinuation loop that is running, for the continuations
-	// captured in it; nil until there is one.
+	// The RunContinuation loop that is running, as the continuations
+	// captured in it know it (see runLoop).  It is nil until a continuation
+	// is captured in the loop.
 	loop *runLoop
 
 	// Depth of __call metamethod chain (Lua 5.5).  This should not exceed
@@ -120,8 +121,9 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 	// traceback shows the continuation it stopped in.
 	current := t.currentCont
 	t.runContinuationDepth++
-	outer, closeStackBase := t.loop, t.closeStack.size()
+	outer := t.loop
 	t.loop = nil
+	closeStackBase := t.closeStack.size()
 	defer func() {
 		t.runContinuationDepth--
 		if t.loop != nil {
@@ -146,7 +148,7 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 		t.currentCont = c
 		next, err = c.RunInThread(t)
 		if err != nil {
-			if call, ok := err.(*continuationCall); ok {
+			if call, ok := err.(*contFunctionCall); ok {
 				// A continuation was called under Go code that this loop
 				// was waiting for, which has now returned.  If it was
 				// captured in this loop, it carries on here.  If not, this
@@ -156,7 +158,7 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 				if call.k.loop != t.loop {
 					return t.cleanupCloseStack(c, closeStackBase, err)
 				}
-				c, err = call.k.resume(t), nil
+				c, err = call.k.reinstate(t), nil
 				c.PushEtc(t.Runtime, call.args)
 				continue
 			}
@@ -432,7 +434,7 @@ func (t *Thread) cleanupCloseStack(c Cont, h int, err error) error {
 			// Lua 5.5: __close receives 1 arg (the object) when closing normally,
 			// and 2 args (the object and the error) when closing due to an error.
 			var args []Value
-			if err == nil || IsContinuationCall(err) {
+			if err == nil || IsContFunctionCall(err) {
 				args = []Value{v}
 			} else {
 				args = []Value{v, ErrorValue(err)}
