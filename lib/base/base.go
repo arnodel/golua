@@ -24,34 +24,34 @@ func Load(r *rt.Runtime) (rt.Value, func()) {
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
-		r.SetEnvGoFunc(env, "assert", assert, 1, true),
-		r.SetEnvGoFunc(env, "error", errorF, 2, false),
-		r.SetEnvGoFunc(env, "getmetatable", getmetatable, 1, false),
-		r.SetEnvGoFunc(env, "ipairs", ipairs, 1, false),
-		r.SetEnvGoFunc(env, "load", load, 4, false),
-		r.SetEnvGoFunc(env, "pairs", pairs, 1, false),
+		r.SetEnvGoFunc(env, "assert", assert, 1, true, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "error", errorF, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "getmetatable", getmetatable, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "ipairs", ipairs, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "load", load, 4, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "pairs", pairs, 1, false, rt.NoYieldAcross),
 		r.SetEnvGoFunc(env, "pcall", pcall, 1, true),
-		r.SetEnvGoFunc(env, "print", print, 0, true), // print only writes to the host-controlled stdout, so it's safe in restricted contexts
-		r.SetEnvGoFunc(env, "rawequal", rawequal, 2, false),
-		r.SetEnvGoFunc(env, "rawget", rawget, 2, false),
-		r.SetEnvGoFunc(env, "rawlen", rawlen, 1, false),
-		r.SetEnvGoFunc(env, "rawset", rawset, 3, false),
-		r.SetEnvGoFunc(env, "select", selectF, 1, true),
-		r.SetEnvGoFunc(env, "setmetatable", setmetatable, 2, false),
-		r.SetEnvGoFunc(env, "tonumber", tonumber, 2, false),
-		r.SetEnvGoFunc(env, "tostring", tostring, 1, false),
-		r.SetEnvGoFunc(env, "type", typeString, 1, false),
-		r.SetEnvGoFunc(env, "warn", warn, 0, true), // Added in Lua 5.4
+		r.SetEnvGoFunc(env, "print", print, 0, true, rt.NoYieldAcross), // print only writes to the host-controlled stdout, so it's safe in restricted contexts
+		r.SetEnvGoFunc(env, "rawequal", rawequal, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "rawget", rawget, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "rawlen", rawlen, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "rawset", rawset, 3, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "select", selectF, 1, true, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "setmetatable", setmetatable, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "tonumber", tonumber, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "tostring", tostring, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "type", typeString, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(env, "warn", warn, 0, true, rt.NoYieldAcross), // Added in Lua 5.4
 		r.SetEnvGoFunc(env, "xpcall", xpcall, 2, true),
 	)
 	// These functions only access the filesystem via safeio.
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 		r.SetEnvGoFunc(env, "dofile", dofile, 1, false),
-		r.SetEnvGoFunc(env, "loadfile", loadfile, 3, false),
+		r.SetEnvGoFunc(env, "loadfile", loadfile, 3, false, rt.NoYieldAcross),
 	)
 	// That's not safe!
-	r.SetEnvGoFunc(env, "collectgarbage", collectgarbage, 3, false)
+	r.SetEnvGoFunc(env, "collectgarbage", collectgarbage, 3, false, rt.NoYieldAcross)
 	return rt.NilValue, nil
 }
 

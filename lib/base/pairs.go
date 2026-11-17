@@ -8,15 +8,18 @@ func pairs(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	}
 	coll := c.Arg(0)
 	next := c.Next()
-	res := rt.NewTerminationWith(c, 0, true)
-	err, ok := rt.Metacall(t, coll, "__pairs", []rt.Value{coll}, res)
-	if ok {
+	if pairsMeta := rt.RawGet(t.RawMetatable(coll), pairsMetaName); !pairsMeta.IsNil() {
+		// The metamethod returns where pairs would: this is a tail call, so
+		// no Go code waits for it and it can yield.
+		metaCont, err := rt.Continue(t, pairsMeta, next)
 		if err != nil {
 			return nil, err
 		}
-		t.Push(next, res.Etc()...)
-		return next, nil
+		t.Push1(metaCont, coll)
+		return metaCont, nil
 	}
 	t.Push(next, rt.FunctionValue(nextGoFunc), coll, rt.NilValue)
 	return next, nil
 }
+
+var pairsMetaName = rt.StringValue("__pairs")
