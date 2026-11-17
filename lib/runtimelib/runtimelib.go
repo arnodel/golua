@@ -25,10 +25,10 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "callcontext", callcontext, 2, true),
-		r.SetEnvGoFunc(pkg, "context", context, 0, false),
-		r.SetEnvGoFunc(pkg, "killcontext", killnow, 1, false),
-		r.SetEnvGoFunc(pkg, "stopcontext", stopnow, 1, false),
-		r.SetEnvGoFunc(pkg, "contextdue", due, 1, false),
+		r.SetEnvGoFunc(pkg, "context", context, 0, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "killcontext", killnow, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "stopcontext", stopnow, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "contextdue", due, 1, false, rt.NoYieldAcross),
 	)
 
 	createContextMetatable(r)
@@ -118,9 +118,9 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr error) {
 	}, func() error {
 		err := rt.Call(t, f, fArgs, res)
 		if rt.IsContFunctionCall(err) {
-			// Unlike pcall, a context is not left by calling a
-			// continuation captured outside it: the code that starts a
-			// context gets it back, whatever runs in it.
+			// Unlike other Go code that waits for Lua code, a context is
+			// not left by calling a continuation captured outside it: the
+			// code that starts a context gets it back, whatever runs in it.
 			return errors.New("attempt to leave a context by calling a continuation")
 		}
 		return err

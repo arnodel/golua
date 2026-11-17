@@ -26,7 +26,9 @@ import (
 // See notes/continuations.md for the design.
 type ContFunction struct {
 	loop *runLoop // The loop k was captured in, where it can carry on
-	cont Cont     // A frozen frame, or a continuation that is not a frame
+	cont Cont     // What k carries on with, as frozen returns it
+
+	protectedCallDepth int // The thread's depth of protected calls at the capture
 
 	// The pending to-be-closed values at the capture.
 	closeStack closeStack
@@ -36,15 +38,17 @@ type ContFunction struct {
 
 var _ Callable = (*ContFunction)(nil)
 
-// A runLoop is one call of Thread.RunContinuation, which runs continuations
-// one after the other until one of them ends the loop.
+// A runLoop is a loop that runs continuations one after the other until one
+// of them ends it: a call of Thread.RunContinuation, or the loop of a
+// coroutine, which stops when the coroutine yields and goes on when it is
+// resumed, if need be in a goroutine (see lightthread.go).
 //
 // A Lua call or return is one turn of the loop that is running, and so is
-// the call of a Go function that returns the continuation to run next.  A Go
-// function that needs the results of Lua code before it can go on (pcall, a
-// metamethod call, the comparison function of table.sort, the body of a
-// coroutine) starts a loop of its own and waits for it to end.  So the loops
-// of a thread are nested as the Go calls that started them are, and a frame
+// the call of a Go function that returns the continuation to run next, as
+// pcall does.  A Go function that needs the results of Lua code before it
+// can go on (a metamethod call, the comparison function of table.sort)
+// starts a loop of its own and waits for it to end.  So the loops of a
+// thread are nested as the Go calls that started them are, and a frame
 // belongs to one loop: the one that ends when the frames it returns through
 // have all returned.
 //
@@ -69,6 +73,9 @@ type runLoop struct {
 //	k, next := t.CaptureCont(c.Next())
 //	// then call f with k as its argument, returning to next
 //
+// If next is a protected call (pcall called the Go function), k holds one
+// that nothing has returned into, and what next returns to is frozen.
+//
 // k carries on in the loop that is running and in no other (see runLoop), so
 // next must be a continuation of that loop.  The next continuation of the
 // Go function that is running is one.
@@ -76,15 +83,24 @@ type runLoop struct {
 // k also keeps the to-be-closed values that are pending, and calling k makes
 // them the pending ones again (see switchCloseStack).
 func (t *Thread) CaptureCont(next Cont) (Value, Cont) {
-	if lc, ok := next.(*LuaCont); ok {
-		next = (*frozenCont)(lc)
+	cont := frozen(t, next)
+	switch c := next.(type) {
+	case *LuaCont:
+		next = cont
+	case *protectedCall:
+		c.freezeNext(t)
 	}
 	if t.loop == nil {
 		t.RequireSize(unsafe.Sizeof(runLoop{}))
 		t.loop = &runLoop{thread: t}
 	}
 	t.RequireSize(unsafe.Sizeof(ContFunction{}))
-	k := &ContFunction{loop: t.loop, cont: next, closeStack: t.closeStack.capture()}
+	k := &ContFunction{
+		loop:               t.loop,
+		cont:               cont,
+		protectedCallDepth: t.protectedCallDepth,
+		closeStack:         t.closeStack.capture(),
+	}
 	return FunctionValue(k), next
 }
 
@@ -94,13 +110,18 @@ func (t *Thread) CaptureCont(next Cont) (Value, Cont) {
 //
 // The thread's pending to-be-closed values become those of k, which closes
 // the values of the blocks that are left for good (see switchCloseStack).
-// That can fail, and then k is not reinstated.
+// That can fail, and then k is not reinstated.  The protected calls under
+// way are from now on those the computation is in.
 func (k *ContFunction) reinstate(t *Thread) (Cont, error) {
 	if err := t.switchCloseStack(k.closeStack); err != nil {
 		return nil, err
 	}
-	if fc, ok := k.cont.(*frozenCont); ok {
-		return fc.thaw(t), nil
+	t.protectedCallDepth = k.protectedCallDepth
+	switch c := k.cont.(type) {
+	case *frozenCont:
+		return c.thaw(t), nil
+	case *protectedCall:
+		return c.clone(t), nil
 	}
 	return k.cont, nil
 }
@@ -117,6 +138,8 @@ func (k *ContFunction) Continuation(t *Thread, next Cont) Cont {
 			name:        "continuation",
 			hasEtc:      true,
 			safetyFlags: ComplyCpuSafe | ComplyMemSafe | ComplyTimeSafe | ComplyIoSafe,
+
+			noYieldAcross: true,
 		}
 	}
 	return NewGoCont(t, k.goFunction, next)
@@ -130,10 +153,10 @@ func (k *ContFunction) Continuation(t *Thread, next Cont) Cont {
 //   - Once that loop has ended, the Go code that waited for the frames of k
 //     to return has returned itself, which is an error too.
 //   - Otherwise the thread is under Go code which that loop is waiting for
-//     (a pcall, a metamethod call, a function given to table.sort), and
+//     (a metamethod call, table.sort calling its comparison function), and
 //     that Go code has to return first.  The call returns as an error does,
 //     a contFunctionCall, which Go code passes on as it does errors and the
-//     loop takes up (see Thread.RunContinuation).
+//     loop takes up (see Thread.contAfterError).
 func (k *ContFunction) call(t *Thread, c *GoCont) (Cont, error) {
 	switch {
 	case t.loop == k.loop:
@@ -169,9 +192,9 @@ func (*contFunctionCall) Error() string {
 }
 
 // IsContFunctionCall reports whether err is the call of a ContFunction on
-// its way through Go code (see Thread.RunContinuation).  A Go function that
-// turns the errors of the Lua code it calls into values, as pcall does, must
-// return this one as it is.
+// its way through Go code (see Thread.contAfterError).  A Go function that
+// turns the errors of the Lua code it calls into values, as load does for
+// its reader function, must return this one as it is.
 func IsContFunctionCall(err error) bool {
 	_, ok := err.(*contFunctionCall)
 	return ok

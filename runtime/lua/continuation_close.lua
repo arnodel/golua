@@ -161,18 +161,75 @@ do
     --> =false	oops
 end
 
--- Under a pcall that a continuation leaves, everything is closed: there is
+-- Under Go code that a continuation leaves, everything is closed: there is
 -- no entering it again.
 do
+    -- Indexing this table with a function calls the function, from Go.
+    local called = setmetatable({}, {__index = function(_, f) return f() end})
+
     print(callcc(function(k)
-        pcall(function()
-            local v <close> = closing("in pcall")
+        local _ = called[function()
+            local v <close> = closing("under Go code")
             callcc(function(inner) end)
-            k("left the pcall")
-        end)
+            k("left the Go code")
+        end]
     end))
-    --> =close in pcall	nil
+    --> =close under Go code	nil
+    --> =left the Go code
+end
+
+-- A pcall is not such Go code, and is a block like any other here: what it
+-- calls can be entered again after a continuation has left it, so a variable
+-- of a block in which a continuation was captured stays pending.
+do
+    local back
+    local done = {}
+    print(callcc(function(k)
+        print(pcall(function()
+            local v <close> = closing("in pcall")
+            local how = callcc(function(c) back = c; return "first" end)
+            if how == "first" then
+                k("left the pcall")
+            end
+            return "the pcall ends " .. how
+        end))
+        return "callcc ends"
+    end))
     --> =left the pcall
+    --> =close in pcall	nil
+    --> =true	the pcall ends again
+    --> =callcc ends
+    if not done.back then
+        done.back = true
+        back("again")
+    end
+end
+
+-- In a coroutine as anywhere.  A variable to be closed gives a coroutine a
+-- goroutine, unless it is declared under a function of the library, which
+-- cannot be yielded across (see runtime/lightthread.go).
+do
+    print(coroutine.resume(coroutine.create(function()
+        return callcc(function(k)
+            local v <close> = closing("in a coroutine")
+            k("left")
+        end)
+    end)))
+    --> =close in a coroutine	nil
+    --> =true	left
+
+    print(coroutine.resume(coroutine.create(function()
+        local res
+        local _ = ("x"):gsub("x", function()
+            res = callcc(function(k)
+                local v <close> = closing("under gsub in a coroutine")
+                k("left")
+            end)
+        end)
+        return res
+    end)))
+    --> =close under gsub in a coroutine	nil
+    --> =true	left
 end
 
 -- An error in closing is the error of the call of the continuation.

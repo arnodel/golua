@@ -404,13 +404,8 @@ func (r *Runtime) SetEnv(t *Table, name string, v Value) {
 
 // SetEnvGoFunc sets the item in the table t for a string key to be a GoFunction
 // defined by f.  Useful when writing libraries
-func (r *Runtime) SetEnvGoFunc(t *Table, name string, f GoFunctionFunc, nArgs int, hasEtc bool) *GoFunction {
-	gof := &GoFunction{
-		f:      f,
-		name:   name,
-		nArgs:  nArgs,
-		hasEtc: hasEtc,
-	}
+func (r *Runtime) SetEnvGoFunc(t *Table, name string, f GoFunctionFunc, nArgs int, hasEtc bool, opts ...GoFunctionOption) *GoFunction {
+	gof := NewGoFunction(f, name, nArgs, hasEtc, opts...)
 	r.SetTable(t, StringValue(name), FunctionValue(gof))
 	return gof
 }

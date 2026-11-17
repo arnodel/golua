@@ -93,8 +93,15 @@ close stack is the branch that is running.
 - Several copies of a frame can end the same block, each when it gets there.
   The value is closed once.
 - An error closes every pending value down to where it is caught, as before,
-  and so does a continuation that leaves a `pcall` or other Go code: nothing
-  under that Go code can be entered again.
+  and so does a continuation that leaves Go code which was waiting for Lua
+  code (a metamethod call, a function given to `table.sort`): nothing under
+  that Go code can be entered again.  A `pcall` is not such Go code.  The
+  function it calls can be entered again after a continuation has left it,
+  so it is a block like any other here.
+- A coroutine without a goroutine is given one before it declares a value
+  to be closed in fact (see `runtime/lightthread.go`), so calling a
+  continuation there never has a `__close` handler to call that the
+  coroutine could not run.
 
 This is the "wind list" of Scheme's `dynamic-wind`, of which a value to be
 closed uses half: there is something to do when a block is left for good, and

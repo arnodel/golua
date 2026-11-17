@@ -24,14 +24,14 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
-		r.SetEnvGoFunc(pkg, "concat", concat, 4, false),
-		r.SetEnvGoFunc(pkg, "create", create, 2, false),
-		r.SetEnvGoFunc(pkg, "insert", insert, 3, false),
-		r.SetEnvGoFunc(pkg, "move", move, 5, false),
-		r.SetEnvGoFunc(pkg, "pack", pack, 0, true),
-		r.SetEnvGoFunc(pkg, "remove", remove, 2, false),
-		r.SetEnvGoFunc(pkg, "sort", sortf, 2, false),
-		r.SetEnvGoFunc(pkg, "unpack", unpack, 3, false),
+		r.SetEnvGoFunc(pkg, "concat", concat, 4, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "create", create, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "insert", insert, 3, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "move", move, 5, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "pack", pack, 0, true, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "remove", remove, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "sort", sortf, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "unpack", unpack, 3, false, rt.NoYieldAcross),
 	)
 
 	return rt.TableValue(pkg), nil
