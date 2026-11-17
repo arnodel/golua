@@ -13,6 +13,7 @@ const QuotasAvailable = false
 
 type runtimeContextManager struct {
 	messageHandler Callable
+	startCont      Cont // The continuation running when the context started
 	parent         *runtimeContextManager
 	weakRefPool    *WeakPool
 	workDir        string

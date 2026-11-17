@@ -181,7 +181,6 @@ func (t *Thread) runLightLoop(c Cont, isCall bool) (lightStop, error) {
 	if isCall {
 		_ = t.triggerCall(t, c)
 	}
-	errCount := 0
 	for c != nil {
 		if t.weakRefPool.HasPending() {
 			t.runPendingFinalizers()
@@ -199,7 +198,7 @@ func (t *Thread) runLightLoop(c Cont, isCall bool) (lightStop, error) {
 			// From an opcode, which is the one c runs next.
 			return lightNeedsGoroutine, nil
 		default:
-			next, err = t.contAfterError(c, err, &errCount)
+			next, err = t.contAfterError(c, err)
 			if err != nil {
 				return lightEnded, err
 			}

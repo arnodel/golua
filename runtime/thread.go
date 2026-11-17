@@ -70,6 +70,10 @@ type Thread struct {
 	// hook.  While there is one the thread cannot yield.
 	noYieldDepth int
 
+	// Depth of the protected calls under way in the thread (see
+	// protectedcall.go).  This should not exceed maxProtectedCallDepth.
+	protectedCallDepth int
+
 	// Depth of __call metamethod chain (Lua 5.5).  This should not exceed
 	// maxCallChainLength to prevent infinite loops through chained __call metamethods.
 	metacallChainDepth int
@@ -171,7 +175,6 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 	}()
 
 	var next Cont
-	var errContCount = 0
 	if isCall {
 		_ = t.triggerCall(t, c)
 	}
@@ -184,7 +187,7 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 		t.currentCont = c
 		next, err = c.RunInThread(t)
 		if err != nil {
-			next, err = t.contAfterError(c, err, &errContCount)
+			next, err = t.contAfterError(c, err)
 			if err != nil {
 				return err
 			}
@@ -195,28 +198,41 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 }
 
 // contAfterError returns the continuation to run after c has failed with
-// err: the one that gives the error to the message handler.  If the error
-// has been through that already, or the handler itself keeps failing (count
-// is the number of errors so far in the loop), there is nothing more to run
-// and it returns the error the loop ends with.
-func (t *Thread) contAfterError(c Cont, err error, count *int) (Cont, error) {
+// err, or the error that the loop ends with if there is none.
+//
+// An error first goes to the message handler, where it happens: the
+// continuation is the call of the handler.  Once it has been through that
+// (it is then "handled") it goes to the protected call that c is part of, if
+// there is one in this loop, and the continuation is where that call
+// returns.  If there is none the loop ends, and the Go code that started it
+// gets the error.
+//
+// A handler that fails is given its own error, and so on, a limited number
+// of times.
+func (t *Thread) contAfterError(c Cont, err error) (Cont, error) {
 	rtErr := ToError(err)
-	if rtErr.Handled() {
-		return nil, rtErr
-	}
-	err = rtErr.AddContext(c, -1)
-	*count++
-	var next Cont
-	if t.messageHandler != nil {
-		if *count > maxErrorsInMessageHandler {
-			return nil, newHandledError(errErrorInMessageHandler)
+	if !rtErr.Handled() {
+		rtErr = rtErr.AddContext(c, -1)
+		handler, handlerDepth := t.messageHandlerFor(c)
+		switch {
+		case handlerDepth >= maxErrorsInMessageHandler:
+			rtErr = newHandledError(errErrorInMessageHandler)
+		case handler == nil:
+			// Nothing to call: the error is handled as it is, which is
+			// what running this continuation does.
+			next := newMessageHandlerCont(c)
+			next.Push(t.Runtime, ErrorValue(rtErr))
+			return next, nil
+		default:
+			next := handler.Continuation(t, newMessageHandlerCont(c))
+			next.Push(t.Runtime, ErrorValue(rtErr))
+			return next, nil
 		}
-		next = t.messageHandler.Continuation(t, newMessageHandlerCont(c))
-	} else {
-		next = newMessageHandlerCont(c)
 	}
-	next.Push(t.Runtime, ErrorValue(err))
-	return next, nil
+	if p := protectedCallFor(c); p != nil {
+		return p.caught(t, rtErr), nil
+	}
+	return nil, rtErr
 }
 
 // This is to be able to close a suspended coroutine without completing it, but
@@ -429,7 +445,12 @@ func (t *Thread) sendResumeValues(args []Value, err error, exception interface{}
 func (t *Thread) CallContext(def RuntimeContextDef, f func() error) (ctx RuntimeContext, err error) {
 	t.PushContext(def)
 	c, h := t.CurrentCont(), t.closeStack.size()
+	t.startCont = c
+	protectedCallDepth := t.protectedCallDepth
 	defer func() {
+		// The protected calls that f made are over, also those that a
+		// termination of the context went through.
+		t.protectedCallDepth = protectedCallDepth
 		ctx = t.PopContext()
 		if r := recover(); r != nil {
 			t.closeStack.truncate(h) // No resources to run that, so just discard it.
