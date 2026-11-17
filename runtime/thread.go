@@ -136,8 +136,30 @@ var errErrorInMessageHandler = StringValue("error in error handling")
 // RunContinuation runs the continuation c in the thread. It keeps running until
 // the next continuation is nil or an error occurs, in which case it returns the
 // error.
+//
+// This is a new loop for the continuations captured in it (see runLoop), and
+// the one that was running is the thread's again when it is over, also if it
+// is a panic that ends it.  A thread that goes on in a goroutine does not
+// come this way: it is still in the loop it was in.
+//
+// If what ends the loop is the call of a continuation of another loop, which
+// this one is under (see contAfterError), the variables to be closed of the
+// frames it leaves behind are closed, and the Go code that started the loop
+// is given the call to pass on.
 func (t *Thread) RunContinuation(c Cont) error {
-	return t.runContinuation(c, true)
+	outer, closeStackBase := t.loop, t.closeStack.size()
+	t.loop = nil
+	defer func() {
+		if t.loop != nil {
+			t.loop.done = true
+		}
+		t.loop = outer
+	}()
+	err := t.runContinuation(c, true)
+	if IsContFunctionCall(err) {
+		err = t.cleanupCloseStack(t.currentCont, closeStackBase, err)
+	}
+	return err
 }
 
 // runContinuation is RunContinuation, with the choice of whether c is the
@@ -168,23 +190,11 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 	// traceback shows the continuation it stopped in.
 	current := t.currentCont
 	t.runContinuationDepth++
-	outer := t.loop
-	if isCall {
-		// A new loop.  If c is the rest of what a light thread was running,
-		// this is still that thread's loop, where the continuations captured
-		// so far carry on.
-		t.loop = nil
-	}
-	closeStackBase := t.closeStack.size()
 	defer func() {
 		if noYield {
 			t.noYieldDepth--
 		}
 		t.runContinuationDepth--
-		if t.loop != nil {
-			t.loop.done = true
-		}
-		t.loop = outer
 		coroutineEnds := t.runContinuationDepth == 0 && t.caller != nil
 		if !coroutineEnds {
 			t.currentCont = current
@@ -205,12 +215,6 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 		next, err = c.RunInThread(t)
 		if err != nil {
 			next, err = t.contAfterError(c, err)
-			if IsContFunctionCall(err) {
-				// The call of a continuation of another loop, which this
-				// loop is under: it ends, closing the variables to be
-				// closed of the frames it leaves behind.
-				return t.cleanupCloseStack(c, closeStackBase, err)
-			}
 			if err != nil {
 				return err
 			}
