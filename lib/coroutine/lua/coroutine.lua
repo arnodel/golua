@@ -166,3 +166,41 @@ do
     print(coroutine.status(co))
     --> =dead
 end
+
+-- A __close handler run by the end of its coroutine cannot yield: it is
+-- called by coroutine.close, or by the coroutine dying, not by Lua code that
+-- could be suspended.  The yield is an error in the handler.
+do
+    local function closing(log)
+        return setmetatable({}, {__close = function()
+            log[#log + 1] = "handler"
+            coroutine.yield("from the handler")
+            log[#log + 1] = "not reached"
+        end})
+    end
+
+    -- Closed while suspended.
+    local log = {}
+    local co = coroutine.create(function()
+        local x <close> = closing(log)
+        coroutine.yield()
+    end)
+    coroutine.resume(co)
+    print(coroutine.close(co))
+    --> ~false\t.*attempt to yield across a Go-call boundary
+    print(coroutine.status(co), table.concat(log, " "))
+    --> =dead	handler
+
+    -- Dying of an error.
+    log = {}
+    co = coroutine.create(function()
+        local x <close> = closing(log)
+        error("boom")
+    end)
+    print(coroutine.resume(co))
+    --> ~false\t.*attempt to yield across a Go-call boundary
+    print(coroutine.status(co), table.concat(log, " "))
+    --> =dead	handler
+    print(coroutine.resume(co))
+    --> ~false\t.*cannot resume dead
+end

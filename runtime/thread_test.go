@@ -53,13 +53,23 @@ func TestThread_Yield(t *testing.T) {
 		thread    *Thread
 		args      args
 		wantPanic interface{}
+		wantErr   error
 	}{
 		{
 			name: "Thread to yield must be running",
 			thread: &Thread{
-				status: ThreadDead,
+				status: ThreadSuspended,
 			},
 			wantPanic: "Thread to yield is not running",
+		},
+		{
+			// A dead thread runs its __close handlers: a yield from one of
+			// them is an error for the handler, not a broken invariant.
+			name: "A dead thread cannot yield",
+			thread: &Thread{
+				status: ThreadDead,
+			},
+			wantErr: errYieldAcrossGo,
 		},
 		{
 			name: "Caller of thread to yield must be OK",
@@ -75,13 +85,17 @@ func TestThread_Yield(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			th := tt.thread
+			var gotErr error
 			gotPanic := func() (res interface{}) {
 				defer func() { res = recover() }()
-				_, _ = th.Yield(tt.args.args)
+				_, gotErr = th.Yield(tt.args.args)
 				return
 			}()
 			if !reflect.DeepEqual(gotPanic, tt.wantPanic) {
 				t.Errorf("Thread.Yield() panic got %v, want %v", gotPanic, tt.wantPanic)
+			}
+			if gotErr != tt.wantErr {
+				t.Errorf("Thread.Yield() error got %v, want %v", gotErr, tt.wantErr)
 			}
 		})
 	}
