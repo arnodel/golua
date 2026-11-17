@@ -100,6 +100,11 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
 		return nil, errors.New("stack overflow")
 	}
 	next, err = c.f(t, c)
+	if err == errLightYield {
+		// The thread is suspended in the function, which has not returned:
+		// it is run again when the thread is resumed.
+		return nil, err
+	}
 	_ = t.triggerReturn(t, c)
 
 	if err != nil {

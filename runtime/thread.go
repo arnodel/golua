@@ -65,6 +65,11 @@ type Thread struct {
 	// exceed maxRunContinuationDepth.
 	runContinuationDepth int
 
+	// Number of calls of Lua code under way that a yield cannot cross: those
+	// made by a Go function declared NoYieldAcross, and those of a debug
+	// hook.  While there is one the thread cannot yield.
+	noYieldDepth int
+
 	// Depth of __call metamethod chain (Lua 5.5).  This should not exceed
 	// maxCallChainLength to prevent infinite loops through chained __call metamethods.
 	metacallChainDepth int
@@ -130,12 +135,20 @@ func (t *Thread) RunContinuation(c Cont) error {
 // start of a call, which the call hook is told of, or the rest of something
 // that was under way (a thread that goes on in a goroutine).
 func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
-	if t.light {
-		// Go code is calling Lua: something a light thread cannot do.
+	// Go code is calling Lua.  If it is a function that no yield crosses,
+	// the Lua code cannot yield.
+	caller, _ := t.currentCont.(*GoCont)
+	noYield := caller != nil && caller.noYieldAcross
+	if t.light && !noYield && t.noYieldDepth == 0 {
+		// The Lua code may yield: something a light thread cannot have
+		// Go code waiting for.
 		return errNeedsGoroutine
 	}
 	if t.runContinuationDepth >= maxRunContinuationDepth {
 		return errors.New("stack overflow")
+	}
+	if noYield {
+		t.noYieldDepth++
 	}
 	// On the way out, put back the continuation the thread was running.
 	// Otherwise it stays on the termination this loop ended on, and the next
@@ -147,6 +160,9 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 	current := t.currentCont
 	t.runContinuationDepth++
 	defer func() {
+		if noYield {
+			t.noYieldDepth--
+		}
 		t.runContinuationDepth--
 		coroutineEnds := t.runContinuationDepth == 0 && t.caller != nil
 		if !coroutineEnds {
@@ -300,7 +316,7 @@ func (t *Thread) Close(caller *Thread) (bool, error) {
 		panic("Caller of thread to close is not running")
 	}
 	if t.light {
-		t.endLight(nil)
+		_ = t.endLight(nil)
 		t.mux.Unlock()
 		caller.mux.Unlock()
 		return true, nil
@@ -322,10 +338,11 @@ var errYieldAcrossGo = errors.New("attempt to yield across a Go-call boundary")
 // Yield to the caller thread.  The yielding thread's status switches to
 // suspended.  The caller's status must be OK.
 func (t *Thread) Yield(args []Value) ([]Value, error) {
-	if t.status == ThreadDead {
-		// A dead thread still runs code: the __close handlers of the
-		// values it had left to close.  They are called from Go, by the
-		// thread's own ending, which cannot be suspended.
+	if t.status == ThreadDead || t.noYieldDepth > 0 {
+		// Go code that cannot be suspended is waiting for the code that
+		// yields: a function declared NoYieldAcross, a debug hook, or the
+		// thread's own ending, which calls the __close handlers of the
+		// values a dead thread had left to close.
 		return nil, errYieldAcrossGo
 	}
 	if t.light {
@@ -475,9 +492,9 @@ func (t *Thread) pushToBeClosed(v Value) error {
 		if t.metaGet(v, metaClose).IsNil() {
 			return errors.New("to be closed value missing a __close metamethod")
 		}
-		if t.light {
-			// Go code calls its handler: something a light thread cannot
-			// have done for it.
+		if t.light && t.noYieldDepth == 0 {
+			// Go code calls its handler, which may yield: something a
+			// light thread cannot have Go code waiting for.
 			return errNeedsGoroutine
 		}
 	}

@@ -1,9 +1,6 @@
 package runtime
 
-import (
-	"errors"
-	"fmt"
-)
+import "errors"
 
 // # Light threads
 //
@@ -19,21 +16,25 @@ import (
 // When the thread yields its loop returns, so at that point nothing of the
 // thread can be left on the Go stack.  Go code that is waiting for Lua code
 // it has called would be, if that Lua code yields.  So a light thread never
-// has Go code calling Lua, in any of its four forms:
+// has Go code calling Lua code that may yield, which comes in three forms:
 //
 //   - a Go function, unless it was declared NoYieldAcross;
 //   - a metamethod called by an opcode;
-//   - the __close metamethod of a value to be closed;
-//   - a debug hook.
+//   - the __close metamethod of a value to be closed.
+//
+// Go code calling Lua code that is not allowed to yield is no trouble: a
+// function declared NoYieldAcross, or a debug hook (see noYieldDepth).  And
+// while such a call is under way nothing in the thread can yield, so there
+// the thread can do all three.
 //
 // # Getting a goroutine
 //
-// Before a light thread does one of these it is given a goroutine
+// Before a light thread does one of the three it is given a goroutine
 // (moveToGoroutine), for good: from then on it is resumed and it yields
-// through channels, as thread.go has it.  The loop sees the first and the last
-// of the four coming before it runs a continuation (lightCannotRun).  The
-// other two are found while a continuation runs: it returns
-// errNeedsGoroutine, having done nothing that running it again would repeat.
+// through channels, as thread.go has it.  The loop sees a Go function coming
+// before it runs it (lightCannotRun).  The other two are found while a
+// continuation runs: it returns errNeedsGoroutine, having done nothing that
+// running it again would repeat.
 //
 // # Stopping and going on
 //
@@ -90,13 +91,9 @@ func (t *Thread) HasGoroutine() bool {
 //
 
 // lightCannotRun is true if the light thread t needs a goroutine before it
-// runs c.
+// runs c: a Go function may call Lua code that yields, unless it says that
+// no yield crosses it.
 func (t *Thread) lightCannotRun(c Cont) bool {
-	if t.DebugHookFlags != 0 {
-		// The hook is called from Go.
-		return true
-	}
-	// A Go function may call Lua, unless it says that no yield crosses it.
 	g, isGo := c.(*GoCont)
 	return isGo && !g.noYieldAcross
 }
@@ -125,14 +122,14 @@ func (t *Thread) resumeLight(caller *Thread, args []Value) ([]Value, error) {
 		// The thread cannot even start without a goroutine.
 		return t.moveToGoroutine(caller, c, true)
 	}
-	switch stop, err := t.runLight(c); stop {
+	switch stop, err := t.runLight(c, isCall); stop {
 	case lightYielded:
 		// What the call of yield was given.
 		return t.currentCont.(*GoCont).Etc(), nil
 	case lightNeedsGoroutine:
 		return t.moveToGoroutine(caller, t.currentCont, false)
 	default:
-		t.endLight(err)
+		err = t.endLight(err)
 		return t.term.Etc(), err
 	}
 }
@@ -156,23 +153,34 @@ func (t *Thread) lightResumption(args []Value) (c Cont, isCall bool) {
 // runLight is the loop of the light thread t: it runs c and the
 // continuations that follow until the thread stops.  The thread's current
 // continuation is then where it stopped, and err the error it ended with if
-// it has ended.
-func (t *Thread) runLight(c Cont) (stop lightStop, err error) {
+// it has ended.  If isCall is true c is the call of the thread's body, which
+// the call hook is told of.
+func (t *Thread) runLight(c Cont, isCall bool) (stop lightStop, err error) {
+	// The loop counts as one, like the loop of a thread that has a
+	// goroutine, so that a call of Lua from Go knows it is not the
+	// thread's own loop.
+	t.runContinuationDepth++
 	t.resumeDepth++
 	panicking := true
 	defer func() {
 		t.resumeDepth--
+		t.runContinuationDepth--
 		if panicking {
-			// The context has run out of resources.
-			t.endLight(nil)
+			// The context has run out of resources: nothing more runs in
+			// it, not even to close what the thread had to close.
+			t.closeStack.truncate(0)
+			_ = t.endLight(nil)
 		}
 	}()
-	stop, err = t.runLightLoop(c)
+	stop, err = t.runLightLoop(c, isCall)
 	panicking = false
 	return stop, err
 }
 
-func (t *Thread) runLightLoop(c Cont) (lightStop, error) {
+func (t *Thread) runLightLoop(c Cont, isCall bool) (lightStop, error) {
+	if isCall {
+		_ = t.triggerCall(t, c)
+	}
 	errCount := 0
 	for c != nil {
 		if t.weakRefPool.HasPending() {
@@ -188,14 +196,8 @@ func (t *Thread) runLightLoop(c Cont) (lightStop, error) {
 		case errLightYield:
 			return lightYielded, nil
 		case errNeedsGoroutine:
-			if _, isLua := c.(*LuaCont); isLua {
-				// The opcode that asks is the one c runs next.
-				return lightNeedsGoroutine, nil
-			}
-			// A Go function has had its call of Lua refused, and running
-			// it again would repeat what it did before that.
-			err = fmt.Errorf("Go function %s was declared NoYieldAcross, but called Lua", c.DebugInfo().Name)
-			fallthrough
+			// From an opcode, which is the one c runs next.
+			return lightNeedsGoroutine, nil
 		default:
 			next, err = t.contAfterError(c, err, &errCount)
 			if err != nil {
@@ -220,6 +222,9 @@ func (t *Thread) YieldFrom(c *GoCont) (Cont, error) {
 		t.resumed, t.resumedWith = false, nil
 		return c.PushingNext(t.Runtime, vals...), nil
 	}
+	if t.noYieldDepth > 0 {
+		return nil, errYieldAcrossGo
+	}
 	if !t.light {
 		res, err := t.Yield(c.Etc())
 		if err != nil {
@@ -232,16 +237,23 @@ func (t *Thread) YieldFrom(c *GoCont) (Cont, error) {
 	return nil, errLightYield
 }
 
-// endLight makes the light thread t dead, with the error it died of if any.
-// It has nothing to close: a light thread holds no value with a __close
-// metamethod.
-func (t *Thread) endLight(err error) {
+// endLight makes the light thread t dead, with the error it died of if any,
+// and returns the error it ends with.  As for any thread, what it had left
+// to close is closed then: values that an error has left behind in a call
+// that no yield could cross.
+func (t *Thread) endLight(err error) error {
 	t.status = ThreadDead
 	t.caller = nil
 	t.light = false
 	t.body = nil
-	t.closeStack.truncate(0)
-	t.closeErr = err
+	t.closeErr = t.cleanupCloseStack(nil, 0, err)
+	return t.closeErr
+}
+
+// IsYieldable is true if the thread can yield: it is not the main thread,
+// and no Go code that a yield cannot cross is waiting for what it is running.
+func (t *Thread) IsYieldable() bool {
+	return !t.IsMain() && t.noYieldDepth == 0
 }
 
 //
