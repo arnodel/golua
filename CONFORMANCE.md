@@ -26,7 +26,7 @@ These are minor incompatibilities or intentional design choices that we accept.
 | GOLUA-009 | Runtime | Unary metamethods receive 1 arg (not 2) |
 | GOLUA-011 | Runtime | Coroutine close behavior differs |
 | GOLUA-012 | Runtime | Stack overflow detection differs |
-| GOLUA-013 | Runtime | Yielding allowed in more contexts |
+| GOLUA-013 | Runtime | A yield can cross Go functions that allow it |
 | GOLUA-014 | Runtime | `debug.getinfo` differences |
 | GOLUA-015 | Runtime | Weak table GC timing differs |
 | GOLUA-016 | Runtime | `debug.upvalueid` fails for Go functions |
@@ -204,10 +204,17 @@ Go doesn't detect stack overflow the same way as C Lua. Tests that rely on stack
 
 ---
 
-### GOLUA-013: Yielding allowed in more contexts
+### GOLUA-013: A yield can cross Go functions that allow it
 **Test file**: coroutine.lua
 
-Golua allows yielding from contexts where reference Lua does not (e.g., `string.gsub` callbacks).
+A yield cannot cross a function of the standard library that calls Lua, as in Lua: a `table.sort` comparison, a `string.gsub` replacement, a metamethod called by `tostring`, `print`, `string.format`, `ipairs` or the `table` functions, the reader of `load`, a module loaded by `require`, and a debug hook. It is an error where the yield is, and `coroutine.isyieldable` is false there. `pcall`, `xpcall`, `dofile` and `__pairs` can be yielded across, as in Lua.
+
+What differs:
+
+- The message is "attempt to yield across a Go-call boundary" where Lua says "C-call boundary".
+- A Go function of a program that embeds golua can be yielded across unless it is declared `NoYieldAcross`.
+- An error in a call or return hook, this one included, is dropped; Lua raises it in the code the hook was called for.
+- One test of the suite is still skipped under this code, for another reason: it needs `coroutine.close()` to close the running coroutine.
 
 ---
 

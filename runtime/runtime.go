@@ -25,6 +25,8 @@ type Runtime struct {
 	gcThread   *Thread   // Thread for running Lua finalizers
 	registry   *Table    // The registry table can store data global to the runtime
 
+	resumeDepth int // How deep resumes of light threads are nested (see lightthread.go)
+
 	warner         Warner // Lua 5.4 introduces a warning system, implemented by this
 	reservedGlobal bool   // when true, "global" is a reserved keyword (LUA_COMPAT_GLOBAL off)
 

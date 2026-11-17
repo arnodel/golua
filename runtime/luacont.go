@@ -136,7 +136,7 @@ RunLoop:
 		if t.DebugHooks.areFlagsEnabled(HookFlagLine) {
 			line := lines[pc]
 			if line > 0 && line != lastLine {
-				lastLine = line
+				lastLine, c.pc = line, pc // the hook can ask where this is
 				if err := t.triggerLine(t, c, line); err != nil {
 					return nil, err
 				}
@@ -542,20 +542,20 @@ RunLoop:
 				c.acc = nil
 				c.running = false
 
-				// We clear the register containing the continuation to allow
-				// garbage collection.  A continuation can only be called once
-				// anyway, so that's ok semantically.
-				if isCont {
-					c.clearReg(contReg)
-				}
-
-				if isTail {
-					// As we're leaving this continuation for good, perform all
-					// the pending close actions.  It must be done before debug
-					// hooks are called.
+				if isTail && t.closeStack.size() > c.closeStackBase {
+					// Leaving this continuation for good: close what it has
+					// left to close, before debug hooks are called.  There is
+					// seldom anything, hence the test before the call.
 					if err := t.cleanupCloseStack(c, c.closeStackBase, nil); err != nil {
 						return nil, err
 					}
+				}
+
+				// We clear the register containing the continuation to allow
+				// garbage collection, once nothing can fail that needs to
+				// know where this returns (an error in closing, above).
+				if isCont {
+					c.clearReg(contReg)
 				}
 
 				if t.areFlagsEnabled(HookFlagCall | HookFlagReturn) {
@@ -579,13 +579,13 @@ RunLoop:
 				return next, nil
 			case code.OpClStack:
 				if opcode.GetF() {
-					// Push to close stack
+					// Push to close stack, if the value can be closed and
+					// the thread can have one to close
 					v := getReg(regs, opcode.GetA())
-					if Truth(v) && t.metaGet(v, metaClose).IsNil() {
+					if err := t.pushToBeClosed(v); err != nil {
 						c.pc = pc
-						return nil, errors.New("to be closed value missing a __close metamethod")
+						return nil, err
 					}
-					t.closeStack.push(v)
 				} else {
 					// Truncate close stack
 					h := c.closeStackBase + int(opcode.GetClStackOffset())

@@ -33,6 +33,10 @@ type runtimeContextManager struct {
 
 	messageHandler Callable
 
+	// The continuation that was running when the context started: the
+	// protected calls further down its chain were made outside the context.
+	startCont Cont
+
 	trackCpu         bool
 	trackMem         bool
 	trackTime        bool

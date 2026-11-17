@@ -65,10 +65,19 @@ type Thread struct {
 	// exceed maxRunContinuationDepth.
 	runContinuationDepth int
 
-	// The RunContinuation loop that is running, as the continuations
-	// captured in it know it (see runLoop).  It is nil until a continuation
-	// is captured in the loop.
+	// The loop that is running, as the continuations captured in it know it
+	// (see runLoop).  It is nil until a continuation is captured in the
+	// loop.
 	loop *runLoop
+
+	// Number of calls of Lua code under way that a yield cannot cross: those
+	// made by a Go function declared NoYieldAcross, and those of a debug
+	// hook.  While there is one the thread cannot yield.
+	noYieldDepth int
+
+	// Depth of the protected calls under way in the thread (see
+	// protectedcall.go).  This should not exceed maxProtectedCallDepth.
+	protectedCallDepth int
 
 	// Depth of __call metamethod chain (Lua 5.5).  This should not exceed
 	// maxCallChainLength to prevent infinite loops through chained __call metamethods.
@@ -77,16 +86,35 @@ type Thread struct {
 	DebugHooks
 
 	closeStack // Stack of pending to-be-closed values
+
+	// A light thread has no goroutine of its own: see lightthread.go, the
+	// only place where these change.
+	light       bool         // The thread is light
+	body        Callable     // What the thread runs, until it has started
+	term        *Termination // Receives what the body returns
+	resumed     bool         // The thread was resumed and its yield has yet to return
+	resumedWith []Value      // The values of that resume, which the yield returns
 }
 
 // NewThread creates a new thread out of a Runtime.  Its initial
 // status is suspended.  Call Resume to run it.
 func NewThread(r *Runtime) *Thread {
-	r.RequireSize(unsafe.Sizeof(Thread{}) + 100) // 100 is my guess at the size of a channel
+	r.RequireSize(unsafe.Sizeof(Thread{}))
 	return &Thread{
-		resumeCh: make(chan valuesError),
-		status:   ThreadSuspended,
-		Runtime:  r,
+		status:  ThreadSuspended,
+		Runtime: r,
+	}
+}
+
+// ensureResumeCh makes the channel that the thread waits on for values from
+// another thread, if it has none.  A thread needs it from when it has a
+// goroutine, or waits for one that has: it must be there before the other
+// goroutine can send to it.  A light thread that resumes only light threads
+// never has one.
+func (t *Thread) ensureResumeCh() {
+	if t.resumeCh == nil {
+		t.RequireSize(100) // A guess at the size of a channel
+		t.resumeCh = make(chan valuesError)
 	}
 }
 
@@ -108,9 +136,28 @@ var errErrorInMessageHandler = StringValue("error in error handling")
 // RunContinuation runs the continuation c in the thread. It keeps running until
 // the next continuation is nil or an error occurs, in which case it returns the
 // error.
-func (t *Thread) RunContinuation(c Cont) (err error) {
+func (t *Thread) RunContinuation(c Cont) error {
+	return t.runContinuation(c, true)
+}
+
+// runContinuation is RunContinuation, with the choice of whether c is the
+// start of a call, which the call hook is told of, or the rest of something
+// that was under way (a thread that goes on in a goroutine).
+func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
+	// Go code is calling Lua.  If it is a function that no yield crosses,
+	// the Lua code cannot yield.
+	caller, _ := t.currentCont.(*GoCont)
+	noYield := caller != nil && caller.noYieldAcross
+	if t.light && !noYield && t.noYieldDepth == 0 {
+		// The Lua code may yield: something a light thread cannot have
+		// Go code waiting for.
+		return errNeedsGoroutine
+	}
 	if t.runContinuationDepth >= maxRunContinuationDepth {
 		return errors.New("stack overflow")
+	}
+	if noYield {
+		t.noYieldDepth++
 	}
 	// On the way out, put back the continuation the thread was running.
 	// Otherwise it stays on the termination this loop ended on, and the next
@@ -122,9 +169,17 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 	current := t.currentCont
 	t.runContinuationDepth++
 	outer := t.loop
-	t.loop = nil
+	if isCall {
+		// A new loop.  If c is the rest of what a light thread was running,
+		// this is still that thread's loop, where the continuations captured
+		// so far carry on.
+		t.loop = nil
+	}
 	closeStackBase := t.closeStack.size()
 	defer func() {
+		if noYield {
+			t.noYieldDepth--
+		}
 		t.runContinuationDepth--
 		if t.loop != nil {
 			t.loop.done = true
@@ -137,8 +192,9 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 	}()
 
 	var next Cont
-	var errContCount = 0
-	_ = t.triggerCall(t, c)
+	if isCall {
+		_ = t.triggerCall(t, c)
+	}
 	for c != nil {
 		// Checked at every continuation, so twice per call: the check is
 		// one load, inline, and the work only when there is some.
@@ -148,39 +204,73 @@ func (t *Thread) RunContinuation(c Cont) (err error) {
 		t.currentCont = c
 		next, err = c.RunInThread(t)
 		if err != nil {
-			if call, ok := err.(*contFunctionCall); ok {
-				// A continuation was called under Go code that this loop
-				// was waiting for, which has now returned.  If it was
-				// captured in this loop, it carries on here.  If not, this
-				// loop is itself under Go code that the continuation's
-				// loop is waiting for: it finishes, closing the variables
-				// to be closed of the frames it leaves behind.
-				if call.k.loop != t.loop {
-					return t.cleanupCloseStack(c, closeStackBase, err)
-				}
-				c, err = call.k.reinstate(t), nil
-				c.PushEtc(t.Runtime, call.args)
-				continue
+			next, err = t.contAfterError(c, err)
+			if IsContFunctionCall(err) {
+				// The call of a continuation of another loop, which this
+				// loop is under: it ends, closing the variables to be
+				// closed of the frames it leaves behind.
+				return t.cleanupCloseStack(c, closeStackBase, err)
 			}
-			rtErr := ToError(err)
-			if rtErr.Handled() {
-				return rtErr
+			if err != nil {
+				return err
 			}
-			err = rtErr.AddContext(c, -1)
-			errContCount++
-			if t.messageHandler != nil {
-				if errContCount > maxErrorsInMessageHandler {
-					return newHandledError(errErrorInMessageHandler)
-				}
-				next = t.messageHandler.Continuation(t, newMessageHandlerCont(c))
-			} else {
-				next = newMessageHandlerCont(c)
-			}
-			next.Push(t.Runtime, ErrorValue(err))
 		}
 		c = next
 	}
 	return
+}
+
+// contAfterError returns the continuation to run after c has failed with
+// err, or the error that the loop ends with if there is none.
+//
+// An error first goes to the message handler, where it happens: the
+// continuation is the call of the handler.  Once it has been through that
+// (it is then "handled") it goes to the protected call that c is part of, if
+// there is one in this loop, and the continuation is where that call
+// returns.  If there is none the loop ends, and the Go code that started it
+// gets the error.
+//
+// A handler that fails is given its own error, and so on, a limited number
+// of times.
+//
+// The call of a continuation that comes as an error (a contFunctionCall) is
+// not one: nothing has failed, and no handler or protected call sees it.
+// The continuation was called under Go code that this loop was waiting for,
+// which has now returned.  If it was captured in this loop it carries on
+// here.  If not, this loop is itself under Go code that the continuation's
+// loop is waiting for, and ends with the call for that Go code to pass on.
+func (t *Thread) contAfterError(c Cont, err error) (Cont, error) {
+	if call, ok := err.(*contFunctionCall); ok {
+		if call.k.loop != t.loop {
+			return nil, err
+		}
+		next := call.k.reinstate(t)
+		next.PushEtc(t.Runtime, call.args)
+		return next, nil
+	}
+	rtErr := ToError(err)
+	if !rtErr.Handled() {
+		rtErr = rtErr.AddContext(c, -1)
+		handler, handlerDepth := t.messageHandlerFor(c)
+		switch {
+		case handlerDepth >= maxErrorsInMessageHandler:
+			rtErr = newHandledError(errErrorInMessageHandler)
+		case handler == nil:
+			// Nothing to call: the error is handled as it is, which is
+			// what running this continuation does.
+			next := newMessageHandlerCont(c)
+			next.Push(t.Runtime, ErrorValue(rtErr))
+			return next, nil
+		default:
+			next := handler.Continuation(t, newMessageHandlerCont(c))
+			next.Push(t.Runtime, ErrorValue(rtErr))
+			return next, nil
+		}
+	}
+	if p := protectedCallFor(c); p != nil {
+		return p.caught(t, rtErr), nil
+	}
+	return nil, rtErr
 }
 
 // This is to be able to close a suspended coroutine without completing it, but
@@ -193,9 +283,11 @@ type threadClose struct{}
 // Coroutine management
 //
 
-// Start starts the thread in a goroutine, giving it the callable c to run.  the
-// t.Resume() method needs to be called to provide arguments to the callable.
-func (t *Thread) Start(c Callable) {
+// startGoroutine starts the goroutine that the thread runs in from now on,
+// which goes on with the continuation c.  If isCall is true c is the call of
+// the thread's body, and if not the thread had got further than that.
+func (t *Thread) startGoroutine(c Cont, isCall bool) {
+	t.ensureResumeCh()
 	t.RequireBytes(2 << 10) // A goroutine starts off with 2k stack
 	go func() {
 		var (
@@ -218,12 +310,8 @@ func (t *Thread) Start(c Callable) {
 			}
 			t.end(args, err, r)
 		}()
-		args, err = t.getResumeValues()
-		if err == nil {
-			next := NewTerminationWith(t.CurrentCont(), 0, true)
-			err = t.call(c, args, next)
-			args = next.Etc()
-		}
+		err = t.runContinuation(c, isCall)
+		args = t.term.Etc()
 	}()
 }
 
@@ -235,6 +323,9 @@ func (t *Thread) Status() ThreadStatus {
 // Resume execution of a suspended thread.  Its status switches to
 // running while its caller's status switches to suspended.
 func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, error) {
+	if t.light {
+		return t.resumeLight(caller, args)
+	}
 	t.mux.Lock()
 	if t.status != ThreadSuspended {
 		t.mux.Unlock()
@@ -253,6 +344,7 @@ func (t *Thread) Resume(caller *Thread, args []Value) ([]Value, error) {
 	t.status = ThreadOK
 	t.mux.Unlock()
 	caller.mux.Unlock()
+	caller.ensureResumeCh()
 	t.sendResumeValues(args, nil, nil)
 	return caller.getResumeValues()
 }
@@ -277,6 +369,13 @@ func (t *Thread) Close(caller *Thread) (bool, error) {
 	if caller.status != ThreadOK {
 		panic("Caller of thread to close is not running")
 	}
+	if t.light {
+		_ = t.endLight(nil)
+		t.mux.Unlock()
+		caller.mux.Unlock()
+		return true, nil
+	}
+	caller.ensureResumeCh()
 	// The thread needs to go back to running to empty its close stack, before
 	// becoming dead.
 	t.caller = caller
@@ -288,9 +387,22 @@ func (t *Thread) Close(caller *Thread) (bool, error) {
 	return true, err
 }
 
+var errYieldAcrossGo = errors.New("attempt to yield across a Go-call boundary")
+
 // Yield to the caller thread.  The yielding thread's status switches to
 // suspended.  The caller's status must be OK.
 func (t *Thread) Yield(args []Value) ([]Value, error) {
+	if t.status == ThreadDead || t.noYieldDepth > 0 {
+		// Go code that cannot be suspended is waiting for the code that
+		// yields: a function declared NoYieldAcross, a debug hook, or the
+		// thread's own ending, which calls the __close handlers of the
+		// values a dead thread had left to close.
+		return nil, errYieldAcrossGo
+	}
+	if t.light {
+		// Only a Go function declared NoYieldAcross gets here.
+		return nil, errors.New("a Go function declared NoYieldAcross must yield with YieldFrom")
+	}
 	t.mux.Lock()
 	if t.status != ThreadOK {
 		panic("Thread to yield is not running")
@@ -331,8 +443,10 @@ func (t *Thread) end(args []Value, err error, exception interface{}) {
 	t.caller = nil
 	err = t.cleanupCloseStack(nil, 0, err) // TODO: not nil
 	t.closeErr = err
-	caller.sendResumeValues(args, err, exception)
+	// Before the caller gets the values: from then on it is the caller that
+	// runs, and this goroutine must touch nothing they share.
 	t.ReleaseBytes(2 << 10) // The goroutine will terminate after this
+	caller.sendResumeValues(args, err, exception)
 }
 
 func (t *Thread) call(c Callable, args []Value, next Cont) error {
@@ -369,7 +483,12 @@ func (t *Thread) sendResumeValues(args []Value, err error, exception interface{}
 func (t *Thread) CallContext(def RuntimeContextDef, f func() error) (ctx RuntimeContext, err error) {
 	t.PushContext(def)
 	c, h := t.CurrentCont(), t.closeStack.size()
+	t.startCont = c
+	protectedCallDepth := t.protectedCallDepth
 	defer func() {
+		// The protected calls that f made are over, also those that a
+		// termination of the context went through.
+		t.protectedCallDepth = protectedCallDepth
 		ctx = t.PopContext()
 		if r := recover(); r != nil {
 			t.closeStack.truncate(h) // No resources to run that, so just discard it.
@@ -422,6 +541,24 @@ func (s *closeStack) truncate(h int) {
 	if sz > h {
 		s.stack = s.stack[:h]
 	}
+}
+
+// pushToBeClosed puts v on the close stack: it is the value of a variable
+// declared <close>.  It is an error if v has no __close metamethod, unless it
+// is nil or false, which are closed by doing nothing.
+func (t *Thread) pushToBeClosed(v Value) error {
+	if Truth(v) {
+		if t.metaGet(v, metaClose).IsNil() {
+			return errors.New("to be closed value missing a __close metamethod")
+		}
+		if t.light && t.noYieldDepth == 0 {
+			// Go code calls its handler, which may yield: something a
+			// light thread cannot have Go code waiting for.
+			return errNeedsGoroutine
+		}
+	}
+	t.closeStack.push(v)
+	return nil
 }
 
 // Truncate the close stack to size h, calling the __close metamethods in the

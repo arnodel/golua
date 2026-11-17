@@ -1,8 +1,9 @@
 local callcc = require("cont").callcc
 
--- A context is not left by calling a continuation, as a pcall is: the code
--- that starts a context gets it back, whatever runs in it.  Calling a
--- continuation captured outside the context ends it with an error.
+-- A context is not left by calling a continuation, as other Go code that
+-- waits for Lua code is: the code that starts a context gets it back,
+-- whatever runs in it.  Calling a continuation captured outside the context
+-- ends it with an error.
 do
     local k
     local done = {}
@@ -12,8 +13,8 @@ do
         print(runtime.callcontext({kill={cpu=10000}}, function()
             k("not reached")
         end))
-        -- A pcall in the context lets the call through, and the context
-        -- does not.
+        -- A pcall in the context does not stop the call, and the context
+        -- does.
         print(runtime.callcontext({kill={cpu=10000}}, function()
             pcall(k, "not reached")
             return "nor this"

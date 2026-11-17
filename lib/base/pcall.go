@@ -4,27 +4,14 @@ import (
 	rt "github.com/arnodel/golua/runtime"
 )
 
+// pcall and xpcall hand over to the function they call: no Go code waits for
+// it, so it can yield (see rt.Thread.ProtectedCall).
+
 func pcall(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
-	var err error
-	if err = c.Check1Arg(); err != nil {
+	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
-	next := c.Next()
-	res := rt.NewTerminationWith(c, 0, true)
-	_, err = t.CallContext(rt.RuntimeContextDef{}, func() error {
-		return rt.Call(t, c.Arg(0), c.Etc(), res)
-	})
-	if rt.IsContFunctionCall(err) {
-		return nil, err
-	}
-	if err != nil {
-		t.Push1(next, rt.BoolValue(false))
-		t.Push1(next, rt.ErrorValue(err))
-	} else {
-		t.Push1(next, rt.BoolValue(true))
-		t.Push(next, res.Etc()...)
-	}
-	return next, nil
+	return t.ProtectedCall("pcall", c.Arg(0), c.Etc(), nil, c.Next()), nil
 }
 
 func xpcall(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
@@ -39,23 +26,5 @@ func xpcall(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 			return nil, err
 		}
 	}
-	next := c.Next()
-	res := rt.NewTerminationWith(c, 0, true)
-
-	_, err = t.CallContext(rt.RuntimeContextDef{
-		MessageHandler: msgHandler,
-	}, func() error {
-		return rt.Call(t, c.Arg(0), c.Etc(), res)
-	})
-	if rt.IsContFunctionCall(err) {
-		return nil, err
-	}
-	if err != nil {
-		t.Push1(next, rt.BoolValue(false))
-		t.Push1(next, rt.ErrorValue(err))
-	} else {
-		t.Push1(next, rt.BoolValue(true))
-		t.Push(next, res.Etc()...)
-	}
-	return next, nil
+	return t.ProtectedCall("xpcall", c.Arg(0), c.Etc(), msgHandler, c.Next()), nil
 }

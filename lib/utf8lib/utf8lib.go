@@ -24,11 +24,11 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
-		r.SetEnvGoFunc(pkg, "char", char, 0, true),
-		r.SetEnvGoFunc(pkg, "codes", codes, 2, false),
-		r.SetEnvGoFunc(pkg, "codepoint", codepoint, 4, false),
-		r.SetEnvGoFunc(pkg, "len", lenf, 4, false),
-		r.SetEnvGoFunc(pkg, "offset", offset, 3, false),
+		r.SetEnvGoFunc(pkg, "char", char, 0, true, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "codes", codes, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "codepoint", codepoint, 4, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "len", lenf, 4, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "offset", offset, 3, false, rt.NoYieldAcross),
 	)
 
 	return rt.TableValue(pkg), nil
@@ -97,7 +97,7 @@ func codes(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		p += int64(n)
 		return next, nil
 	}
-	var iter = t.NewGoFunction(iterF, "codesiterator", 0, false)
+	var iter = t.NewGoFunction(iterF, "codesiterator", 0, false, rt.NoYieldAcross)
 	iter.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyTimeSafe | rt.ComplyIoSafe)
 	return c.PushingNext1(t.Runtime, rt.FunctionValue(iter)), nil
 }

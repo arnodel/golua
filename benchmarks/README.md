@@ -103,12 +103,23 @@ Four things to know about it:
     seen, as much as the full profile does (4.4% against 4.4% when this was
     introduced): what it records is which paths of the interpreter are hot,
     and those are much the same for any Lua program.
-  - **It goes stale.**  The profile names functions and the lines of the calls
-    in them, counted from the start of the function.  A change that moves the
-    lines of the run loop (`RunInThread`) loses what the compiler does inside
-    it, about a third of the gain, until the profile is made again; the rest
-    survives.  Nothing breaks: a call the compiler cannot match is compiled as
-    without a profile.
+  - **It goes stale, one line at a time.**  The profile names functions and
+    the lines of the calls in them, counted from the start of the function.
+    So one line added or removed in a function, a line of comment included,
+    moves every call after it in that function, and the profile no longer
+    applies to those; the calls before it, and the other functions, keep it.
+    In the run loop (`RunInThread`) that can be most of what the compiler
+    does there, about a third of the gain, until the profile is made again.
+    Nothing breaks: a call the compiler cannot match is compiled as without a
+    profile.
+
+    It shows as benchmarks that have nothing to do with the change getting
+    slower, in instructions as well as in time.  A change to what a return
+    does, made with one more line of comment in the run loop, measured
+    fannkuch-redux at +4.9% instructions and sieve at +3.6%, neither of which
+    returns from anything in its loop; the same change written in the same
+    number of lines measured neither.  An edit of a hot function that keeps
+    its number of lines keeps the profile.
   - **It is made again for each release, not for each change.**  The profile
     is 90K that git cannot store as a difference, and one commit in four
     changes the run loop: making it again each time would soon outweigh the
@@ -119,8 +130,17 @@ Four things to know about it:
     run the check, and make the profile again if it fails.
   - **It gets in the way of measuring such a change.**  When two revisions
     differ in the lines of the run loop, building both with the same profile
-    favours the one the profile was made from.  Compare them with `-pgo=off`
-    on both sides, or with a profile made for each.
+    favours the one the profile was made from: a comparison with the profile
+    on both sides is good only for an edit that keeps the number of lines.
+    Otherwise compare them with `-pgo=off` on both sides, or with a profile
+    made for each, never with a new profile on one side and an older one on
+    the other.
+
+    Two profiles are not the same measurement either.  With a profile made
+    for each side, benchmarks that a change does not touch have moved by up to
+    3.6% either way, because the compiler inlined something else: read the
+    whole suite and the instruction counts with `-pgo=off`, not one benchmark
+    with a profile.
 
 ## Are We Fast Yet
 
