@@ -592,6 +592,13 @@ do
     print(pcall(function() return "not too deep" end))
     --> =true	not too deep
 
+    -- also when it is pcall that calls the continuation,
+    for i = 1, 1500 do
+        callcc(function(c) pcall(c) end)
+    end
+    print(pcall(function() return "not too deep" end))
+    --> =true	not too deep
+
     -- and going back into them puts them on it again: 990 deep, 20 more are
     -- too many, also when coming from outside all of them.
     local function nest(n, f)
