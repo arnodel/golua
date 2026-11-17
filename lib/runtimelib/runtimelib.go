@@ -25,10 +25,10 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
 		r.SetEnvGoFunc(pkg, "callcontext", callcontext, 2, true),
-		r.SetEnvGoFunc(pkg, "context", context, 0, false),
-		r.SetEnvGoFunc(pkg, "killcontext", killnow, 1, false),
-		r.SetEnvGoFunc(pkg, "stopcontext", stopnow, 1, false),
-		r.SetEnvGoFunc(pkg, "contextdue", due, 1, false),
+		r.SetEnvGoFunc(pkg, "context", context, 0, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "killcontext", killnow, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "stopcontext", stopnow, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "contextdue", due, 1, false, rt.NoYieldAcross),
 	)
 
 	createContextMetatable(r)

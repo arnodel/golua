@@ -37,23 +37,23 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
-		r.SetEnvGoFunc(methods, "read", fileread, 1, true),
-		r.SetEnvGoFunc(methods, "lines", filelines, 1, true),
-		r.SetEnvGoFunc(methods, "close", fileclose, 1, false),
-		r.SetEnvGoFunc(methods, "flush", fileflush, 1, false),
-		r.SetEnvGoFunc(methods, "seek", fileseek, 3, false),
-		r.SetEnvGoFunc(methods, "setvbuf", filesetvbuf, 3, false),
+		r.SetEnvGoFunc(methods, "read", fileread, 1, true, rt.NoYieldAcross),
+		r.SetEnvGoFunc(methods, "lines", filelines, 1, true, rt.NoYieldAcross),
+		r.SetEnvGoFunc(methods, "close", fileclose, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(methods, "flush", fileflush, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(methods, "seek", fileseek, 3, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(methods, "setvbuf", filesetvbuf, 3, false, rt.NoYieldAcross),
 		// TODO: setvbuf,
-		r.SetEnvGoFunc(methods, "write", filewrite, 1, true),
+		r.SetEnvGoFunc(methods, "write", filewrite, 1, true, rt.NoYieldAcross),
 
-		r.SetEnvGoFunc(meta, "__close", file__close, 1, false),
-		// r.SetEnvGoFunc(meta, "__gc", file__close, 1, false),
+		r.SetEnvGoFunc(meta, "__close", file__close, 1, false, rt.NoYieldAcross),
+		// r.SetEnvGoFunc(meta, "__gc", file__close, 1, false, rt.NoYieldAcross),
 	)
 
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
-		r.SetEnvGoFunc(meta, "__tostring", tostring, 1, false),
+		r.SetEnvGoFunc(meta, "__tostring", tostring, 1, false, rt.NoYieldAcross),
 	)
 
 	var (
@@ -90,25 +90,25 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyIoSafe,
 
-		r.SetEnvGoFunc(pkg, "close", ioclose, 1, false),
-		r.SetEnvGoFunc(pkg, "flush", ioflush, 0, false),
-		r.SetEnvGoFunc(pkg, "input", input, 1, false),
-		r.SetEnvGoFunc(pkg, "lines", iolines, 1, true),
-		r.SetEnvGoFunc(pkg, "open", open, 2, false),
-		r.SetEnvGoFunc(pkg, "output", output, 1, false),
-		r.SetEnvGoFunc(pkg, "read", ioread, 0, true),
-		r.SetEnvGoFunc(pkg, "tmpfile", tmpfile, 0, false),
-		r.SetEnvGoFunc(pkg, "write", iowrite, 0, true),
+		r.SetEnvGoFunc(pkg, "close", ioclose, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "flush", ioflush, 0, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "input", input, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "lines", iolines, 1, true, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "open", open, 2, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "output", output, 1, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "read", ioread, 0, true, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "tmpfile", tmpfile, 0, false, rt.NoYieldAcross),
+		r.SetEnvGoFunc(pkg, "write", iowrite, 0, true, rt.NoYieldAcross),
 	)
 
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
-		r.SetEnvGoFunc(pkg, "type", typef, 1, false),
+		r.SetEnvGoFunc(pkg, "type", typef, 1, false, rt.NoYieldAcross),
 	)
 
 	// popen executes a system command, so it is not safe in any restricted context.
-	r.SetEnvGoFunc(pkg, "popen", popen, 2, false)
+	r.SetEnvGoFunc(pkg, "popen", popen, 2, false, rt.NoYieldAcross)
 
 	// This function should make sure known buffers are flushed before quitting
 	var cleanup = func() {
@@ -345,7 +345,7 @@ func lines(r *rt.Runtime, f *File, readers []formatReader, flags int) *rt.GoFunc
 		}
 		return next, nil
 	}
-	iterGof := r.NewGoFunction(iterator, "linesiterator", 0, false)
+	iterGof := r.NewGoFunction(iterator, "linesiterator", 0, false, rt.NoYieldAcross)
 	iterGof.SolemnlyDeclareCompliance(rt.ComplyCpuSafe | rt.ComplyMemSafe | rt.ComplyIoSafe)
 	return iterGof
 

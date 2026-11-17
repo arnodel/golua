@@ -17,8 +17,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
 
 	// None of them calls Lua in the thread that calls it: resume runs
-	// another thread, and close closes one.  So a coroutine can call them
-	// without needing a goroutine.
+	// another thread, and close closes one.
 	rt.SolemnlyDeclareCompliance(
 		rt.ComplyCpuSafe|rt.ComplyMemSafe|rt.ComplyTimeSafe|rt.ComplyIoSafe,
 
@@ -105,7 +104,7 @@ func isyieldable(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 			return nil, err
 		}
 	}
-	return c.PushingNext1(t.Runtime, rt.BoolValue(!co.IsMain())), nil
+	return c.PushingNext1(t.Runtime, rt.BoolValue(co.IsYieldable())), nil
 }
 
 func status(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {

@@ -246,16 +246,28 @@ do
     print(co("C"))
     --> =A	B	C
 
-    -- Yield from a function called by a library function.
+    -- Yield from a __pairs metamethod, and from the iterator it returns.
     co = coroutine.wrap(function()
-        local t = {3, 1, 2}
-        table.sort(t, function(a, b) coroutine.yield("cmp") return a < b end)
-        return table.concat(t, ",")
+        local t = setmetatable({}, {__pairs = function(t)
+            coroutine.yield("pairs")
+            local n = 0
+            return function()
+                n = n + 1
+                if n <= 2 then return coroutine.yield("next"), n end
+            end, t
+        end})
+        local s = ""
+        for k, v in pairs(t) do s = s .. k .. v end
+        return s
     end)
-    local last
-    repeat last = co() until last ~= "cmp"
-    print(last)
-    --> =1,2,3
+    print(co())
+    --> =pairs
+    print(co())
+    --> =next
+    print(co("a"))
+    --> =next
+    print(co("b"))
+    --> =a1b2
 
     -- Yield from a __close handler run at the end of a block.
     co = coroutine.wrap(function()
@@ -352,4 +364,87 @@ do
     --> =true	100
     print(pcall(nest(100000)))
     --> ~false\t.*stack overflow
+end
+
+-- A yield cannot cross a library function that calls Lua, as in Lua: it is
+-- an error where the yield is, and coroutine.isyieldable says so.  pcall,
+-- xpcall and dofile are the exceptions.
+do
+    local function try(f)
+        local co = coroutine.create(f)
+        local ok, msg = coroutine.resume(co)
+        if ok then return coroutine.status(co) end
+        return msg:match(":%d+: (.*)")
+    end
+    local yield = coroutine.yield
+    local ts = setmetatable({}, {__tostring = function() yield() return "x" end})
+    local idx = setmetatable({}, {__index = function(_, i) yield() return i < 3 and i or nil end})
+
+    print(try(function() table.sort({3, 1, 2}, function(a, b) yield() return a < b end) end))
+    --> =attempt to yield across a Go-call boundary
+    print(try(function() tostring(ts) end))
+    --> =attempt to yield across a Go-call boundary
+    print(try(function() string.format("%s", ts) end))
+    --> =attempt to yield across a Go-call boundary
+    print(try(function() string.gsub("abc", "%w", function() yield() end) end))
+    --> =attempt to yield across a Go-call boundary
+    print(try(function() for i, v in ipairs(idx) do end end))
+    --> =attempt to yield across a Go-call boundary
+    print(try(function() table.unpack(idx, 1, 2) end))
+    --> =attempt to yield across a Go-call boundary
+    print(try(function() load(function() yield() end) end))
+    --> =dead
+
+    -- The same from further down, and when something catches the error.
+    print(try(function()
+        table.sort({2, 1}, function(a, b)
+            print(pcall(pcall, yield))
+            --> ~true\tfalse\t.*attempt to yield across a Go-call boundary
+            return a < b
+        end)
+        yield()
+    end))
+    --> =suspended
+
+    -- Another coroutine can yield there: the yield does not cross the sort.
+    print(try(function()
+        table.sort({2, 1}, function(a, b)
+            local inner = coroutine.wrap(function() yield(1) yield(2) end)
+            return inner() < inner()
+        end)
+    end))
+    --> =dead
+
+    -- isyieldable knows.
+    print(try(function()
+        print(coroutine.isyieldable())
+        --> =true
+        table.sort({2, 1}, function(a, b)
+            print(coroutine.isyieldable())
+            --> =false
+            return a < b
+        end)
+        print(pcall(coroutine.isyieldable))
+        --> =true	true
+        print(coroutine.isyieldable())
+        --> =true
+    end))
+    --> =dead
+
+    -- Values to close in a function called by a library function are
+    -- closed when an error goes through them, also when nothing catches it
+    -- and the coroutine dies of it.
+    local log = {}
+    local closing = setmetatable({}, {__close = function(_, err)
+        log[#log + 1] = "closed: " .. tostring(err):match(":%d+: (.*)")
+    end})
+    print(try(function()
+        tostring(setmetatable({}, {__tostring = function()
+            local x <close> = closing
+            error("in tostring")
+        end}))
+    end))
+    --> =in tostring
+    print(table.concat(log, " "))
+    --> =closed: in tostring
 end

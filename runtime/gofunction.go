@@ -12,7 +12,7 @@ type GoFunction struct {
 	nArgs       int
 	hasEtc      bool
 
-	// noYieldAcross is true for a function that a yield never crosses:
+	// noYieldAcross is true for a function that no yield is allowed across:
 	// see NoYieldAcross.
 	noYieldAcross bool
 }
@@ -21,17 +21,18 @@ type GoFunction struct {
 // made.
 type GoFunctionOption func(*GoFunction)
 
-// NoYieldAcross declares that a yield never crosses the function: no Lua
-// code that could yield runs while the function is under way.  A function
-// cannot know what the Lua code it is given will do, so in practice it is
-// one that calls no Lua at all: neither a function it is given, nor a
-// metamethod of a value it handles.
+// NoYieldAcross declares that no yield is allowed across the function: if it
+// calls Lua code, a function it is given or a metamethod of a value it
+// handles, that code cannot yield, and gets an error if it tries ("attempt
+// to yield across a Go-call boundary").  It can still resume other
+// coroutines, which yield back to it.
 //
-// A coroutine that calls only such Go functions needs no goroutine (see
-// lightthread.go); one that calls any other Go function is given a goroutine
-// first, in case the function calls Lua code that yields.  A function that
-// calls Lua in spite of the declaration gets an error from the call when a
-// coroutine that has no goroutine calls it.
+// In return a coroutine can call the function without having a goroutine of
+// its own (see lightthread.go).  A Go function that is not declared can have
+// a yield cross it: a coroutine that calls one is given a goroutine first,
+// and is slower from then on.  So declare a function that calls no Lua, or
+// that does not need what it calls to be able to yield; the standard library
+// is declared, but for pcall, xpcall and dofile.
 func NoYieldAcross(f *GoFunction) {
 	f.noYieldAcross = true
 }
