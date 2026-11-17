@@ -264,19 +264,34 @@ func (t *Thread) contAfterError(c Cont, err error) (Cont, error) {
 		if !ok {
 			break
 		}
-		if call.k.loop != t.loop {
-			// The variables to be closed of the frames this loop leaves
-			// behind are closed.
-			return nil, t.cleanupCloseStack(c, t.loopCloseBase, err)
+		if call.k.loop == t.loop {
+			next, closeErr := call.k.reinstate(t)
+			if closeErr == nil {
+				next.PushEtc(t.Runtime, call.args)
+				return next, nil
+			}
+			// Closing a variable on the way has failed, which is an error
+			// like any, or its handler has called a continuation in its
+			// turn.
+			err = closeErr
+			continue
 		}
-		next, closeErr := call.k.reinstate(t)
-		if closeErr == nil {
-			next.PushEtc(t.Runtime, call.args)
-			return next, nil
+		// The call leaves this loop, one protected call at a time: the
+		// variables to be closed of the frames it leaves behind are closed,
+		// as far as the protected call c is part of.  If closing fails, that
+		// is an error like any in c, for that protected call to stop.
+		p := protectedCallFor(c)
+		h := t.loopCloseBase
+		if p != nil {
+			h = p.closeStackHeight
 		}
-		// Closing a variable on the way has failed, which is an error like
-		// any, or its handler has called a continuation in its turn.
-		err = closeErr
+		err = t.cleanupCloseStack(c, h, err)
+		if IsContFunctionCall(err) {
+			if p == nil {
+				return nil, err
+			}
+			c = p
+		}
 	}
 	rtErr := ToError(err)
 	if !rtErr.Handled() {
