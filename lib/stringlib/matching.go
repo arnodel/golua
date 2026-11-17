@@ -317,6 +317,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		sb         strings.Builder // Build the result string into this
 		matchCount int64
 		allowEmpty = true
+		changed    bool // A substitution has been made
 	)
 	// We require memory for the string we build as we go along.  In order to
 	// save allocations in case there are no substitutions, we do not start
@@ -343,6 +344,7 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 				_, _ = sb.WriteString(s[sj:start])
 				_, _ = sb.WriteString(sub)
 				sj = end
+				changed = true
 			}
 		}
 		allowEmpty = start >= end
@@ -354,8 +356,10 @@ func gsub(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	}
 	var res rt.Value
 	switch {
-	case sb.Len() == 0:
-		// We return the input string to save an allocation.
+	case !changed:
+		// We return the input string to save an allocation.  Not when the
+		// string built so far is empty: a match at the start may have been
+		// replaced with nothing.
 		res = c.Arg(0)
 	case sj < len(s):
 		t.RequireBytes(len(s) - sj)
