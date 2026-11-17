@@ -314,7 +314,7 @@ RunLoop:
 			dst := opcode.GetA()
 			if opcode.GetF() {
 				// dst must contain a continuation
-				cont := contToPush(t, regs, dst)
+				cont := contToPush(t, getReg(regs, dst).AsCont(), regs, dst)
 				cont.Push(t.Runtime, val)
 			} else {
 				setReg(regs, dst, val)
@@ -382,7 +382,7 @@ RunLoop:
 					}
 					err = errNotABox
 				case code.OpEtcId:
-					cont := contToPush(t, regs, dst)
+					cont := contToPush(t, getReg(regs, dst).AsCont(), regs, dst)
 					var etc []Value
 					etc, err = expandVarargs(t, val)
 					if err != nil {
@@ -447,7 +447,7 @@ RunLoop:
 				return nil, err
 			}
 			if opcode.GetF() {
-				contToPush(t, regs, dst).Push(t.Runtime, res)
+				contToPush(t, getReg(regs, dst).AsCont(), regs, dst).Push(t.Runtime, res)
 			} else {
 				setReg(regs, dst, res)
 			}
@@ -472,18 +472,18 @@ RunLoop:
 
 				// The register holds either a continuation or the callee,
 				// whose frame the call makes: Continue inlined by hand, as
-				// for the cont opcodes.  The test for a Lua frame is first:
-				// most returns go to one, and a cont opcode makes one for a
-				// Lua function.  r0 always holds the caller's continuation,
-				// where contToPush replaces a frozen frame with a copy.  A
-				// callee stays in its register, which may be a local.
+				// for the cont opcodes.  r0 always holds the caller's
+				// continuation, so "call r0", a return, needs no test but
+				// that of contToPush for a frozen frame; a continuation
+				// anywhere else was made by a cont opcode.  A callee stays
+				// in its register, which the call leaves alone: a local.
 				callee := getReg(regs, contReg)
 				var next Cont
 				isCont := true
-				if lc, ok := callee.iface.(*LuaCont); ok {
+				if contReg == code.ValueReg(0) {
+					next = contToPush(t, callee.AsCont(), regs, contReg)
+				} else if lc, ok := callee.iface.(*LuaCont); ok {
 					next = lc
-				} else if contReg == code.ValueReg(0) {
-					next = contToPush(t, regs, contReg)
 				} else {
 					isCont = false
 					var cnext Cont = c
@@ -833,15 +833,26 @@ func (c *LuaCont) clearReg(reg code.Reg) {
 	c.registers[reg] = NilValue
 }
 
-// contToPush returns the continuation in a register, for the run loop to
+// contToPush returns c, the continuation in a register, for the run loop to
 // push values into.  A frozen frame is first replaced, in the register too,
 // with a copy that can run (see frozenCont).
-func contToPush(t *Thread, regs []Value, reg code.Reg) Cont {
-	v := getReg(regs, reg)
-	if fc, ok := v.iface.(*frozenCont); ok {
-		c := fc.thaw(t)
-		setReg(regs, reg, ContValue(c))
-		return c
+//
+// It takes the continuation as the run loop already read it, and is small
+// enough to be inlined, so that the loop is the code it was with one test
+// more.  As a call that also read the register it made programs that never
+// come here 3 to 5% slower (sieve, spectral-norm, md5): any change to what
+// the loop is compiled to can.
+func contToPush(t *Thread, c Cont, regs []Value, reg code.Reg) Cont {
+	if fc, ok := c.(*frozenCont); ok {
+		return thawInReg(t, fc, regs, reg)
 	}
-	return v.AsCont()
+	return c
+}
+
+// thawInReg replaces the frozen frame in a register with a copy that can
+// run, and returns the copy.
+func thawInReg(t *Thread, fc *frozenCont, regs []Value, reg code.Reg) Cont {
+	c := fc.thaw(t)
+	setReg(regs, reg, ContValue(c))
+	return c
 }
