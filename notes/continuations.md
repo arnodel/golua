@@ -84,11 +84,14 @@ frontend, where every assigned variable must be shared, has to box them all.
 A frozen frame is a `*frozenCont`, which is a `LuaCont` under another type
 with the same memory.  The alternative was a flag in `LuaCont`.
 
-- Each place that pushes into a continuation already tests whether it is a
-  `*LuaCont`, to take a fast path.  A `*frozenCont` fails that test and ends
-  up on the slow path, where the copy is made.  A flag would add a load and
-  a branch to each of those places, for every program.  A flag test that was
-  never taken, on one family of opcodes, was measured at +1.45% before.
+- The fast paths that the run loop has for a `*LuaCont` (a call that stores
+  its arguments into the callee's registers, for one) do not take a
+  `*frozenCont`, with no test added to them.  Where the loop reads a
+  continuation to push into it or to return to it, the test for a frozen
+  frame is on the type of the interface value it has just read: a
+  comparison.  A flag would be a load from the frame and a branch at each
+  of those places.  A flag test that was never taken, on one family of
+  opcodes, was measured at +1.45% before.
 - `frozenCont.Push` panics, so pushing into a frozen frame by mistake is
   found at once.
 - The cost is that the code which tells the kinds of continuation apart must
@@ -185,9 +188,37 @@ again at each call.  That was about 180 ns per frame per copy, nearly all of
 it allocation: 17.5 µs to capture under 105 frames.
 
 With frozen frames a capture is a pointer conversion and an allocation, and a
-capture followed by a call is about 185 ns at any depth (M1 Max, without
+capture followed by a call is about 190 ns at any depth (M1 Max, without
 quotas).  A generator made of two continuations gives a value in about
-815 ns, where a coroutine takes about 140 ns since it needs no goroutine
-(it took about 600 ns before).  Programs that do not capture
-continuations run the same code as before, apart from the order of two type
-tests at a return.
+850 ns, where a coroutine takes about 97 ns since it needs no goroutine (it
+took about 600 ns before).
+
+Programs that do not capture continuations run the code they ran before,
+with one test more in two places: where the run loop reads a continuation to
+push into it or to return to it, and on entry to a Go function, whose next
+continuation may be frozen.  The second is about 0.6 ns for each call of a
+Go function, which is 2 ns on a coroutine switch.
+
+## Writing it so that the build stays as fast
+
+Two things about the build decided how this is written, more than the
+design did.  Both were measured against `lua5.5` at dee2d0d.
+
+- **The profile counts lines.**  The profile the build is optimised with
+  (`default.pgo`, see `benchmarks/README.md`) finds a call by its line in
+  its function.  Lines added before the hot calls of `GoCont.RunInThread`,
+  of the loop function `runContinuation` and of `Thread.ProtectedCall` made
+  a coroutine switch 5 ns slower with the profile, and no slower without
+  it.  So what is added there is on lines that were there: a call on an
+  empty line (`thawNext`), two helpers in the place of the lines that
+  counted the loops (`enterLoop`, `leaveLoop`), an `if` with an init
+  statement.  Keeping the loop's record in `RunContinuation`, around the
+  loop function, was tried too: it costs a call and a defer, 10 ns on each
+  metamethod call.
+- **The run loop is compiled as a whole.**  `contToPush` first read the
+  register and thawed, as one call from the run loop, where the loop used
+  to have the read inlined.  Programs that never push into a continuation
+  were 3 to 5% slower for it without the profile (sieve, spectral-norm,
+  md5), and back to their times with the run loop's source put back.  Now
+  the loop reads the continuation as it did and `contToPush`, which is
+  inlined, tests what it read.

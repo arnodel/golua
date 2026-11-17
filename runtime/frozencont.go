@@ -4,13 +4,13 @@ package runtime
 // captured (see Thread.CaptureCont), or that a captured frame returns to.
 // It is a LuaCont under another type, with the same memory.
 //
-// The type is what keeps a frozen frame from being pushed into.  Each place
-// that pushes values into a continuation already tests whether it is a
-// *LuaCont, to take a fast path, and a frozenCont fails that test.  On the
-// slow path it is replaced with a copy that can run, made by thaw, and the
-// copy gets the values: see contToPush in the run loop, and
-// GoCont.RunInThread for the results of a Go function.  A frame that is not
-// frozen pays nothing for this.
+// The type is what keeps a frozen frame from being pushed into.  The fast
+// paths for a *LuaCont do not take it, and its Push panics.  What is about
+// to push into a continuation tests for the type, and replaces a frozen
+// frame with a copy that can run, made by thaw, which gets the values: see
+// contToPush in the run loop, and GoCont.RunInThread for the results of a
+// Go function.  The test is on the type of an interface value that is at
+// hand, so a frame that is not frozen pays a comparison for this.
 //
 // Only the captured frame is given the type at the capture.  The frames it
 // returns through are frozen as well, because the captured frame was the
