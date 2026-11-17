@@ -70,6 +70,9 @@ type Thread struct {
 	// loop.
 	loop *runLoop
 
+	// Height the close stack had when the loop that is running started.
+	loopCloseBase int
+
 	// Number of calls of Lua code under way that a yield cannot cross: those
 	// made by a Go function declared NoYieldAcross, and those of a debug
 	// hook.  While there is one the thread cannot yield.
@@ -136,30 +139,41 @@ var errErrorInMessageHandler = StringValue("error in error handling")
 // RunContinuation runs the continuation c in the thread. It keeps running until
 // the next continuation is nil or an error occurs, in which case it returns the
 // error.
-//
-// This is a new loop for the continuations captured in it (see runLoop), and
-// the one that was running is the thread's again when it is over, also if it
-// is a panic that ends it.  A thread that goes on in a goroutine does not
-// come this way: it is still in the loop it was in.
-//
-// If what ends the loop is the call of a continuation of another loop, which
-// this one is under (see contAfterError), the variables to be closed of the
-// frames it leaves behind are closed, and the Go code that started the loop
-// is given the call to pass on.
 func (t *Thread) RunContinuation(c Cont) error {
-	outer, closeStackBase := t.loop, t.closeStack.size()
-	t.loop = nil
-	defer func() {
-		if t.loop != nil {
-			t.loop.done = true
-		}
-		t.loop = outer
-	}()
-	err := t.runContinuation(c, true)
-	if IsContFunctionCall(err) {
-		err = t.cleanupCloseStack(t.currentCont, closeStackBase, err)
+	return t.runContinuation(c, true)
+}
+
+// enterLoop is called when a loop starts running continuations in the
+// thread, and leaveLoop when it has ended, with what enterLoop returned.
+// They count the loops under way and keep what the thread knows of the one
+// that is running: its record (see runLoop) and the height the close stack
+// had when it started.  A call from Go is a new loop, whereas a thread that
+// goes on in a goroutine is still in the loop it was in.  A loop that has
+// ended is marked, for the continuations captured in it.
+//
+// Each is one line of runContinuation, in the place of a line that was
+// there: the build's profile counts lines (see benchmarks/README.md).
+func (t *Thread) enterLoop(isCall bool) (outer outerLoop) {
+	t.runContinuationDepth++
+	outer = outerLoop{t.loop, t.loopCloseBase}
+	if isCall {
+		t.loop, t.loopCloseBase = nil, t.closeStack.size()
 	}
-	return err
+	return outer
+}
+
+func (t *Thread) leaveLoop(outer outerLoop) {
+	t.runContinuationDepth--
+	if t.loop != nil {
+		t.loop.done = true
+	}
+	t.loop, t.loopCloseBase = outer.loop, outer.closeBase
+}
+
+// An outerLoop is what enterLoop saves of the loop that was running.
+type outerLoop struct {
+	loop      *runLoop
+	closeBase int
 }
 
 // runContinuation is RunContinuation, with the choice of whether c is the
@@ -189,12 +203,12 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 	// Not when a coroutine's own loop ends: the coroutine is dead, and its
 	// traceback shows the continuation it stopped in.
 	current := t.currentCont
-	t.runContinuationDepth++
+	outer := t.enterLoop(isCall)
 	defer func() {
 		if noYield {
 			t.noYieldDepth--
 		}
-		t.runContinuationDepth--
+		t.leaveLoop(outer)
 		coroutineEnds := t.runContinuationDepth == 0 && t.caller != nil
 		if !coroutineEnds {
 			t.currentCont = current
@@ -242,7 +256,8 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 // The continuation was called under Go code that this loop was waiting for,
 // which has now returned.  If it was captured in this loop it carries on
 // here.  If not, this loop is itself under Go code that the continuation's
-// loop is waiting for, and ends with the call for that Go code to pass on.
+// loop is waiting for: it closes the variables to be closed of the frames it
+// leaves behind, and ends with the call for that Go code to pass on.
 func (t *Thread) contAfterError(c Cont, err error) (Cont, error) {
 	for {
 		call, ok := err.(*contFunctionCall)
@@ -250,7 +265,9 @@ func (t *Thread) contAfterError(c Cont, err error) (Cont, error) {
 			break
 		}
 		if call.k.loop != t.loop {
-			return nil, err
+			// The variables to be closed of the frames this loop leaves
+			// behind are closed.
+			return nil, t.cleanupCloseStack(c, t.loopCloseBase, err)
 		}
 		next, closeErr := call.k.reinstate(t)
 		if closeErr == nil {
