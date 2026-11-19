@@ -563,9 +563,28 @@ RunLoop:
 				// goes on in it, doing what the thread's loop does between
 				// two continuations, in place of returning it to that loop
 				// and being called again for it.
-				lnext, isLua := next.(*LuaCont)
-				if !isLua || t.weakRefPool.HasPending() {
+				if t.weakRefPool.HasPending() {
 					return next, nil
+				}
+				lnext, isLua := next.(*LuaCont)
+				if !isLua {
+					// POC D: a Go function is run from here, as the
+					// thread's loop would run it, and the loop goes on in
+					// the Lua frame it returns to, if it is one.  A light
+					// thread leaves to its own loop the functions it cannot
+					// run.
+					gnext, isGo := next.(*GoCont)
+					if !isGo || (t.light && !gnext.noYieldAcross) {
+						return next, nil
+					}
+					t.currentCont = gnext
+					after, err := gnext.RunInThread(t)
+					if err != nil {
+						return nil, err
+					}
+					if lnext, isLua = after.(*LuaCont); !isLua || t.weakRefPool.HasPending() {
+						return after, nil
+					}
 				}
 				c = lnext
 				t.currentCont = lnext
