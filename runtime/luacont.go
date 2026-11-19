@@ -495,28 +495,44 @@ RunLoop:
 				// stored there directly, which is Push inlined by hand (the
 				// compiler can't, as Push has to call out for varargs).
 				if n := opcode.GetArgCount(); n > 0 {
-					lnext, isLua := next.(*LuaCont)
-					for ; n > 0; pc++ {
-						w := opcodeAt(opcodes, pc)
-						clear := w.ArgClears()
-						for k, reg := range [3]code.Reg{w.GetA(), w.GetB(), w.GetC()} {
-							if n == 0 {
-								break
+					if lnext, isLua := next.(*LuaCont); isLua {
+						// POC C: the receiving frame's code, registers and
+						// pc are read once for the call, not once per value.
+						ncode, nregs, npc := lnext.code, lnext.registers, lnext.pc
+						for ; n > 0; pc++ {
+							w := opcodeAt(opcodes, pc)
+							for shift := 16; shift >= 0 && n > 0; shift, n = shift-8, n-1 {
+								reg := code.Reg(w >> shift)
+								arg := getReg(regs, reg)
+								if r := opcodeAt(ncode, npc); r.HasType0() && !r.GetF() {
+									t.RequireCPU(1)
+									npc++
+									setReg(nregs, r.GetA(), arg)
+								} else {
+									lnext.pc = npc
+									lnext.Push(t.Runtime, arg)
+									npc = lnext.pc
+								}
+								if w&(1<<(27+shift>>3)) != 0 {
+									setReg(regs, reg, NilValue)
+								}
 							}
-							arg := getReg(regs, reg)
-							if !isLua {
-								next.Push(t.Runtime, arg)
-							} else if r := lnext.code[lnext.pc]; r.HasType0() && !r.GetF() {
-								t.RequireCPU(1)
-								lnext.pc++
-								setReg(lnext.registers, r.GetA(), arg)
-							} else {
-								lnext.Push(t.Runtime, arg)
+						}
+						lnext.pc = npc
+					} else {
+						for ; n > 0; pc++ {
+							w := opcodeAt(opcodes, pc)
+							clear := w.ArgClears()
+							for k, reg := range [3]code.Reg{w.GetA(), w.GetB(), w.GetC()} {
+								if n == 0 {
+									break
+								}
+								next.Push(t.Runtime, getReg(regs, reg))
+								if clear[k] {
+									setReg(regs, reg, NilValue)
+								}
+								n--
 							}
-							if clear[k] {
-								setReg(regs, reg, NilValue)
-							}
-							n--
 						}
 					}
 				}
