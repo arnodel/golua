@@ -246,6 +246,16 @@ func TailCont(r1, r2 Reg) Opcode {
 	return mkType4a(Off, OpTailCont, r1, r2)
 }
 
+// ContInto encodes r1 <- cont(r2) into r1
+//
+// r2 must contain a closure and r1 a continuation.  r1 then contains a new
+// continuation for the closure, whose next continuation is the one r1 held:
+// the closure's results go to it as arguments, and it runs when the closure
+// returns.
+func ContInto(r1, r2 Reg) Opcode {
+	return mkType4a(Off, OpContInto, r1, r2)
+}
+
 // Clear encodes clear r
 //
 // This clears the register.  If the register contains a cell, the cell is

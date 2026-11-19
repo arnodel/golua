@@ -575,7 +575,7 @@ func (c *messageHandlerCont) Next() Cont {
 }
 
 func (c *messageHandlerCont) Parent() Cont {
-	return c.Next()
+	return c.c.Parent()
 }
 
 func (c *messageHandlerCont) Push(r *Runtime, v Value) {

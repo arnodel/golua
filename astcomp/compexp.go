@@ -551,11 +551,69 @@ func (c *compiler) compilePushedCall(loc ast.Locator, contReg, self ir.Register,
 	for _, arg := range args {
 		c.emitInstr(arg, ir.Push{Cont: contReg, Item: c.compileExpNoDestHint(arg)})
 	}
+	if call, isCall := etc.(ast.FunctionCall); isCall && c.canCallInto(tail) {
+		c.compileCallInto(*call.BFunctionCall, contReg, tail)
+		return
+	}
 	if etc != nil {
 		etcReg := c.compileEtcExp(etc, c.GetFreeRegister())
 		c.emitInstr(etc, ir.Push{Cont: contReg, Item: etcReg, Etc: true})
 	}
 	c.emitInstr(loc, ir.Call{Cont: contReg, Tail: tail})
+}
+
+// NestedCalls says whether a call whose results are the last arguments of
+// another call hands them to it directly (see compileCallInto).  POC switch.
+var NestedCalls = true
+
+// canCallInto says whether the last argument of a call, itself a call, can
+// take the outer call's continuation as its own.  If the outer call is a tail
+// call the frame is left when the inner call is made, which values still to
+// be closed do not allow: they are closed after the inner call returns.
+func (c *compiler) canCallInto(tail bool) bool {
+	return NestedCalls && !(tail && c.HasPendingCloseActions())
+}
+
+// compileCallInto compiles the call f, whose results are the last arguments
+// of the call that the continuation in contReg is for.  Where it would
+// return to this frame, which would collect its results and push them into
+// that continuation and call it, f returns to the continuation itself: its
+// results are pushed there as it returns, and the continuation runs next.
+// This frame goes on when that continuation returns, or not at all if tail
+// is set.
+//
+// contReg may be the register of the caller's continuation, when the outer
+// "call" is a return ("return a, f(x)"): then f is a tail call.
+func (c *compiler) compileCallInto(f ast.BFunctionCall, contReg ir.Register, tail bool) {
+	fReg := c.compileExpNoDestHint(f.Target)
+	self := noRegister
+	if f.Method.Val != "" {
+		self = c.stable(f.Target, fReg)
+		fReg = c.GetFreeRegister()
+		c.emitInstr(f.Target, ir.LookupK{
+			Dst:   fReg,
+			Table: self,
+			Kidx:  c.GetConstantIndex(ir.String(f.Method.Val)),
+		})
+	}
+	if contReg == c.getCallerReg() {
+		contReg = c.GetFreeRegister()
+		c.emitInstr(f, ir.MkCont{Dst: contReg, Closure: fReg, Tail: true})
+	} else {
+		c.emitInstr(f, ir.MkCont{Dst: contReg, Closure: fReg, Into: true})
+	}
+	if etc, listed := splitArgs(f.Args); listed {
+		var argRegs []ir.Register
+		if self != noRegister {
+			argRegs = append(argRegs, self)
+		}
+		for _, arg := range f.Args {
+			argRegs = append(argRegs, c.stable(arg, c.compileExpNoDestHint(arg)))
+		}
+		c.emitInstr(f, ir.Call{Cont: contReg, Args: argRegs, Tail: tail})
+	} else {
+		c.compilePushedCall(f, contReg, self, f.Args, etc, tail)
+	}
 }
 
 // stable returns a register holding the value reg has now, for a value that
