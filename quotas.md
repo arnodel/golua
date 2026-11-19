@@ -336,8 +336,12 @@ type RuntimeContextDef struct {
 	MessageHandler Callable
 	FSAccess       *safeio.FSAccess
 	WorkDir        string
+	Interrupt      *Interrupt
 }
 ```
+
+`Interrupt` lets another goroutine stop the context, see
+[Interrupting a context](#interrupting-a-context).
 
 `WorkDir` sets the context's [working directory](#working-directory).  If empty,
 the parent context's is used; if relative, it is relative to the parent's.
@@ -361,6 +365,50 @@ r.PushContext(rt.RuntimeContextDef{FSAccess: access})
 `Restrict` resolves relative grant directories against the process's working
 directory.  To resolve them against the current context's, use
 `safeio.InWorkDir(r, dir)`.
+
+#### Interrupting a context
+
+An `*Interrupt` stops a running context from another goroutine, for example when
+the host cancels a request.  Install one in the context definition and call its
+`Trigger` method when the context should stop.
+
+```golang
+intr := rt.NewInterrupt()
+go func() {
+    <-request.Done()
+    intr.Trigger("request cancelled")
+}()
+ctx, err := thread.CallContext(rt.RuntimeContextDef{Interrupt: intr}, func() error {
+    // Run Lua code here.
+})
+// If the interrupt was triggered, ctx.Status() is StatusKilled and err's
+// message is "request cancelled".
+```
+
+- The context stops at its next CPU check, as if a hard limit had been reached.
+  This is true even for Lua code that only computes, and the interrupt does not
+  need any limit to be set.  With a CPU limit it is looked at every
+  `cpuThresholdIncrement` ticks (a few microseconds of Lua code).
+- Contexts pushed inside the context stop too, and so do the contexts that
+  enclose them up to the one the `Interrupt` was installed in.  A protected call
+  (`pcall`) does not stop the interrupt: it only ends its own context, and each
+  enclosing context terminates in turn as control returns to it.  Contexts
+  outside the one the `Interrupt` was installed in are not affected.
+- A context can have several interrupts, one installed by the code that started
+  it and others installed by code running inside.  Triggering any of them stops
+  the context it was installed in.
+- `Trigger` is safe to call from any goroutine and any number of times.  The
+  first reason is kept (`"interrupted"` if it is empty), and an `Interrupt`
+  cannot be reset.  The same `Interrupt` can be installed in contexts of several
+  runtimes.
+- It stops Lua code, not Go code: a function that blocks (for example reading
+  from a pipe) is not interrupted, and the context stops once it returns.  A
+  host that needs a hard deadline should also set a time limit and require the
+  `timesafe` flag, as such functions then cannot be called.
+- With the `noquotas` build tag an `Interrupt` is accepted and ignored, like
+  the other restrictions.
+- An `Interrupt` that is never triggered costs about 2% of the run time of a loop
+  without limits.
 
 As mentioned above, a Lua runtime is of type `*runtime.Runtime` and implements
 the `RuntimeContext` interface.  It also implements two methods.
