@@ -29,10 +29,182 @@ version can differ by 20 to 30% on single benchmarks from compiler flags
 alone (see the 5.5.0 column below).
 
 Implementations used so far: C Lua (`lua`), apogee
-(`go install github.com/matjam/apogee/cmd/apogee@latest`; `APOGEE_JIT=off`
-for its interpreter alone).  Shopify/go-lua has no command-line interpreter
+(`go install github.com/matjam/apogee/cmd/apogee@latest`, but see the notes
+of 19 November for which library that builds; `APOGEE_JIT=off` for its
+interpreter alone).  Shopify/go-lua has no command-line interpreter
 and implements Lua 5.2, which the benchmarks outgrow; apogee's own harness
 drives it as a library and publishes 4.8× C Lua for it.
+
+## 2026-11-19 (evening), golua dee2d0d and apogee 1.2.1, Apple M1 Max
+
+Reference: C Lua 5.5.1 (Homebrew).  golua is lua5.5 at dee2d0d, the last
+column of the section below, built without quotas and with its profile.
+apogee is its command built against the 1.2.1 library; both are built with
+Go 1.27.4.  Best of 5 rounds, taken as described above.
+
+| benchmark | apogee 1.2.1 JIT | apogee 1.2.1 interpreter | golua | golua / apogee interpreter |
+|---|---|---|---|---|
+| towers | 0.67× | 1.67× | 2.42× | 1.44 |
+| fasta | 1.05× | 1.43× | 2.34× | 1.64 |
+| md5 | 0.53× | 1.74× | 2.31× | 1.32 |
+| queens | 0.50× | 1.64× | 2.15× | 1.31 |
+| permute | 0.50× | 1.87× | 2.15× | 1.15 |
+| richards | 0.59× | 1.31× | 2.08× | 1.59 |
+| bounce | 0.38× | 1.51× | 2.04× | 1.35 |
+| spectral-norm | 0.22× | 1.47× | 2.02× | 1.37 |
+| json | 0.71× | 1.43× | 2.01× | 1.41 |
+| deltablue | 0.85× | 1.30× | 1.99× | 1.53 |
+| arrays | 1.14× | 2.40× | 1.90× | 0.79 |
+| sieve | 0.36× | 1.99× | 1.88× | 0.95 |
+| list | 0.54× | 1.48× | 1.87× | 1.26 |
+| records | 1.13× | 1.28× | 1.73× | 1.35 |
+| nbody | 0.29× | 1.25× | 1.56× | 1.25 |
+| fannkuch-redux | 0.34× | 1.98× | 1.54× | 0.78 |
+| k-nucleotide | 1.24× | 1.23× | 1.48× | 1.20 |
+| cd | 0.60× | 0.93× | 1.44× | 1.56 |
+| mandelbrot | 0.12× | 1.10× | 1.38× | 1.26 |
+| binary-trees | 0.70× | 1.08× | 1.36× | 1.26 |
+| life | 0.96× | 1.67× | 1.32× | 0.79 |
+| havlak | 0.57× | 0.83× | 1.31× | 1.59 |
+| regex-dna | 1.39× | 1.40× | 1.29× | 0.92 |
+| storage | 0.55× | 0.80× | 1.11× | 1.39 |
+| coroutine-ring | 5.64× | 5.24× | 1.06× | 0.20 |
+| **geomean of 25** | **0.63×** | **1.48×** | **1.70×** | **1.15** |
+| **geomean of the 17 of October** | **0.45×** | **1.34×** | **1.74×** | **1.30** |
+
+The last column is golua's time over the time of apogee's interpreter.  The
+last row is over the 17 benchmarks of the checkpoint of 31 October, the
+previous one with apogee in it.
+
+Notes:
+
+- On the 17 benchmarks of 31 October golua takes 1.30 times the time of
+  apogee's interpreter, from 2.4 times that day.  golua went from 3.25× C
+  Lua to 1.74× on them while apogee's interpreter stayed where it was
+  (1.35× then with 1.1.1, 1.34× now), so it is a yardstick that has not
+  moved.
+- On all 25 the figure is 1.15, and one benchmark carries much of the
+  difference: apogee takes five times C Lua's time on coroutine-ring,
+  where golua takes 1.06×.  Over the other 24, golua is at 1.74× C Lua,
+  apogee's interpreter at 1.40×, and golua at 1.24 times apogee's
+  interpreter.
+- golua is ahead of apogee's interpreter on six: coroutine-ring, and by 5
+  to 22% fannkuch-redux, arrays, life, regex-dna and sieve.
+- It is furthest behind on fasta (1.64), richards and havlak (1.59), cd
+  (1.56), deltablue (1.53), towers (1.44) and json (1.41).  Four of those
+  seven are the object-heavy programs, made of method calls and field
+  accesses.
+- With its JIT apogee is at 0.63× C Lua here, and at 0.45× on the 17 of
+  October, where 1.1.1 read 0.54×: its compiler changed in 1.1.2, its
+  interpreter did not.  The JIT gives nothing on k-nucleotide, regex-dna
+  and coroutine-ring, and stays above C Lua's time on fasta, arrays and
+  records.  golua is ahead of it on coroutine-ring and regex-dna.
+- golua reads 1.70× here and 1.71× in the section below, taken in the
+  morning of the same day.  golua's own best time for a benchmark differs
+  between the three kinds of run (next to C Lua, next to apogee with its
+  JIT, next to apogee without) by 1.5% on average and 3.5% at most.
+- `go install github.com/matjam/apogee/cmd/apogee@latest` builds the
+  command against the 1.1.1 library: the command is a module of its own
+  and that is the version it requires.  To time a later library, copy the
+  command's module out of the module cache, run
+  `go get github.com/matjam/apogee@v1.2.1` in the copy and build it.
+
+## 2026-11-19, golua over its revisions, Apple M1 Max
+
+Taken with [`benchmarks/gauge.sh`](../benchmarks/gauge.sh), 5 rounds,
+against C Lua 5.5.1 (Homebrew), all four built the same day with Go 1.27.4:
+the previous checkpoint (00791a0: #254, #255), lua5.5 after the work on
+tables (6499d18: #257 to #260), just before the work on coroutines (07a5703:
+#264, #266 to #268, #271, #274 to #276), and lua5.5 with coroutines that run
+without a goroutine (dee2d0d: #277, #278, #282).
+
+| benchmark | 00791a0 | 6499d18 | 07a5703 | dee2d0d |
+|---|---|---|---|---|
+| bounce | 2.07× | 2.01× | 2.00× | 2.03× |
+| cd | 1.57× | 1.49× | 1.43× | 1.44× |
+| deltablue | 2.10× | 1.96× | 1.94× | 1.95× |
+| havlak | 1.47× | 1.33× | 1.32× | 1.32× |
+| json | 2.24× | 2.10× | 2.06× | 2.09× |
+| list | 1.89× | 1.90× | 1.87× | 1.87× |
+| mandelbrot | 1.42× | 1.42× | 1.37× | 1.36× |
+| nbody | 1.89× | 1.59× | 1.59× | 1.61× |
+| permute | 2.28× | 2.26× | 2.24× | 2.25× |
+| queens | 2.26× | 2.21× | 2.18× | 2.19× |
+| richards | 2.15× | 2.09× | 2.07× | 2.09× |
+| sieve | 2.14× | 1.94× | 1.90× | 1.85× |
+| storage | 1.64× | 1.14× | 1.10× | 1.12× |
+| towers | 2.67× | 2.48× | 2.45× | 2.49× |
+| binary-trees | 2.39× | 1.36× | 1.31× | 1.34× |
+| fannkuch-redux | 1.68× | 1.59× | 1.56× | 1.54× |
+| spectral-norm | 2.06× | 2.06× | 1.98× | 2.01× |
+| fasta | 2.27× | 2.24× | 2.29× | 2.33× |
+| k-nucleotide | 1.45× | 1.45× | 1.51× | 1.52× |
+| regex-dna | 1.26× | 1.26× | 1.30× | 1.29× |
+| coroutine-ring | 4.48× | 4.54× | 4.35× | 1.08× |
+| md5 | 2.35× | 2.34× | 2.26× | 2.31× |
+| life | 1.25× | 1.24× | 1.32× | 1.30× |
+| arrays | 2.97× | 1.88× | 1.95× | 1.91× |
+| records | 2.08× | 1.80× | 1.82× | 1.70× |
+| **geomean of 25** | **2.00×** | **1.82×** | **1.81×** | **1.71×** |
+
+Notes:
+
+- 1.71× C Lua, from 2.00× five days ago.  The suite has two more programs,
+  arrays and records (#257), so the geomean is over 25; over the 23 of the
+  previous checkpoint it is 1.96× to 1.70× (the previous checkpoint read
+  1.97× for 00791a0).  Two steps make the difference and they are not of
+  the same kind: tables are faster for every program that uses them, and
+  coroutines are faster for the one benchmark that has any.
+- 00791a0 to 6499d18 is the tables: the length of a table without `__len`
+  is found without a metamethod call (#258), an append grows the array part
+  directly, which also keeps small tables like `{left, right}` out of the
+  hash part (#259), and a constructor makes its table with capacity for
+  what it lists (#260).  9% on the geomean: binary-trees 2.39× to 1.36×,
+  arrays 2.97× to 1.88×, storage 1.64× to 1.14×, nbody 1.89× to 1.59×,
+  records 2.08× to 1.80×, havlak 1.47× to 1.33×, sieve 2.14× to 1.94×.
+  What does not build tables does not move (regex-dna, spectral-norm,
+  list, permute).
+- 6499d18 to 07a5703 is conformance fixes and fixes to the run loop, 1% in
+  all.  The one change among them aimed at speed is #274: a return with
+  nothing to close no longer calls the close-stack cleanup.
+- In that same step life reads 6% slower, k-nucleotide and arrays 4%,
+  regex-dna 3%.  No code of theirs got slower: run alone, each of life,
+  k-nucleotide and regex-dna takes the same time at the two revisions to
+  within 1.5%.  It is the order of the suite.  Up to #271, 6 to 8 MB stayed
+  live in the process once fasta had run, so the benchmarks after it ran
+  with a heap goal of 12 to 18 MB where they have 4 MB alone, and the
+  collector ran less often: life after fasta took 47 ms, against 50 ms
+  alone.  #271 (a call from Go into Lua leaves the thread's current
+  continuation as it found it) is the commit from which nothing stays
+  live, and from which life after fasta takes what it takes alone.  So the
+  first two columns flatter the benchmarks that come after fasta by a few
+  percent, and the last two are the honest ones.  Found with
+  `GODEBUG=gctrace=1` on the benchmark binary; it also shows how much
+  those programs' times depend on the collector's goal.
+- 07a5703 to dee2d0d is the coroutines: coroutine-ring 4.35× to 1.08×.  A
+  coroutine runs on the goroutine of whoever resumes it and gets one of
+  its own only when Go code has to wait for Lua code that may yield (#277);
+  a yield cannot cross the standard library's functions, so calling them
+  does not cost a coroutine its lightness (#278); `pcall` and `xpcall` hand
+  over to the function they call and leave no Go frame waiting (#282).
+  This step is that one benchmark: over the other 24 the geomean is 1.74×
+  before and after.
+- The largest moves in that last step outside coroutine-ring are records
+  (1.82× to 1.70×) and sieve (1.90× to 1.85×), with md5, towers, json and
+  bounce 1 to 2% the other way.  The profile was made again in #277 and
+  #278, for the first time since #254, so this column also carries a
+  profile that matches the run loop again; which of the two each move
+  comes from was not measured.
+- The profile in dee2d0d dates from #278 (`benchmarks/pgo.sh -c` says it
+  is stale): #282 changed the text of the run loop but not its lines, so
+  it still applies.
+- Furthest from C Lua now: towers 2.49×, fasta 2.33×, md5 2.31×, permute
+  2.25×, queens 2.19×, json and richards 2.09×, bounce 2.03×.  Five of
+  those eight spend their time in calls.  Closest: coroutine-ring 1.08×,
+  storage 1.12×, regex-dna 1.29×, life 1.30×, havlak 1.32×, binary-trees
+  1.34×, mandelbrot 1.36×.
+- A first run of 3 rounds just before gave the same four geomeans to
+  within 0.01× and every cell to within 4%.
 
 ## 2026-11-14, golua over its revisions, Apple M1 Max
 
