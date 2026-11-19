@@ -90,15 +90,21 @@ if not OpEq(r3, r4) jump L1
 L1:
 L0:
 `},
-		{"while true do a = 1 end", `
+		// A while loop tests its condition after the body, and jumps back to
+		// the body if it holds.  It starts with a jump to the test (L2)...
+		{"while a and b do a = 1 end", `
+jump L2
 L1:
-jump L1
+L2:
+jump L3 if r2 is not true
+jump L1 if r3 is not false
+L3:
 L0:
 `},
-		{"while a and b do a = 1 end", `
+		// ... unless the condition always holds.
+		{"while true do a = 1 end", `
 L1:
-jump L0 if r2 is not true
-jump L0 if r3 is not true
+L2:
 jump L1
 L0:
 `},
