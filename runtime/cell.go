@@ -1,6 +1,9 @@
 package runtime
 
-import "errors"
+import (
+	"errors"
+	"unsafe"
+)
 
 // Cell is a box: a reference to a Value, which a function and the closures
 // that capture one of its locals share.  Example:
@@ -36,7 +39,7 @@ func (c Cell) set(v Value) {
 // BoxValue returns a Value holding the box c.  Such a value lives only in
 // the registers the compiler gives boxes; it never reaches Lua code.
 func BoxValue(c Cell) Value {
-	return Value{iface: c}
+	return reference(kindBox, unsafe.Pointer(c.ref))
 }
 
 var errNotABox = errors.New("register does not hold a box")

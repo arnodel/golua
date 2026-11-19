@@ -48,7 +48,7 @@ func TestCallFromGoRestoresCurrentCont(t *testing.T) {
 		r.SetTable(env, StringValue("o"), TableValue(o))
 		longest = 0
 		got := runChunk(t, r, `local s = 0 for i = 1, 100 do s = s + o.a end return s`)
-		if got != IntValue(100) {
+		if !got.Equals(IntValue(100)) {
 			t.Fatalf("got %v, want 100", got)
 		}
 		if longest != 1 {
@@ -125,7 +125,7 @@ func TestCallFromGoRestoresCurrentCont(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(res) != 1 || res[0] != BoolValue(false) {
+		if len(res) != 1 || !res[0].Equals(BoolValue(false)) {
 			t.Errorf("got %v, want a thread with no goroutine", res)
 		}
 		if longest != 1 {

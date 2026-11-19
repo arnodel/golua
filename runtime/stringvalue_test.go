@@ -62,7 +62,7 @@ func TestTableLongStringKeys(t *testing.T) {
 		tbl.Set(StringValue(key(i)), IntValue(int64(i)))
 	}
 	for i := 0; i < 100; i++ {
-		if v := tbl.Get(StringValue(strings.Clone(key(i)))); v != IntValue(int64(i)) {
+		if v := tbl.Get(StringValue(strings.Clone(key(i)))); !v.Equals(IntValue(int64(i))) {
 			t.Errorf("tbl[%q] = %v, want %d", key(i), v, i)
 		}
 	}

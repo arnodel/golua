@@ -72,7 +72,7 @@ func TestAsValue(t *testing.T) {
 		{
 			name: "other type",
 			arg:  []byte{'a'},
-			want: Value{iface: []byte{'a'}},
+			want: AsValue([]byte{'a'}),
 		},
 	}
 	for _, tt := range tests {

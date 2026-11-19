@@ -2,32 +2,120 @@ package runtime
 
 import (
 	"fmt"
+	"hash/maphash"
 	"math"
 	"strconv"
 	"strings"
 	"unsafe"
 )
 
-// A Value is a runtime value.
+// A Value is a runtime value.  It is two words: a scalar and a pointer.
+//
+//   - nil is the zero Value.
+//   - An integer, a float or a boolean has its bits in the scalar, and its
+//     pointer is one of three fixed addresses that says which it is (an
+//     immediate value).
+//   - Any other value is a reference: the pointer is to its object, and the
+//     top byte of the scalar is its kind.  The rest of the scalar is the
+//     bytes or a hash of a string, or the address of the object, so that
+//     Equals and Hash mostly need the scalar alone.
 //
 // Values must be built with the constructor functions (IntValue, StringValue,
-// TableValue, ...), as Equals and Hash depend on the scalar field they set: a
-// string Value in particular carries its bytes or a hash of them there, so
-// two Values made from equal strings are only equal if both were made by
-// StringValue.
+// TableValue, ...).  Values cannot be compared with ==; use Equals.
 type Value struct {
+	_      [0]func()
 	scalar uint64
-	iface  interface{}
+	ptr    unsafe.Pointer
 }
 
-// In order to minimize memory allocations, the values of scalars Valuess are
-// not stored in the iface field, but their type is, using a single interface{}
-// value for each scalar type.
-var (
-	dummyInt64   interface{} = int64(0)   // All IntValue instances share this iface
-	dummyFloat64 interface{} = float64(0) // All FloatValue instances share this iface
-	dummyBool    interface{} = false      // All BoolVale instances share this iface
+// The pointers of immediate values point into this array: an integer's to
+// its first byte, a float's to its second, a boolean's to its third.
+var immediate [3]byte
+
+const (
+	tagInt uintptr = iota
+	tagFloat
+	tagBool
+	immediateCount
 )
+
+// tag returns tagInt, tagFloat or tagBool for an immediate value and a larger
+// number for any other.
+func (v Value) tag() uintptr {
+	return uintptr(v.ptr) - uintptr(unsafe.Pointer(&immediate[0]))
+}
+
+func (v Value) isImmediate() bool {
+	return v.tag() < immediateCount
+}
+
+func (v Value) isInt() bool {
+	return v.ptr == unsafe.Pointer(&immediate[tagInt])
+}
+
+func (v Value) isFloat() bool {
+	return v.ptr == unsafe.Pointer(&immediate[tagFloat])
+}
+
+// A valueKind is the top byte of the scalar of a reference.  0 is not a
+// kind, so that the kind of nil is none.
+type valueKind uint8
+
+const (
+	kindTable valueKind = iota + 1
+	kindClosure
+	kindGoFunction
+	kindLuaCont
+	kindGoCont
+	kindTermination
+	kindMessageHandlerCont
+	kindProtectedCall
+	kindThread
+	kindUserData
+	kindCode
+	kindBox
+	kindArray
+	kindOther // the pointer is to an interface{} holding the Go value
+
+	// A string of n bytes, n <= 7, has kind kindShortString+n and its bytes
+	// in the scalar.  A longer one has kind kindLongString and a hash of its
+	// bytes in the scalar.  The string kinds are those with the top bit set.
+	kindShortString valueKind = 0x80
+	kindLongString  valueKind = 0xFF
+)
+
+const (
+	kindShift   = 56
+	addressMask = 1<<kindShift - 1
+
+	// Closures are equal when they have the same code and upvalues, and Go
+	// values when Go says so, whatever their addresses: the scalars of
+	// those two kinds hold the kind alone.
+	closureScalar = uint64(kindClosure) << kindShift
+	otherScalar   = uint64(kindOther) << kindShift
+)
+
+// reference returns the Value of kind k for the object at p.
+func reference(k valueKind, p unsafe.Pointer) Value {
+	return Value{scalar: uint64(k)<<kindShift | uint64(uintptr(p))&addressMask, ptr: p}
+}
+
+// kind returns the kind of v if it is a reference, 0 otherwise.
+func (v Value) kind() valueKind {
+	if v.isImmediate() {
+		return 0
+	}
+	return valueKind(v.scalar >> kindShift)
+}
+
+// is reports whether v is a reference of kind k (not a string kind).
+func (v Value) is(k valueKind) bool {
+	return valueKind(v.scalar>>kindShift) == k && !v.isImmediate()
+}
+
+func (v Value) isString() bool {
+	return int64(v.scalar) < 0 && !v.isImmediate()
+}
 
 // AsValue returns a Value for the passed interface.  Use carefully, as it may
 // trigger allocations (e.g. AsValue(1) will allocate as the interface holding 1
@@ -51,45 +139,88 @@ func AsValue(i interface{}) Value {
 		return StringValue(x)
 	case Value:
 		return x
+	case *Table:
+		return TableValue(x)
+	case *Closure:
+		return closureValue(x)
+	case *GoFunction:
+		return reference(kindGoFunction, unsafe.Pointer(x))
+	case *LuaCont:
+		return luaContValue(x)
+	case *GoCont:
+		return goContValue(x)
+	case *Termination:
+		return reference(kindTermination, unsafe.Pointer(x))
+	case *messageHandlerCont:
+		return reference(kindMessageHandlerCont, unsafe.Pointer(x))
+	case *protectedCall:
+		return reference(kindProtectedCall, unsafe.Pointer(x))
+	case *Thread:
+		return ThreadValue(x)
+	case *UserData:
+		return UserDataValue(x)
+	case *Code:
+		return CodeValue(x)
+	case Cell:
+		return BoxValue(x)
+	case []Value:
+		return ArrayValue(x)
 	default:
-		return Value{iface: i}
+		p := new(interface{})
+		*p = i
+		return Value{scalar: otherScalar, ptr: unsafe.Pointer(p)}
 	}
 }
 
 // Interface turns the Value into an interface.  As AsValue, this can trigger
 // allocations so use with caution.
 func (v Value) Interface() interface{} {
-	if v.iface == nil {
+	switch v.tag() {
+	case tagInt:
+		return v.AsInt()
+	case tagFloat:
+		return v.AsFloat()
+	case tagBool:
+		return v.AsBool()
+	}
+	if v.ptr == nil {
 		return nil
 	}
-	switch v.iface.(type) {
-	case int64:
-		return v.AsInt()
-	case float64:
-		return v.AsFloat()
-	case bool:
-		return v.AsBool()
+	switch k := valueKind(v.scalar >> kindShift); k {
+	case kindTable:
+		return (*Table)(v.ptr)
+	case kindClosure:
+		return (*Closure)(v.ptr)
+	case kindGoFunction:
+		return (*GoFunction)(v.ptr)
+	case kindLuaCont:
+		return (*LuaCont)(v.ptr)
+	case kindGoCont:
+		return (*GoCont)(v.ptr)
+	case kindTermination:
+		return (*Termination)(v.ptr)
+	case kindMessageHandlerCont:
+		return (*messageHandlerCont)(v.ptr)
+	case kindProtectedCall:
+		return (*protectedCall)(v.ptr)
+	case kindThread:
+		return (*Thread)(v.ptr)
+	case kindUserData:
+		return (*UserData)(v.ptr)
+	case kindCode:
+		return (*Code)(v.ptr)
+	case kindBox:
+		return Cell{(*Value)(v.ptr)}
+	case kindArray:
+		return *(*[]Value)(v.ptr)
+	case kindOther:
+		return *(*interface{})(v.ptr)
 	default:
-		return v.iface
+		return *(*string)(v.ptr)
 	}
 }
 
-// Some unsafe function to determine quickly if two interfaces have the same
-// type.
-func ifaceType(iface interface{}) uintptr {
-	return *(*uintptr)(unsafe.Pointer(&iface))
-}
-
-func ifacePtr(iface interface{}) uintptr {
-	return (*[2]uintptr)(unsafe.Pointer(&iface))[1]
-}
-
-var float64IfaceType = ifaceType(float64(1))
-var int64IfaceType = ifaceType(int64(1))
-
-// Equals returns true if v is equal to v2.  Provided that v and v2 have been
-// built with the official constructor functions, it is equivalent to but
-// slightly faster than '=='.
+// Equals returns true if v is equal to v2.
 func (v Value) Equals(v2 Value) bool {
 	// Different scalars mean different values, except for the floats 0.0 and
 	// -0.0, whose scalars differ only by the sign bit.  This test is kept
@@ -105,69 +236,74 @@ const signBit = 1 << 63
 
 // equalsString reports whether v equals k, where k is known to be a string.
 // It is what Equals computes, without a call in the common case: unequal
-// scalars mean unequal values, and equal scalars mean equal strings when v is
-// a string too and the scalars hold the bytes (strings of up to 7 bytes).
-// Only equal hashes of longer strings need the bytes compared.
+// scalars mean unequal values, and a reference with the scalar of a string
+// is a string, equal to k when the scalars hold the bytes (strings of up to
+// 7 bytes).  Only equal hashes of longer strings need the bytes compared.
 func (v Value) equalsString(k Value) bool {
-	if v.scalar != k.scalar {
-		return false
-	}
-	if _, ok := v.iface.(string); !ok {
+	if v.scalar != k.scalar || v.isImmediate() {
 		return false
 	}
 	return k.scalar < hashedStringTag || v.equalsLongString(k)
 }
 
 func (v Value) equalsLongString(k Value) bool {
-	return v.iface.(string) == k.iface.(string)
+	return *(*string)(v.ptr) == *(*string)(k.ptr)
 }
 
 func (v Value) equalsSlow(v2 Value) bool {
-	ift := ifaceType(v.iface)
-	if ift != ifaceType(v2.iface) {
-		return false
-	}
-	if ift == float64IfaceType {
-		// Special case for floats, as some non bitwise equal floats can be equal and vice-versa
-		// NaN != NaN
-		// -0 == +0
-		return v.AsFloat() == v2.AsFloat()
-	}
-	if v.scalar != v2.scalar {
-		return false
-	}
-	switch x := v.iface.(type) {
-	case int64, float64:
-		return true
-	case string:
-		// Equal scalars holding the strings' bytes mean equal strings.  Equal
-		// scalars holding their hashes mean the bytes must be compared.
-		if v.scalar < hashedStringTag {
-			return true
+	if v.ptr == v2.ptr {
+		// The same object, or immediate values of the same type.
+		if v.isFloat() {
+			// Some non bitwise equal floats are equal and vice-versa:
+			// NaN != NaN, -0 == +0
+			return v.AsFloat() == v2.AsFloat()
 		}
-		return x == v2.iface.(string)
-	case *Closure:
-		return x.Equals(v2.iface.(*Closure))
+		return v.scalar == v2.scalar
 	}
-	return v.iface == v2.iface
+	if v.scalar != v2.scalar || v.isImmediate() || v2.isImmediate() || v.ptr == nil || v2.ptr == nil {
+		return false
+	}
+	// Two objects with the same scalar, so of the same kind.
+	switch k := valueKind(v.scalar >> kindShift); {
+	case k == kindLongString:
+		return *(*string)(v.ptr) == *(*string)(v2.ptr)
+	case k >= kindShortString:
+		return true
+	case k == kindClosure:
+		return (*Closure)(v.ptr).Equals((*Closure)(v2.ptr))
+	case k == kindOther:
+		return *(*interface{})(v.ptr) == *(*interface{})(v2.ptr)
+	}
+	return false
 }
 
 // Hash returns a hash for the value.
 func (v Value) Hash() uintptr {
-	if v.scalar != 0 {
+	if v.scalar != 0 && v.scalar != closureScalar && v.scalar != otherScalar {
 		return hashScalar(v.scalar, 0)
 	}
-	return hashInterface(v.iface, 0)
+	return v.hashSlow()
+}
+
+func (v Value) hashSlow() uintptr {
+	if !v.isImmediate() && v.scalar == otherScalar {
+		return hashInterface(*(*interface{})(v.ptr), 0)
+	}
+	if v.scalar != 0 && v.isImmediate() {
+		return hashScalar(v.scalar, 0)
+	}
+	// 0, 0.0 and false by their tags, a closure by its address.
+	return hashScalar(uint64(uintptr(v.ptr)), 0)
 }
 
 // IntValue returns a Value holding the given arg.
 func IntValue(n int64) Value {
-	return Value{uint64(n), dummyInt64}
+	return Value{scalar: uint64(n), ptr: unsafe.Pointer(&immediate[tagInt])}
 }
 
 // FloatValue returns a Value holding the given arg.
 func FloatValue(f float64) Value {
-	return Value{*(*uint64)(unsafe.Pointer(&f)), dummyFloat64}
+	return Value{scalar: math.Float64bits(f), ptr: unsafe.Pointer(&immediate[tagFloat])}
 }
 
 // BoolValue returns a Value holding the given arg.
@@ -176,69 +312,99 @@ func BoolValue(b bool) Value {
 	if b {
 		s = 1
 	}
-	return Value{s, dummyBool}
+	return Value{scalar: s, ptr: unsafe.Pointer(&immediate[tagBool])}
 }
 
 // The scalar of a string Value holds the string's bytes if it has at most 7,
-// with the length in the top byte, and otherwise a hash of the string in the
-// low 56 bits with the top byte set to hashedStringTag.  Either way Hash can
-// use the scalar, and Equals can tell unequal strings apart by their scalars
-// without comparing their bytes.  The empty string's scalar is 0.
-const hashedStringTag = 0xFF << 56
+// with the kind (which gives the length) in the top byte, and otherwise a
+// hash of the string in the low 56 bits with the top byte set to
+// kindLongString.  Either way Hash can use the scalar, and Equals can tell
+// unequal strings apart by their scalars without comparing their bytes.
+const hashedStringTag = uint64(kindLongString) << kindShift
+
+var stringSeed = maphash.MakeSeed()
 
 // StringValue returns a Value holding the given arg.
 func StringValue(s string) (v Value) {
-	v.iface = s
+	p := new(string)
+	*p = s
+	v.ptr = unsafe.Pointer(p)
 	ls := len(s)
 	if ls <= 7 {
 		var bs [8]byte
 		copy(bs[:], s)
-		bs[7] = byte(ls)
+		bs[7] = byte(kindShortString) | byte(ls)
 		v.scalar = *(*uint64)(unsafe.Pointer(&bs[0]))
 	} else {
-		v.scalar = hashedStringTag | uint64(hashInterface(v.iface, 0))
+		v.scalar = hashedStringTag | maphash.String(stringSeed, s)
 	}
 	return
 }
 
 // TableValue returns a Value holding the given arg.
 func TableValue(t *Table) Value {
-	return Value{iface: t}
+	return reference(kindTable, unsafe.Pointer(t))
 }
 
 // FunctionValue returns a Value holding the given arg.
 func FunctionValue(c Callable) Value {
-	return Value{iface: c}
+	switch f := c.(type) {
+	case *Closure:
+		return closureValue(f)
+	case *GoFunction:
+		return reference(kindGoFunction, unsafe.Pointer(f))
+	}
+	return AsValue(c)
+}
+
+func closureValue(c *Closure) Value {
+	return Value{scalar: closureScalar, ptr: unsafe.Pointer(c)}
 }
 
 // ContValue returns a Value holding the given arg.
 func ContValue(c Cont) Value {
-	return Value{iface: c}
+	switch c := c.(type) {
+	case *LuaCont:
+		return luaContValue(c)
+	case *GoCont:
+		return goContValue(c)
+	}
+	return AsValue(c)
+}
+
+func luaContValue(c *LuaCont) Value {
+	return reference(kindLuaCont, unsafe.Pointer(c))
+}
+
+func goContValue(c *GoCont) Value {
+	return reference(kindGoCont, unsafe.Pointer(c))
 }
 
 // ArrayValue returns a Value holding the given arg.
 func ArrayValue(a []Value) Value {
-	return Value{iface: a}
+	p := new([]Value)
+	*p = a
+	return reference(kindArray, unsafe.Pointer(p))
 }
 
 // CodeValue returns a Value holding the given arg.
 func CodeValue(c *Code) Value {
-	return Value{iface: c}
+	return reference(kindCode, unsafe.Pointer(c))
 }
 
 // ThreadValue returns a Value holding the given arg.
 func ThreadValue(t *Thread) Value {
-	return Value{iface: t}
+	return reference(kindThread, unsafe.Pointer(t))
 }
 
 // LightUserDataValue returns a Value holding the given arg.
 func LightUserDataValue(d LightUserData) Value {
-	return Value{iface: d}
+	return AsValue(d)
 }
 
 // UserDataValue returns a Value holding the given arg.
 func UserDataValue(u *UserData) Value {
-	return Value{iface: u}
+	return reference(kindUserData, unsafe.Pointer(u))
 }
 
 // NilValue is a value holding Nil.
@@ -246,27 +412,29 @@ var NilValue = Value{}
 
 // Type returns the ValueType of v.
 func (v Value) Type() ValueType {
-	if v.iface == nil {
+	switch v.tag() {
+	case tagInt:
+		return IntType
+	case tagFloat:
+		return FloatType
+	case tagBool:
+		return BoolType
+	}
+	if v.ptr == nil {
 		return NilType
 	}
-	switch v.iface.(type) {
-	case int64:
-		return IntType
-	case float64:
-		return FloatType
-	case bool:
-		return BoolType
-	case string:
+	switch k := valueKind(v.scalar >> kindShift); {
+	case k >= kindShortString:
 		return StringType
-	case *Table:
+	case k == kindTable:
 		return TableType
-	case *Code:
+	case k == kindCode:
 		return CodeType
-	case *GoFunction, *Closure:
+	case k == kindClosure, k == kindGoFunction:
 		return FunctionType
-	case *Thread:
+	case k == kindThread:
 		return ThreadType
-	case *UserData:
+	case k == kindUserData:
 		return UserDataType
 	default:
 		return UnknownType
@@ -276,28 +444,25 @@ func (v Value) Type() ValueType {
 // TypeName returns a string representing the type of the value (as in the Lua
 // function type(v))
 func (v Value) TypeName() string {
-	if v.iface == nil {
+	switch v.Type() {
+	case NilType:
 		return "nil"
-	}
-	switch v.iface.(type) {
-	case int64, float64:
+	case IntType, FloatType:
 		return "number"
-	case bool:
+	case BoolType:
 		return "boolean"
-	case string:
+	case StringType:
 		return "string"
-	case *Table:
+	case TableType:
 		return "table"
-		// return getName("table", v.iface.(*Table).Metatable())
-	case *Code:
+	case CodeType:
 		return "code"
-	case *GoFunction, *Closure:
+	case FunctionType:
 		return "function"
-	case *Thread:
+	case ThreadType:
 		return "thread"
-	case *UserData:
+	case UserDataType:
 		return "userdata"
-		// return getName("userdata", v.iface.(*UserData).Metatable())
 	default:
 		return "<unknown type>"
 	}
@@ -306,58 +471,46 @@ func (v Value) TypeName() string {
 // CustomTypeName is like TypeName but can be changed if the metatable has a
 // __name field.
 func (v Value) CustomTypeName() string {
-	if v.iface == nil {
-		return "nil"
+	switch v.Type() {
+	case TableType:
+		return getName("table", v.AsTable().Metatable())
+	case UserDataType:
+		return getName("userdata", v.AsUserData().Metatable())
 	}
-	switch v.iface.(type) {
-	case int64, float64:
-		return "number"
-	case bool:
-		return "boolean"
-	case string:
-		return "string"
-	case *Table:
-		return getName("table", v.iface.(*Table).Metatable())
-	case *Code:
-		return "code"
-	case *GoFunction, *Closure:
-		return "function"
-	case *Thread:
-		return "thread"
-	case *UserData:
-		return getName("userdata", v.iface.(*UserData).Metatable())
-	default:
-		return "<unknown type>"
-	}
+	return v.TypeName()
 }
 
 // ToString returns a simple string representation of a Value.  The boolean
 // returned specifies whether this is a good string value or not ("good" should
 // be defined).
 func (v Value) ToString() (string, bool) {
-	if v.iface == nil {
+	switch v.tag() {
+	case tagInt:
+		return strconv.FormatInt(v.AsInt(), 10), true
+	case tagFloat:
+		return FloatToString(v.AsFloat()), true
+	case tagBool:
+		return strconv.FormatBool(v.AsBool()), false
+	}
+	if v.ptr == nil {
 		return "nil", false
 	}
-	switch x := v.iface.(type) {
-	case int64:
-		return strconv.FormatInt(v.AsInt(), 10), true
-	case float64:
-		return FloatToString(v.AsFloat()), true
-	case bool:
-		return strconv.FormatBool(v.AsBool()), false
-	case string:
+	switch k := valueKind(v.scalar >> kindShift); {
+	case k >= kindShortString:
 		return v.AsString(), true
-	case *Table:
+	case k == kindTable:
+		x := (*Table)(v.ptr)
 		return fmt.Sprintf("%s: %p", getName("table", x.Metatable()), x), false
-	case *Code:
-		return fmt.Sprintf("code: %p", x), false
-	case *GoFunction:
-		return fmt.Sprintf("gofunction: %s", x.name), false
-	case *Closure:
-		return fmt.Sprintf("function: %p", x), false
-	case *Thread:
-		return fmt.Sprintf("thread: %p", x), false
-	case *UserData:
+	case k == kindCode:
+		return fmt.Sprintf("code: %p", (*Code)(v.ptr)), false
+	case k == kindGoFunction:
+		return fmt.Sprintf("gofunction: %s", (*GoFunction)(v.ptr).name), false
+	case k == kindClosure:
+		return fmt.Sprintf("function: %p", (*Closure)(v.ptr)), false
+	case k == kindThread:
+		return fmt.Sprintf("thread: %p", (*Thread)(v.ptr)), false
+	case k == kindUserData:
+		x := (*UserData)(v.ptr)
 		return fmt.Sprintf("%s: %p", getName("userdata", x.Metatable()), x), false
 	default:
 		return "<unknown>", false
@@ -404,10 +557,10 @@ func FloatToString(x float64) string {
 // NumberType return the ValueType of v if it is a number, otherwise
 // UnknownType.
 func (v Value) NumberType() ValueType {
-	switch v.iface.(type) {
-	case int64:
+	switch v.tag() {
+	case tagInt:
 		return IntType
-	case float64:
+	case tagFloat:
 		return FloatType
 	}
 	return UnknownType
@@ -420,7 +573,7 @@ func (v Value) AsInt() int64 {
 
 // AsFloat returns v as a float64 (or panics).
 func (v Value) AsFloat() float64 {
-	return *(*float64)(unsafe.Pointer(&v.scalar))
+	return math.Float64frombits(v.scalar)
 }
 
 // AsBool returns v as a bool (or panics).
@@ -428,106 +581,117 @@ func (v Value) AsBool() bool {
 	return v.scalar != 0
 }
 
+// wrongKind panics: a Value was taken as a kind of value it is not.
+func wrongKind(what string) {
+	panic("value is not " + what)
+}
+
 // AsString returns v as a string (or panics).
 func (v Value) AsString() string {
-	return v.iface.(string)
+	if !v.isString() {
+		wrongKind("a string")
+	}
+	return *(*string)(v.ptr)
 }
 
 // AsTable returns v as a *Table (or panics).
 func (v Value) AsTable() *Table {
-	return v.iface.(*Table)
+	if !v.is(kindTable) {
+		wrongKind("a table")
+	}
+	return (*Table)(v.ptr)
 }
 
-// AsCont returns v as a Cont, by looking at the concrete type (or panics).  It
-// is an optimisation as type assertion in Go seems to have a significant cost.
+// AsCont returns v as a Cont, by looking at the concrete type (or panics).
 func (v Value) AsCont() Cont {
-	switch cont := v.iface.(type) {
-	case *GoCont:
-		return cont
-	case *LuaCont:
-		return cont
-	case *Termination:
-		return cont
-	case *messageHandlerCont:
-		return cont
-	case *protectedCall:
-		return cont
-	default:
-		panic("value is not a continuation")
+	c, ok := v.TryCont()
+	if !ok {
+		wrongKind("a continuation")
 	}
+	return c
 }
 
 // AsArray returns v as a [] (or panics).
 func (v Value) AsArray() []Value {
-	return v.iface.([]Value)
+	if !v.is(kindArray) {
+		wrongKind("an array")
+	}
+	return *(*[]Value)(v.ptr)
 }
 
 // AsClosure returns v as a *Closure (or panics).
 func (v Value) AsClosure() *Closure {
-	return v.iface.(*Closure)
+	if !v.is(kindClosure) {
+		wrongKind("a closure")
+	}
+	return (*Closure)(v.ptr)
 }
 
 // AsCode returns v as a *Code (or panics).
 func (v Value) AsCode() *Code {
-	return v.iface.(*Code)
+	if !v.is(kindCode) {
+		wrongKind("code")
+	}
+	return (*Code)(v.ptr)
 }
 
 // AsUserData returns v as a *UserData (or panics).
 func (v Value) AsUserData() *UserData {
-	return v.iface.(*UserData)
+	if !v.is(kindUserData) {
+		wrongKind("a userdata")
+	}
+	return (*UserData)(v.ptr)
 }
 
-// AsCallable returns v as a Callable if possible (or panics)).  It is an
-// optimisation as type assertion in Go seems to have a significant cost.
+// AsCallable returns v as a Callable if possible (or panics)).
 func (v Value) AsCallable() Callable {
-	switch c := v.iface.(type) {
-	case *Closure:
-		return c
-	case *GoFunction:
-		return c
-	default:
-		panic("value is not a Callable")
+	c, ok := v.TryCallable()
+	if !ok {
+		wrongKind("a Callable")
 	}
+	return c
 }
 
 // AsThread returns v as a *Thread (or panics).
 func (v Value) AsThread() *Thread {
-	return v.iface.(*Thread)
+	if !v.is(kindThread) {
+		wrongKind("a thread")
+	}
+	return (*Thread)(v.ptr)
 }
 
 // TryInt converts v to type int64 if possible (ok is false otherwise).
 func (v Value) TryInt() (n int64, ok bool) {
-	_, ok = v.iface.(int64)
-	if ok {
-		n = v.AsInt()
+	if v.isInt() {
+		return v.AsInt(), true
 	}
-	return
+	return 0, false
 }
 
 // TryFloat converts v to type float64 if possible (ok is false otherwise).
 func (v Value) TryFloat() (n float64, ok bool) {
-	_, ok = v.iface.(float64)
-	if ok {
-		n = v.AsFloat()
+	if v.isFloat() {
+		return v.AsFloat(), true
 	}
-	return
+	return 0, false
 }
 
 // TryString converts v to type string if possible (ok is false otherwise).
 func (v Value) TryString() (s string, ok bool) {
-	s, ok = v.iface.(string)
-	return
+	if v.isString() {
+		return *(*string)(v.ptr), true
+	}
+	return "", false
 }
 
 // TryCallable converts v to type Callable if possible by looking at the
-// possible concrete types (ok is false otherwise).  It is an optimisation as
-// type assertion in Go seems to have a significant cost.
+// possible concrete types (ok is false otherwise).
 func (v Value) TryCallable() (c Callable, ok bool) {
-	switch c := v.iface.(type) {
-	case *Closure:
-		return c, true
-	case *GoFunction:
-		return c, true
+	switch v.kind() {
+	case kindClosure:
+		return (*Closure)(v.ptr), true
+	case kindGoFunction:
+		return (*GoFunction)(v.ptr), true
 	default:
 		return nil, false
 	}
@@ -535,56 +699,87 @@ func (v Value) TryCallable() (c Callable, ok bool) {
 
 // TryClosure converts v to type *Closure if possible (ok is false otherwise).
 func (v Value) TryClosure() (c *Closure, ok bool) {
-	c, ok = v.iface.(*Closure)
-	return
+	if v.is(kindClosure) {
+		return (*Closure)(v.ptr), true
+	}
+	return nil, false
+}
+
+// tryGoFunction converts v to type *GoFunction if possible (ok is false
+// otherwise).
+func (v Value) tryGoFunction() (f *GoFunction, ok bool) {
+	if v.is(kindGoFunction) {
+		return (*GoFunction)(v.ptr), true
+	}
+	return nil, false
+}
+
+// tryLuaCont converts v to type *LuaCont if possible (ok is false
+// otherwise).
+func (v Value) tryLuaCont() (c *LuaCont, ok bool) {
+	if v.is(kindLuaCont) {
+		return (*LuaCont)(v.ptr), true
+	}
+	return nil, false
+}
+
+// tryBox returns the box v holds if it holds one (ok is false otherwise).
+func (v Value) tryBox() (c Cell, ok bool) {
+	if v.is(kindBox) {
+		return Cell{(*Value)(v.ptr)}, true
+	}
+	return Cell{}, false
 }
 
 // TryThread converts v to type *Thread if possible (ok is false otherwise).
 func (v Value) TryThread() (t *Thread, ok bool) {
-	t, ok = v.iface.(*Thread)
-	return
+	if v.is(kindThread) {
+		return (*Thread)(v.ptr), true
+	}
+	return nil, false
 }
 
 // TryTable converts v to type *Table if possible (ok is false otherwise).
 func (v Value) TryTable() (t *Table, ok bool) {
-	t, ok = v.iface.(*Table)
-	return
+	if v.is(kindTable) {
+		return (*Table)(v.ptr), true
+	}
+	return nil, false
 }
 
 // TryUserData converts v to type *UserData if possible (ok is false otherwise).
 func (v Value) TryUserData() (u *UserData, ok bool) {
-	u, ok = v.iface.(*UserData)
-	return
+	if v.is(kindUserData) {
+		return (*UserData)(v.ptr), true
+	}
+	return nil, false
 }
 
 // TryBool converts v to type bool if possible (ok is false otherwise).
 func (v Value) TryBool() (b bool, ok bool) {
-	_, ok = v.iface.(bool)
-	if ok {
-		b = v.scalar != 0
+	if v.tag() == tagBool {
+		return v.scalar != 0, true
 	}
-	return
+	return false, false
 }
 
-// TryCont returns v as a Cont, by looking at the concrete type (ok is false if
-// it doesn't implement the Cont interface).  It is an optimisation as type
-// assertion in Go seems to have a significant cost.
+// TryCont returns v as a Cont, by looking at its kind (ok is false if it
+// doesn't implement the Cont interface).
 func (v Value) TryCont() (c Cont, ok bool) {
-	switch cont := v.iface.(type) {
-	case *LuaCont:
-		return cont, true
-	case *Termination:
-		return cont, true
-	// These cases come after because this function is only used in
-	// LuaCont.Next() and in that context it is unlikely that the next
-	// continuation will be a *GoCont, and probably impossible that it is a
-	// *MessageHandlerCont.
-	case *GoCont:
-		return cont, true
-	case *messageHandlerCont:
-		return cont, true
-	case *protectedCall:
-		return cont, true
+	switch v.kind() {
+	case kindLuaCont:
+		return (*LuaCont)(v.ptr), true
+	case kindTermination:
+		return (*Termination)(v.ptr), true
+	case kindGoCont:
+		return (*GoCont)(v.ptr), true
+	case kindMessageHandlerCont:
+		return (*messageHandlerCont)(v.ptr), true
+	case kindProtectedCall:
+		return (*protectedCall)(v.ptr), true
+	case kindOther:
+		c, ok = (*(*interface{})(v.ptr)).(Cont)
+		return c, ok
 	default:
 		return nil, false
 	}
@@ -592,19 +787,21 @@ func (v Value) TryCont() (c Cont, ok bool) {
 
 // TryCode converts v to type *Code if possible (ok is false otherwise).
 func (v Value) TryCode() (c *Code, ok bool) {
-	c, ok = v.iface.(*Code)
-	return
+	if v.is(kindCode) {
+		return (*Code)(v.ptr), true
+	}
+	return nil, false
 }
 
 // IsNil returns true if v is nil.
 func (v Value) IsNil() bool {
-	return v.iface == nil
+	return v.ptr == nil
 }
 
 // IsNaN returns true if v is a FloatValue which has a NaN value.  It is trying
 // to do this as efficiently as possible.
 func (v Value) IsNaN() bool {
-	if ifaceType(v.iface) != float64IfaceType {
+	if !v.isFloat() {
 		return false
 	}
 	x := v.AsFloat()

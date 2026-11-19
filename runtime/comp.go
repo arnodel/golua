@@ -26,10 +26,10 @@ func RawEqual(x, y Value) (bool, bool) {
 
 // isZero returns true if x is a number and is equal to 0.
 func isZero(x Value) bool {
-	switch x.iface.(type) {
-	case int64:
+	switch x.tag() {
+	case tagInt:
 		return x.AsInt() == 0
-	case float64:
+	case tagFloat:
 		return x.AsFloat() == 0
 	}
 	return false
@@ -37,29 +37,29 @@ func isZero(x Value) bool {
 
 // isPositive returns true if x is a number and is > 0.
 func isPositive(x Value) bool {
-	switch x.iface.(type) {
-	case int64:
+	switch x.tag() {
+	case tagInt:
 		return x.AsInt() > 0
-	case float64:
+	case tagFloat:
 		return x.AsFloat() > 0
 	}
 	return false
 }
 
 func numIsLessThan(x, y Value) bool {
-	switch x.iface.(type) {
-	case int64:
-		switch y.iface.(type) {
-		case int64:
+	switch x.tag() {
+	case tagInt:
+		switch y.tag() {
+		case tagInt:
 			return x.AsInt() < y.AsInt()
-		case float64:
+		case tagFloat:
 			return ltIntAndFloat(x.AsInt(), y.AsFloat())
 		}
-	case float64:
-		switch y.iface.(type) {
-		case int64:
+	case tagFloat:
+		switch y.tag() {
+		case tagInt:
 			return ltFloatAndInt(x.AsFloat(), y.AsInt())
-		case float64:
+		case tagFloat:
 			return x.AsFloat() < y.AsFloat()
 		}
 	}
@@ -67,19 +67,19 @@ func numIsLessThan(x, y Value) bool {
 }
 
 func isLessThan(x, y Value) (bool, bool) {
-	switch x.iface.(type) {
-	case int64:
-		switch y.iface.(type) {
-		case int64:
+	switch x.tag() {
+	case tagInt:
+		switch y.tag() {
+		case tagInt:
 			return x.AsInt() < y.AsInt(), true
-		case float64:
+		case tagFloat:
 			return ltIntAndFloat(x.AsInt(), y.AsFloat()), true
 		}
-	case float64:
-		switch y.iface.(type) {
-		case int64:
+	case tagFloat:
+		switch y.tag() {
+		case tagInt:
 			return ltFloatAndInt(x.AsFloat(), y.AsInt()), true
-		case float64:
+		case tagFloat:
 			return x.AsFloat() < y.AsFloat(), true
 		}
 	}

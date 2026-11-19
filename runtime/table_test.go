@@ -22,7 +22,7 @@ func TestTable_FloatKey(t *testing.T) {
 	}
 	tbl.Set(v(float64(500)), v("hi"))
 	val := tbl.Get(v(500))
-	if val != v("hi") {
+	if !val.Equals(v("hi")) {
 		t.Errorf(`Expected "hi", got %v`, val)
 	}
 }
@@ -43,13 +43,13 @@ func TestTable_Next(t *testing.T) {
 	if !ok3 {
 		t.Error("Expected ok3 to be true")
 	}
-	if k3 != NilValue {
+	if !k3.Equals(NilValue) {
 		t.Errorf("Expected k3 to be nil, got %v", k3)
 	}
-	if k1 != v(1) {
+	if !k1.Equals(v(1)) {
 		k1, v1, k2, v2 = k2, v2, k1, v1
 	}
-	if !(k1 == v(1) && v1 == v("x") && k2 == v(2) && v2 == v("y")) {
+	if !(k1.Equals(v(1)) && v1.Equals(v("x")) && k2.Equals(v(2)) && v2.Equals(v("y"))) {
 		t.Errorf("Expected (1, x) and (2, y) to be the items, got (%v, %v) and (%v, %v)", k1, v1, k2, v2)
 	}
 }

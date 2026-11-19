@@ -78,7 +78,7 @@ func TestGoContEtcPooled(t *testing.T) {
 		}
 	}
 	for i, etc := range seen {
-		if len(etc) != 2 || etc[0] != IntValue(int64(i)) || etc[1] != StringValue("x") {
+		if len(etc) != 2 || !etc[0].Equals(IntValue(int64(i))) || !etc[1].Equals(StringValue("x")) {
 			t.Errorf("call %d saw etc %v", i, etc)
 		}
 	}

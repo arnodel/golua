@@ -230,7 +230,7 @@ func timef(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		if fieldErr != nil {
 			return false
 		}
-		if val == rt.NilValue {
+		if val.IsNil() {
 			if required {
 				fieldErr = fmt.Errorf("required field '%s' missing", name)
 				return false

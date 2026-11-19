@@ -32,7 +32,7 @@ func TestCallArgs(t *testing.T) {
 	// 4) truncates two() to one value and is last, so it yields both.
 	want := []Value{IntValue(9), IntValue(28), BoolValue(true), IntValue(5), NilValue, IntValue(1), IntValue(2), IntValue(4), NilValue, NilValue}
 	for i, w := range want {
-		if got := term.Get(i); got != w {
+		if got := term.Get(i); !got.Equals(w) {
 			t.Errorf("result %d: got %v, want %v", i, got, w)
 		}
 	}
@@ -96,7 +96,7 @@ func TestCallArgsDump(t *testing.T) {
 	if err := Call(r.MainThread(), FunctionValue(g), []Value{IntValue(6), IntValue(7)}, term); err != nil {
 		t.Fatal(err)
 	}
-	if got := term.Get(0); got != IntValue(42) {
+	if got := term.Get(0); !got.Equals(IntValue(42)) {
 		t.Errorf("got %v, want 42", got)
 	}
 }

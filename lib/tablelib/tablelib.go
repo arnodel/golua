@@ -205,7 +205,7 @@ func move(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		}
 		dstVal = c.Arg(4)
 	}
-	if srcStart > srcEnd || srcStart == dstStart && dstVal == srcVal {
+	if srcStart > srcEnd || srcStart == dstStart && dstVal.Equals(srcVal) {
 		// Nothing to do apparently!
 	} else if srcStart <= 0 && srcStart+math.MaxInt64 <= srcEnd {
 		return nil, errors.New("interval too large")

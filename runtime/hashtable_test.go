@@ -18,7 +18,7 @@ func TestHashTable(t *testing.T) {
 		t.Error("Expected growed hashTable not to be full")
 	}
 	ht.set(v("hello"), v(123))
-	if ht.find(v("hello")) != v(123) {
+	if !ht.find(v("hello")).Equals(v(123)) {
 		t.Error("expected hello => 123")
 	}
 	if !ht.full() {
@@ -41,7 +41,7 @@ func TestMixedTableWithNonPowerOf2Capacity(t *testing.T) {
 
 	// Verify values
 	for i := 1; i <= 5; i++ {
-		if mt.get(v(i)) != v(i*10) {
+		if !mt.get(v(i)).Equals(v(i*10)) {
 			t.Errorf("Expected mt[%d] = %d, got %v", i, i*10, mt.get(v(i)))
 		}
 	}
@@ -98,7 +98,7 @@ func TestMixedTableGrowWithCapacityHint(t *testing.T) {
 	// Verify all values are correct
 	for i := 1; i <= 10; i++ {
 		got := mt.get(v(i))
-		if got != v(i*10) {
+		if !got.Equals(v(i*10)) {
 			t.Errorf("After grow: mt[%d] = %v, want %d", i, got, i*10)
 		}
 	}
@@ -143,7 +143,7 @@ func TestMixedTableSize15WithLargeKeys(t *testing.T) {
 	// Verify all values are present
 	for i := 50; i <= 100; i++ {
 		got := mt.get(v(i))
-		if got != v(i*10) {
+		if !got.Equals(v(i*10)) {
 			t.Errorf("mt[%d] = %v, want %d", i, got, i*10)
 		}
 	}
@@ -190,7 +190,7 @@ func TestMixedTable1To20(t *testing.T) {
 	}
 	for i := 1; i <= n; i++ {
 		mti := mt.get(v(i))
-		if mti != v(i+2) {
+		if !mti.Equals(v(i+2)) {
 			t.Errorf("Expected mt[%d] to be %d, got %v", i, i+2, mti)
 		}
 	}
@@ -253,14 +253,14 @@ func TestNonPowerOf2ArrayGrowth(t *testing.T) {
 
 	// All values should be retrievable
 	for i := 1; i <= 15; i++ {
-		if mt.get(v(i)) != v(i) {
+		if !mt.get(v(i)).Equals(v(i)) {
 			t.Errorf("Lost value at index %d", i)
 		}
 	}
-	if mt.get(v(100)) != v(100) {
+	if !mt.get(v(100)).Equals(v(100)) {
 		t.Error("Lost value at index 100")
 	}
-	if mt.get(v(200)) != v(200) {
+	if !mt.get(v(200)).Equals(v(200)) {
 		t.Error("Lost value at index 200")
 	}
 }
@@ -290,7 +290,7 @@ func TestNonPowerOf2ArrayDenseGrowth(t *testing.T) {
 
 	// All values should be retrievable
 	for i := 1; i <= 30; i++ {
-		if mt.get(v(i)) != v(i) {
+		if !mt.get(v(i)).Equals(v(i)) {
 			t.Errorf("Lost value at index %d", i)
 		}
 	}
@@ -307,7 +307,7 @@ func TestMixedTablePowerOfTwoKeys(t *testing.T) {
 		mt.insert(IntValue(1<<i), BoolValue(true))
 	}
 	for i := 0; i <= 61; i++ {
-		if got := mt.get(IntValue(1 << i)); got != BoolValue(true) {
+		if got := mt.get(IntValue(1 << i)); !got.Equals(BoolValue(true)) {
 			t.Errorf("mt[2^%d] = %v, want true", i, got)
 		}
 	}
