@@ -187,7 +187,9 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 		t.currentCont = c
 		next, err = c.RunInThread(t)
 		if err != nil {
-			next, err = t.contAfterError(c, err)
+			// The continuation that failed: a Lua frame hands over to
+			// the next one without coming back here.
+			next, err = t.contAfterError(t.currentCont, err)
 			if err != nil {
 				return err
 			}

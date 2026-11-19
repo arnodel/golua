@@ -552,7 +552,21 @@ RunLoop:
 					// are called because they may use c.
 					c.release(t.Runtime)
 				}
-				return next, nil
+				// POC: the frame to run next is usually a Lua function's
+				// (the callee's, or the caller's on a return).  The loop
+				// goes on in it, doing what the thread's loop does between
+				// two continuations, in place of returning it to that loop
+				// and being called again for it.
+				lnext, isLua := next.(*LuaCont)
+				if !isLua || t.weakRefPool.HasPending() {
+					return next, nil
+				}
+				c = lnext
+				t.currentCont = lnext
+				pc, consts, lines, lastLine = c.pc, c.consts, c.lines, 0
+				c.running = true
+				opcodes, regs = c.code, c.registers
+				continue RunLoop
 			case code.OpClStack:
 				if opcode.GetF() {
 					// Push to close stack, if the value can be closed and
