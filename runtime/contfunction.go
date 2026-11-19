@@ -132,6 +132,10 @@ func (k *ContFunction) reinstate(t *Thread) (Cont, error) {
 // computed after this, by the computation that k is to replace.  And the
 // loop that is running now need not be the one that runs what this returns:
 // Go code may well run it in a loop of its own.
+//
+// The Go function makes no use of next, as a call of k does not return, and
+// says so (ignoresNext): in "return k(x)" next is the frozen frame that k
+// holds, and k.call makes the copy of it that runs.
 func (k *ContFunction) Continuation(t *Thread, next Cont) Cont {
 	if k.goFunction == nil {
 		t.RequireSize(unsafe.Sizeof(GoFunction{}))
@@ -142,6 +146,7 @@ func (k *ContFunction) Continuation(t *Thread, next Cont) Cont {
 			safetyFlags: ComplyCpuSafe | ComplyMemSafe | ComplyTimeSafe | ComplyIoSafe,
 
 			noYieldAcross: true,
+			ignoresNext:   true,
 		}
 	}
 	return NewGoCont(t, k.goFunction, next)
