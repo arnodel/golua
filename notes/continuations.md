@@ -162,6 +162,17 @@ ways, because the callee's continuation is made before the call happens.
 after the thread had gone back to the depth of the capture of `k`, and a
 thousand of those were a "stack overflow".
 
+One thing sets this Go function apart: it makes no use of the continuation
+its call is to return to, since a call of `k` does not return.  A Go
+function gets a copy of a frozen frame to return into when it is entered
+(`GoCont.thawNext`), and in `return k(x)` at the end of a function that
+`callcc` called, the frame to return to is the frozen one that `k` holds.
+That copy would be made and thrown away, next to the one that `k` makes and
+runs: 330 ns for a capture and such a call in place of 235.  So the function
+is marked (`GoFunction.ignoresNext`) and its next continuation is left as
+it is.  The mark is looked at when the next continuation is frozen and not
+otherwise, so a call of another Go function pays nothing for it.
+
 ## The first version, and what this one costs
 
 The first version copied every frame down to the bottom at the capture and

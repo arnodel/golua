@@ -261,6 +261,32 @@ do
     --> =3	callcc
 end
 
+-- A call of a continuation that is the last thing a function does
+-- ("return k(...)") is to return to what the function returns to, which is
+-- a frozen frame when callcc called the function.  The call makes no use of
+-- that frame and gets no copy of it: the copy that runs is the one k makes.
+do
+    local k
+    local calls = {n = 0}
+    print(callcc(function(c) k = c; return c("called last") end))
+    --> =called last
+    --> =called last again
+    calls.n = calls.n + 1
+    if calls.n < 2 then
+        (function() return k("called last again") end)()
+    end
+
+    -- When such a call fails, the error is the function's as any other is:
+    -- a pcall around it gets it.
+    local co = coroutine.wrap(function()
+        return pcall(function()
+            return (callcc(function() return k() end))
+        end)
+    end)
+    print(co())
+    --> ~false\t.*attempt to call a continuation from another thread
+end
+
 -- A generator: each call of the function it returns runs walk up to its
 -- next call of yield.  Two continuations take turns, the consumer's and the
 -- walk's, and each is called once.
