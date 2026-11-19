@@ -198,7 +198,7 @@ func (t *Thread) runLightLoop(c Cont, isCall bool) (lightStop, error) {
 			// From an opcode, which is the one c runs next.
 			return lightNeedsGoroutine, nil
 		default:
-			next, err = t.contAfterError(c, err)
+			next, err = t.contAfterError(t.currentCont, err)
 			if err != nil {
 				return lightEnded, err
 			}

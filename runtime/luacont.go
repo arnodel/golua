@@ -18,6 +18,7 @@ type LuaCont struct {
 	acc            []Value
 	running        bool
 	closeStackBase int
+	free           *LuaCont // The next one in the pool, while this one is there
 }
 
 var _ Cont = (*LuaCont)(nil)
@@ -29,7 +30,8 @@ func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 		panic("Closure not ready")
 	}
 	t.RequireArrSize(unsafe.Sizeof(Value{}), int(clos.RegCount))
-	registers := t.regPool.getIn(clos.regClass, clos.regSize, int(clos.RegCount))
+	cont := t.luaContPool.get(clos.regClass, clos.regSize, int(clos.RegCount))
+	registers := cont.registers
 	registers[0] = ContValue(next)
 	// The upvalues the function uses: the box of one it may write or
 	// capture again, the contents of a fixed one, which cannot change while
@@ -41,21 +43,18 @@ func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 			registers[l.Reg] = *clos.Upvalues[l.Up].ref
 		}
 	}
-	cont := t.luaContPool.get()
 	t.RequireSize(unsafe.Sizeof(LuaCont{}))
 	// A continuation from the pool is all zeros, as release left it, and so
 	// is a new one: only the fields that aren't need setting.  Assigning a
 	// whole LuaCont would write every field again.
 	cont.Closure = clos
-	cont.registers = registers
 	cont.closeStackBase = t.closeStack.size()
 	return cont
 }
 
 func (c *LuaCont) release(r *Runtime) {
-	r.regPool.releaseIn(c.regClass, c.regSize, c.registers)
 	r.ReleaseArrSize(unsafe.Sizeof(Value{}), int(c.RegCount))
-	r.luaContPool.release(c)
+	r.luaContPool.release(c.regClass, c.regSize, c)
 	r.ReleaseSize(unsafe.Sizeof(LuaCont{}))
 }
 
@@ -98,6 +97,13 @@ func (c *LuaCont) Parent() Cont {
 
 // RunInThread implements Cont.RunInThread.
 func (c *LuaCont) RunInThread(t *Thread) (Cont, error) {
+	// POC: the loop below runs one frame.  When the frame hands over to
+	// another Lua frame, c becomes that frame and execution comes back
+	// here.  The loop's variables are set once per frame, so that inside
+	// the loop only pc changes: the compiler keeps the rest where they are.
+	// (Changing them inside the loop costs every opcode a reload of all of
+	// them.)
+Enter:
 	pc := c.pc
 	consts := c.consts
 	lines := c.lines
@@ -489,28 +495,44 @@ RunLoop:
 				// stored there directly, which is Push inlined by hand (the
 				// compiler can't, as Push has to call out for varargs).
 				if n := opcode.GetArgCount(); n > 0 {
-					lnext, isLua := next.(*LuaCont)
-					for ; n > 0; pc++ {
-						w := opcodeAt(opcodes, pc)
-						clear := w.ArgClears()
-						for k, reg := range [3]code.Reg{w.GetA(), w.GetB(), w.GetC()} {
-							if n == 0 {
-								break
+					if lnext, isLua := next.(*LuaCont); isLua {
+						// POC C: the receiving frame's code, registers and
+						// pc are read once for the call, not once per value.
+						ncode, nregs, npc := lnext.code, lnext.registers, lnext.pc
+						for ; n > 0; pc++ {
+							w := opcodeAt(opcodes, pc)
+							for shift := 16; shift >= 0 && n > 0; shift, n = shift-8, n-1 {
+								reg := code.Reg(w >> shift)
+								arg := getReg(regs, reg)
+								if r := opcodeAt(ncode, npc); r.HasType0() && !r.GetF() {
+									t.RequireCPU(1)
+									npc++
+									setReg(nregs, r.GetA(), arg)
+								} else {
+									lnext.pc = npc
+									lnext.Push(t.Runtime, arg)
+									npc = lnext.pc
+								}
+								if w&(1<<(27+shift>>3)) != 0 {
+									setReg(regs, reg, NilValue)
+								}
 							}
-							arg := getReg(regs, reg)
-							if !isLua {
-								next.Push(t.Runtime, arg)
-							} else if r := lnext.code[lnext.pc]; r.HasType0() && !r.GetF() {
-								t.RequireCPU(1)
-								lnext.pc++
-								setReg(lnext.registers, r.GetA(), arg)
-							} else {
-								lnext.Push(t.Runtime, arg)
+						}
+						lnext.pc = npc
+					} else {
+						for ; n > 0; pc++ {
+							w := opcodeAt(opcodes, pc)
+							clear := w.ArgClears()
+							for k, reg := range [3]code.Reg{w.GetA(), w.GetB(), w.GetC()} {
+								if n == 0 {
+									break
+								}
+								next.Push(t.Runtime, getReg(regs, reg))
+								if clear[k] {
+									setReg(regs, reg, NilValue)
+								}
+								n--
 							}
-							if clear[k] {
-								setReg(regs, reg, NilValue)
-							}
-							n--
 						}
 					}
 				}
@@ -552,7 +574,37 @@ RunLoop:
 					// are called because they may use c.
 					c.release(t.Runtime)
 				}
-				return next, nil
+				// POC: the frame to run next is usually a Lua function's
+				// (the callee's, or the caller's on a return).  The loop
+				// goes on in it, doing what the thread's loop does between
+				// two continuations, in place of returning it to that loop
+				// and being called again for it.
+				if t.weakRefPool.HasPending() {
+					return next, nil
+				}
+				lnext, isLua := next.(*LuaCont)
+				if !isLua {
+					// POC D: a Go function is run from here, as the
+					// thread's loop would run it, and the loop goes on in
+					// the Lua frame it returns to, if it is one.  A light
+					// thread leaves to its own loop the functions it cannot
+					// run.
+					gnext, isGo := next.(*GoCont)
+					if !isGo || (t.light && !gnext.noYieldAcross) {
+						return next, nil
+					}
+					t.currentCont = gnext
+					after, err := gnext.RunInThread(t)
+					if err != nil {
+						return nil, err
+					}
+					if lnext, isLua = after.(*LuaCont); !isLua || t.weakRefPool.HasPending() {
+						return after, nil
+					}
+				}
+				c = lnext
+				t.currentCont = lnext
+				goto Enter
 			case code.OpClStack:
 				if opcode.GetF() {
 					// Push to close stack, if the value can be closed and

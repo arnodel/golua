@@ -100,6 +100,7 @@ func New(stdout io.Writer, opts ...RuntimeOption) *Runtime {
 		warner:         NewLogWarner(os.Stderr, "Lua warning: "),
 		reservedGlobal: rtOpts.reservedGlobal,
 		regPool:        mkValuePool(rtOpts.regPoolSize),
+		luaContPool:    luaContPool{max: int(rtOpts.regPoolSize)},
 		argsPool:       mkValuePool(rtOpts.regPoolSize),
 	}
 
