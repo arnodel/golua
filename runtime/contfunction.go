@@ -127,9 +127,11 @@ func (k *ContFunction) reinstate(t *Thread) (Cont, error) {
 }
 
 // Continuation implements Callable.Continuation.  The call is that of a Go
-// function, k.call, which decides what to do when it runs: Go code may well
-// run what it gets here in a loop of its own.  Lua code calling k in the
-// loop k was captured in does not come this way, see continueCall.
+// function, k.call, and what the call does is decided when that runs and
+// not here, where nothing of k is touched.  The arguments of the call are
+// computed after this, by the computation that k is to replace.  And the
+// loop that is running now need not be the one that runs what this returns:
+// Go code may well run it in a loop of its own.
 func (k *ContFunction) Continuation(t *Thread, next Cont) Cont {
 	if k.goFunction == nil {
 		t.RequireSize(unsafe.Sizeof(GoFunction{}))

@@ -39,6 +39,18 @@ do
 end
 --> =close a	nil
 
+-- The blocks are left when the continuation is called, which is after the
+-- arguments of the call are computed: these are computed in the block.
+do
+    print(callcc(function(k)
+        local a <close> = closing("a")
+        k((function() print("computing in a"); return "left" end)())
+    end))
+    --> =computing in a
+    --> =close a	nil
+    --> =left
+end
+
 -- The same from functions called in the block, however deep.
 do
     local function deep(n, k)

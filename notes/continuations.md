@@ -134,6 +134,33 @@ stack.  So the thread keeps its `runLoop` through all of this.
 `NoYieldAcross`: they hand over to a continuation and wait for nothing.
 Without the declaration a coroutine would be given a goroutine to call them.
 
+## A call of a continuation is decided when it runs
+
+To Lua a `ContFunction` is a function, and it is called as one: the call is
+that of a Go function (`ContFunction.call`) which finds out when it runs
+whether the thread is in the loop of the continuation, and if so returns a
+copy of the captured frame with the arguments pushed into it as the
+continuation to run next.
+
+An earlier version did this sooner for a call made in the continuation's own
+loop: the code that makes the callee's continuation for a call (`Continue`)
+returned the copy of the captured frame directly, and the arguments were
+pushed into that.  It saved the Go call, 15 ns of about 140 on the call of a
+continuation, and more when the call is a tail call.  It was wrong in two
+ways, because the callee's continuation is made before the call happens.
+
+- The arguments are computed after it, in the computation that is about to
+  be left: in `k(f(x))` the frame of `f` runs between the two.  Anything
+  the continuation changes in the thread when it is reinstated was changed
+  for `f` too.
+- Go code can ask for the continuation of a call in one loop and run it in
+  a loop of its own.  The frames of the outer loop then ran in the inner
+  one, and again when it had returned.
+
+`pcall(k)` showed the first: the protected call was counted as under way
+after the thread had gone back to the depth of the capture of `k`, and a
+thousand of those were a "stack overflow".
+
 ## Calling a continuation from another loop
 
 Loops are nested, so when a continuation is called in a loop that is not its
@@ -187,11 +214,11 @@ The first version copied every frame down to the bottom at the capture and
 again at each call.  That was about 180 ns per frame per copy, nearly all of
 it allocation: 17.5 µs to capture under 105 frames.
 
-With frozen frames a capture is a pointer conversion and an allocation, and a
-capture followed by a call is about 190 ns at any depth (M1 Max, without
-quotas).  A generator made of two continuations gives a value in about
-850 ns, where a coroutine takes about 97 ns since it needs no goroutine (it
-took about 600 ns before).
+With frozen frames a capture is a pointer conversion and an allocation,
+about 180 ns at any depth, and a capture followed by a call is about 300 ns
+(M1 Max, without quotas).  A generator made of two continuations gives a
+value in about 940 ns, where a coroutine takes about 100 ns since it needs
+no goroutine (it took about 600 ns before).
 
 Programs that do not capture continuations run the code they ran before,
 with one test more in two places: where the run loop reads a continuation to
@@ -206,15 +233,14 @@ design did.  Both were measured against `lua5.5` at dee2d0d.
 
 - **The profile counts lines.**  The profile the build is optimised with
   (`default.pgo`, see `benchmarks/README.md`) finds a call by its line in
-  its function.  Lines added before the hot calls of `GoCont.RunInThread`,
-  of the loop function `runContinuation` and of `Thread.ProtectedCall` made
-  a coroutine switch 5 ns slower with the profile, and no slower without
-  it.  So what is added there is on lines that were there: a call on an
-  empty line (`thawNext`), two helpers in the place of the lines that
-  counted the loops (`enterLoop`, `leaveLoop`), an `if` with an init
-  statement.  Keeping the loop's record in `RunContinuation`, around the
-  loop function, was tried too: it costs a call and a defer, 10 ns on each
-  metamethod call.
+  its function.  Lines added before the hot calls of `GoCont.RunInThread`
+  and of the loop function `runContinuation` made a coroutine switch 5 ns
+  slower with the profile, and no slower without it.  So what is added
+  there is on lines that were there: a call on an empty line (`thawNext`),
+  and two helpers in the place of the lines that counted the loops
+  (`enterLoop`, `leaveLoop`).  Keeping the loop's record in
+  `RunContinuation`, around the loop function, was tried too: it costs a
+  call and a defer, 10 ns on each metamethod call.
 - **The run loop is compiled as a whole.**  `contToPush` first read the
   register and thawed, as one call from the run loop, where the loop used
   to have the read inlined.  Programs that never push into a continuation
