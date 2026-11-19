@@ -22,13 +22,17 @@
 // calls (pcall, xpcall) they are in: it is a way out of a pcall, and a way
 // back into one that has returned.  It does not hold the Go functions that
 // are waiting for Lua code they have called, such as a metamethod call or
-// table.sort calling its comparison function: it cannot be called once the
-// one it was captured under has returned, nor from under another one.  Nor
-// can it be called from another coroutine.  Each is an error.
+// table.sort calling its comparison function.  Calling a continuation from
+// under one of these leaves it: the Go function returns to no one, and the
+// to-be-closed variables of the Lua functions it had called are closed.  It
+// is not a way back in: it is an error to call a continuation once the Go
+// function it was captured under has returned, and to call it from another
+// coroutine.  Nor is it a way out of a context (runtime.callcontext), which
+// ends with an error instead.
 //
-// To-be-closed variables and continuations do not work together yet:
-// calling a continuation does not close the variables of the blocks it
-// leaves at that point.
+// Apart from that, to-be-closed variables and continuations do not work
+// together yet: calling a continuation does not close the variables of the
+// blocks it leaves when no Go function is left with them.
 package contlib
 
 import (

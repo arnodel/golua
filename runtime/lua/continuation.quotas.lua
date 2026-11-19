@@ -1,26 +1,46 @@
 local callcc = require("cont").callcc
 
--- A context is run by Go code, so a continuation captured outside it cannot
--- be called inside it: it is not a way out of the context's limits.
+-- A context is not left by calling a continuation, as other Go code that
+-- waits for Lua code is: the code that starts a context gets it back,
+-- whatever runs in it.  Calling a continuation captured outside the context
+-- ends it with an error.
 do
     local k
     local done = {}
-    callcc(function(c) k = c end)
+    print(callcc(function(c) k = c; return "first" end))
     if not done.out then
         done.out = true
-        print(runtime.callcontext({kill={cpu=10000}}, function() k() end))
-        --> ~^error\t.*attempt to call a continuation across a Go call boundary
+        print(runtime.callcontext({kill={cpu=10000}}, function()
+            k("not reached")
+        end))
+        -- A pcall in the context does not stop the call, and the context
+        -- does.
+        print(runtime.callcontext({kill={cpu=10000}}, function()
+            pcall(k, "not reached")
+            return "nor this"
+        end))
+        print("the contexts are over")
     end
+    --> =first
+    --> ~^error\t.*attempt to leave a context by calling a continuation
+    --> ~^error\t.*attempt to leave a context by calling a continuation
+    --> =the contexts are over
 end
 
--- Nor is one captured inside it a way back in.
+-- Inside a context continuations are what they are outside one.
+print(runtime.callcontext({kill={cpu=10000}}, function()
+    return callcc(function(k) pcall(k, "out of a pcall, in the context") end)
+end))
+--> =done	out of a pcall, in the context
+
+-- A continuation captured inside a context is not a way back into it.
 do
     local k
     runtime.callcontext({kill={cpu=10000}}, function()
         callcc(function(c) k = c end)
     end)
     print(pcall(k))
-    --> ~^false\t.*attempt to call a continuation across a Go call boundary
+    --> ~^false\t.*attempt to call a continuation captured in a Go call that has returned
 end
 
 -- Calling a continuation uses CPU: a loop made of one ends like any loop.

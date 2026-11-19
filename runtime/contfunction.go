@@ -55,6 +55,7 @@ var _ Callable = (*ContFunction)(nil)
 // of a loop when a continuation is first captured in it (see Thread.loop).
 type runLoop struct {
 	thread *Thread
+	done   bool // The loop has ended
 }
 
 // CaptureCont returns a function k that stands for next, and the
@@ -138,9 +139,13 @@ func (k *ContFunction) Continuation(t *Thread, next Cont) Cont {
 //
 //   - In that loop, the frame k holds runs next.
 //   - In another thread it is not this thread's to run, which is an error.
-//   - Anywhere else in its thread, the Go code that waits for the frames of
-//     k to return has returned itself, or other Go code has called back into
-//     Lua since and is waiting in its turn.  Both are errors.
+//   - Once that loop has ended, the Go code that waited for the frames of k
+//     to return has returned itself, which is an error too.
+//   - Otherwise the thread is under Go code which that loop is waiting for
+//     (a metamethod call, table.sort calling its comparison function), and
+//     that Go code has to return first.  The call returns as an error does,
+//     a contFunctionCall, which Go code passes on as it does errors and the
+//     loop takes up (see Thread.contAfterError).
 func (k *ContFunction) call(t *Thread, c *GoCont) (Cont, error) {
 	switch {
 	case t.loop == k.loop:
@@ -149,6 +154,34 @@ func (k *ContFunction) call(t *Thread, c *GoCont) (Cont, error) {
 		return cont, nil
 	case t != k.loop.thread:
 		return nil, errors.New("attempt to call a continuation from another thread")
+	case k.loop.done:
+		return nil, errors.New("attempt to call a continuation captured in a Go call that has returned")
 	}
-	return nil, errors.New("attempt to call a continuation across a Go call boundary")
+	// The call keeps a copy of the arguments, which are c's.
+	t.RequireArrSize(unsafe.Sizeof(Value{}), len(c.Etc()))
+	return nil, &contFunctionCall{k: k, args: append([]Value(nil), c.Etc()...)}
+}
+
+// A contFunctionCall is the call of a ContFunction on its way to the loop
+// that can run it, through the Go code that loop is waiting for.  It is an
+// error value so that this Go code returns as it does for an error, but
+// nothing has failed.
+type contFunctionCall struct {
+	k    *ContFunction
+	args []Value
+}
+
+// Error implements error.  This is what a Go function gets if it makes a
+// message of the errors of the Lua code it calls, instead of returning them.
+func (*contFunctionCall) Error() string {
+	return "attempt to call a continuation across a Go function that does not let it through"
+}
+
+// IsContFunctionCall reports whether err is the call of a ContFunction on
+// its way through Go code (see Thread.contAfterError).  A Go function that
+// turns the errors of the Lua code it calls into values, as load does for
+// its reader function, must return this one as it is.
+func IsContFunctionCall(err error) bool {
+	_, ok := err.(*contFunctionCall)
+	return ok
 }

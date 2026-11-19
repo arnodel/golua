@@ -371,12 +371,159 @@ do
     --> =true
 end
 
--- What is not copied is the Go code that waits for frames to finish: a
--- metamethod call, a library function that calls a function it is given.
--- So a continuation can only be called while the Go code it was captured
--- under is still waiting, and not from under more Go code.  For now this
--- includes leaving such Go code by calling a continuation captured outside
--- it.
+-- A continuation holds the Lua functions that are running and not the Go
+-- code that waits for them to finish: a metamethod call, a function of the
+-- library that was given a Lua function.  Calling a continuation from under
+-- such Go code makes that code return first, to no one.
+do
+    -- Indexing this table with a function calls the function, from Go.
+    local called = setmetatable({}, {__index = function(_, f) return f() end})
+
+    -- Out of a metamethod.
+    print(callcc(function(k)
+        local t = setmetatable({}, {
+            __index = function(_, key) k("out of __index", key) end,
+        })
+        return t.x
+    end))
+    --> =out of __index	x
+
+    -- Out of functions of the library, which is an early exit they do not
+    -- have.
+    print(callcc(function(k)
+        table.sort({3, 1, 2}, function(a, b) k("out of table.sort") end)
+    end))
+    --> =out of table.sort
+
+    print(callcc(function(k)
+        return (("a b c"):gsub("%a", function(c)
+            if c == "b" then
+                k("out of gsub", c)
+            end
+        end))
+    end))
+    --> =out of gsub	b
+
+    print(callcc(function(k)
+        return load(function() k("out of load") end)
+    end))
+    --> =out of load
+
+    -- Out of several, through protected calls on the way.  Nothing has gone
+    -- wrong: they catch nothing, and the handler of xpcall is not called.
+    print(callcc(function(k)
+        table.sort({3, 1, 2}, function()
+            xpcall(function()
+                pcall(function()
+                    local _ = called[function() k("out of two") end]
+                end)
+            end, print)
+        end)
+        return "not reached"
+    end))
+    --> =out of two
+
+    -- A Go function that calls a function last, without waiting for it, is
+    -- not left: there is nothing of it to leave.
+    print(callcc(function(k)
+        return testtailcall(k, "called by Go in the same loop")
+    end))
+    --> =called by Go in the same loop
+
+    -- A Go function that makes the continuation of the call in this loop
+    -- and runs it in a loop of its own is left like any other that waits:
+    -- what a call of k does is decided when the call runs.
+    print(callcc(function(k)
+        testrun(k, "out of Go code that ran the call it made")
+        print("not reached")
+    end))
+    --> =out of Go code that ran the call it made
+
+    -- A call that leaves Go code can be the last thing a function does,
+    -- with a frozen frame to return to: that frame is left behind as it is.
+    print(callcc(function(k)
+        table.sort({2, 1}, function()
+            return (callcc(function() return k("left by a call made last") end))
+        end)
+        print("not reached")
+    end))
+    --> =left by a call made last
+
+    -- A Go function that keeps every error of what it calls to itself does
+    -- not let the call of a continuation through, which it should (see
+    -- IsContFunctionCall): it gets a message.
+    print(callcc(function(k)
+        return testcatch(k, "not reached")
+    end))
+    --> =attempt to call a continuation across a Go function that does not let it through
+
+    -- The variables to be closed of what is left behind are closed, as they
+    -- are when a block ends without an error.
+    print(callcc(function(k)
+        table.sort({2, 1}, function()
+            local x <close> = setmetatable({}, {
+                __close = function(_, err) print("closed", err) end,
+            })
+            k("after closing")
+        end)
+    end))
+    --> =closed	nil
+    --> =after closing
+
+    -- If closing fails, that is an error where the continuation was called:
+    -- a pcall there stops it, and what is outside the pcall is not left.
+    print(callcc(function(k)
+        local _ = called[function()
+            local outside <close> = setmetatable({}, {
+                __close = function() print("closed outside") end,
+            })
+            print(pcall(function()
+                local v <close> = setmetatable({}, {
+                    __close = function() error("cannot close", 0) end,
+                })
+                k("not reached")
+            end))
+            print("still under Go code")
+        end]
+        return "returned"
+    end))
+    --> =false	cannot close
+    --> =still under Go code
+    --> =closed outside
+    --> =returned
+
+    -- A coroutine does the same within itself, whether it has a goroutine
+    -- or not (a metamethod call gives it one).
+    print(coroutine.resume(coroutine.create(function()
+        return callcc(function(k)
+            table.sort({2, 1}, function() k("out of table.sort in a coroutine") end)
+        end)
+    end)))
+    --> =true	out of table.sort in a coroutine
+
+    print(coroutine.resume(coroutine.create(function()
+        return callcc(function(k)
+            local _ = called[function() k("out of __index in a coroutine") end]
+        end)
+    end)))
+    --> =true	out of __index in a coroutine
+
+    -- The continuation is as it was, and can be called again.
+    local k
+    local calls = {n = 0}
+    print(callcc(function(c) k = c; return "first" end))
+    --> =first
+    --> =again 1
+    --> =again 2
+    calls.n = calls.n + 1
+    if calls.n < 3 then
+        local _ = called[function() k("again " .. calls.n) end]
+    end
+end
+
+-- What a continuation cannot do is carry on in Go code that has returned: it
+-- cannot be called once the metamethod call or the library function it was
+-- captured under is over.  Nor can it be called from another coroutine.
 do
     local k
     local done = {}
@@ -386,24 +533,21 @@ do
 
     local _ = called[function() callcc(function(c) k = c end) end]
     print(pcall(k))
-    --> ~false\t.*attempt to call a continuation across a Go call boundary
+    --> ~false\t.*attempt to call a continuation captured in a Go call that has returned
+
+    -- So what has left Go code cannot go back into it.
+    local back
+    print(callcc(function(out)
+        local _ = called[function()
+            callcc(function(c) back = c; out("left") end)
+            print("not reached")
+        end]
+    end))
+    --> =left
+    print(pcall(back))
+    --> ~false\t.*attempt to call a continuation captured in a Go call that has returned
 
     callcc(function(c) k = c end)
-    if not done.meta then
-        done.meta = true
-        print(pcall(function() return called[k] end))
-        --> ~false\t.*attempt to call a continuation across a Go call boundary
-    end
-
-    -- Nor from Go code that makes the continuation of the call in this loop
-    -- and then runs it in a loop of its own: what a call of k does is
-    -- decided when the call runs.
-    if not done.run then
-        done.run = true
-        print(pcall(testrun, k))
-        --> ~false\t.*attempt to call a continuation across a Go call boundary
-    end
-
     if not done.thread then
         done.thread = true
         print(coroutine.resume(coroutine.create(k)))
@@ -483,6 +627,28 @@ do
     --> =false	handled: failed again
     --> =false	handled: failed again
     again("again")
+
+    -- A return into a pcall that does not get to its end leaves nothing in
+    -- it.  Here closing a variable fails after the function has returned
+    -- "first", and the message handler, which the __close handler's Go code
+    -- waits for, calls the continuation: pcall gives what was returned then.
+    do
+        local fails = 1
+        local closer = setmetatable({}, {__close = function()
+            if fails > 0 then
+                fails = fails - 1
+                error("close failed", 0)
+            end
+        end})
+        print(xpcall(function()
+            local v = callcc(function(c) k = c; return "first" end)
+            local x <close> = closer
+            return v
+        end, function(e)
+            k("again after " .. e)
+        end))
+        --> =true	again after close failed
+    end
 
     -- The protected calls that count towards the limit on their depth are
     -- those the program is in.  Leaving them by a continuation takes them

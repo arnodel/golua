@@ -60,6 +60,10 @@ func load(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 			var buf bytes.Buffer
 			for {
 				bit, err := rt.Call1(t, x)
+				if rt.IsContFunctionCall(err) {
+					t.ReleaseBytes(buf.Len())
+					return nil, err
+				}
 				if err != nil {
 					t.Push1(next, rt.NilValue)
 					t.Push1(next, rt.StringValue(err.Error()))
