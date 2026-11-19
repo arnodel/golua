@@ -53,13 +53,6 @@ const maxProtectedCallDepth = 1000
 // with the error where it happens, whose result replaces the error.  The
 // name is that of the function making the call, as tracebacks will show it
 // (pcall and xpcall are written with this).
-//
-// The thread counts the call as under way before f is given its
-// continuation, not after: if f is a continuation (a ContFunction), that is
-// where the thread goes back to the depth of its capture, and the call is
-// not under way at all.  It is counted in the test of the depth, on a line
-// that was there, because the build's profile counts lines (see
-// benchmarks/README.md).
 func (t *Thread) ProtectedCall(name string, f Value, args []Value, handler Callable, next Cont) Cont {
 	t.RequireSize(unsafe.Sizeof(protectedCall{}))
 	p := &protectedCall{
@@ -69,14 +62,14 @@ func (t *Thread) ProtectedCall(name string, f Value, args []Value, handler Calla
 		closeStackHeight: t.closeStack.size(),
 		depth:            t.protectedCallDepth + 1,
 	}
-	if t.protectedCallDepth = p.depth; p.depth > maxProtectedCallDepth {
+	if p.depth > maxProtectedCallDepth {
 		return p.caught(t, errors.New("stack overflow"))
 	}
 	c, err := Continue(t, f, p)
 	if err != nil {
 		return p.caught(t, err)
 	}
-	// The call was counted above: see the comment of the function.
+	t.protectedCallDepth = p.depth
 	t.Push(c, args...)
 	_ = t.triggerCall(t, c)
 	return c

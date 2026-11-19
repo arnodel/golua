@@ -369,6 +369,15 @@ do
         --> ~false\t.*attempt to call a continuation across a Go call boundary
     end
 
+    -- Nor from Go code that makes the continuation of the call in this loop
+    -- and then runs it in a loop of its own: what a call of k does is
+    -- decided when the call runs.
+    if not done.run then
+        done.run = true
+        print(pcall(testrun, k))
+        --> ~false\t.*attempt to call a continuation across a Go call boundary
+    end
+
     if not done.thread then
         done.thread = true
         print(coroutine.resume(coroutine.create(k)))
