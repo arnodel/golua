@@ -35,10 +35,10 @@ func TestStringKeyLookup(t *testing.T) {
 		{"missing short string", StringValue("ac"), NilValue},
 		{"missing long string", StringValue("a longer string 3"), NilValue},
 	} {
-		if got := tbl.getString(c.k); got != c.want {
+		if got := tbl.getString(c.k); !got.Equals(c.want) {
 			t.Errorf("%s: getString = %v, want %v", c.name, got, c.want)
 		}
-		if got := tbl.Get(c.k); got != c.want {
+		if got := tbl.Get(c.k); !got.Equals(c.want) {
 			t.Errorf("%s: Get = %v, want %v", c.name, got, c.want)
 		}
 	}
@@ -46,17 +46,17 @@ func TestStringKeyLookup(t *testing.T) {
 	if !tbl.resetString(short, StringValue("short2")) {
 		t.Error("resetString of an existing string key returned false")
 	}
-	if got := tbl.Get(twin); got != StringValue("twin") {
+	if got := tbl.Get(twin); !got.Equals(StringValue("twin")) {
 		t.Errorf("twin after resetString = %v, want twin", got)
 	}
-	if got := tbl.Get(short); got != StringValue("short2") {
+	if got := tbl.Get(short); !got.Equals(StringValue("short2")) {
 		t.Errorf("short after resetString = %v, want short2", got)
 	}
 	if tbl.resetString(StringValue("zz"), StringValue("x")) {
 		t.Error("resetString of a missing key returned true")
 	}
 	// Resetting to nil removes the key.
-	if !tbl.resetString(long1, NilValue) || tbl.Get(long1) != NilValue {
+	if !tbl.resetString(long1, NilValue) || !tbl.Get(long1).Equals(NilValue) {
 		t.Error("resetString to nil did not remove the key")
 	}
 }
@@ -70,11 +70,11 @@ func TestStringKeyLookupLargeTable(t *testing.T) {
 		tbl.Set(keys[i], IntValue(int64(i)))
 	}
 	for i, k := range keys {
-		if got := tbl.getString(k); got != IntValue(int64(i)) {
+		if got := tbl.getString(k); !got.Equals(IntValue(int64(i))) {
 			t.Errorf("%v: getString = %v, want %d", k, got, i)
 		}
 	}
-	if got := tbl.getString(StringValue("key number zz")); got != NilValue {
+	if got := tbl.getString(StringValue("key number zz")); !got.Equals(NilValue) {
 		t.Errorf("missing key: got %v", got)
 	}
 }
@@ -107,10 +107,10 @@ func TestStringKeyIndexOpcodes(t *testing.T) {
 	if err := Call(r.MainThread(), f, []Value{TableValue(o), TableValue(proxy)}, term); err != nil {
 		t.Fatal(err)
 	}
-	if got := term.Get(0); got != IntValue(21) {
+	if got := term.Get(0); !got.Equals(IntValue(21)) {
 		t.Errorf("got %v, want 21", got)
 	}
-	if got := term.Get(1); got != StringValue("field!") {
+	if got := term.Get(1); !got.Equals(StringValue("field!")) {
 		t.Errorf("proxy.field = %v, want field!", got)
 	}
 }

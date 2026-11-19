@@ -51,7 +51,7 @@ func Index(t *Thread, coll Value, k Value) (Value, error) {
 // keyKindOf says whether k is a string, which lets a lookup compare keys
 // without a call.  The test is one compare of the type word.
 func keyKindOf(k Value) keyKind {
-	if _, ok := k.iface.(string); ok {
+	if k.isString() {
 		return stringKey
 	}
 	return anyKey
@@ -229,11 +229,11 @@ func Continue(t *Thread, f Value, next Cont) (Cont, error) {
 	// A function's continuation is made by a direct call for each kind of
 	// function, rather than through the Callable interface.  The run loop's
 	// call opcodes repeat this switch, and call continueCall for the rest.
-	switch c := f.iface.(type) {
-	case *Closure:
-		return NewLuaCont(t, c, next), nil
-	case *GoFunction:
-		return NewGoCont(t, c, next), nil
+	switch f.kind() {
+	case kindClosure:
+		return NewLuaCont(t, (*Closure)(f.ptr), next), nil
+	case kindGoFunction:
+		return NewGoCont(t, (*GoFunction)(f.ptr), next), nil
 	}
 	return continueCall(t, f, next)
 }

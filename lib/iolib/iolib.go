@@ -279,7 +279,7 @@ func iolines(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		f         *File
 		eofAction = closeAtEOF
 	)
-	if c.NArgs() == 0 || c.Arg(0) == rt.NilValue {
+	if c.NArgs() == 0 || c.Arg(0).IsNil() {
 		f = getIoData(t.Runtime).defaultInputFile()
 		eofAction = doNotCloseAtEOF
 	} else {

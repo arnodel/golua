@@ -288,7 +288,7 @@ func (r *Runtime) Metatable(v Value) Value {
 		return NilValue
 	}
 	metam := RawGet(meta, metaNames[metaMetatable])
-	if metam != NilValue {
+	if !metam.IsNil() {
 		return metam
 	}
 	return TableValue(meta)

@@ -36,7 +36,7 @@ func TestArrayFastPath(t *testing.T) {
 	}
 	want := []Value{IntValue(200), IntValue(-3), IntValue(-7), IntValue(0), IntValue(2)}
 	for i, w := range want {
-		if got := term.Get(i); got != w {
+		if got := term.Get(i); !got.Equals(w) {
 			t.Errorf("result %d: got %v, want %v", i, got, w)
 		}
 	}

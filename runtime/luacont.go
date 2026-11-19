@@ -322,11 +322,11 @@ RunLoop:
 					if opcode.GetUnOp() == code.OpTailCont {
 						next = c.Next()
 					}
-					switch f := val.iface.(type) {
-					case *Closure:
-						res = ContValue(NewLuaCont(t, f, next))
-					case *GoFunction:
-						res = ContValue(NewGoCont(t, f, next))
+					switch val.kind() {
+					case kindClosure:
+						res = luaContValue(NewLuaCont(t, (*Closure)(val.ptr), next))
+					case kindGoFunction:
+						res = goContValue(NewGoCont(t, (*GoFunction)(val.ptr), next))
 					default:
 						var cont Cont
 						cont, err = continueCall(t, val, next)
@@ -336,14 +336,14 @@ RunLoop:
 					res = val
 				case code.OpLoad:
 					// rB holds a box: its contents (ir.LowerCells).
-					if box, isBox := val.iface.(Cell); isBox {
+					if box, isBox := val.tryBox(); isBox {
 						res = *box.ref
 					} else {
 						err = errNotABox
 					}
 				case code.OpStore:
 					// rA holds a box: val goes into it.
-					if box, isBox := regs[dst].iface.(Cell); isBox {
+					if box, isBox := regs[dst].tryBox(); isBox {
 						box.set(val)
 						pc++
 						continue RunLoop
@@ -351,7 +351,7 @@ RunLoop:
 					err = errNotABox
 				case code.OpUpvalue:
 					// rB holds a box: the closure rA captures it.
-					if box, isBox := val.iface.(Cell); isBox {
+					if box, isBox := val.tryBox(); isBox {
 						regs[dst].AsClosure().AddUpvalue(box)
 						pc++
 						continue RunLoop
@@ -458,7 +458,7 @@ RunLoop:
 				isCont := true
 				if contReg == code.ValueReg(0) {
 					next = callee.AsCont()
-				} else if lc, ok := callee.iface.(*LuaCont); ok {
+				} else if lc, ok := callee.tryLuaCont(); ok {
 					next = lc
 				} else {
 					isCont = false
@@ -466,11 +466,11 @@ RunLoop:
 					if isTail {
 						cnext = c.Next()
 					}
-					switch f := callee.iface.(type) {
-					case *Closure:
-						next = NewLuaCont(t, f, cnext)
-					case *GoFunction:
-						next = NewGoCont(t, f, cnext)
+					switch callee.kind() {
+					case kindClosure:
+						next = NewLuaCont(t, (*Closure)(callee.ptr), cnext)
+					case kindGoFunction:
+						next = NewGoCont(t, (*GoFunction)(callee.ptr), cnext)
 					default:
 						if next, isCont = callee.TryCont(); !isCont {
 							var err error
@@ -615,7 +615,7 @@ RunLoop:
 					next Value
 					done bool
 				)
-				if ifaceType(start.iface) == int64IfaceType && ifaceType(step.iface) == int64IfaceType {
+				if start.isInt() && step.isInt() {
 					// An integer loop: preparation made the limit an integer
 					// too, so this is all integer arithmetic.
 					s, st, lim := start.AsInt(), step.AsInt(), stop.AsInt()

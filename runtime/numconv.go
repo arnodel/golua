@@ -21,10 +21,10 @@ const (
 )
 
 func numberType(v Value) NumberType {
-	switch v.iface.(type) {
-	case int64:
+	switch v.tag() {
+	case tagInt:
 		return IsInt
-	case float64:
+	case tagFloat:
 		return IsFloat
 	default:
 		return NaN
@@ -33,13 +33,13 @@ func numberType(v Value) NumberType {
 
 // ToNumber returns x as a Float or Int, and the type (IsFloat, IsInt or NaN).
 func ToNumber(v Value) (int64, float64, NumberType) {
-	switch v.iface.(type) {
-	case int64:
+	switch v.tag() {
+	case tagInt:
 		return v.AsInt(), 0, IsInt
-	case float64:
+	case tagFloat:
 		return 0, v.AsFloat(), IsFloat
-	case string:
-		s := v.AsString()
+	}
+	if s, ok := v.TryString(); ok {
 		return StringToNumber(strings.TrimSpace(s))
 	}
 	return 0, 0, NaN
@@ -100,10 +100,10 @@ func ClampToInt(n int64) int {
 
 // ToIntNoString returns v as an Int and true if v is actually a valid integer.
 func ToIntNoString(v Value) (int64, bool) {
-	switch v.iface.(type) {
-	case int64:
+	switch v.tag() {
+	case tagInt:
 		return v.AsInt(), true
-	case float64:
+	case tagFloat:
 		n, tp := FloatToInt(v.AsFloat())
 		return n, tp == IsInt
 	}
@@ -112,13 +112,14 @@ func ToIntNoString(v Value) (int64, bool) {
 
 // ToFloat returns v as a FLoat and true if v is a valid float.
 func ToFloat(v Value) (float64, bool) {
-	switch v.iface.(type) {
-	case int64:
+	switch v.tag() {
+	case tagInt:
 		return float64(v.AsInt()), true
-	case float64:
+	case tagFloat:
 		return v.AsFloat(), true
-	case string:
-		n, f, tp := StringToNumber(v.AsString())
+	}
+	if s, ok := v.TryString(); ok {
+		n, f, tp := StringToNumber(s)
 		switch tp {
 		case IsInt:
 			return float64(n), true

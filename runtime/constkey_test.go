@@ -89,7 +89,7 @@ func TestConstantKeyFallback(t *testing.T) {
 	if n := countOps(ops, code.Type2Pfx); n == 0 {
 		t.Error("expected some register key opcodes from the fallback")
 	}
-	if got := runChunk(t, r, b.String()); got != StringValue("2aav299") {
+	if got := runChunk(t, r, b.String()); !got.Equals(StringValue("2aav299")) {
 		t.Errorf("got %v, want 2aav299", got)
 	}
 }
@@ -121,7 +121,7 @@ func TestConstantKeyDump(t *testing.T) {
 	if err := Call(r.MainThread(), FunctionValue(g), []Value{TableValue(o)}, term); err != nil {
 		t.Fatal(err)
 	}
-	if got := term.Get(0); got != IntValue(2) {
+	if got := term.Get(0); !got.Equals(IntValue(2)) {
 		t.Errorf("got %v, want 2", got)
 	}
 }

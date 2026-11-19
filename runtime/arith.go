@@ -9,10 +9,10 @@ import (
 // Unm returns (z, true) where z is the value representing -x if x is a number,
 // else (NilValue, false).
 func Unm(x Value) (Value, bool) {
-	switch x.iface.(type) {
-	case int64:
+	switch x.tag() {
+	case tagInt:
 		return IntValue(-x.AsInt()), true
-	case float64:
+	case tagFloat:
 		return FloatValue(-x.AsFloat()), true
 	default:
 		return NilValue, false
@@ -22,19 +22,19 @@ func Unm(x Value) (Value, bool) {
 // Add returns (z, true) where z is the value representing x+y if x and y are
 // numbers, else (NilValue, false).
 func Add(x, y Value) (Value, bool) {
-	switch x.iface.(type) {
-	case int64:
-		switch y.iface.(type) {
-		case int64:
+	switch x.tag() {
+	case tagInt:
+		switch y.tag() {
+		case tagInt:
 			return IntValue(x.AsInt() + y.AsInt()), true
-		case float64:
+		case tagFloat:
 			return FloatValue(float64(x.AsInt()) + y.AsFloat()), true
 		}
-	case float64:
-		switch y.iface.(type) {
-		case int64:
+	case tagFloat:
+		switch y.tag() {
+		case tagInt:
 			return FloatValue(x.AsFloat() + float64(y.AsInt())), true
-		case float64:
+		case tagFloat:
 			return FloatValue(x.AsFloat() + y.AsFloat()), true
 		}
 	}
@@ -44,19 +44,19 @@ func Add(x, y Value) (Value, bool) {
 // Sub returns (z, true) where z is the value representing x-y if x and y are
 // numbers, else (NilValue, false).
 func Sub(x, y Value) (Value, bool) {
-	switch x.iface.(type) {
-	case int64:
-		switch y.iface.(type) {
-		case int64:
+	switch x.tag() {
+	case tagInt:
+		switch y.tag() {
+		case tagInt:
 			return IntValue(x.AsInt() - y.AsInt()), true
-		case float64:
+		case tagFloat:
 			return FloatValue(float64(x.AsInt()) - y.AsFloat()), true
 		}
-	case float64:
-		switch y.iface.(type) {
-		case int64:
+	case tagFloat:
+		switch y.tag() {
+		case tagInt:
 			return FloatValue(x.AsFloat() - float64(y.AsInt())), true
-		case float64:
+		case tagFloat:
 			return FloatValue(x.AsFloat() - y.AsFloat()), true
 		}
 	}
@@ -66,19 +66,19 @@ func Sub(x, y Value) (Value, bool) {
 // Mul returns (z, true) where z is the value representing x*y if x and y are
 // numbers, else (NilValue, false).
 func Mul(x, y Value) (Value, bool) {
-	switch x.iface.(type) {
-	case int64:
-		switch y.iface.(type) {
-		case int64:
+	switch x.tag() {
+	case tagInt:
+		switch y.tag() {
+		case tagInt:
 			return IntValue(x.AsInt() * y.AsInt()), true
-		case float64:
+		case tagFloat:
 			return FloatValue(float64(x.AsInt()) * y.AsFloat()), true
 		}
-	case float64:
-		switch y.iface.(type) {
-		case int64:
+	case tagFloat:
+		switch y.tag() {
+		case tagInt:
 			return FloatValue(x.AsFloat() * float64(y.AsInt())), true
-		case float64:
+		case tagFloat:
 			return FloatValue(x.AsFloat() * y.AsFloat()), true
 		}
 	}
@@ -88,19 +88,19 @@ func Mul(x, y Value) (Value, bool) {
 // Div returns (z, true) where z is the (float) value representing x/y if x and
 // y are numbers, else (NilValue, false).
 func Div(x, y Value) (Value, bool) {
-	switch x.iface.(type) {
-	case int64:
-		switch y.iface.(type) {
-		case int64:
+	switch x.tag() {
+	case tagInt:
+		switch y.tag() {
+		case tagInt:
 			return FloatValue(float64(x.AsInt()) / float64(y.AsInt())), true
-		case float64:
+		case tagFloat:
 			return FloatValue(float64(x.AsInt()) / y.AsFloat()), true
 		}
-	case float64:
-		switch y.iface.(type) {
-		case int64:
+	case tagFloat:
+		switch y.tag() {
+		case tagInt:
 			return FloatValue(x.AsFloat() / float64(y.AsInt())), true
-		case float64:
+		case tagFloat:
 			return FloatValue(x.AsFloat() / y.AsFloat()), true
 		}
 	}
@@ -124,23 +124,23 @@ func floordivFloat(x, y float64) float64 {
 // if x and y are numbers and y != 0, if y == 0 it returns (NilValue, true,
 // div_by_zero_error), else (NilValue, false, nil) if x or y is not a number.
 func Idiv(x Value, y Value) (Value, bool, error) {
-	switch x.iface.(type) {
-	case int64:
-		switch y.iface.(type) {
-		case int64:
+	switch x.tag() {
+	case tagInt:
+		switch y.tag() {
+		case tagInt:
 			ny := y.AsInt()
 			if ny == 0 {
 				return NilValue, true, errors.New("attempt to divide by zero")
 			}
 			return IntValue(floordivInt(x.AsInt(), ny)), true, nil
-		case float64:
+		case tagFloat:
 			return FloatValue(floordivFloat(float64(x.AsInt()), y.AsFloat())), true, nil
 		}
-	case float64:
-		switch y.iface.(type) {
-		case int64:
+	case tagFloat:
+		switch y.tag() {
+		case tagInt:
 			return FloatValue(floordivFloat(x.AsFloat(), float64(y.AsInt()))), true, nil
-		case float64:
+		case tagFloat:
 			return FloatValue(floordivFloat(x.AsFloat(), y.AsFloat())), true, nil
 		}
 	}
@@ -168,23 +168,23 @@ func modFloat(x, y float64) float64 {
 // (NilValue, true, mod_by_zero_error), else (NilValue, false, nil) if x or y is
 // not a number.
 func Mod(x Value, y Value) (Value, bool, error) {
-	switch x.iface.(type) {
-	case int64:
-		switch y.iface.(type) {
-		case int64:
+	switch x.tag() {
+	case tagInt:
+		switch y.tag() {
+		case tagInt:
 			ny := y.AsInt()
 			if ny == 0 {
 				return NilValue, true, errors.New("attempt to perform 'n%0'")
 			}
 			return IntValue(modInt(x.AsInt(), ny)), true, nil
-		case float64:
+		case tagFloat:
 			return FloatValue(modFloat(float64(x.AsInt()), y.AsFloat())), true, nil
 		}
-	case float64:
-		switch y.iface.(type) {
-		case int64:
+	case tagFloat:
+		switch y.tag() {
+		case tagInt:
 			return FloatValue(modFloat(x.AsFloat(), float64(y.AsInt()))), true, nil
-		case float64:
+		case tagFloat:
 			return FloatValue(modFloat(x.AsFloat(), y.AsFloat())), true, nil
 		}
 	}
@@ -199,18 +199,18 @@ func powFloat(x, y float64) float64 {
 // y are numbers, else (NilValue, false).
 func Pow(x, y Value) (Value, bool) {
 	var fx, fy float64
-	switch x.iface.(type) {
-	case int64:
+	switch x.tag() {
+	case tagInt:
 		fx = float64(x.AsInt())
-	case float64:
+	case tagFloat:
 		fx = x.AsFloat()
 	default:
 		return NilValue, false
 	}
-	switch y.iface.(type) {
-	case int64:
+	switch y.tag() {
+	case tagInt:
 		fy = float64(y.AsInt())
-	case float64:
+	case tagFloat:
 		fy = y.AsFloat()
 	default:
 		return NilValue, false
