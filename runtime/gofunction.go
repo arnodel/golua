@@ -15,6 +15,14 @@ type GoFunction struct {
 	// noYieldAcross is true for a function that no yield is allowed across:
 	// see NoYieldAcross.
 	noYieldAcross bool
+
+	// ignoresNext is true for a function that makes no use of the
+	// continuation its call is to return to: it pushes nothing into it and
+	// does not give it as the one to run next.  The call of a ContFunction
+	// is one.  If that continuation is a frozen frame it is then left
+	// frozen, where another function gets a copy to return into (see
+	// GoCont.thawNext).
+	ignoresNext bool
 }
 
 // A GoFunctionOption says something more about a GoFunction when it is

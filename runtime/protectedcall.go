@@ -90,11 +90,54 @@ func (p *protectedCall) PushEtc(r *Runtime, etc []Value) {
 	p.results = append(p.results, etc...)
 }
 
+// A protected call can be part of a captured continuation (see
+// Thread.CaptureCont), which carries on any number of times.  Each time, a
+// function returns into a protected call of its own: a copy made by clone
+// of the one that was captured, which nothing is pushed into from then on,
+// as for a frame (see frozenCont).  So results pushed into one by a return
+// that did not get to its end, because closing a variable failed, are not
+// seen by the next.  All that the copies share is what they return to,
+// which is frozen and is copied when one of them runs (thawNext).
+
+// clone returns a protected call in the state p is in, for a copy of the
+// frame that returns to p.  What p returns to is part of a captured
+// continuation, as p is, and is frozen.
+func (p *protectedCall) clone(t *Thread) *protectedCall {
+	t.RequireSize(unsafe.Sizeof(protectedCall{}))
+	q := &protectedCall{
+		next:             frozen(t, p.next),
+		handler:          p.handler,
+		name:             p.name,
+		closeStackHeight: p.closeStackHeight,
+		depth:            p.depth,
+	}
+	if len(p.results) > 0 {
+		q.PushEtc(t.Runtime, p.results)
+	}
+	return q
+}
+
+// freezeNext makes what p returns to frozen: it is part of a continuation
+// captured at p, which a function is still to return into.
+func (p *protectedCall) freezeNext(t *Thread) {
+	p.next = frozen(t, p.next)
+}
+
+// thawNext returns the continuation that p gives its outcome to: the one it
+// returns to, which is first replaced with a copy that can run if it is
+// frozen.  A protected call gives its outcome once.
+func (p *protectedCall) thawNext(t *Thread) Cont {
+	if fc, ok := p.next.(*frozenCont); ok {
+		p.next = fc.thaw(t)
+	}
+	return p.next
+}
+
 // RunInThread implements Cont.RunInThread: the function has returned.
 func (p *protectedCall) RunInThread(t *Thread) (Cont, error) {
 	t.protectedCallDepth = p.depth - 1
 	_ = t.triggerReturn(t, p)
-	p.next.Push(t.Runtime, BoolValue(true))
+	p.thawNext(t).Push(t.Runtime, BoolValue(true))
 	p.next.PushEtc(t.Runtime, p.results)
 	return p.next, nil
 }
@@ -107,7 +150,7 @@ func (p *protectedCall) caught(t *Thread, err error) Cont {
 	// are closed, with the error.  If that fails the error is the new one.
 	err = t.cleanupCloseStack(p, p.closeStackHeight, err)
 	_ = t.triggerReturn(t, p)
-	p.next.Push(t.Runtime, BoolValue(false))
+	p.thawNext(t).Push(t.Runtime, BoolValue(false))
 	p.next.Push(t.Runtime, ErrorValue(err))
 	return p.next
 }

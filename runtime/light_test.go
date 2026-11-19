@@ -86,6 +86,22 @@ func TestLightCoroutines(t *testing.T) {
 			want: "yyyy",
 		},
 		{
+			name: "nor does capturing a continuation, or calling it after a yield",
+			src: `local function yn(b) return b and "y" or "n" end
+			local callcc = require("cont").callcc
+			local co = coroutine.wrap(function()
+				local k
+				local s = callcc(function(c) k = c; return "" end)
+				coroutine.yield()
+				if #s < 2 then
+					k(s .. yn(light()))
+				end
+				return s
+			end)
+			co() co() co() return co()`,
+			want: "yy",
+		},
+		{
 			name: "a metamethod called by an opcode gives the coroutine a goroutine",
 			src: `local function yn(b) return b and "y" or "n" end
 			local mt = {__index = function() return 1 end}
