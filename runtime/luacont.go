@@ -234,8 +234,14 @@ RunLoop:
 					t.RequireCPU(1)
 					val = *slot
 				} else {
+					// A string key uses the site's hint, as a key written
+					// in the source does (slotcache.go).
 					var err error
-					val, err = Index(t, coll, idx)
+					if _, isString := idx.TryString(); isString {
+						val, err = indexStringAt(t, coll, idx, hintAt(c.slotCache, pc))
+					} else {
+						val, err = Index(t, coll, idx)
+					}
 					if err != nil {
 						c.pc = pc
 						return nil, err
@@ -247,9 +253,17 @@ RunLoop:
 				if slot != nil && !slot.IsNil() && !val.IsNil() {
 					t.RequireCPU(1)
 					*slot = val
-				} else if err := SetIndex(t, coll, idx, val); err != nil {
-					c.pc = pc
-					return nil, err
+				} else {
+					var err error
+					if _, isString := idx.TryString(); isString {
+						err = setIndexStringAt(t, coll, idx, val, hintAt(c.slotCache, pc))
+					} else {
+						err = SetIndex(t, coll, idx, val)
+					}
+					if err != nil {
+						c.pc = pc
+						return nil, err
+					}
 				}
 			}
 			pc++

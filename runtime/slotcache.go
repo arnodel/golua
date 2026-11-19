@@ -22,6 +22,13 @@ package runtime
 // string metatable's __index is the string library, and the site remembers
 // where m is in it.
 //
+// A key that is only known when the code runs, "t[k]", uses the site's hint
+// in the same way when it is a string: a site that reads a field whose name
+// it was given, or looks words up in a dictionary, often sees the same key
+// again.  When the key changes from one access to the next the hint misses,
+// which costs one comparison before the lookup that would have been made
+// anyway.
+//
 // The hint is passed by pointer, and its slots are plain 16-bit fields:
 // returning the hint and storing it on every access measured 3% slower on
 // the field-heavy benchmarks, and so did packing the slots into fewer bits.
