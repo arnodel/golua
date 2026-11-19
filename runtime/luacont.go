@@ -18,6 +18,7 @@ type LuaCont struct {
 	acc            []Value
 	running        bool
 	closeStackBase int
+	free           *LuaCont // The next one in the pool, while this one is there
 }
 
 var _ Cont = (*LuaCont)(nil)
@@ -29,7 +30,8 @@ func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 		panic("Closure not ready")
 	}
 	t.RequireArrSize(unsafe.Sizeof(Value{}), int(clos.RegCount))
-	registers := t.regPool.getIn(clos.regClass, clos.regSize, int(clos.RegCount))
+	cont := t.luaContPool.get(clos.regClass, clos.regSize, int(clos.RegCount))
+	registers := cont.registers
 	registers[0] = ContValue(next)
 	// The upvalues the function uses: the box of one it may write or
 	// capture again, the contents of a fixed one, which cannot change while
@@ -41,21 +43,18 @@ func NewLuaCont(t *Thread, clos *Closure, next Cont) *LuaCont {
 			registers[l.Reg] = *clos.Upvalues[l.Up].ref
 		}
 	}
-	cont := t.luaContPool.get()
 	t.RequireSize(unsafe.Sizeof(LuaCont{}))
 	// A continuation from the pool is all zeros, as release left it, and so
 	// is a new one: only the fields that aren't need setting.  Assigning a
 	// whole LuaCont would write every field again.
 	cont.Closure = clos
-	cont.registers = registers
 	cont.closeStackBase = t.closeStack.size()
 	return cont
 }
 
 func (c *LuaCont) release(r *Runtime) {
-	r.regPool.releaseIn(c.regClass, c.regSize, c.registers)
 	r.ReleaseArrSize(unsafe.Sizeof(Value{}), int(c.RegCount))
-	r.luaContPool.release(c)
+	r.luaContPool.release(c.regClass, c.regSize, c)
 	r.ReleaseSize(unsafe.Sizeof(LuaCont{}))
 }
 

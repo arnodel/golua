@@ -1,43 +1,56 @@
 package runtime
 
-// Size of the LuaCont pool.  Setting it to 0 makes luaContPool.get() behave
-// like new(LuaCont) and luaContPool.release(c) be a no-op. The value of 100 was
-// reached by trial-and-error but is probably not optimal.
-const luaContPoolSize = 100
-
-// Pool for reusing allocated Lua continuations.  Some profiling
-// showed there was significant overhead to allocating lua continuations all the
-// time on the heap.  This is a very simple implementation, but it reduces
-// significantly pressure on memory management for a fair range of workloads.
+// POC B: a frame is one pooled object.  A released LuaCont keeps its
+// registers, cleared, and goes on the list of its size class; a new frame of
+// that class takes it from there.  One list to pop per call and one to push
+// per return, where the continuation and its registers each had a pool.
+//
+// The lists are linked through the continuations (LuaCont.free), so the pool
+// itself holds one pointer and one count per class.
 type luaContPool struct {
-	conts [luaContPoolSize]*LuaCont
-	next  int
+	free  [poolClasses]*LuaCont
+	count [poolClasses]int
+	max   int // Number of frames kept in the smallest class
 }
 
-// Get a LuaCont from the pool (or make a new one if the pool is empty).  It
-// is all zeros either way: release clears a continuation before keeping it,
-// and NewLuaCont relies on that.  Note
-// that it is ok not to release this LuaCont to the pool later - if it is not
-// released but becomes unreachable, then it will be GCed at some point by the
-// Go runtime
-func (p *luaContPool) get() *LuaCont {
-	if p.next == 0 {
-		return new(LuaCont)
+// get returns a continuation with n registers, all nil, for a function whose
+// registers have the given class and size (see poolClass).  Its other fields
+// are zero.
+func (p *luaContPool) get(class, size, n int) *LuaCont {
+	if class >= 0 {
+		if c := p.free[class]; c != nil {
+			p.free[class] = c.free
+			p.count[class]--
+			c.free = nil
+			c.registers = c.registers[:n]
+			return c
+		}
 	}
-	p.next--
-	c := p.conts[p.next]
-	p.conts[p.next] = nil
-	return c
+	return &LuaCont{registers: make([]Value, n, size)}
 }
 
-// Return a used LuaCont into the pool (this will first erase the fields of the
-// continuation, to allow GC of the data they contain).  If the pool is full,
-// the continuation is simply discarded.
-func (p *luaContPool) release(cont *LuaCont) {
-	*cont = LuaCont{}
-	if p.next == luaContPoolSize {
+// release clears c and its registers and keeps it for reuse, unless the
+// class has enough already or the registers are too many to pool.
+func (p *luaContPool) release(class, size int, c *LuaCont) {
+	regs := c.registers
+	if len(regs) <= 8 {
+		for i := 0; i < len(regs); i++ {
+			regs[i] = Value{}
+		}
+	} else {
+		clear(regs)
+	}
+	c.Closure = nil
+	c.pc = 0
+	c.acc = nil
+	c.running = false
+	c.closeStackBase = 0
+	if class < 0 || cap(regs) != size || p.count[class] >= max(p.max>>class, 1) {
+		c.registers = nil
 		return
 	}
-	p.conts[p.next] = cont
-	p.next++
+	c.registers = regs[:0]
+	c.free = p.free[class]
+	p.free[class] = c
+	p.count[class]++
 }
