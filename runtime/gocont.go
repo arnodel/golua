@@ -49,9 +49,25 @@ func (c *GoCont) clone(t *Thread, next Cont) *GoCont {
 
 // thawNext replaces a frozen next continuation with a copy that can run (see
 // frozenCont), before the function runs: it pushes its results into the next
-// continuation.
+// continuation.  This is the test, which is inlined where a Go function is
+// entered; replaceFrozenNext does the rest.
 func (c *GoCont) thawNext(t *Thread) {
 	if fc, ok := c.next.(*frozenCont); ok {
+		c.replaceFrozenNext(t, fc)
+	}
+}
+
+// replaceFrozenNext makes the next continuation of c, which is the frozen
+// frame fc, a copy of it that can run.  A function that makes no use of its
+// next continuation keeps the frozen frame: the copy would be made for
+// nothing.
+//
+// It must not be inlined into thawNext, which would then be too big to be
+// inlined itself.
+//
+//go:noinline
+func (c *GoCont) replaceFrozenNext(t *Thread, fc *frozenCont) {
+	if !c.ignoresNext {
 		c.next = fc.thaw(t)
 	}
 }
