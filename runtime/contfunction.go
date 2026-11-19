@@ -30,6 +30,9 @@ type ContFunction struct {
 
 	protectedCallDepth int // The thread's depth of protected calls at the capture
 
+	// The pending to-be-closed values at the capture.
+	closeStack closeStack
+
 	goFunction *GoFunction // Calls k, for Go code; made when first needed
 }
 
@@ -76,6 +79,9 @@ type runLoop struct {
 // k carries on in the loop that is running and in no other (see runLoop), so
 // next must be a continuation of that loop.  The next continuation of the
 // Go function that is running is one.
+//
+// k also keeps the to-be-closed values that are pending, and calling k makes
+// them the pending ones again (see switchCloseStack).
 func (t *Thread) CaptureCont(next Cont) (Value, Cont) {
 	cont := frozen(t, next)
 	switch c := next.(type) {
@@ -89,23 +95,35 @@ func (t *Thread) CaptureCont(next Cont) (Value, Cont) {
 		t.loop = &runLoop{thread: t}
 	}
 	t.RequireSize(unsafe.Sizeof(ContFunction{}))
-	k := &ContFunction{loop: t.loop, cont: cont, protectedCallDepth: t.protectedCallDepth}
+	k := &ContFunction{
+		loop:               t.loop,
+		cont:               cont,
+		protectedCallDepth: t.protectedCallDepth,
+		closeStack:         t.closeStack.capture(),
+	}
 	return FunctionValue(k), next
 }
 
 // reinstate returns a continuation that carries on the computation k was
 // captured from, for its caller to push values into and run in place of the
-// running one.  The thread must be in the loop k was captured in.  The
-// protected calls under way are from now on those the computation is in.
-func (k *ContFunction) reinstate(t *Thread) Cont {
+// running one.  The thread must be in the loop k was captured in.
+//
+// The thread's pending to-be-closed values become those of k, which closes
+// the values of the blocks that are left for good (see switchCloseStack).
+// That can fail, and then k is not reinstated.  The protected calls under
+// way are from now on those the computation is in.
+func (k *ContFunction) reinstate(t *Thread) (Cont, error) {
+	if err := t.switchCloseStack(k.closeStack); err != nil {
+		return nil, err
+	}
 	t.protectedCallDepth = k.protectedCallDepth
 	switch c := k.cont.(type) {
 	case *frozenCont:
-		return c.thaw(t)
+		return c.thaw(t), nil
 	case *protectedCall:
-		return c.clone(t)
+		return c.clone(t), nil
 	}
-	return k.cont
+	return k.cont, nil
 }
 
 // Continuation implements Callable.Continuation.  The call is that of a Go
@@ -149,7 +167,10 @@ func (k *ContFunction) Continuation(t *Thread, next Cont) Cont {
 func (k *ContFunction) call(t *Thread, c *GoCont) (Cont, error) {
 	switch {
 	case t.loop == k.loop:
-		cont := k.reinstate(t)
+		cont, err := k.reinstate(t)
+		if err != nil {
+			return nil, err
+		}
 		cont.PushEtc(t.Runtime, c.Etc())
 		return cont, nil
 	case t != k.loop.thread:

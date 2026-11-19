@@ -68,3 +68,41 @@ coroutine but executing all pending to-be-closed variables.  Given the approach
 above this is simply a matter of executing the `cleanupCloseStack()` method on
 the suspended thread.
 
+
+#### Continuations
+
+A continuation (the `cont` library) can be called after the blocks it was
+captured in have ended, or while other blocks are running, so the values that
+are pending no longer form one stack: they form a tree, of which the thread's
+close stack is the branch that is running.
+
+- The close stack is a linked list from its top down, and its height counts
+  every value pushed.  Only the values that are to be closed in fact (not
+  `nil` or `false`, which is what almost every `for` loop pushes) are in the
+  list, each with the height of the stack it is the top of.
+- A continuation keeps the close stack as it is when it is captured: a top and
+  a height.  Calling it makes that the thread's close stack.
+- The two stacks have in common the values that were pending before they
+  parted.  The blocks of the others are left by the call.  A block that is left
+  is over if no continuation was captured in it, as nothing can run it again,
+  and then its value is closed, as `break` or `return` would close it.  If one
+  was, the block can be entered again, by calling that continuation: its value
+  stays pending and is closed when the block ends, as that of a coroutine
+  which has yielded.  So capturing a continuation marks the values that are
+  pending.
+- Several copies of a frame can end the same block, each when it gets there.
+  The value is closed once.
+- An error closes every pending value down to where it is caught, as before,
+  and so does a continuation that leaves Go code which was waiting for Lua
+  code (a metamethod call, a function given to `table.sort`): nothing under
+  that Go code can be entered again.  A `pcall` is not such Go code.  The
+  function it calls can be entered again after a continuation has left it,
+  so it is a block like any other here.
+- A coroutine without a goroutine is given one before it declares a value
+  to be closed in fact (see `runtime/lightthread.go`), so calling a
+  continuation there never has a `__close` handler to call that the
+  coroutine could not run.
+
+This is the "wind list" of Scheme's `dynamic-wind`, of which a value to be
+closed uses half: there is something to do when a block is left for good, and
+nothing to do when it is entered again.
