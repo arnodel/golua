@@ -97,6 +97,13 @@ func (c *LuaCont) Parent() Cont {
 
 // RunInThread implements Cont.RunInThread.
 func (c *LuaCont) RunInThread(t *Thread) (Cont, error) {
+	// POC: the loop below runs one frame.  When the frame hands over to
+	// another Lua frame, c becomes that frame and execution comes back
+	// here.  The loop's variables are set once per frame, so that inside
+	// the loop only pc changes: the compiler keeps the rest where they are.
+	// (Changing them inside the loop costs every opcode a reload of all of
+	// them.)
+Enter:
 	pc := c.pc
 	consts := c.consts
 	lines := c.lines
@@ -562,10 +569,7 @@ RunLoop:
 				}
 				c = lnext
 				t.currentCont = lnext
-				pc, consts, lines, lastLine = c.pc, c.consts, c.lines, 0
-				c.running = true
-				opcodes, regs = c.code, c.registers
-				continue RunLoop
+				goto Enter
 			case code.OpClStack:
 				if opcode.GetF() {
 					// Push to close stack, if the value can be closed and
