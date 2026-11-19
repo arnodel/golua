@@ -29,10 +29,85 @@ version can differ by 20 to 30% on single benchmarks from compiler flags
 alone (see the 5.5.0 column below).
 
 Implementations used so far: C Lua (`lua`), apogee
-(`go install github.com/matjam/apogee/cmd/apogee@latest`; `APOGEE_JIT=off`
-for its interpreter alone).  Shopify/go-lua has no command-line interpreter
+(`go install github.com/matjam/apogee/cmd/apogee@latest`, but see the notes
+of 19 November for which library that builds; `APOGEE_JIT=off` for its
+interpreter alone).  Shopify/go-lua has no command-line interpreter
 and implements Lua 5.2, which the benchmarks outgrow; apogee's own harness
 drives it as a library and publishes 4.8× C Lua for it.
+
+## 2026-11-19 (evening), golua dee2d0d and apogee 1.2.1, Apple M1 Max
+
+Reference: C Lua 5.5.1 (Homebrew).  golua is lua5.5 at dee2d0d, the last
+column of the section below, built without quotas and with its profile.
+apogee is its command built against the 1.2.1 library; both are built with
+Go 1.27.4.  Best of 5 rounds, taken as described above.
+
+| benchmark | apogee 1.2.1 JIT | apogee 1.2.1 interpreter | golua | golua / apogee interpreter |
+|---|---|---|---|---|
+| towers | 0.67× | 1.67× | 2.42× | 1.44 |
+| fasta | 1.05× | 1.43× | 2.34× | 1.64 |
+| md5 | 0.53× | 1.74× | 2.31× | 1.32 |
+| queens | 0.50× | 1.64× | 2.15× | 1.31 |
+| permute | 0.50× | 1.87× | 2.15× | 1.15 |
+| richards | 0.59× | 1.31× | 2.08× | 1.59 |
+| bounce | 0.38× | 1.51× | 2.04× | 1.35 |
+| spectral-norm | 0.22× | 1.47× | 2.02× | 1.37 |
+| json | 0.71× | 1.43× | 2.01× | 1.41 |
+| deltablue | 0.85× | 1.30× | 1.99× | 1.53 |
+| arrays | 1.14× | 2.40× | 1.90× | 0.79 |
+| sieve | 0.36× | 1.99× | 1.88× | 0.95 |
+| list | 0.54× | 1.48× | 1.87× | 1.26 |
+| records | 1.13× | 1.28× | 1.73× | 1.35 |
+| nbody | 0.29× | 1.25× | 1.56× | 1.25 |
+| fannkuch-redux | 0.34× | 1.98× | 1.54× | 0.78 |
+| k-nucleotide | 1.24× | 1.23× | 1.48× | 1.20 |
+| cd | 0.60× | 0.93× | 1.44× | 1.56 |
+| mandelbrot | 0.12× | 1.10× | 1.38× | 1.26 |
+| binary-trees | 0.70× | 1.08× | 1.36× | 1.26 |
+| life | 0.96× | 1.67× | 1.32× | 0.79 |
+| havlak | 0.57× | 0.83× | 1.31× | 1.59 |
+| regex-dna | 1.39× | 1.40× | 1.29× | 0.92 |
+| storage | 0.55× | 0.80× | 1.11× | 1.39 |
+| coroutine-ring | 5.64× | 5.24× | 1.06× | 0.20 |
+| **geomean of 25** | **0.63×** | **1.48×** | **1.70×** | **1.15** |
+| **geomean of the 17 of October** | **0.45×** | **1.34×** | **1.74×** | **1.30** |
+
+The last column is golua's time over the time of apogee's interpreter.  The
+last row is over the 17 benchmarks of the checkpoint of 31 October, the
+previous one with apogee in it.
+
+Notes:
+
+- On the 17 benchmarks of 31 October golua takes 1.30 times the time of
+  apogee's interpreter, from 2.4 times that day.  golua went from 3.25× C
+  Lua to 1.74× on them while apogee's interpreter stayed where it was
+  (1.35× then with 1.1.1, 1.34× now), so it is a yardstick that has not
+  moved.
+- On all 25 the figure is 1.15, and one benchmark carries much of the
+  difference: apogee takes five times C Lua's time on coroutine-ring,
+  where golua takes 1.06×.  Over the other 24, golua is at 1.74× C Lua,
+  apogee's interpreter at 1.40×, and golua at 1.24 times apogee's
+  interpreter.
+- golua is ahead of apogee's interpreter on six: coroutine-ring, and by 5
+  to 22% fannkuch-redux, arrays, life, regex-dna and sieve.
+- It is furthest behind on fasta (1.64), richards and havlak (1.59), cd
+  (1.56), deltablue (1.53), towers (1.44) and json (1.41).  Four of those
+  seven are the object-heavy programs, made of method calls and field
+  accesses.
+- With its JIT apogee is at 0.63× C Lua here, and at 0.45× on the 17 of
+  October, where 1.1.1 read 0.54×: its compiler changed in 1.1.2, its
+  interpreter did not.  The JIT gives nothing on k-nucleotide, regex-dna
+  and coroutine-ring, and stays above C Lua's time on fasta, arrays and
+  records.  golua is ahead of it on coroutine-ring and regex-dna.
+- golua reads 1.70× here and 1.71× in the section below, taken in the
+  morning of the same day.  golua's own best time for a benchmark differs
+  between the three kinds of run (next to C Lua, next to apogee with its
+  JIT, next to apogee without) by 1.5% on average and 3.5% at most.
+- `go install github.com/matjam/apogee/cmd/apogee@latest` builds the
+  command against the 1.1.1 library: the command is a module of its own
+  and that is the version it requires.  To time a later library, copy the
+  command's module out of the module cache, run
+  `go get github.com/matjam/apogee@v1.2.1` in the copy and build it.
 
 ## 2026-11-19, golua over its revisions, Apple M1 Max
 
