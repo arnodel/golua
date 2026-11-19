@@ -404,6 +404,15 @@ do
     end))
     --> =called by Go in the same loop
 
+    -- A Go function that makes the continuation of the call in this loop
+    -- and runs it in a loop of its own is left like any other that waits:
+    -- what a call of k does is decided when the call runs.
+    print(callcc(function(k)
+        testrun(k, "out of Go code that ran the call it made")
+        print("not reached")
+    end))
+    --> =out of Go code that ran the call it made
+
     -- A Go function that keeps every error of what it calls to itself does
     -- not let the call of a continuation through, which it should (see
     -- IsContFunctionCall): it gets a message.

@@ -19,6 +19,7 @@ func setup(r *rt.Runtime) func() {
 	rt.SolemnlyDeclareCompliance(rt.ComplyCpuSafe, r.SetEnvGoFunc(env, "testudata", testudata, 1, false))
 	r.SetEnvGoFunc(env, "testtailcall", testtailcall, 1, true)
 	r.SetEnvGoFunc(env, "testcatch", testcatch, 1, true)
+	r.SetEnvGoFunc(env, "testrun", testrun, 1, true)
 	return lib.LoadAll(r)
 }
 
@@ -40,6 +41,20 @@ func testcatch(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	res := rt.NewTerminationWith(c, 0, false)
 	if err := rt.Call(t, c.Arg(0), c.Etc(), res); err != nil {
 		return c.PushingNext1(t.Runtime, rt.StringValue(err.Error())), nil
+	}
+	return c.Next(), nil
+}
+
+// testrun(f, ...) calls f(...) and waits for it to return, as a Go function
+// does that makes the continuation of the call with Continue and runs it.
+func testrun(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	cont, err := rt.Continue(t, c.Arg(0), rt.NewTerminationWith(c, 0, false))
+	if err != nil {
+		return nil, err
+	}
+	cont.PushEtc(t.Runtime, c.Etc())
+	if err := t.RunContinuation(cont); err != nil {
+		return nil, err
 	}
 	return c.Next(), nil
 }

@@ -353,7 +353,7 @@ RunLoop:
 						res = ContValue(NewGoCont(t, f, next))
 					default:
 						var cont Cont
-						cont, err = continueCall(t, val, next)
+						cont, err = Continue(t, val, next)
 						res = ContValue(cont)
 					}
 				case code.OpId:
@@ -498,7 +498,7 @@ RunLoop:
 					default:
 						if next, isCont = callee.TryCont(); !isCont {
 							var err error
-							if next, err = continueCall(t, callee, cnext); err != nil {
+							if next, err = Continue(t, callee, cnext); err != nil {
 								c.pc = pc
 								return nil, err
 							}
