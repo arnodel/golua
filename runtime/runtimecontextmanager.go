@@ -177,9 +177,13 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 	if mCopy.status == StatusLive {
 		mCopy.status = StatusDone
 	}
-	m.parent.RequireCPU(m.usedResources.Cpu)
-	m.parent.RequireMem(m.usedResources.Memory)
+	// The parent is the current context again before it is charged what the
+	// popped context used, because that charge can terminate the parent.  If
+	// it was charged first, the termination would leave the popped context
+	// in place, and the next pop would remove the wrong one.
 	*m = *m.parent
+	m.RequireCPU(mCopy.usedResources.Cpu)
+	m.RequireMem(mCopy.usedResources.Memory)
 	if m.trackTime {
 		m.updateTimeUsed()
 	}
@@ -200,6 +204,12 @@ func (m *runtimeContextManager) requireCPU(cpuAmount uint64) {
 		m.KillContext()
 	}
 	cpuUsed := m.usedResources.Cpu + cpuAmount
+	// The amount is recorded before the limit is tested, so that it counts
+	// even if it terminates the context.  Some callers do their work first and
+	// ask for its CPU afterwards (a pattern match does), and without this a
+	// context terminated by such a request would charge its parent nothing
+	// for that work.
+	m.usedResources.Cpu = cpuUsed
 	if atLimit(cpuUsed, m.hardLimits.Cpu) {
 		m.TerminateContext("CPU limit of %d exceeded", m.hardLimits.Cpu)
 	}
@@ -207,7 +217,6 @@ func (m *runtimeContextManager) requireCPU(cpuAmount uint64) {
 		m.nextCpuThreshold = cpuUsed + cpuThresholdIncrement
 		m.updateTimeUsed()
 	}
-	m.usedResources.Cpu = cpuUsed
 }
 
 func (m *runtimeContextManager) UnusedCPU() uint64 {
@@ -309,8 +318,10 @@ func (m *runtimeContextManager) LinearUnused(cpuFactor uint64) uint64 {
 // LinearRequire can be used to actually consume (part of) the resource budget
 // returned by LinearUnused (with the same cpuFactor).
 func (m *runtimeContextManager) LinearRequire(cpuFactor uint64, amt uint64) {
-	m.RequireMem(amt)
+	// CPU comes first: the work has been done by now, so its CPU has to be
+	// recorded even if the memory request then terminates the context.
 	m.RequireCPU(amt / cpuFactor)
+	m.RequireMem(amt)
 }
 
 // KillContext forcefully terminates the context with the message "force kill".

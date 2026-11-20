@@ -115,3 +115,48 @@ do
     print(runtime.callcontext({kill={memory=1000}}, string.gsub, ("b"):rep(100), ".", t))
     --> =killed
 end
+
+-- A match that runs out of CPU in a nested context counts against the
+-- contexts around it
+do
+    -- This pattern takes a number of steps exponential in the length of s
+    local s = ("a"):rep(50)
+    local ptn = ("a?"):rep(50) .. s
+
+    -- The nested context has what is left of the CPU of the outer one, so
+    -- the outer one does not outlive it
+    local n = 0
+    print(runtime.callcontext({kill={cpu=100000}}, function()
+        for i = 1, 10 do
+            n = n + 1
+            runtime.callcontext({}, string.find, s, ptn)
+        end
+    end))
+    --> =killed
+    print(n)
+    --> =1
+
+    -- The same when the match is in a protected call
+    n = 0
+    print(runtime.callcontext({kill={cpu=100000}}, function()
+        for i = 1, 10 do
+            n = n + 1
+            pcall(string.find, s, ptn)
+        end
+    end))
+    --> =killed
+    print(n)
+    --> =1
+
+    -- A nested context with a limit of its own costs the outer one that much
+    n = 0
+    print(runtime.callcontext({kill={cpu=100000}}, function()
+        for i = 1, 10 do
+            n = n + 1
+            runtime.callcontext({kill={cpu=30000}}, string.find, s, ptn)
+        end
+    end))
+    --> =killed
+    print(n)
+    --> =4
+end
