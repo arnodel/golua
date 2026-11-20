@@ -160,3 +160,24 @@ do
     print(n)
     --> =4
 end
+
+-- A match is stopped by a time limit while it runs
+do
+    -- This pattern never matches s, and finding that out takes a number of
+    -- steps exponential in the length of s, far more than there is time for
+    local s = ("a"):rep(50)
+    local ptn = ("a?"):rep(50) .. s .. "b"
+
+    local ctx = runtime.callcontext({kill={millis=20}}, string.find, s, ptn)
+    print(ctx)
+    --> =killed
+
+    -- It was stopped long before the end of the match
+    print(ctx.used.cpu < 2^40)
+    --> =true
+
+    -- It didn't last much more than the limit (the bound is generous because
+    -- a loaded machine can deschedule the process across the deadline)
+    print(ctx.used.millis < 1000)
+    --> =true
+end

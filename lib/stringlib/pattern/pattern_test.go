@@ -2,6 +2,7 @@ package pattern
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -183,11 +184,93 @@ func TestPattern(t *testing.T) {
 			if test.invalid {
 				t.Fatal("Expected to be invalid")
 			}
-			captures, _ := ptn.MatchFromStart(test.s, 0, 0)
+			captures := ptn.MatchFromStart(test.s, 0, nil)
 			if !sameCaptures(test.captures, captures) {
 				t.Error("exp:", test.captures, "act:", captures)
 				t.Fail()
 			}
 		})
+	}
+}
+
+// A stepMeter records the steps that a match charges, and panics when they
+// exceed its limit if it has one.
+type stepMeter struct {
+	charged, limit uint64
+	largestCharge  uint64
+}
+
+type stepLimitReached struct{}
+
+func (m *stepMeter) RequireCPU(steps uint64) {
+	m.charged += steps
+	if steps > m.largestCharge {
+		m.largestCharge = steps
+	}
+	if m.limit > 0 && m.charged > m.limit {
+		panic(stepLimitReached{})
+	}
+}
+
+// A match charges its steps as it goes, not all of them when it ends.
+func TestMatchChargesStepsInBatches(t *testing.T) {
+	// Each of the 2000 places a match can start at goes to the end of the
+	// string looking for a b, one pattern item at a time.
+	s := strings.Repeat("a", 2000)
+	ptn, err := New(".-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	meter := new(stepMeter)
+	if captures := ptn.Match(s, 0, meter); captures != nil {
+		t.Fatal("expected no match")
+	}
+	const wantSteps = 2000 * 2001 / 2
+	if meter.charged != wantSteps {
+		t.Errorf("charged %d steps, want %d", meter.charged, wantSteps)
+	}
+	if meter.largestCharge > stepsPerCharge {
+		t.Errorf("largest charge is %d steps, want at most %d", meter.largestCharge, stepsPerCharge)
+	}
+}
+
+// One pattern item can take as many steps as the string is long before they
+// are charged.
+func TestMatchChargesLongItemAfterIt(t *testing.T) {
+	s := strings.Repeat("a", 10*stepsPerCharge)
+	ptn, err := New("^a*$")
+	if err != nil {
+		t.Fatal(err)
+	}
+	meter := new(stepMeter)
+	if captures := ptn.Match(s, 0, meter); captures == nil {
+		t.Fatal("expected a match")
+	}
+	if meter.charged != uint64(len(s)) {
+		t.Errorf("charged %d steps, want %d", meter.charged, len(s))
+	}
+}
+
+// A meter that panics stops a match soon after its limit, however long the
+// match would take.
+func TestMeterStopsMatch(t *testing.T) {
+	// This pattern takes a number of steps exponential in the length of s.
+	s := strings.Repeat("a", 50)
+	ptn, err := New(strings.Repeat("a?", 50) + s + "b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	meter := &stepMeter{limit: 100000}
+	func() {
+		defer func() {
+			if r := recover(); r != (stepLimitReached{}) {
+				t.Errorf("recovered %v, want the panic of the meter", r)
+			}
+		}()
+		ptn.Match(s, 0, meter)
+		t.Error("the match should not end")
+	}()
+	if most := meter.limit + stepsPerCharge + uint64(len(s)); meter.charged > most {
+		t.Errorf("charged %d steps, want at most %d", meter.charged, most)
 	}
 }

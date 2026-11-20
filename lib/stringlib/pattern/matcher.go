@@ -9,7 +9,8 @@ type patternMatcher struct {
 	pi         int // current index in pattern
 	trackbacks []trackback
 
-	budget uint64
+	meter CPUMeter // What the steps are charged to, if not nil
+	steps uint64   // Steps taken since the last charge
 }
 
 type trackback struct {
@@ -58,6 +59,9 @@ func (m *patternMatcher) matchToEnd() []Capture {
 
 func (m *patternMatcher) match() {
 	for m.pi < len(m.items) {
+		if m.steps >= stepsPerCharge {
+			m.chargeSteps()
+		}
 		switch item := m.items[m.pi]; item.ptnType {
 		case ptnOnce:
 			if !m.matchNext(item.bytes) {
@@ -165,7 +169,7 @@ func (m *patternMatcher) matchNext(s byteSet) bool {
 	match := m.si < len(m.s) && s.contains(m.s[m.si])
 	if match {
 		m.si++
-		m.consumeBudget()
+		m.steps++
 	}
 	return match
 }
@@ -175,7 +179,7 @@ func (m *patternMatcher) getNext() (b byte, ok bool) {
 	if ok {
 		b = m.s[m.si]
 		m.si++
-		m.consumeBudget()
+		m.steps++
 	}
 	return
 }
@@ -202,14 +206,22 @@ func (m *patternMatcher) addTrackback(siMin int) {
 	m.trackbacks = append(m.trackbacks, trackback{m.si, m.ci, m.pi, siMin})
 }
 
-func (m *patternMatcher) consumeBudget() {
-	if m.budget == 0 {
-		return
-	}
-	m.budget--
-	if m.budget == 0 {
-		panic(budgetConsumed)
+// stepsPerCharge is how many steps a match takes before it charges them.
+const stepsPerCharge = 1000
+
+// chargeSteps charges the steps taken since the last charge.
+//
+// The steps are counted where they are taken, but the count is only tested
+// once per pattern item, in match.  A call where the steps are counted would
+// stop matchNext and getNext being inlined, which makes long matches about
+// 40% slower.  So the steps not charged yet can be more than stepsPerCharge,
+// by as many as one item can take: the length of the string.
+//
+//go:noinline
+func (m *patternMatcher) chargeSteps() {
+	steps := m.steps
+	m.steps = 0
+	if m.meter != nil {
+		m.meter.RequireCPU(steps)
 	}
 }
-
-var budgetConsumed interface{} = "budget consumed"

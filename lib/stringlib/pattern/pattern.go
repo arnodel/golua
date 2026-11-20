@@ -17,42 +17,41 @@ func New(ptn string) (*Pattern, error) {
 	return pb.getPattern()
 }
 
-// MatchFromStart returns a slice of Capture instances that match the given
-// string, starting from the `init` index.
-func (p *Pattern) MatchFromStart(s string, init int, budget uint64) (captures []Capture, used uint64) {
-	defer func() {
-		if r := recover(); r == budgetConsumed {
-			captures = nil
-			used = budget + 1
-		}
-	}()
-	matcher := patternMatcher{
-		Pattern: *p,
-		s:       s,
-		si:      init,
-		budget:  budget,
-	}
-	captures = matcher.findFromStart()
-	return captures, budget - matcher.budget
+// A CPUMeter is what a match charges its steps to.  The match charges them
+// as it goes, a batch at a time, so that the meter can stop a match that
+// takes too many by panicking in RequireCPU.
+type CPUMeter interface {
+	RequireCPU(steps uint64)
 }
 
-// Match returns a slice of Capture instances that match the given
-// string, starting from the `init` index.
-func (p *Pattern) Match(s string, init int, budget uint64) (captures []Capture, used uint64) {
-	defer func() {
-		if r := recover(); r == budgetConsumed {
-			captures = nil
-			used = budget + 1
-		}
-	}()
+// MatchFromStart returns a slice of Capture instances that match the given
+// string, starting from the `init` index.  The steps that it takes are
+// charged to meter, unless it is nil.
+func (p *Pattern) MatchFromStart(s string, init int, meter CPUMeter) []Capture {
 	matcher := patternMatcher{
 		Pattern: *p,
 		s:       s,
 		si:      init,
-		budget:  budget,
+		meter:   meter,
 	}
-	captures = matcher.find()
-	return captures, budget - matcher.budget
+	captures := matcher.findFromStart()
+	matcher.chargeSteps()
+	return captures
+}
+
+// Match returns a slice of Capture instances that match the given string,
+// starting from the `init` index.  The steps that it takes are charged to
+// meter, unless it is nil.
+func (p *Pattern) Match(s string, init int, meter CPUMeter) []Capture {
+	matcher := patternMatcher{
+		Pattern: *p,
+		s:       s,
+		si:      init,
+		meter:   meter,
+	}
+	captures := matcher.find()
+	matcher.chargeSteps()
+	return captures
 }
 
 // A Capture represents a matching substring.
