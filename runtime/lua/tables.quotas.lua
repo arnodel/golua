@@ -39,3 +39,57 @@ print(ctx.used.cpu >= ctx.kill.cpu - 50)
 -- Check we did a number of iterations
 print(t[1] > 100)
 --> =true
+
+-- A table that outlives the context it grows in is charged to the contexts
+-- around it, also when the growth is what terminates the context
+do
+    local function fill(t)
+        local n = #t
+        for i = n + 1, n + 1000000 do
+            t[i] = i
+        end
+    end
+
+    -- The nested context has what is left of the memory of the outer one, so
+    -- the outer one does not outlive it
+    local t = {}
+    local rounds = 0
+    print(runtime.callcontext({kill={memory=100000}}, function()
+        for i = 1, 5 do
+            rounds = rounds + 1
+            runtime.callcontext({}, fill, t)
+        end
+    end))
+    --> =killed
+    print(rounds, #t < 10000)
+    --> =1	true
+
+    -- The same two contexts down
+    t = {}
+    rounds = 0
+    print(runtime.callcontext({kill={memory=100000}}, function()
+        for i = 1, 5 do
+            rounds = rounds + 1
+            runtime.callcontext({}, function()
+                runtime.callcontext({}, fill, t)
+            end)
+        end
+    end))
+    --> =killed
+    print(rounds, #t < 10000)
+    --> =1	true
+
+    -- A nested context with a limit of its own is charged the growth that
+    -- terminates it, and so is the outer one
+    t = {}
+    rounds = 0
+    print(runtime.callcontext({kill={memory=100000}}, function()
+        for i = 1, 5 do
+            rounds = rounds + 1
+            runtime.callcontext({kill={memory=30000}}, fill, t)
+        end
+    end))
+    --> =killed
+    print(rounds < 5, #t < 10000)
+    --> =true	true
+end

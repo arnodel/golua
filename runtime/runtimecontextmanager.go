@@ -177,9 +177,13 @@ func (m *runtimeContextManager) PopContext() RuntimeContext {
 	if mCopy.status == StatusLive {
 		mCopy.status = StatusDone
 	}
-	m.parent.RequireCPU(m.usedResources.Cpu)
-	m.parent.RequireMem(m.usedResources.Memory)
+	// The parent is the current context again before it is charged what the
+	// popped context used, because that charge can terminate the parent.  If
+	// it was charged first, the termination would leave the popped context
+	// in place, and the next pop would remove the wrong one.
 	*m = *m.parent
+	m.RequireCPU(mCopy.usedResources.Cpu)
+	m.RequireMem(mCopy.usedResources.Memory)
 	if m.trackTime {
 		m.updateTimeUsed()
 	}
@@ -200,6 +204,12 @@ func (m *runtimeContextManager) requireCPU(cpuAmount uint64) {
 		m.KillContext()
 	}
 	cpuUsed := m.usedResources.Cpu + cpuAmount
+	// The amount is recorded before the limit is tested, so that it counts
+	// even if it terminates the context.  Some callers do their work first and
+	// ask for its CPU afterwards (a pattern match does), and without this a
+	// context terminated by such a request would charge its parent nothing
+	// for that work.
+	m.usedResources.Cpu = cpuUsed
 	if atLimit(cpuUsed, m.hardLimits.Cpu) {
 		m.TerminateContext("CPU limit of %d exceeded", m.hardLimits.Cpu)
 	}
@@ -207,7 +217,6 @@ func (m *runtimeContextManager) requireCPU(cpuAmount uint64) {
 		m.nextCpuThreshold = cpuUsed + cpuThresholdIncrement
 		m.updateTimeUsed()
 	}
-	m.usedResources.Cpu = cpuUsed
 }
 
 func (m *runtimeContextManager) UnusedCPU() uint64 {
@@ -228,10 +237,15 @@ func (m *runtimeContextManager) requireMem(memAmount uint64) {
 		m.KillContext()
 	}
 	memUsed := m.usedResources.Memory + memAmount
+	// The amount is recorded before the limit is tested, so that it counts
+	// even if it terminates the context.  Some callers have the memory in use
+	// by the time they ask for it (a table that grows does), and without this
+	// a context terminated by such a request would charge its parent nothing
+	// for memory that can outlive it.
+	m.usedResources.Memory = memUsed
 	if atLimit(memUsed, m.hardLimits.Memory) {
 		m.TerminateContext("memory limit of %d exceeded", m.hardLimits.Memory)
 	}
-	m.usedResources.Memory = memUsed
 }
 
 func (m *runtimeContextManager) RequireSize(sz uintptr) (mem uint64) {
@@ -307,10 +321,18 @@ func (m *runtimeContextManager) LinearUnused(cpuFactor uint64) uint64 {
 }
 
 // LinearRequire can be used to actually consume (part of) the resource budget
-// returned by LinearUnused (with the same cpuFactor).
+// returned by LinearUnused (with the same cpuFactor).  It requests amt of
+// memory and amt / cpuFactor of CPU.
+//
+// Both amounts are recorded before either limit is tested, so they both count
+// when one of them terminates the context.
 func (m *runtimeContextManager) LinearRequire(cpuFactor uint64, amt uint64) {
-	m.RequireMem(amt)
+	if m.trackMem {
+		m.usedResources.Memory += amt
+	}
 	m.RequireCPU(amt / cpuFactor)
+	// The memory is recorded already: this tests its limit.
+	m.RequireMem(0)
 }
 
 // KillContext forcefully terminates the context with the message "force kill".
