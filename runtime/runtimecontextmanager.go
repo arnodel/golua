@@ -316,7 +316,18 @@ func (m *runtimeContextManager) LinearUnused(cpuFactor uint64) uint64 {
 }
 
 // LinearRequire can be used to actually consume (part of) the resource budget
-// returned by LinearUnused (with the same cpuFactor).
+// returned by LinearUnused (with the same cpuFactor).  It requests amt of
+// memory and amt / cpuFactor of CPU.
+//
+// The caller must call it before anything that the memory is for can be
+// reached from Lua: before the result is returned, pushed or stored in a table
+// or an upvalue.  Either request can terminate the context, and then the memory
+// is not recorded.  That is right for a result that is dropped as the caller
+// unwinds, but memory that outlived the context would never be charged to its
+// parent.
+//
+// The CPU may be for work that the caller has done already: it is recorded
+// even when it terminates the context.
 func (m *runtimeContextManager) LinearRequire(cpuFactor uint64, amt uint64) {
 	// CPU comes first: the work has been done by now, so its CPU has to be
 	// recorded even if the memory request then terminates the context.
