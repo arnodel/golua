@@ -154,17 +154,72 @@ func Test_runtimeContextManager_RequireCPU_recordsTerminatingRequest(t *testing.
 	}
 }
 
-// LinearRequire records the CPU of a request whose memory terminates the
-// context.
-func Test_runtimeContextManager_LinearRequire_recordsCPU(t *testing.T) {
+// A request for memory that terminates the context is recorded: the memory may
+// be in use already.
+func Test_runtimeContextManager_RequireMem_recordsTerminatingRequest(t *testing.T) {
 	var m runtimeContextManager
 	m.initRoot()
-	m.PushContext(RuntimeContextDef{HardLimits: RuntimeResources{Cpu: 1000, Memory: 1000}})
-	if terminationOf(func() { m.LinearRequire(10, 2000) }) == nil {
+	m.PushContext(RuntimeContextDef{HardLimits: RuntimeResources{Memory: 1000}})
+	m.RequireMem(10)
+	if terminationOf(func() { m.RequireMem(1000) }) == nil {
 		t.Fatal("context should be terminated")
 	}
-	if used := m.UsedResources().Cpu; used != 200 {
-		t.Errorf("used CPU = %d, want 200", used)
+	if used := m.UsedResources().Memory; used != 1010 {
+		t.Errorf("used memory = %d, want 1010", used)
+	}
+}
+
+// LinearRequire records both the CPU and the memory of a request, whichever
+// of the two terminates the context.
+func Test_runtimeContextManager_LinearRequire_recordsBoth(t *testing.T) {
+	tests := []struct {
+		name   string
+		limits RuntimeResources
+	}{
+		{name: "memory terminates", limits: RuntimeResources{Cpu: 1000, Memory: 1000}},
+		{name: "CPU terminates", limits: RuntimeResources{Cpu: 100, Memory: 10000}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var m runtimeContextManager
+			m.initRoot()
+			m.PushContext(RuntimeContextDef{HardLimits: tt.limits})
+			if terminationOf(func() { m.LinearRequire(10, 2000) }) == nil {
+				t.Fatal("context should be terminated")
+			}
+			if used := m.UsedResources().Cpu; used != 200 {
+				t.Errorf("used CPU = %d, want 200", used)
+			}
+			if used := m.UsedResources().Memory; used != 2000 {
+				t.Errorf("used memory = %d, want 2000", used)
+			}
+		})
+	}
+}
+
+// A context terminated for using up the memory that it got from its parent
+// terminates its parent when it is popped, and that one its own parent.
+func Test_runtimeContextManager_PopContext_memoryTerminatesParents(t *testing.T) {
+	var m runtimeContextManager
+	m.initRoot()
+	m.PushContext(RuntimeContextDef{HardLimits: RuntimeResources{Memory: 1000}})
+	m.RequireMem(10)
+	m.PushContext(RuntimeContextDef{})
+	m.PushContext(RuntimeContextDef{})
+	if terminationOf(func() { m.RequireMem(5000) }) == nil {
+		t.Fatal("innermost context should be terminated")
+	}
+	if terminationOf(func() { m.PopContext() }) == nil {
+		t.Fatal("middle context should be terminated")
+	}
+	if terminationOf(func() { m.PopContext() }) == nil {
+		t.Fatal("outer context should be terminated")
+	}
+	if limit := m.HardLimits().Memory; limit != 1000 {
+		t.Errorf("current context has memory limit %d, want 1000 (the outer one)", limit)
+	}
+	if used := m.UsedResources().Memory; used != 5010 {
+		t.Errorf("used memory = %d, want 5010", used)
 	}
 }
 

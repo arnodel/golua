@@ -237,10 +237,15 @@ func (m *runtimeContextManager) requireMem(memAmount uint64) {
 		m.KillContext()
 	}
 	memUsed := m.usedResources.Memory + memAmount
+	// The amount is recorded before the limit is tested, so that it counts
+	// even if it terminates the context.  Some callers have the memory in use
+	// by the time they ask for it (a table that grows does), and without this
+	// a context terminated by such a request would charge its parent nothing
+	// for memory that can outlive it.
+	m.usedResources.Memory = memUsed
 	if atLimit(memUsed, m.hardLimits.Memory) {
 		m.TerminateContext("memory limit of %d exceeded", m.hardLimits.Memory)
 	}
-	m.usedResources.Memory = memUsed
 }
 
 func (m *runtimeContextManager) RequireSize(sz uintptr) (mem uint64) {
@@ -319,20 +324,15 @@ func (m *runtimeContextManager) LinearUnused(cpuFactor uint64) uint64 {
 // returned by LinearUnused (with the same cpuFactor).  It requests amt of
 // memory and amt / cpuFactor of CPU.
 //
-// The caller must call it before anything that the memory is for can be
-// reached from Lua: before the result is returned, pushed or stored in a table
-// or an upvalue.  Either request can terminate the context, and then the memory
-// is not recorded.  That is right for a result that is dropped as the caller
-// unwinds, but memory that outlived the context would never be charged to its
-// parent.
-//
-// The CPU may be for work that the caller has done already: it is recorded
-// even when it terminates the context.
+// Both amounts are recorded before either limit is tested, so they both count
+// when one of them terminates the context.
 func (m *runtimeContextManager) LinearRequire(cpuFactor uint64, amt uint64) {
-	// CPU comes first: the work has been done by now, so its CPU has to be
-	// recorded even if the memory request then terminates the context.
+	if m.trackMem {
+		m.usedResources.Memory += amt
+	}
 	m.RequireCPU(amt / cpuFactor)
-	m.RequireMem(amt)
+	// The memory is recorded already: this tests its limit.
+	m.RequireMem(0)
 }
 
 // KillContext forcefully terminates the context with the message "force kill".
