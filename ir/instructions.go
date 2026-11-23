@@ -342,10 +342,15 @@ func joinRegisters(regs []Register, sep string) string {
 }
 
 // MkCont creates a new continuation for the given closure and puts it in Dst.
+// It returns to the current frame, or where the current frame returns if Tail
+// is set, or, if Into is set, to the continuation that Dst holds: the
+// closure's results are then that continuation's last arguments, and it runs
+// when the closure returns.
 type MkCont struct {
 	Dst     Register
 	Closure Register
 	Tail    bool
+	Into    bool
 }
 
 // DestReg returns the destination register of this instruction.
@@ -364,7 +369,12 @@ func (m MkCont) ProcessInstr(p InstrProcessor) {
 	p.ProcessMkContInstr(m)
 }
 
-func (m MkCont) Reads() []Register  { return []Register{m.Closure} }
+func (m MkCont) Reads() []Register {
+	if m.Into {
+		return []Register{m.Closure, m.Dst}
+	}
+	return []Register{m.Closure}
+}
 func (m MkCont) Writes() []Register { return []Register{m.Dst} }
 func (m MkCont) ReplaceRead(from, to Register) Instruction {
 	m.Closure = sub(m.Closure, from, to)
@@ -372,6 +382,9 @@ func (m MkCont) ReplaceRead(from, to Register) Instruction {
 }
 
 func (m MkCont) String() string {
+	if m.Into {
+		return fmt.Sprintf("%s := mkcont(%s, into=%s)", m.Dst, m.Closure, m.Dst)
+	}
 	return fmt.Sprintf("%s := mkcont(%s, tail=%t)", m.Dst, m.Closure, m.Tail)
 }
 

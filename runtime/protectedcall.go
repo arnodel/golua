@@ -119,7 +119,7 @@ func (p *protectedCall) Next() Cont {
 
 // Parent implements Cont.Parent.
 func (p *protectedCall) Parent() Cont {
-	return p.next
+	return started(p.next)
 }
 
 // DebugInfo implements Cont.DebugInfo.  A protected call shows in a

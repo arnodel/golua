@@ -206,7 +206,9 @@ func (ic instrCompiler) ProcessMkClosureInstr(m ir.MkClosure) {
 // ProcessMkContInstr compiles a MkCont instruction.
 func (ic instrCompiler) ProcessMkContInstr(m ir.MkCont) {
 	var opcode code.Opcode
-	if m.Tail {
+	if m.Into {
+		opcode = code.ContInto(ic.codeReg(m.Dst), ic.codeReg(m.Closure))
+	} else if m.Tail {
 		opcode = code.TailCont(ic.codeReg(m.Dst), ic.codeReg(m.Closure))
 	} else {
 		opcode = code.Cont(ic.codeReg(m.Dst), ic.codeReg(m.Closure))

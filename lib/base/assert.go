@@ -15,7 +15,7 @@ func assert(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		} else {
 			msg = etc[0]
 		}
-		err := rt.NewError(msg).AddContext(c.Next(), 1)
+		err := rt.NewError(msg).AddContext(c.Parent(), 1)
 		return nil, err
 	}
 	next := c.Next()

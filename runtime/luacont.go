@@ -16,11 +16,42 @@ type LuaCont struct {
 	registers      []Value
 	pc             int32
 	acc            []Value
-	running        bool
+	state          frameState
 	closeStackBase int
 }
 
 var _ Cont = (*LuaCont)(nil)
+
+// frameState says where a Lua frame is in its life.  A frame that has not
+// started is one that waits for its last arguments: the results of a call
+// that returns to it (see code.OpContInto).
+type frameState uint8
+
+const (
+	frameNew       frameState = iota // Made, not run yet
+	frameRunning                     // In the run loop
+	frameSuspended                   // Has called something and waits for it
+)
+
+// started returns c, or if c is a continuation that has not started, the
+// first one after it that has: the one that made the call c is for.
+func started(c Cont) Cont {
+	for {
+		switch x := c.(type) {
+		case *LuaCont:
+			if x.state != frameNew {
+				return c
+			}
+			c = x.Next()
+		case *GoCont:
+			// The continuation of a Go function is only ever next to
+			// another while it waits for its arguments.
+			c = x.next
+		default:
+			return c
+		}
+	}
+}
 
 // NewLuaCont returns a new LuaCont from a closure and next, a continuation to
 // push results into.
@@ -93,7 +124,7 @@ func (c *LuaCont) Next() Cont {
 }
 
 func (c *LuaCont) Parent() Cont {
-	return c.Next()
+	return started(c.Next())
 }
 
 // RunInThread implements Cont.RunInThread.
@@ -102,7 +133,7 @@ func (c *LuaCont) RunInThread(t *Thread) (Cont, error) {
 	consts := c.consts
 	lines := c.lines
 	var lastLine int32
-	c.running = true
+	c.state = frameRunning
 	opcodes := c.code
 	regs := c.registers
 RunLoop:
@@ -332,6 +363,20 @@ RunLoop:
 						cont, err = continueCall(t, val, next)
 						res = ContValue(cont)
 					}
+				case code.OpContInto:
+					// rA holds the continuation that waits for the results
+					// of the call this makes the frame of.
+					into := getReg(regs, dst).AsCont()
+					switch f := val.iface.(type) {
+					case *Closure:
+						res = ContValue(NewLuaCont(t, f, into))
+					case *GoFunction:
+						res = ContValue(NewGoCont(t, f, into))
+					default:
+						var cont Cont
+						cont, err = continueCall(t, val, into)
+						res = ContValue(cont)
+					}
 				case code.OpId:
 					res = val
 				case code.OpLoad:
@@ -516,7 +561,7 @@ RunLoop:
 				}
 				c.pc = pc
 				c.acc = nil
-				c.running = false
+				c.state = frameSuspended
 
 				if isTail && t.closeStack.size() > c.closeStackBase {
 					// Leaving this continuation for good: close what it has
@@ -538,6 +583,11 @@ RunLoop:
 					switch {
 					case contReg == code.ValueReg(0):
 						_ = t.triggerReturn(t, c)
+						if started(next) != next {
+							// Returning into a call that waited for these
+							// results: it is called now.
+							_ = t.triggerCall(t, next)
+						}
 					case isTail:
 						_ = t.triggerTailCall(t, next)
 					default:
@@ -787,7 +837,7 @@ func forLimit(limit Value, tlimit NumberType, step int64) (Value, bool) {
 // DebugInfo implements Cont.DebugInfo.
 func (c *LuaCont) DebugInfo() *DebugInfo {
 	pc := c.pc
-	if !c.running {
+	if c.state != frameRunning {
 		pc--
 	}
 	var currentLine int32 = -1

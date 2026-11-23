@@ -312,6 +312,7 @@ const (
 	OpCheckNotDefined             // error if rA[rB] is not nil (Lua 5.5 global redefinition check)
 	OpLoad                        // the contents of the box rB
 	OpStore                       // not a load: puts rB into the box rA ("store rA, rB")
+	OpContInto                    // a continuation for the closure rB, returning to the continuation rA, which it replaces in rA
 )
 
 // encodeZ encodes an UnOp into an opcode.
@@ -852,6 +853,8 @@ func (c Opcode) Disassemble(d OpcodeDisassembler, i int) string {
 				tpl = "cont(%s)"
 			case OpTailCont:
 				tpl = "tailcont(%s)"
+			case OpContInto:
+				return fmt.Sprintf("%s <- cont(%s) into %s", rA, rB, rA)
 			case OpId:
 				tpl = "%s"
 			case OpEtcId:

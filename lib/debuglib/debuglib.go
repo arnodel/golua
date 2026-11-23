@@ -332,7 +332,7 @@ func traceback(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		}
 	}
 	for level > 0 && cont != nil {
-		cont = cont.Next()
+		cont = cont.Parent()
 		level--
 	}
 	tb := rt.StringValue(t.Traceback(msgString, cont))

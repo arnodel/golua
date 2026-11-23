@@ -109,6 +109,11 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
 		// A function that hands over to another continuation has not
 		// returned: that is for what it handed over to (a protected call).
 		_ = t.triggerReturn(t, c)
+		if err == nil && started(next) != next {
+			// Returning into a call that waited for these results: it is
+			// called now.
+			_ = t.triggerCall(t, next)
+		}
 	}
 
 	if err != nil {
@@ -137,7 +142,7 @@ func (c *GoCont) Next() Cont {
 
 // Parent returns the continuation's parent.
 func (c *GoCont) Parent() Cont {
-	return c.next
+	return started(c.next)
 }
 
 // DebugInfo returns c's debug info.
