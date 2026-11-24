@@ -2,7 +2,6 @@ package golib
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
 
@@ -138,5 +137,4 @@ func init() {
 		return
 	}
 	pluginsRoot = ""
-	log.Print("Unable to set go plugins root")
 }
