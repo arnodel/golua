@@ -1,3 +1,9 @@
+//go:build !windows
+// +build !windows
+
+// Not on Windows: Go packages cannot be imported there, so there is no
+// plugins root, and the home directory comes from USERPROFILE, not HOME.
+
 package golib
 
 import (
