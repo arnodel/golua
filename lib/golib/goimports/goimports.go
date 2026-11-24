@@ -11,7 +11,6 @@ import (
 	"go/parser"
 	"go/token"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -221,7 +220,6 @@ func buildLib(pkg string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Creating lib for package %s at %s", pkgName, pkgDir)
 	fset := token.NewFileSet()
 	pkgs, err := parser.ParseDir(fset, pkgDir, nil, 0)
 	if err != nil {
