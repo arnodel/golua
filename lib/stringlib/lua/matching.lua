@@ -283,3 +283,28 @@ do
     print(pcall(string.find, "abc", "[", 5))
     --> =true	nil
 end
+
+-- gsub: a match at the start of the string replaced with nothing.  The
+-- result is built from an empty string, which is not the same as no
+-- substitution having been made.
+do
+    print(("hello"):gsub("^h", ""))
+    --> =ello	1
+    print(("hello"):gsub("he", ""))
+    --> =llo	1
+    print(("hello"):gsub("hello", ""))
+    --> =	1
+    print(("hello"):gsub(".", ""))
+    --> =	5
+    print(("luatest:12: message"):gsub("^.-:%d+: ", ""))
+    --> =message	1
+    print(("hello"):gsub("^h", function() return "" end))
+    --> =ello	1
+    print(("hello"):gsub("^h", {h = ""}))
+    --> =ello	1
+    -- No substitution: the string comes back as it is.
+    print(("hello"):gsub("^h", function() return false end))
+    --> =hello	1
+    print(("hello"):gsub("x", ""))
+    --> =hello	0
+end
