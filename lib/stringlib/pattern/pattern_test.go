@@ -2,6 +2,7 @@ package pattern
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 	"testing"
 )
@@ -214,8 +215,10 @@ func (m *stepMeter) RequireCPU(steps uint64) {
 
 // A match charges its steps as it goes, not all of them when it ends.
 func TestMatchChargesStepsInBatches(t *testing.T) {
-	// Each of the 2000 places a match can start at goes to the end of the
-	// string looking for a b, one pattern item at a time.
+	// Each of the 2001 places a match can start at goes to the end of the
+	// string looking for a b, one pattern item at a time.  That is three
+	// steps for each character (".-" is tried and takes it, then "b" is
+	// tried), and two at the end of the string, where both are tried.
 	s := strings.Repeat("a", 2000)
 	ptn, err := New(".-b")
 	if err != nil {
@@ -225,12 +228,14 @@ func TestMatchChargesStepsInBatches(t *testing.T) {
 	if captures := ptn.Match(s, 0, meter); captures != nil {
 		t.Fatal("expected no match")
 	}
-	const wantSteps = 2000 * 2001 / 2
+	const wantSteps = 3*(2000*2001/2) + 2*2001
 	if meter.charged != wantSteps {
 		t.Errorf("charged %d steps, want %d", meter.charged, wantSteps)
 	}
-	if meter.largestCharge > stepsPerCharge {
-		t.Errorf("largest charge is %d steps, want at most %d", meter.largestCharge, stepsPerCharge)
+	// An item takes two steps at most here, so a charge is never more than
+	// one step over.
+	if meter.largestCharge > stepsPerCharge+1 {
+		t.Errorf("largest charge is %d steps, want at most %d", meter.largestCharge, stepsPerCharge+1)
 	}
 }
 
@@ -246,8 +251,50 @@ func TestMatchChargesLongItemAfterIt(t *testing.T) {
 	if captures := ptn.Match(s, 0, meter); captures == nil {
 		t.Fatal("expected a match")
 	}
-	if meter.charged != uint64(len(s)) {
-		t.Errorf("charged %d steps, want %d", meter.charged, len(s))
+	// One step to try the item and one for each character.
+	if want := uint64(len(s)) + 1; meter.charged != want {
+		t.Errorf("charged %d steps, want %d", meter.charged, want)
+	}
+	if meter.largestCharge != meter.charged {
+		t.Errorf("largest charge is %d steps, want all %d in one", meter.largestCharge, meter.charged)
+	}
+}
+
+// An item that is tried and matches nothing is a step: there can be many of
+// them at every position of the string.
+func TestMatchChargesItemsThatMatchNothing(t *testing.T) {
+	const items, length = 100, 1000
+	s := strings.Repeat("a", length)
+	ptn, err := New(strings.Repeat("x?", items) + "y")
+	if err != nil {
+		t.Fatal(err)
+	}
+	meter := new(stepMeter)
+	if captures := ptn.Match(s, 0, meter); captures != nil {
+		t.Fatal("expected no match")
+	}
+	if least := uint64(items * length); meter.charged < least {
+		t.Errorf("charged %d steps, want at least %d", meter.charged, least)
+	}
+}
+
+// Comparing with a capture is a step for each byte compared.
+func TestMatchChargesBackReference(t *testing.T) {
+	const length = 1000
+	s := strings.Repeat("a", length)
+	ptn, err := New("^(a*)%1b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	meter := new(stepMeter)
+	if captures := ptn.MatchFromStart(s, 0, meter); captures != nil {
+		t.Fatal("expected no match")
+	}
+	// The capture is compared at each length that leaves room for it twice,
+	// from half the string down to nothing.
+	const half = length / 2
+	if least := uint64(half * (half + 1) / 2); meter.charged < least {
+		t.Errorf("charged %d steps, want at least %d", meter.charged, least)
 	}
 }
 
@@ -272,5 +319,53 @@ func TestMeterStopsMatch(t *testing.T) {
 	}()
 	if most := meter.limit + stepsPerCharge + uint64(len(s)); meter.charged > most {
 		t.Errorf("charged %d steps, want at most %d", meter.charged, most)
+	}
+}
+
+type randomMeter struct{ used, limit uint64 }
+
+type randomMeterLimit struct{}
+
+func (m *randomMeter) RequireCPU(steps uint64) {
+	m.used += steps
+	if m.used > m.limit {
+		panic(randomMeterLimit{})
+	}
+}
+
+// Patterns and subjects put together at random from pieces of pattern syntax:
+// building a pattern and matching with it panic for nothing but the limit of
+// the meter.
+func TestRandomPatternsDoNotPanic(t *testing.T) {
+	pieces := []string{
+		"a", "b", ".", "%a", "%d", "%s", "%w", "[ab]", "[^a]", "[a-c]", "[%a_]",
+		"*", "+", "-", "?", "(", ")", "()", "%1", "%2", "%9", "%0",
+		"%b", "%bab", "%f", "%f[a]", "^", "$", "%", "[", "]", "%%", "%z", "\x00", "\xff",
+	}
+	subjects := []string{"a", "b", "ab", "ba", " ", "", "1", "_", "\x00", "\xff"}
+	rng := rand.New(rand.NewSource(1))
+	for n := 0; n < 200000 && !t.Failed(); n++ {
+		var ptn, s string
+		for k := rng.Intn(8); k >= 0; k-- {
+			ptn += pieces[rng.Intn(len(pieces))]
+		}
+		for k := rng.Intn(12); k > 0; k-- {
+			s += subjects[rng.Intn(len(subjects))]
+		}
+		func() {
+			defer func() {
+				if r := recover(); r != nil && r != (randomMeterLimit{}) {
+					t.Errorf("pattern %q, subject %q: panic: %v", ptn, s, r)
+				}
+			}()
+			p, err := New(ptn)
+			if err != nil {
+				return
+			}
+			for init := 0; init <= len(s); init++ {
+				p.Match(s, init, &randomMeter{limit: 100000})
+				p.MatchFromStart(s, init, &randomMeter{limit: 100000})
+			}
+		}()
 	}
 }

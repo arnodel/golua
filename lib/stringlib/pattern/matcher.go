@@ -26,6 +26,14 @@ func (m *patternMatcher) reset(si int) {
 }
 
 func (m *patternMatcher) find() []Capture {
+	// A pattern with no items and an end anchor matches at the end of the
+	// string and nowhere else.  Going there directly means that every other
+	// pattern tries an item, which is a step, at each position it starts
+	// from: without this, a match with "$" would go through the string
+	// without taking a step.
+	if len(m.items) == 0 && m.endAnchor && m.si < len(m.s) {
+		m.si = len(m.s)
+	}
 	for si := m.si; si <= len(m.s); si++ {
 		m.reset(si)
 		if captures := m.matchToEnd(); captures != nil {
@@ -59,6 +67,10 @@ func (m *patternMatcher) matchToEnd() []Capture {
 
 func (m *patternMatcher) match() {
 	for m.pi < len(m.items) {
+		// Trying an item is a step, whether or not it matches anything.
+		// Without this a pattern of items that match nothing costs nothing,
+		// although each one is tried at every position of the string.
+		m.steps++
 		if m.steps >= stepsPerCharge {
 			m.chargeSteps()
 		}
@@ -104,7 +116,16 @@ func (m *patternMatcher) match() {
 		case ptnCapture:
 			c := m.captures[item.bytes[0]]
 			end := m.si + c.end - c.start
-			if end <= len(m.s) && m.s[c.start:c.end] == m.s[m.si:end] {
+			// A position capture has no text (its end is -1), and nothing
+			// matches a reference to it.  Without this test its bounds would
+			// be used to slice the string.
+			if c.end < 0 || end > len(m.s) {
+				m.trackback()
+				break
+			}
+			// Comparing with the capture takes a step per byte.
+			m.steps += uint64(c.end - c.start)
+			if m.s[c.start:c.end] == m.s[m.si:end] {
 				m.si = end
 				m.pi++
 			} else {
@@ -210,6 +231,10 @@ func (m *patternMatcher) addTrackback(siMin int) {
 const stepsPerCharge = 1000
 
 // chargeSteps charges the steps taken since the last charge.
+//
+// A step is an item tried, a character taken by an item, or a byte compared
+// with a capture: all the work of a match is a bounded number of operations
+// for each step.
 //
 // The steps are counted where they are taken, but the count is only tested
 // once per pattern item, in match.  A call where the steps are counted would

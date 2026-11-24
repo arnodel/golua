@@ -181,3 +181,16 @@ do
     print(ctx.used.millis < 1000)
     --> =true
 end
+
+-- A match is charged for work that takes no character of the string
+do
+    local s = ("a"):rep(10000)
+
+    -- Items that match nothing are tried at every position
+    print(runtime.callcontext({kill={cpu=100000}}, string.find, s, ("x?"):rep(100) .. "y"))
+    --> =killed
+
+    -- A long capture is compared with what follows it, at each of its lengths
+    print(runtime.callcontext({kill={cpu=100000}}, string.find, s, "^(a*)%1b"))
+    --> =killed
+end
