@@ -1,6 +1,7 @@
 package golib
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -105,9 +106,6 @@ func goValueCall(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 }
 
 func goimport(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
-	if pluginsRoot == "" {
-		return nil, rt.NewError(rt.StringValue("cannot import go packages: plugins root not set"))
-	}
 	if err := c.Check1Arg(); err != nil {
 		return nil, err
 	}
@@ -115,26 +113,33 @@ func goimport(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 	if err != nil {
 		return nil, err
 	}
+	root, err := pluginsRoot()
+	if err != nil {
+		return nil, fmt.Errorf("cannot import go packages: %s", err)
+	}
 	forceBuild := c.NArgs() >= 2 && rt.Truth(c.Arg(1))
-	exports, loadErr := goimports.LoadGoPackage(string(path), pluginsRoot, forceBuild)
+	exports, loadErr := goimports.LoadGoPackage(string(path), root, forceBuild)
 	if loadErr != nil {
 		return nil, fmt.Errorf("cannot import go package %s: %s", path, loadErr)
 	}
 	return c.PushingNext1(t.Runtime, NewGoValue(t.Runtime, exports)), nil
 }
 
-var pluginsRoot string
-
-func init() {
-	var ok bool
-	pluginsRoot, ok = os.LookupEnv("GOLUA_PLUGINS_ROOT")
-	if ok {
-		return
+// pluginsRoot returns the directory the plugins of Go packages are kept in:
+// the one GOLUA_PLUGINS_ROOT names, or else .golua/goplugins in the user's
+// home directory.  It is looked up at each import rather than once when the
+// program starts, so that a program embedding golua can set
+// GOLUA_PLUGINS_ROOT itself before its Lua code imports a package.
+func pluginsRoot() (string, error) {
+	if root, ok := os.LookupEnv("GOLUA_PLUGINS_ROOT"); ok {
+		if root == "" {
+			return "", errors.New("GOLUA_PLUGINS_ROOT is empty")
+		}
+		return root, nil
 	}
 	home, err := os.UserHomeDir()
-	if err == nil {
-		pluginsRoot = path.Join(home, ".golua/goplugins")
-		return
+	if err != nil {
+		return "", fmt.Errorf("GOLUA_PLUGINS_ROOT is not set and there is no home directory (%s)", err)
 	}
-	pluginsRoot = ""
+	return path.Join(home, ".golua/goplugins"), nil
 }
