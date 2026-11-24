@@ -49,8 +49,8 @@ func find(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
 		if i == -1 {
 			t.Push1(next, rt.NilValue)
 		} else {
-			t.Push1(next, rt.IntValue(int64(i+1)))
-			t.Push1(next, rt.IntValue(int64(i+len(ptn))))
+			t.Push1(next, rt.IntValue(int64(si+i+1)))
+			t.Push1(next, rt.IntValue(int64(si+i+len(ptn))))
 		}
 	default:
 		pat, err := pattern.New(string(ptn))

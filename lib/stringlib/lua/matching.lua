@@ -48,6 +48,17 @@ do
 
     pf("x", "y")
     --> =nil
+
+    -- Plain searches and empty patterns report positions in the subject,
+    -- not positions relative to init.
+    pf("abcabc", "b", 3, true)
+    --> =5	5
+
+    pf("abcabc", "", 3)
+    --> =3	2
+
+    pf("abc", "", 4)
+    --> =4	3
 end
 
 do
