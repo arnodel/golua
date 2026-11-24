@@ -26,7 +26,7 @@ func load(r *rt.Runtime) (rt.Value, func()) {
 	pkg := rt.NewTable()
 
 	if goimports.Supported {
-		r.SetEnvGoFunc(pkg, "import", goimport, 1, false)
+		r.SetEnvGoFunc(pkg, "import", goimport, 2, false)
 	}
 
 	meta := rt.NewTable()

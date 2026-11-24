@@ -113,8 +113,9 @@ hi there from Lua! You requested /hello/golua
 
 A package is imported by building a Go plugin for it, with the `go` command,
 the first time; the plugin is kept, in `~/.golua/goplugins` or in the directory
-that `GOLUA_PLUGINS_ROOT` names, and opened from there afterwards.  Go only lets
-a program open a plugin built exactly as the program was, so:
+that `GOLUA_PLUGINS_ROOT` names, and opened from there afterwards;
+`go.import(path, true)` builds it again, say after the package has changed.  Go
+only lets a program open a plugin built exactly as the program was, so:
 
 - the `go` command must be of the version of Go that golua was built with
   (golua says so if it is not);
