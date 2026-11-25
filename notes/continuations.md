@@ -210,6 +210,15 @@ it back whatever runs in it.
 Calling a continuation in another thread is an error: its loop is one of
 that thread's.
 
+## To-be-closed variables
+
+Calling a continuation leaves blocks, and their to-be-closed variables are
+closed unless a continuation was captured in the block, which can then be
+entered again.  For this the close stack of a thread is one branch of a
+tree, and a `ContFunction` keeps the branch of its capture.  The section on
+continuations in [to-be-closed.md](to-be-closed.md) has the rules and the
+structure.
+
 ## The first version, and what this one costs
 
 The first version copied every frame down to the bottom at the capture and
