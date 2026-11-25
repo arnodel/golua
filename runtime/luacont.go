@@ -59,6 +59,30 @@ func (c *LuaCont) release(r *Runtime) {
 	r.ReleaseSize(unsafe.Sizeof(LuaCont{}))
 }
 
+// clone returns a new frame in the state c is in: the same function at the
+// same place, with the same values in its registers and its accumulator.  It
+// is not running, whether c is or not.  It comes from the pools as a frame
+// made by NewLuaCont does, and is released as any frame is.  The values are
+// copied as they are, so the clone returns to where c returns.
+func (c *LuaCont) clone(t *Thread) *LuaCont {
+	n := int(c.RegCount)
+	t.RequireCPU(uint64(n))
+	t.RequireArrSize(unsafe.Sizeof(Value{}), n)
+	registers := t.regPool.getIn(c.regClass, c.regSize, n)
+	copy(registers, c.registers)
+	d := t.luaContPool.get()
+	t.RequireSize(unsafe.Sizeof(LuaCont{}))
+	d.Closure = c.Closure
+	d.registers = registers
+	d.pc = c.pc
+	d.closeStackBase = c.closeStackBase
+	if len(c.acc) > 0 {
+		t.RequireArrSize(unsafe.Sizeof(Value{}), len(c.acc))
+		d.acc = append([]Value(nil), c.acc...)
+	}
+	return d
+}
+
 // Push implements Cont.Push.
 func (c *LuaCont) Push(r *Runtime, val Value) {
 	opcode := c.code[c.pc]
@@ -290,7 +314,7 @@ RunLoop:
 			dst := opcode.GetA()
 			if opcode.GetF() {
 				// dst must contain a continuation
-				cont := getReg(regs, dst).AsCont()
+				cont := contToPush(t, getReg(regs, dst).AsCont(), regs, dst)
 				cont.Push(t.Runtime, val)
 			} else {
 				setReg(regs, dst, val)
@@ -329,7 +353,7 @@ RunLoop:
 						res = ContValue(NewGoCont(t, f, next))
 					default:
 						var cont Cont
-						cont, err = continueCall(t, val, next)
+						cont, err = Continue(t, val, next)
 						res = ContValue(cont)
 					}
 				case code.OpId:
@@ -358,7 +382,7 @@ RunLoop:
 					}
 					err = errNotABox
 				case code.OpEtcId:
-					cont := getReg(regs, dst).AsCont()
+					cont := contToPush(t, getReg(regs, dst).AsCont(), regs, dst)
 					var etc []Value
 					etc, err = expandVarargs(t, val)
 					if err != nil {
@@ -423,7 +447,7 @@ RunLoop:
 				return nil, err
 			}
 			if opcode.GetF() {
-				getReg(regs, dst).AsCont().Push(t.Runtime, res)
+				contToPush(t, getReg(regs, dst).AsCont(), regs, dst).Push(t.Runtime, res)
 			} else {
 				setReg(regs, dst, res)
 			}
@@ -449,15 +473,15 @@ RunLoop:
 				// The register holds either a continuation or the callee,
 				// whose frame the call makes: Continue inlined by hand, as
 				// for the cont opcodes.  r0 always holds the caller's
-				// continuation, so "call r0", a return, needs no test; a
-				// continuation anywhere else was made by a cont opcode.  A
-				// callee stays in its register, which the call leaves alone:
-				// it may be a local.
+				// continuation, so "call r0", a return, needs no test but
+				// that of contToPush for a frozen frame; a continuation
+				// anywhere else was made by a cont opcode.  A callee stays
+				// in its register, which the call leaves alone: a local.
 				callee := getReg(regs, contReg)
 				var next Cont
 				isCont := true
 				if contReg == code.ValueReg(0) {
-					next = callee.AsCont()
+					next = contToPush(t, callee.AsCont(), regs, contReg)
 				} else if lc, ok := callee.iface.(*LuaCont); ok {
 					next = lc
 				} else {
@@ -474,7 +498,7 @@ RunLoop:
 					default:
 						if next, isCont = callee.TryCont(); !isCont {
 							var err error
-							if next, err = continueCall(t, callee, cnext); err != nil {
+							if next, err = Continue(t, callee, cnext); err != nil {
 								c.pc = pc
 								return nil, err
 							}
@@ -807,4 +831,28 @@ func (c *LuaCont) DebugInfo() *DebugInfo {
 
 func (c *LuaCont) clearReg(reg code.Reg) {
 	c.registers[reg] = NilValue
+}
+
+// contToPush returns c, the continuation in a register, for the run loop to
+// push values into.  A frozen frame is first replaced, in the register too,
+// with a copy that can run (see frozenCont).
+//
+// It takes the continuation as the run loop already read it, and is small
+// enough to be inlined, so that the loop is the code it was with one test
+// more.  As a call that also read the register it made programs that never
+// come here 3 to 5% slower (sieve, spectral-norm, md5): any change to what
+// the loop is compiled to can.
+func contToPush(t *Thread, c Cont, regs []Value, reg code.Reg) Cont {
+	if fc, ok := c.(*frozenCont); ok {
+		return thawInReg(t, fc, regs, reg)
+	}
+	return c
+}
+
+// thawInReg replaces the frozen frame in a register with a copy that can
+// run, and returns the copy.
+func thawInReg(t *Thread, fc *frozenCont, regs []Value, reg code.Reg) Cont {
+	c := fc.thaw(t)
+	setReg(regs, reg, ContValue(c))
+	return c
 }

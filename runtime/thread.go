@@ -65,6 +65,11 @@ type Thread struct {
 	// exceed maxRunContinuationDepth.
 	runContinuationDepth int
 
+	// The loop that is running, as the continuations captured in it know it
+	// (see runLoop).  It is nil until a continuation is captured in the
+	// loop.
+	loop *runLoop
+
 	// Number of calls of Lua code under way that a yield cannot cross: those
 	// made by a Go function declared NoYieldAcross, and those of a debug
 	// hook.  While there is one the thread cannot yield.
@@ -135,6 +140,28 @@ func (t *Thread) RunContinuation(c Cont) error {
 	return t.runContinuation(c, true)
 }
 
+// enterLoop is called when a loop starts running continuations in the
+// thread, and leaveLoop when it has ended, with what enterLoop returned.
+// They count the loops under way and keep the record of the one that is
+// running (see runLoop): a call from Go is a new loop, whereas a thread that
+// goes on in a goroutine is still in the loop it was in.
+//
+// Each is one line of runContinuation, in the place of a line that was
+// there: the build's profile counts lines (see benchmarks/README.md).
+func (t *Thread) enterLoop(isCall bool) (outer *runLoop) {
+	t.runContinuationDepth++
+	outer = t.loop
+	if isCall {
+		t.loop = nil
+	}
+	return outer
+}
+
+func (t *Thread) leaveLoop(outer *runLoop) {
+	t.runContinuationDepth--
+	t.loop = outer
+}
+
 // runContinuation is RunContinuation, with the choice of whether c is the
 // start of a call, which the call hook is told of, or the rest of something
 // that was under way (a thread that goes on in a goroutine).
@@ -162,12 +189,12 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 	// Not when a coroutine's own loop ends: the coroutine is dead, and its
 	// traceback shows the continuation it stopped in.
 	current := t.currentCont
-	t.runContinuationDepth++
+	outer := t.enterLoop(isCall)
 	defer func() {
 		if noYield {
 			t.noYieldDepth--
 		}
-		t.runContinuationDepth--
+		t.leaveLoop(outer)
 		coroutineEnds := t.runContinuationDepth == 0 && t.caller != nil
 		if !coroutineEnds {
 			t.currentCont = current

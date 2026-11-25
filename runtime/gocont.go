@@ -38,6 +38,40 @@ func NewGoCont(t *Thread, f *GoFunction, next Cont) *GoCont {
 	return cont
 }
 
+// clone returns a new GoCont for the same call as c, with the arguments that
+// have been pushed into c, and returning to next.
+func (c *GoCont) clone(t *Thread, next Cont) *GoCont {
+	d := NewGoCont(t, c.GoFunction, next)
+	d.PushEtc(t.Runtime, c.args[:c.nArgs])
+	d.PushEtc(t.Runtime, c.etc)
+	return d
+}
+
+// thawNext replaces a frozen next continuation with a copy that can run (see
+// frozenCont), before the function runs: it pushes its results into the next
+// continuation.  This is the test, which is inlined where a Go function is
+// entered; replaceFrozenNext does the rest.
+func (c *GoCont) thawNext(t *Thread) {
+	if fc, ok := c.next.(*frozenCont); ok {
+		c.replaceFrozenNext(t, fc)
+	}
+}
+
+// replaceFrozenNext makes the next continuation of c, which is the frozen
+// frame fc, a copy of it that can run.  A function that makes no use of its
+// next continuation keeps the frozen frame: the copy would be made for
+// nothing.
+//
+// It must not be inlined into thawNext, which would then be too big to be
+// inlined itself.
+//
+//go:noinline
+func (c *GoCont) replaceFrozenNext(t *Thread, fc *frozenCont) {
+	if !c.ignoresNext {
+		c.next = fc.thaw(t)
+	}
+}
+
 // Push implements Cont.Push.
 func (c *GoCont) Push(r *Runtime, v Value) {
 	if c.nArgs < len(c.args) {
@@ -92,7 +126,7 @@ func (c *GoCont) RunInThread(t *Thread) (next Cont, err error) {
 		return nil, err
 	}
 	t.RequireCPU(1)
-
+	c.thawNext(t) // On a line that was empty: the profile counts lines
 	t.goFunctionCallDepth++
 	defer func() { t.goFunctionCallDepth-- }()
 

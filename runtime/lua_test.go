@@ -15,8 +15,24 @@ func TestRuntime(t *testing.T) {
 }
 
 func setup(r *rt.Runtime) func() {
-	rt.SolemnlyDeclareCompliance(rt.ComplyCpuSafe, r.SetEnvGoFunc(r.GlobalEnv(), "testudata", testudata, 1, false))
+	env := r.GlobalEnv()
+	rt.SolemnlyDeclareCompliance(rt.ComplyCpuSafe, r.SetEnvGoFunc(env, "testudata", testudata, 1, false))
+	r.SetEnvGoFunc(env, "testrun", testrun, 1, true)
 	return lib.LoadAll(r)
+}
+
+// testrun(f, ...) calls f(...) and waits for it to return, as a Go function
+// does that makes the continuation of the call with Continue and runs it.
+func testrun(t *rt.Thread, c *rt.GoCont) (rt.Cont, error) {
+	cont, err := rt.Continue(t, c.Arg(0), rt.NewTerminationWith(c, 0, false))
+	if err != nil {
+		return nil, err
+	}
+	cont.PushEtc(t.Runtime, c.Etc())
+	if err := t.RunContinuation(cont); err != nil {
+		return nil, err
+	}
+	return c.Next(), nil
 }
 
 // This return a test userdata that prints a message when released.  Allows testing

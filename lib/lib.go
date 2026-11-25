@@ -2,6 +2,7 @@ package lib
 
 import (
 	"github.com/arnodel/golua/lib/base"
+	"github.com/arnodel/golua/lib/contlib"
 	"github.com/arnodel/golua/lib/coroutine"
 	"github.com/arnodel/golua/lib/debuglib"
 	"github.com/arnodel/golua/lib/golib"
@@ -31,6 +32,9 @@ func LoadLibs(r *rt.Runtime, loaders ...packagelib.Loader) func() {
 	}
 }
 
+// LoadAll loads the standard library and golua's own libraries: golib and
+// runtime as global variables, and cont for the programs that ask for it
+// with require("cont").  It returns a function to call when done with r.
 func LoadAll(r *rt.Runtime) func() {
 	return LoadLibs(
 		r,
@@ -46,5 +50,6 @@ func LoadAll(r *rt.Runtime) func() {
 		debuglib.LibLoader,
 		golib.LibLoader,
 		runtimelib.LibLoader,
+		contlib.LibLoader.OnRequire(),
 	)
 }

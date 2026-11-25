@@ -228,12 +228,14 @@ func metacall(t *Thread, obj Value, method metaID, args []Value, next Cont) (err
 func Continue(t *Thread, f Value, next Cont) (Cont, error) {
 	// A function's continuation is made by a direct call for each kind of
 	// function, rather than through the Callable interface.  The run loop's
-	// call opcodes repeat this switch, and call continueCall for the rest.
+	// call opcodes repeat the first two cases, and call Continue for the rest.
 	switch c := f.iface.(type) {
 	case *Closure:
 		return NewLuaCont(t, c, next), nil
 	case *GoFunction:
 		return NewGoCont(t, c, next), nil
+	case *ContFunction:
+		return c.Continuation(t, next), nil
 	}
 	return continueCall(t, f, next)
 }
