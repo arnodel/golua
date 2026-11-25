@@ -20,6 +20,9 @@ func New(ptn string) (*Pattern, error) {
 // A CPUMeter is what a match charges its steps to.  The match charges them
 // as it goes, a batch at a time, so that the meter can stop a match that
 // takes too many by panicking in RequireCPU.
+//
+// In a build without quotas (the noquotas tag) a match does not count its
+// steps, and charges nothing.
 type CPUMeter interface {
 	RequireCPU(steps uint64)
 }
@@ -35,7 +38,9 @@ func (p *Pattern) MatchFromStart(s string, init int, meter CPUMeter) []Capture {
 		meter:   meter,
 	}
 	captures := matcher.findFromStart()
-	matcher.chargeSteps()
+	if countSteps {
+		matcher.chargeSteps()
+	}
 	return captures
 }
 
@@ -50,7 +55,9 @@ func (p *Pattern) Match(s string, init int, meter CPUMeter) []Capture {
 		meter:   meter,
 	}
 	captures := matcher.find()
-	matcher.chargeSteps()
+	if countSteps {
+		matcher.chargeSteps()
+	}
 	return captures
 }
 

@@ -67,12 +67,15 @@ func (m *patternMatcher) matchToEnd() []Capture {
 
 func (m *patternMatcher) match() {
 	for m.pi < len(m.items) {
-		// Trying an item is a step, whether or not it matches anything.
-		// Without this a pattern of items that match nothing costs nothing,
-		// although each one is tried at every position of the string.
-		m.steps++
-		if m.steps >= stepsPerCharge {
-			m.chargeSteps()
+		if countSteps {
+			// Trying an item is a step, whether or not it matches anything.
+			// Without this a pattern of items that match nothing costs
+			// nothing, although each one is tried at every position of the
+			// string.
+			m.steps++
+			if m.steps >= stepsPerCharge {
+				m.chargeSteps()
+			}
 		}
 		switch item := m.items[m.pi]; item.ptnType {
 		case ptnOnce:
@@ -123,8 +126,10 @@ func (m *patternMatcher) match() {
 				m.trackback()
 				break
 			}
-			// Comparing with the capture takes a step per byte.
-			m.steps += uint64(c.end - c.start)
+			if countSteps {
+				// Comparing with the capture takes a step per byte.
+				m.steps += uint64(c.end - c.start)
+			}
 			if m.s[c.start:c.end] == m.s[m.si:end] {
 				m.si = end
 				m.pi++
@@ -190,7 +195,9 @@ func (m *patternMatcher) matchNext(s byteSet) bool {
 	match := m.si < len(m.s) && s.contains(m.s[m.si])
 	if match {
 		m.si++
-		m.steps++
+		if countSteps {
+			m.steps++
+		}
 	}
 	return match
 }
@@ -200,7 +207,9 @@ func (m *patternMatcher) getNext() (b byte, ok bool) {
 	if ok {
 		b = m.s[m.si]
 		m.si++
-		m.steps++
+		if countSteps {
+			m.steps++
+		}
 	}
 	return
 }
