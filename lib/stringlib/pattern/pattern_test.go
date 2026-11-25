@@ -2,6 +2,7 @@ package pattern
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
 )
 
@@ -183,11 +184,59 @@ func TestPattern(t *testing.T) {
 			if test.invalid {
 				t.Fatal("Expected to be invalid")
 			}
-			captures, _ := ptn.MatchFromStart(test.s, 0, 0)
+			captures := ptn.MatchFromStart(test.s, 0, nil)
 			if !sameCaptures(test.captures, captures) {
 				t.Error("exp:", test.captures, "act:", captures)
 				t.Fail()
 			}
 		})
+	}
+}
+
+type randomMeter struct{ used, limit uint64 }
+
+type randomMeterLimit struct{}
+
+func (m *randomMeter) RequireCPU(steps uint64) {
+	m.used += steps
+	if m.used > m.limit {
+		panic(randomMeterLimit{})
+	}
+}
+
+// Patterns and subjects put together at random from pieces of pattern syntax:
+// building a pattern and matching with it panic for nothing but the limit of
+// the meter.
+func TestRandomPatternsDoNotPanic(t *testing.T) {
+	pieces := []string{
+		"a", "b", ".", "%a", "%d", "%s", "%w", "[ab]", "[^a]", "[a-c]", "[%a_]",
+		"*", "+", "-", "?", "(", ")", "()", "%1", "%2", "%9", "%0",
+		"%b", "%bab", "%f", "%f[a]", "^", "$", "%", "[", "]", "%%", "%z", "\x00", "\xff",
+	}
+	subjects := []string{"a", "b", "ab", "ba", " ", "", "1", "_", "\x00", "\xff"}
+	rng := rand.New(rand.NewSource(1))
+	for n := 0; n < 200000 && !t.Failed(); n++ {
+		var ptn, s string
+		for k := rng.Intn(8); k >= 0; k-- {
+			ptn += pieces[rng.Intn(len(pieces))]
+		}
+		for k := rng.Intn(12); k > 0; k-- {
+			s += subjects[rng.Intn(len(subjects))]
+		}
+		func() {
+			defer func() {
+				if r := recover(); r != nil && r != (randomMeterLimit{}) {
+					t.Errorf("pattern %q, subject %q: panic: %v", ptn, s, r)
+				}
+			}()
+			p, err := New(ptn)
+			if err != nil {
+				return
+			}
+			for init := 0; init <= len(s); init++ {
+				p.Match(s, init, &randomMeter{limit: 100000})
+				p.MatchFromStart(s, init, &randomMeter{limit: 100000})
+			}
+		}()
 	}
 }

@@ -160,3 +160,37 @@ do
     print(n)
     --> =4
 end
+
+-- A match is stopped by a time limit while it runs
+do
+    -- This pattern never matches s, and finding that out takes a number of
+    -- steps exponential in the length of s, far more than there is time for
+    local s = ("a"):rep(50)
+    local ptn = ("a?"):rep(50) .. s .. "b"
+
+    local ctx = runtime.callcontext({kill={millis=20}}, string.find, s, ptn)
+    print(ctx)
+    --> =killed
+
+    -- It was stopped long before the end of the match
+    print(ctx.used.cpu < 2^40)
+    --> =true
+
+    -- It didn't last much more than the limit (the bound is generous because
+    -- a loaded machine can deschedule the process across the deadline)
+    print(ctx.used.millis < 1000)
+    --> =true
+end
+
+-- A match is charged for work that takes no character of the string
+do
+    local s = ("a"):rep(10000)
+
+    -- Items that match nothing are tried at every position
+    print(runtime.callcontext({kill={cpu=100000}}, string.find, s, ("x?"):rep(100) .. "y"))
+    --> =killed
+
+    -- A long capture is compared with what follows it, at each of its lengths
+    print(runtime.callcontext({kill={cpu=100000}}, string.find, s, "^(a*)%1b"))
+    --> =killed
+end

@@ -283,3 +283,45 @@ do
     print(pcall(string.find, "abc", "[", 5))
     --> =true	nil
 end
+
+-- A reference to a position capture matches nothing
+do
+    print(string.find("a", "()%1"))
+    --> =nil
+
+    print(string.find("aa", "(a)()%2"))
+    --> =nil
+
+    print(string.match("aa", "()a%1"))
+    --> =nil
+
+    print(string.gsub("aa", "()%1", "x"))
+    --> =aa	0
+
+    for x in string.gmatch("aa", "()%1") do
+        print(x)
+    end
+end
+
+-- A pattern that is only an end anchor matches at the end of the string
+do
+    print(string.find("abc", "$"))
+    --> =4	3
+
+    print(string.find("abc", "$", 2))
+    --> =4	3
+
+    print(string.find("", "$"))
+    --> =1	0
+
+    print(string.find("abc", "$", 10))
+    --> =nil
+
+    print(string.gsub("abc", "$", "x"))
+    --> =abcx	1
+
+    for i in string.gmatch("abc", "()$") do
+        print(i)
+    end
+    --> =4
+end
