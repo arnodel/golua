@@ -121,8 +121,7 @@ A continuation captured in `h` holds `h`, `g` and Termination 2: "carry on in
 `table.sort` is not part of it and cannot be copied.  So that continuation
 can carry on in loop 2 and nowhere else, and a `ContFunction` keeps the loop
 it was captured in (a `runLoop`, which a thread makes for a loop when a
-continuation is first captured in it).  Calling it in another loop is an
-error, as is calling it in another thread.
+continuation is first captured in it).
 
 A coroutine has a loop of its own, which is the first of its thread.  While
 the coroutine has no goroutine (`runtime/lightthread.go`) that loop returns
@@ -172,6 +171,44 @@ runs: 330 ns for a capture and such a call in place of 235.  So the function
 is marked (`GoFunction.ignoresNext`) and its next continuation is left as
 it is.  The mark is looked at when the next continuation is frozen and not
 otherwise, so a call of another Go function pays nothing for it.
+
+## Calling a continuation from another loop
+
+Loops are nested, so when a continuation is called in a loop that is not its
+own, in its own thread, there are two cases.
+
+- Its loop has ended: the Go code that waited for its frames has returned.
+  There is nowhere to carry on, and the call is an error.  A `runLoop` has a
+  flag for this, set when the loop ends.
+- Its loop is still there, further down the Go stack, waiting for Go code
+  that has called back into Lua.  The continuation can carry on once that Go
+  code has returned, so the call makes it return: it travels as an error
+  value (`contFunctionCall`) which Go code passes on as it passes errors on.
+  Each loop on the way ends, closing the to-be-closed variables of the
+  frames it leaves, and the loop of the capture takes the call up and runs
+  the continuation.
+
+A loop decides what to do with an error in `Thread.contAfterError`, and that
+is where it looks at such a call first.  To the Lua code it goes through it
+is not an error: no message handler is called, and a `pcall` on the way
+does not stop it.
+
+So a continuation is a way out of a metamethod, or of a library function
+that calls a function it is given (an early exit from `table.sort` or
+`string.gsub`), and not a way back into one.  `pcall` is neither here nor
+there: no Go code waits for the function it calls, so a continuation goes
+out of one and back into one within the same loop, as it does for a block.
+
+A Go function that turns the errors of the Lua code it calls into values has
+to let this one through, which `rt.IsContFunctionCall` is for.  The reader
+function of `load` does.  A function that does not gets a message and the
+continuation is not called.  `runtime.callcontext` is the exception by
+design: a context is not left by calling a continuation captured outside it,
+and ends with an error instead, because the code that starts a context gets
+it back whatever runs in it.
+
+Calling a continuation in another thread is an error: its loop is one of
+that thread's.
 
 ## The first version, and what this one costs
 

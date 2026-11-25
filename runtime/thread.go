@@ -70,6 +70,9 @@ type Thread struct {
 	// loop.
 	loop *runLoop
 
+	// Height the close stack had when the loop that is running started.
+	loopCloseBase int
+
 	// Number of calls of Lua code under way that a yield cannot cross: those
 	// made by a Go function declared NoYieldAcross, and those of a debug
 	// hook.  While there is one the thread cannot yield.
@@ -142,24 +145,35 @@ func (t *Thread) RunContinuation(c Cont) error {
 
 // enterLoop is called when a loop starts running continuations in the
 // thread, and leaveLoop when it has ended, with what enterLoop returned.
-// They count the loops under way and keep the record of the one that is
-// running (see runLoop): a call from Go is a new loop, whereas a thread that
-// goes on in a goroutine is still in the loop it was in.
+// They count the loops under way and keep what the thread knows of the one
+// that is running: its record (see runLoop) and the height the close stack
+// had when it started.  A call from Go is a new loop, whereas a thread that
+// goes on in a goroutine is still in the loop it was in.  A loop that has
+// ended is marked, for the continuations captured in it.
 //
 // Each is one line of runContinuation, in the place of a line that was
 // there: the build's profile counts lines (see benchmarks/README.md).
-func (t *Thread) enterLoop(isCall bool) (outer *runLoop) {
+func (t *Thread) enterLoop(isCall bool) (outer outerLoop) {
 	t.runContinuationDepth++
-	outer = t.loop
+	outer = outerLoop{t.loop, t.loopCloseBase}
 	if isCall {
-		t.loop = nil
+		t.loop, t.loopCloseBase = nil, t.closeStack.size()
 	}
 	return outer
 }
 
-func (t *Thread) leaveLoop(outer *runLoop) {
+func (t *Thread) leaveLoop(outer outerLoop) {
 	t.runContinuationDepth--
-	t.loop = outer
+	if t.loop != nil {
+		t.loop.done = true
+	}
+	t.loop, t.loopCloseBase = outer.loop, outer.closeBase
+}
+
+// An outerLoop is what enterLoop saves of the loop that was running.
+type outerLoop struct {
+	loop      *runLoop
+	closeBase int
 }
 
 // runContinuation is RunContinuation, with the choice of whether c is the
@@ -236,7 +250,42 @@ func (t *Thread) runContinuation(c Cont, isCall bool) (err error) {
 //
 // A handler that fails is given its own error, and so on, a limited number
 // of times.
+//
+// The call of a continuation that comes as an error (a contFunctionCall) is
+// not one: nothing has failed, and no handler or protected call sees it.
+// The continuation was called under Go code that this loop was waiting for,
+// which has now returned.  If it was captured in this loop it carries on
+// here.  If not, this loop is itself under Go code that the continuation's
+// loop is waiting for: it closes the variables to be closed of the frames it
+// leaves behind, and ends with the call for that Go code to pass on.
 func (t *Thread) contAfterError(c Cont, err error) (Cont, error) {
+	for {
+		call, ok := err.(*contFunctionCall)
+		if !ok {
+			break
+		}
+		if call.k.loop == t.loop {
+			next := call.k.reinstate(t)
+			next.PushEtc(t.Runtime, call.args)
+			return next, nil
+		}
+		// The call leaves this loop, one protected call at a time: the
+		// variables to be closed of the frames it leaves behind are closed,
+		// as far as the protected call c is part of.  If closing fails, that
+		// is an error like any in c, for that protected call to stop.
+		p := protectedCallFor(c)
+		h := t.loopCloseBase
+		if p != nil {
+			h = p.closeStackHeight
+		}
+		err = t.cleanupCloseStack(c, h, err)
+		if IsContFunctionCall(err) {
+			if p == nil {
+				return nil, err
+			}
+			c = p
+		}
+	}
 	rtErr := ToError(err)
 	if !rtErr.Handled() {
 		rtErr = rtErr.AddContext(c, -1)
@@ -560,7 +609,7 @@ func (t *Thread) cleanupCloseStack(c Cont, h int, err error) error {
 			// Lua 5.5: __close receives 1 arg (the object) when closing normally,
 			// and 2 args (the object and the error) when closing due to an error.
 			var args []Value
-			if err == nil {
+			if err == nil || IsContFunctionCall(err) {
 				args = []Value{v}
 			} else {
 				args = []Value{v, ErrorValue(err)}

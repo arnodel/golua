@@ -116,7 +116,14 @@ func callcontext(t *rt.Thread, c *rt.GoCont) (next rt.Cont, retErr error) {
 		FSAccess:      fsAccess,
 		WorkDir:       workDir,
 	}, func() error {
-		return rt.Call(t, f, fArgs, res)
+		err := rt.Call(t, f, fArgs, res)
+		if rt.IsContFunctionCall(err) {
+			// Unlike other Go code that waits for Lua code, a context is
+			// not left by calling a continuation captured outside it: the
+			// code that starts a context gets it back, whatever runs in it.
+			return errors.New("attempt to leave a context by calling a continuation")
+		}
+		return err
 	})
 	t.Push1(next, newContextValue(t.Runtime, ctx))
 	switch ctx.Status() {
